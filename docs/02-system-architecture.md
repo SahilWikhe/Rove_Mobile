@@ -1,6 +1,6 @@
 # System architecture
 
-Status: target design, not deployed infrastructure. Owner: engineering lead.
+Status: target design, not deployed infrastructure. Owner: engineering lead. Consumer on-demand rides are the core; institution workflows are optional extensions with a separate frontend repository.
 
 ## Baseline choices
 
@@ -8,13 +8,13 @@ Status: target design, not deployed infrastructure. Owner: engineering lead.
 | --- | --- | --- |
 | Monorepo | pnpm workspaces + Turborepo | One lockfile, explicit dependencies, affected builds/tests |
 | Mobile | React Native + Expo + Expo Router | Two native applications sharing suitable code across iOS/Android |
-| Operations web | Next.js + TypeScript | Accessible operator UI with a server-side session boundary |
+| Internal operations web | Next.js + TypeScript in `apps/ops` | Essential Rove staff support/safety UI, distinct from the B2B customer product |
 | HTTP API | Hono on Node.js, deployed on Vercel | Small transport layer, independently deployable API |
 | Domain | Plain TypeScript modules on the server | Rules can be tested without React, HTTP, or vendor SDKs |
 | Database | Neon Postgres + Drizzle | Relational constraints, migrations, transactions, portable SQL |
 | Validation/contracts | Zod and generated OpenAPI | Runtime validation plus explicit versioned wire contracts |
 | Client server-state | TanStack Query | Requests, invalidation, refresh and retry policies in one place |
-| Background jobs | Postgres outbox + Vercel Workflow adapter | Durable intent, retries, and repair after partial failures |
+| Background jobs | Postgres outbox + durable executor adapter | Durable matching/notification/payment intents; benchmark deadline execution before choosing the adapter |
 | Maps | Google Maps/Places/Routes adapters | Map display, addresses, routes; native navigation handoff first |
 | Authentication | Managed provider; selection gate before feature work | Avoid custom passwords/OTP; prove native and admin requirements |
 
@@ -24,10 +24,11 @@ These are architecture choices, not instructions to install every latest package
 
 ```mermaid
 flowchart TB
-    Rider["Rider and caregiver app"] --> API["Hono API on Vercel"]
+    Rider["Consumer rider app"] --> API["Core Hono API on Vercel"]
     Driver["Driver app"] --> API
-    Browser["Operator browser"] --> Admin["Next.js admin / session boundary"]
-    Admin --> API
+    Browser["Rove staff browser"] --> Ops["Internal ops / session boundary"]
+    Ops --> API
+    B2B["Optional institution dashboard - separate repo"] -->|"Versioned scoped API"| API
     API --> Auth["Managed identity provider"]
     API --> Domain["Domain and application modules"]
     Domain --> DB[("Neon Postgres")]
@@ -47,9 +48,9 @@ The backend is a **modular monolith**: one application with enforceable internal
 
 ```text
 apps/
-  rider/                     # Expo routes and rider/caregiver features
+  rider/                     # Expo consumer quote, request, trip and payment features
   driver/                    # Expo routes and driver features
-  admin/                     # Next.js UI and session/API proxy
+  ops/                       # Minimal internal Rove staff UI and session/API proxy
   api/                       # Hono routes, bootstrapping, job entrypoints
 packages/
   contracts/                 # Public DTO schemas, API errors, OpenAPI generation
@@ -65,13 +66,15 @@ docs/
 
 Do not create empty abstraction packages solely to match the diagram. Add a package when its boundary or reuse has a concrete purpose. Do not try to share DOM components with native screens. Share tokens, validation, and native components where behavior matches.
 
+The B2B dashboard is outside this tree in a repository whose name is still TBD. It imports a pinned released API client/schema, not local workspace files, and never imports `server` or `database`. Core API/domain/database ownership remains here. See [B2B product boundary](14-b2b-product-boundary.md).
+
 ## Dependency rules
 
 - `contracts` and `design-tokens` must remain platform-neutral and safe for public bundles.
 - Mobile and browser code may import `contracts`, `api-client`, and suitable UI packages. They must not import `server`, `database`, payment-secret SDKs, or environment loaders containing secrets.
 - `api` composes `server`, `database`, and provider adapters. `database` implements repository ports defined by the relevant server module; type-only port imports must not create runtime cycles.
 - `server` owns domain invariants and repository/provider interfaces. Its pure domain layer cannot import Hono, React, Drizzle, or a provider SDK. Concrete adapters live in explicitly named infrastructure directories.
-- `admin` server code verifies its session and forwards user-scoped requests to `api`; it does not run its own copy of ride mutations or access the database directly.
+- `ops` server code verifies Rove staff sessions and forwards scoped requests to `api`; it does not run its own ride mutations or access the database directly. The separate B2B web proxy follows the same rule with institution-scoped capabilities and cannot use staff credentials.
 - Packages never import from an `apps/` directory. Cross-module backend calls use a documented public interface, never another module's private tables or internal implementation files.
 
 Enforce these with package exports, TypeScript project configuration, lint import restrictions and an architecture dependency check. A README alone is not enforcement. Avoid circular barrel exports; choose explicit public entrypoints.
@@ -80,14 +83,17 @@ Enforce these with package exports, TypeScript project configuration, lint impor
 
 | Module | Owns | Public operations |
 | --- | --- | --- |
-| Identity/access | Subject mapping, memberships, delegations | Resolve actor; authorize capability |
+| Identity/access | Platform accounts and staff roles; optional memberships/delegations | Resolve actor; authorize capability without requiring organization membership |
 | Rider profiles | Contact preferences and assistance needs | Update own/authorized profile |
-| Scheduling | Templates, occurrences, exceptions, journeys | Request/change schedules; generate legs |
+| Quotes/pricing | Quote expiry, fare-policy versions and accepted inputs | Quote ride; calculate final fare under accepted policy |
+| Availability/matching | Online sessions, location freshness, offers, deadlines | Find eligible driver; expire/accept offers atomically |
+| Scheduling (extension) | Templates, occurrences, exceptions, journeys | Request/change schedules; generate legs |
 | Rides | Leg lifecycle, status events, completion evidence | Request/cancel/advance ride |
-| Dispatch | Driver offers, assignments, coverage | Offer/accept/reassign work |
+| Dispatch | Assignment records and staff exception intervention | Claim/reassign work; audit overrides |
 | Fleet/eligibility | Driver and vehicle capability/validity | Check eligibility at assignment and start |
-| Tracking | Location sessions, latest position, retention | Ingest sample; read authorized position |
-| Billing | Rate snapshots, authorizations, ledger, reconciliation | Reserve/release/settle; reconcile |
+| Tracking | Online discovery and active-trip location sessions | Ingest sample; expose only appropriately scoped positions |
+| Billing | Consumer payment methods, authorizations, fares, payables, ledger | Authorize/capture/refund; settle/reconcile; optional sponsor adapter |
+| Organizations (extension) | Customer memberships, programs, sponsorship | Authorize institutional use without owning consumer profiles/fleet |
 | Notifications | Delivery intents, channels, receipts | Deliver a domain event notification |
 | Audit/operations | Audit entries and operational exceptions | Review scoped history; resolve exceptions |
 
@@ -96,7 +102,7 @@ A transaction crossing related modules is allowed inside a use case, for example
 ## Request and event path
 
 1. Transport validates size, content type, authentication and the request schema.
-2. A use case resolves the actor's current organization/relationship permissions.
+2. A use case resolves platform identity and resource permissions; checks organization/relationship permissions only for features that use them.
 3. Domain rules validate the transition and business policy.
 4. A database transaction applies the state change, appends its event/audit records, and inserts required outbox intents.
 5. Commit before returning success. Serialization/deadlock failures receive bounded retries where safe.
@@ -107,7 +113,11 @@ Handlers remain thin. They map HTTP inputs/errors; they do not contain schedulin
 
 ## Realtime and scale
 
-First functional milestone: HTTPS location ingestion plus bounded polling by active ride viewers. Proposed starting cadences: upload every 10 seconds while moving on an active leg, poll every 15 seconds while a viewer screen is visible. These are test parameters, not guaranteed OS scheduling or launch SLAs. Tune after measuring battery, cellular cost, freshness, and server load.
+The consumer critical path is quote -> request -> matching -> time-limited offer -> atomic acceptance -> trip -> settlement. The matching loop uses fresh online sessions and bounded proximity/ETA candidates. Discovery location is available only to the platform; precise pickup tracking is exposed only to the matched rider or another explicitly authorized viewer. Sequential offers are the initial policy; persistent deadlines and transactional claims remain correct under delayed/duplicate workers.
+
+Second-scale offer deadlines require a measured executor wakeup/latency budget. Do not use a minute-level cron sweep as the main matching timer. Benchmark Vercel Workflow or a suitable delayed-job executor before locking the provider; database deadline checks enforce expiry even when jobs run late. Monitoring must detect time-to-match regressions.
+
+First synthetic prototype: HTTPS location ingestion plus bounded polling by active viewers. Test active-trip upload every 10 seconds, visible map refresh every 15 seconds, and faster foreground refresh or realtime delivery for time-limited offers. These are test parameters, not launch SLAs. Online unassigned drivers also need heartbeats/discovery location with an explicit retention and battery policy. Go-offline stops discovery collection; stale sessions are ineligible for matching.
 
 Before the pilot, compare this baseline with native Vercel WebSockets or a managed realtime provider. Authentication, resubscription, token revocation, fanout across instances, reconnect limits, and costs must be demonstrated. Do not assume a separate WebSocket host is required; equally, do not assume a single function's memory can coordinate a fleet. See [decisions](12-decisions.md).
 
@@ -115,6 +125,6 @@ The first backend and database should share the Ohio region where practical (Neo
 
 ## What this architecture intentionally postpones
 
-No Kubernetes, distributed microservices, Kafka cluster, general event sourcing, global active-active writes, AI dispatch, or mandatory Redis dependency at bootstrap. The append-only ride history and financial ledger are purpose-specific records, not a requirement to reconstruct the entire database from events.
+No Kubernetes, distributed microservices, Kafka cluster, general event sourcing, global active-active writes, AI dispatch, or mandatory Redis dependency at bootstrap. Automated matching is required; AI matching, surge pricing and pooled optimization are not. Recurrence and institution funding are extensions. The ride history and financial ledger are purpose-specific records, not a requirement to reconstruct the entire database from events.
 
 Platform references: [Expo monorepos](https://docs.expo.dev/guides/monorepos/), [Vercel monorepos](https://vercel.com/docs/monorepos), [Hono on Vercel](https://vercel.com/docs/frameworks/backend/hono), and [Turborepo](https://turborepo.dev/docs).

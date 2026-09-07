@@ -2,6 +2,8 @@
 
 This repository currently contains architecture documentation only. Implementation begins with the foundation milestone in the [delivery plan](docs/10-delivery-plan.md). Do not assume application scripts, tests or deployments exist yet.
 
+Current scope is consumer ride-hailing. The institutional dashboard is an optional separate-repository product using the core API. Do not bring institution UI into this monorepo, duplicate the ride engine elsewhere, or make consumer booking require a sponsor. Rove's own support/dispatch tools remain a core operational responsibility. See [B2B boundary](docs/14-b2b-product-boundary.md).
+
 ## Development workflow
 
 1. Read the relevant product scope, ADR and module requirements. State acceptance criteria before adding a feature.
@@ -17,7 +19,7 @@ The initial documentation bootstrap is a one-time first commit. The future defau
 
 ## Review checklist
 
-- Is the behavior consistent with the agreed pilot scope?
+- Is the behavior consistent with consumer-first scope and does the core loop work with B2B disabled?
 - Does every operation enforce current resource/tenant permissions?
 - Do database constraints and transactions protect concurrent requests?
 - Are retries and external effects safe under duplicates and uncertain outcomes?
@@ -26,6 +28,7 @@ The initial documentation bootstrap is a one-time first commit. The future defau
 - Are tests meaningful and executed, with material limitations recorded?
 - Are secrets and sensitive data excluded from code, logs, notifications and artifacts?
 - Are migration and deployment steps compatible and independently recoverable?
+- Do shared API changes support separately released mobile and B2B clients without simultaneous merges?
 
 ## Documentation changes
 

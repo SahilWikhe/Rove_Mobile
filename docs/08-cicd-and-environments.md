@@ -17,7 +17,7 @@ Existing setup fact: Neon was linked in the local research folder, with `defineC
 
 ## Vercel and Expo projects
 
-Plan Vercel projects `rove-api` rooted at `apps/api` and `rove-admin` rooted at `apps/admin`. Configure monorepo shared-package access and verified workspace build commands after the source exists. Use the Ohio function region with the Ohio database unless an ADR changes that choice. The existing marketing website retains its own project and repository.
+Plan Vercel projects `rove-api` rooted at `apps/api` and `rove-ops` rooted at `apps/ops` for Rove staff. The institutional dashboard uses another project connected to its separate repository (name TBD), only when that add-on is built. Configure workspace access/build commands after source exists. Match the Ohio backend/database region unless an ADR changes it. Marketing retains its own repository/project. References to admin below mean the internal staff surface unless explicitly labeled B2B.
 
 Create separate Expo projects for rider and driver. Each has development, preview/staging and production build profiles, app identifiers, update channels and signing credentials. API base URLs are explicit per build environment. Store releases are independent from API deployment; a GitHub merge does not automatically install a new mobile binary on users' devices. [Expo monorepo builds](https://docs.expo.dev/build-reference/build-with-monorepos/)
 
@@ -53,6 +53,8 @@ Allow fork PRs to run safe tests using local Postgres and mocks. Preview code wi
 
 ## Branch policy
 
+Core and B2B repositories each own their workflows, protections and release authorization. No B2B CI job receives core database migration credentials. Publish a versioned OpenAPI/client artifact from the core repository and pin its version in B2B; workspace change detection does not cross repository boundaries. Trusted compatibility runs pair a candidate API with supported released client versions and synthetic data. See [B2B boundary](14-b2b-product-boundary.md).
+
 After the initial documentation bootstrap, develop on short-lived feature branches and use PRs into `main`. Protect `main` against deletion and force pushes, require PRs and the real `ci-gate`, and require current-base validation (or a correctly configured merge queue). Require review when another qualified reviewer is available; do not set an impossible self-approval requirement for a sole maintainer.
 
 Use an additional deployment check only after it reliably reports for the corresponding preview. Do not require a production deployment before merge. Workflow enforcement and available security features depend on repository visibility and account plan; verify actual settings rather than claiming this document enables them.
@@ -68,11 +70,13 @@ For the product, prefer explicit production promotion from a tested commit. Conf
 3. Review and apply compatible expansion migrations with a dedicated migration role.
 4. Deploy the API artifact with the recorded schema compatibility range.
 5. Smoke-test readiness, authenticated synthetic canary operations and critical safe reads without altering real rides.
-6. Deploy the admin interface when its required API is available.
+6. Deploy the internal ops interface when its required API is available. The optional B2B frontend follows its own release process against a compatible API and is not required for a core release.
 7. Observe errors, latency, jobs and database health; then authorize any staged feature exposure.
 8. Apply destructive contract migrations only in a later release after compatibility windows close.
 
 Never migrate from a Vercel build hook. Builds can happen concurrently for multiple projects and previews. Roll back code only to a version compatible with the current schema. For data faults, stop affected operations and use a reviewed forward repair or controlled restore runbook.
+
+Core release smoke covers a synthetic consumer quote, online driver, timed offer, acceptance, trip and sandbox payment with organization features disabled. When B2B ships, separately test accepted sponsored-trip continuation during a dashboard outage and isolation of bulk reporting/booking load. Neither the B2B repository nor its web proxy applies core schema migrations.
 
 ## Mobile releases
 

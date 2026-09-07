@@ -10,31 +10,49 @@ Use consistent status codes: 400 malformed input, 401 invalid/missing authentica
 
 For example, an assignment conflict returns `{"error":{"code":"RIDE_VERSION_CONFLICT","message":"This ride changed. Refresh before trying again.","requestId":"example-request"}}`. Clients branch on `code`, never translated text. Choose and test one resource-concealment policy consistently across tenants.
 
-## Initial endpoints
+## Initial consumer and platform endpoints
 
 | Endpoint | Authorized actor | Important behavior |
 | --- | --- | --- |
-| `GET /v1/me` | Authenticated user | Current identity, memberships, allowed role contexts |
+| `GET /v1/me` | Authenticated user | Platform profile/roles; optional memberships, never required |
+| `POST /v1/quotes` | Consumer rider | Server pricing/service area, route inputs and expiry |
+| `POST /v1/payment-method-sessions` | Consumer rider | Provider-hosted/tokenized setup; no raw card details in Rove |
+| `PUT /v1/drivers/me/availability` | Eligible driver | Online/offline session; reject unsafe state changes during active work |
+| `POST /v1/drivers/me/heartbeat` | Online driver | Freshness and discovery session; not public location access |
+| `GET /v1/drivers/me/offers` | Offered driver | Only live offers; limited pre-acceptance information |
+| `POST /v1/offers/:id/accept` | Offered driver | Atomic ride/driver claim; expiry/generation/payment checks |
+| `POST /v1/offers/:id/decline` | Offered driver | Idempotent decline, next candidate within search deadline |
 | `GET /v1/riders/:id` | Rider, scoped delegate/operator | Redacted role-specific representation |
 | `POST /v1/caregiver-invitations` | Authorized inviter | Expiring, single-use grant invitation; abuse limits |
 | `DELETE /v1/caregiver-grants/:id` | Authorized revoker | Immediate database revocation; notification/session access reconciled |
-| `POST /v1/ride-requests` | Rider, grant holder, coordinator | Server-owned tenant, policy/rate evaluation, idempotency |
+| `POST /v1/ride-requests` | Consumer rider; authorized extensions later | Valid quote/payment readiness; idempotent automatic matching; no institution required |
 | `GET /v1/rides` | Scoped actor | Filters within permitted scope; cursor pagination |
 | `GET /v1/rides/:id` | Scoped actor | Version, coverage state, leg relationship and freshness |
 | `POST /v1/rides/:id/cancel` | Authorized requester/operator | Expected version, reason, linked-return disposition |
-| `POST /v1/rides/:id/assignments` | Dispatcher | Transactional availability/eligibility checks |
-| `POST /v1/assignments/:id/accept` | Offered driver | Reject expired/replaced offers; current version |
+| `POST /v1/rides/:id/assignments` | Rove staff override only | Audited exception; same capacity/eligibility/acceptance rules as matching |
 | `POST /v1/rides/:id/transitions` | Assigned driver/operator | Named transition, expected version, evidence and audit |
 | `POST /v1/journeys/:id/return-ready` | Rider, delegate, coordinator | Idempotent readiness timestamp; trigger coverage review |
 | `POST /v1/schedules` | Authorized requester/operator | Preview dates, bounded recurrence, funding/coverage distinction |
 | `PATCH /v1/schedules/:id` | Authorized requester/operator | Single occurrence vs future scope explicitly selected |
-| `POST /v1/location-sessions/:id/samples` | Current assigned driver | Bounded batch size; sequence, accuracy and age checks |
-| `GET /v1/rides/:id/location` | Authorized active-ride viewer | Minimal latest location; no unrelated trail |
+| `POST /v1/location-sessions/:id/samples` | Owner of valid online-discovery or accepted-trip session | Purpose-specific authorization; bounded batch, sequence, accuracy and age checks |
+| `GET /v1/rides/:id/location` | Authorized matched-ride viewer | Minimal latest position; unmatched driver discovery never exposed |
+| `GET /v1/rides/:id/receipt` | Rider / authorized finance actor | Final fare, payment state and adjustments |
+| `GET /v1/drivers/me/earnings` | Driver | Own payables/payout state, not platform-wide finance |
 | `POST /v1/webhooks/:provider` | Verified provider | Signature, timestamp and duplicate checks |
 | `GET /health/live` | Health probe | Process health only; safe response |
 | `GET /health/ready` | Controlled probe | Bounded database/schema readiness check |
 
 Avoid a universal `PATCH /rides/:id` that lets clients assign themselves, set fares, or overwrite state. Each use case owns an allowlist of writable fields. An admin proxy cannot bypass API authorization using a blanket service token.
+
+Caregiver invitations/grants, schedules and return-ready endpoints above are optional extensions, implemented after the core loop. B2B endpoints use explicit organization scope such as `/v1/organizations/:id/ride-requests`, validate membership/program/payer, then call the same booking/matching use cases. They cannot supply a privileged fare or bypass driver acceptance. Version their contracts for the separate dashboard repository; see [B2B boundary](14-b2b-product-boundary.md).
+
+## Matching and quote behavior
+
+Quote issuance does not reserve a driver. Request creation verifies a quote belongs to the actor, is unexpired, matches route/service inputs and uses the chosen payment authorization policy. Persist the search intent and deadline before returning `searching`. A retry with the same key returns the same ride; also enforce a documented rule for duplicate active requests under different keys.
+
+The worker shortlists online, fresh, eligible drivers in the allowed market, ranks bounded candidates, and persists one time-limited offer at a time. All times use a trusted server clock. A driver can accept only a current, unexpired offer while eligible/available; locks and constraints protect both ride and driver. Late acceptance, duplicate jobs and cancellation races must be safe.
+
+Decline/expiry advances to the next candidate within the search deadline. When exhausted, mark `no_driver_found`, release payment holds under policy and show an explicit retry action. Restarting search requires a new matching generation and current quote/payment validation. Worker delay never extends an expired offer. Benchmark delivery/wakeup latency for short deadlines; a periodic repair sweep is not the main matching timer.
 
 ## Ride and assignment state machines
 
@@ -42,14 +60,18 @@ Keep independent concerns separate: ride execution state, assignment/coverage st
 
 ```mermaid
 stateDiagram-v2
-    [*] --> requested
-    requested --> confirmed: coverage and policy approved
-    requested --> cancelled: authorized cancellation
-    confirmed --> en_route: assigned driver starts
-    confirmed --> cancelled: pre-pickup cancellation policy
+    [*] --> searching
+    searching --> matched: driver atomically accepts
+    searching --> no_driver_found: search exhausted
+    searching --> cancelled: rider cancels
+    matched --> en_route: assigned driver starts
+    matched --> searching: safe pre-pickup rematch
+    matched --> cancelled: pre-pickup policy
     en_route --> arrived: driver arrival confirmation
+    en_route --> searching: audited pre-pickup rematch
     en_route --> cancelled: authorized pre-pickup exception
     arrived --> in_progress: pickup confirmed
+    arrived --> searching: audited pre-pickup rematch
     arrived --> no_show: operator-approved evidence
     arrived --> cancelled: authorized pre-pickup cancellation
     in_progress --> completed: drop-off confirmed
@@ -57,18 +79,19 @@ stateDiagram-v2
     interrupted --> completed: assisted completion
     interrupted --> terminated: operator resolves incident
     completed --> [*]
+    no_driver_found --> [*]
     cancelled --> [*]
     no_show --> [*]
     terminated --> [*]
 ```
 
-`confirmed` means coverage is arranged under the pilot's policy. If a driver declines or becomes ineligible after confirmation, record a coverage exception and reassignment; do not silently claim coverage is still healthy. The execution history stays intact. Assignment states separately progress through offered, accepted, declined, expired, superseded and completed.
+`matched` means an eligible driver accepted and the server committed the assignment. Before acceptance, an offer is only an offer. Pre-pickup withdrawal may trigger a bounded rematch with rider visibility, a new matching generation and payment checks; never keep displaying the old driver. Withdrawal after `en_route`/`arrived` uses an audited pre-pickup rematch path invalidating the old assignment/session. No automatic rematch after pickup. Offer states are offered, accepted, declined, expired or superseded; assignment history records accepted work separately. Scheduled coverage/readiness is a later extension.
 
 An operator override needs the specific capability, reason, actor, previous state and resulting state. It is not a generic permission to edit history. A rider cannot mark a driver arrived. A late GPS sample cannot complete a ride. Physical proximity is supporting evidence, never the sole proof of pickup or service delivery.
 
 ## Idempotency and concurrent edits
 
-Require `Idempotency-Key` for creation and financially/operationally consequential commands. Store actor/tenant scope, operation, key, request hash, processing state, result reference and retention deadline. Same key + different payload returns 409. Same successful key returns its prior result after checking the caller still has access. Concurrent same-key requests converge on one database result, rather than checking then inserting without a constraint.
+Require `Idempotency-Key` for creation and consequential commands. Store platform actor scope and optional organization context, operation, key, request hash, processing state, result reference and retention deadline. Same key + different payload returns 409. Same successful key returns the prior result after rechecking access. Concurrent same-key requests converge through a constraint. Consumer requests need no tenant; organization context, when present, is validated and cannot be changed by replaying the key.
 
 If processing is ongoing, return a documented conflict/retry response or operation status link. Handle abandoned in-progress keys using a lease and reconciliation. Start with 24-hour HTTP replay storage, but permanent unique business operation ids must prevent duplicate ride occurrence generation or settlement beyond that window. Make the window and maximum supported offline duration explicit in client behavior.
 

@@ -10,11 +10,13 @@ Status: proposed operating requirements. Targets below are planning targets to v
 | Core request latency | p95 under 1 second for ordinary reads/mutations at pilot load, excluding explicitly asynchronous work |
 | Location freshness | Show sample age; prototype stale marker at 30 seconds; no claim of continuous updates |
 | Outbox delay | Healthy queue oldest-due age below 60 seconds; investigate sustained increase |
-| Return coverage | Alert against contract/service windows, not a universal invented timeout |
+| Matching deadlines | Offer delivery/executor latency must be well below the chosen offer TTL; measure before setting a launch target |
+| Matching health | Time-to-match, no-driver rate, stale availability, acceptance races and rematch rate by market |
+| Return coverage (extension) | Alert against contract/service windows when scheduled/care programs are enabled |
 | Recovery point | Proposed database RPO <= 15 minutes, dependent on purchased retention/recovery capabilities |
 | Recovery time | Proposed RTO <= 2 hours, demonstrated by a timed recovery exercise |
 
-Measure cold-start and database-resume behavior as well as warmed requests. Reassess sleep/compute settings before a time-sensitive pilot; the cheapest development configuration is not automatically appropriate for live dispatch.
+Measure cold-start and database-resume behavior as well as warmed requests. The generic 60-second outbox target does not apply to short matching deadlines: prioritize/time matching work separately and benchmark executor delay. Reassess sleeping compute before live ride-hailing; delayed offer delivery can destroy a match even when the API is healthy.
 
 ## Observability
 
@@ -33,7 +35,11 @@ Alerts have an owner, severity, threshold and runbook. Immediate response is nee
 5. After recovery, reconcile queued commands, ride milestones and outbox intents before replaying external effects.
 6. Record timeline, impact and corrective tests. Do not infer that silence from a driver's phone means the trip failed or succeeded.
 
-## Runbook: delayed return or missing driver
+## Runbook: failed matching or driver withdrawal
+
+Inspect online supply, heartbeat freshness, market/service eligibility, search/offer deadlines and worker backlog. Exhausted search must stop, inform the rider and release the payment hold under policy. Do not extend an expired quote or accept a late offer to make metrics look better. Before pickup, a withdrawal can trigger bounded rematching with clear rider status and old-session revocation. After pickup, use human incident handling. Record actor/reason and financial consequences separately.
+
+## Runbook: delayed return or missing driver (scheduled extension)
 
 Check authoritative readiness, last driver contact and assignment validity. Contact the responsible operator/driver through approved channels. Find eligible replacement capacity and record reassignment with a reason. If a rider is already onboard, use the incident process and human coordination; ordinary cancellation is not a safe resolution. Follow the organization's emergency escalation policy when circumstances require it.
 
@@ -57,6 +63,8 @@ Do not describe the product as free. Use a budget worksheet with volume assumpti
 
 Estimate tracking volume explicitly. For an illustrative synthetic scenario of 20 active drivers, four tracked hours per driver-day and one upload per 10 seconds: `20 * 4 * 3600 / 10 = 28,800` samples per day before batching/retries. Retained samples, DB writes, API calls and viewer reads are different billing dimensions. Adjust for actual concurrency and active legs rather than assuming every registered driver tracks all day.
 
+On-demand dispatch also needs online-unassigned driver location/heartbeats. Add that volume separately; it may exceed active-trip traffic when utilization is low. Budget quote requests, candidate ETA lookups, timed offers, failed searches, payment authorizations/releases and realtime fanout. Cap candidate route lookups per search rather than calculating an unbounded fleet matrix.
+
 For viewer polling, estimate `concurrent_viewers * visible_seconds / poll_interval`. Route recalculation should be substantially less frequent than GPS uploads and triggered by meaningful changes. Budget Places search/autocomplete, route matrices and geocoding separately from native map display. [Google Maps pricing](https://developers.google.com/maps/billing-and-pricing/pricing)
 
 Set spending alerts, provider quotas, rate limits, retention limits and usage dashboards. An alert is not always a hard cap. A hard cap on a critical live-trip dependency can cause an outage, so define degraded behavior and operator escalation before enabling it. Keep nonessential features separate from core ride execution.
@@ -64,5 +72,7 @@ Set spending alerts, provider quotas, rate limits, retention limits and usage da
 Vercel plan suitability, Neon recovery/compliance features and paid provider agreements must be verified at procurement. In particular, evaluate commercial-use terms rather than assuming a free development tier covers Rove's operations. [Vercel Hobby guidance](https://vercel.com/docs/plans/hobby)
 
 ## When to change architecture
+
+The B2B dashboard has its own hosting/build costs and optional reporting/funding workloads. Give those quotas and backpressure so a large institutional batch does not degrade consumer matching. Dashboard downtime must not stop consumer rides or accepted sponsored trips, but core API downtime is shared: repository separation alone is not infrastructure isolation.
 
 Measure queue lag, database contention, connection use, tracking cost and deployment coupling. Optimize queries, indexes, retention and batching first. Extract tracking or a specialized optimization worker when sustained measurements or isolation requirements justify it. Keep Postgres as ride/financial source of truth. AWS or another host is an option at that point, not a mandatory migration at a particular arbitrary user count.

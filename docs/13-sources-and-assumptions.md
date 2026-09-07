@@ -2,6 +2,10 @@
 
 Architecture baseline prepared September 2026. External documentation was checked during preparation; provider features, pricing and limits must be checked again during implementation. Architecture choices are recommendations, not statements that services have been configured.
 
+## Current direction takes precedence
+
+The latest explicit user direction is a primary Uber/Lyft-style consumer ride-hailing product and an optional institution-facing B2B dashboard in a separate product repository. It supersedes the initial care-first/manual-dispatch baseline. This revision changes product scope, repository boundaries, platform ownership, matching, consumer payments, tests and milestones. Historical sources below remain context for optional extensions, not launch requirements.
+
 ## Internal product sources
 
 Reviewed material provided in the local Rove research directory:
@@ -15,7 +19,7 @@ Reviewed material provided in the local Rove research directory:
 
 The brief and executive summaries were used to establish product context. Raw reports, contact lists and research files are not published here. Geographic priorities differ between memos. No statistics or complaint details from those reports are asserted as newly verified facts in this architecture.
 
-The user's current direction is to plan the actual product in a new monorepo separate from marketing. The user authorized this documentation commit/push. Prior local Neon setup was explicitly requested in the current research folder; that is not evidence that application code or deployment already exists in the new repository.
+The user authorized the original documentation commit/push; later changes follow the authorization for their own task. This scope revision does not create or name a B2B repository, deploy an app or move the existing Neon connection. Prior local Neon setup was requested in the research folder and is not evidence of application code/deployment in the product repository.
 
 ## Platform references
 
@@ -44,11 +48,12 @@ Some documentation endpoints returned fetch errors during review. Do not infer a
 
 ## Explicit planning assumptions
 
-- Small scheduled NC care-transport pilot, manually dispatched, rather than citywide instant ride-hail.
-- One operational tenant boundary initially; no cross-tenant pooled fleet scheduling.
-- Rider/caregiver app and separate driver app, both iOS and Android.
+- Core product: self-service consumer ride-hailing with automated driver matching; a small controlled market can limit rollout without replacing the on-demand flow.
+- Two product repositories: `Rove_Mobile` owns mobile/platform/internal ops; a separate not-yet-created repository owns optional institutional UI. Existing marketing repository remains separate.
+- Platform rider/driver identity, global market-scoped availability and trip ownership; institutions are optional associations, not mandatory account tenants.
+- Consumer rider app and separate driver app, both iOS and Android; caregiver, recurrence and care workflows are extensions.
 - A single transaction-capable backend/database is adequate until measurements show otherwise.
-- Authentication provider, encrypted offline store and actual funding contract require acceptance gates.
+- Authentication provider, encrypted offline store, matching executor/deadlines and consumer fare/payment/driver-earnings policies require acceptance gates. Sponsor funding is decided separately if B2B is built.
 - Vercel/Neon are the proposed host/database; no AWS account or migration is required by this plan.
 - Polling/upload intervals, coverage percentages, recovery targets and latency targets are initial engineering targets to validate.
 - No signed contract, production rider dataset, HIPAA status, store approval or paid provider readiness is asserted.

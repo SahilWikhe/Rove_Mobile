@@ -1,72 +1,84 @@
-# Delivery plan and acceptance gates
+# Delivery plan: core ride-hailing, then optional B2B
 
-Status: ordered implementation plan. Estimates should be made after each milestone's scope is confirmed; this is not a promise that a production transport service can be delivered in a fixed number of days.
+Status: ordered implementation plan reflecting the user's revised direction. No source, provider activation or deployment is created by this document. Milestone estimates follow confirmed scope and feasibility, not a promised app-launch date.
 
-## Ownership
+## Ownership and priorities
 
-Initially the founder is product/operations owner and the implementing engineer owns technical delivery. Assign named owners as the team grows. Operational decisions include payer, service boundaries, staff coverage and provider contracts. Engineering decisions include implementation, tests and measured platform suitability. A gate requiring a business answer must not be silently replaced with a developer assumption.
+The founder owns service area/hours, pricing, driver model, payment responsibilities and operating decisions. Engineering owns implementation, tests, supported platform choices and measured reliability. Core consumer rides do not depend on signing an institutional customer. A separate B2B product can later serve institutions through the same backend.
 
-## M0: Scope and architecture baseline
+Two product repositories plus the existing website are planned. Only `Rove_Mobile` is currently created for the product. Do not invent/create a B2B repository during documentation work. Internal Rove support and dispatch are required for consumer operations and can live in `apps/ops` here.
 
-Deliver the current documentation set, reviewed decision register and pilot assumptions. Confirm that `Rove_Mobile` is separate from the website. Identify open payer, driver, accessibility, return-window and privacy questions. A source memo's statement to delay development is context about commercial validation, not an instruction overriding the user's request to plan/build.
+## M0: Revised architecture and product baseline
 
-Exit: founder can describe the first rider population, who dispatches, and the proposed payer flow; unresolved items are explicitly tracked. Documentation exists in GitHub. No application is claimed complete.
+Document the consumer loop, repository ownership and optional add-on boundary. Identify launch-market, fare/earnings, payment and matching-policy questions. Preserve historical care research as extension context; retire manual institutional dispatch as the main journey.
 
-## M1: Repository foundation
+Exit: the plan explicitly supports a consumer with no institution account; the founder can identify initial market/supply assumptions and open commercial choices. Documentation makes implemented status clear.
 
-Create pnpm/Turborepo configuration, compatible TypeScript/Expo/Node baselines, minimal rider/driver shells, admin shell and API health route. Implement dependency restrictions, example environment files, lint/types/unit test scaffolds and docs checks. Add real CI and required gate only when it reports.
+## M1: Core repository foundation
 
-Set up synthetic local fixtures and disposable database workflow. Link the correct Neon project/branch from the new product checkout; resolve the previous research-folder setup deliberately. Keep all credentials out of Git. Vercel/EAS projects are created only with deployable source and the required release authorization.
+Create pnpm/Turborepo, pinned compatible Node/TypeScript/Expo baselines, rider/driver shells, API health route and minimal Rove staff shell. Add boundary enforcement, safe example environment files, synthetic fixtures and executable docs/static/test CI. Link the correct isolated Neon environment from this checkout deliberately; do not copy research-folder credentials into Git.
 
-Exit: clean checkout can install using the documented pinned tooling; the API/admin start locally; both mobile shells run in development builds; CI detects a deliberate type/test/boundary failure. A fresh developer does not need the founder's production credentials.
+Exit: clean install, local API/ops startup, development mobile builds on both platforms, real failing/passing checks and synthetic DB workflow. No B2B configuration is needed to start/test the core. Provision Vercel/EAS only when source is deployable and release authorization exists.
 
-## M2: Authentication and tracking feasibility
+## M2: Identity, driver availability and platform feasibility
 
-Build the provider-auth proof on both platforms and admin. Resolve the authentication ADR using recovery, revocation, native callbacks, staff MFA, cost and vendor suitability evidence. Implement identity mapping and an initial tenant/grant model.
+Evaluate managed authentication for consumer/driver sessions and staff MFA. Implement platform ownership/capabilities with no mandatory organization tenant. Prove driver online/offline heartbeat and background discovery/trip tracking on physical devices, including locked screen, native navigation, reconnect and revoked permission.
 
-Build a driver GPS proof with synthetic ride context, locked-screen/background navigation, lost connectivity and stale-display handling. Evaluate initial polling versus realtime using measured battery/latency/load. Select encrypted offline persistence before using real rider data.
+Benchmark timed-offer delivery and durable executor wakeups under realistic delays. Pick polling/realtime and the job adapter based on matching deadlines, battery and cost. Resolve offline storage before real data. Use fake offers/trips and payment sandbox accounts.
 
-Exit: signed-in devices refresh sessions correctly; revoked access is denied; location restrictions and termination behavior are documented on physical devices. A decision record names the chosen providers and limitations. This milestone can change the tracking adapter without rewriting the domain.
+Exit: tested iOS/Android auth and background behavior; stale/offline drivers leave the candidate set; expiry remains valid despite late worker/push; chosen provider decisions and limits recorded.
 
-## M3: First complete scheduled ride
+## M3: Consumer quote and automatic matching
 
-Implement rider profiles, organization/program scope, one-time ride request, operator queue, eligibility metadata, assignment offer/acceptance and ride milestones. Add current ride view and generic update notifications. Include basic cancellation and operator exceptions; do not hide missing coverage.
+Implement market/service eligibility, route/quote inputs, server-owned pricing/expiry, tokenized payment-method sandbox setup and authorization policy. Add online driver selection, bounded sequential offers, accept/decline/timeout, atomic capacity claims, rider search/match UI and no-driver recovery.
 
-Exit: a synthetic ride is requested in the rider app, assigned in admin, accepted/completed in the driver app, and visible to an authorized caregiver. Another tenant, an ungranted caregiver and an unassigned driver are denied. Concurrent assignment cannot double-book. The same request retried produces one ride.
+Exit: a consumer requests a quoted ride and an online driver accepts through the app without manual dispatch, institution rows or sponsor credentials. Acceptance versus cancellation, two rides versus one driver and duplicate/expired offer races pass real database tests. No-driver paths stop searching and release authorization under policy.
 
-## M4: Recurrence and return coordination
+## M4: Complete trip, payment and internal support
 
-Add bounded schedule generation, per-date exceptions, series versioning, timezone/DST behavior and explicit return readiness. Add delayed intents, outbox reconciliation, expired-offer handling and overdue-return escalation to the staffed queue. Include support for operators booking for riders without phones.
+Implement navigation handoff, arrival/pickup/completion, rider tracking, cancellation/rematch policy, receipts, consumer capture/refund/reconciliation and driver payable/earnings view. Complete durable outbox/retry repair and safe provider callbacks. Add staff eligibility review, ride lookup, audited intervention, incident support and finance reconciliation.
 
-Exit: a weekly plan generates no duplicates when retried, schedule changes do not alter completed history, cancelled reminders do not send, and a ready return with no coverage reaches an operator. Device loss or a push outage does not make the return invisible to dispatch.
+Exit: synthetic end-to-end quote -> match -> pickup -> completion -> payment/receipt/earnings works on both platforms. Lost connectivity shows pending state; a repeated callback cannot move money twice; rematching revokes old driver access. Staff handle exceptions but are not required to approve every normal request.
 
-## M5: Funding and driver operations
+## M5: Consumer pilot readiness
 
-Choose and implement one approved pilot funding model: prepaid authorization or invoiced sponsor, rather than both simultaneously. Record agreed rate snapshots and driver payable amounts. Integrate a provider sandbox where appropriate, with ledger invariants, duplicate prevention, reversals, reconciliation and clear pending/disputed states.
+Resolve actual pricing/driver model, payment processor/charge responsibilities, service boundaries, eligibility, insurance/operating requirements and support coverage. Add measured rate/cost controls, observability, device/accessibility evidence, restore and rollback drills, release promotion and store disclosures. Retention/privacy decisions cover actual consumer data and any sensitive features introduced.
 
-Implement documented driver/vehicle verification and expiry controls; use manual review initially if appropriate. Add private document storage only when required, with scanning, access control, lifecycle and vendor approval. Resolve subscription/fee treatment before charging anyone.
+Exit: candidate tested for core user ownership, matching integrity, consumer payments and real-device behavior. Appropriate operational approvals exist. Production and test data/providers are isolated. Disabling every B2B module/UI still leaves consumer journeys functional.
 
-Exit: parallel bookings cannot exceed the authorized balance/cap; repeated provider events cannot settle twice; unknown provider results reconcile; refunds preserve history. Test-mode payments remain segregated. Operating eligibility and commercial responsibilities have named owners.
+## M6: Controlled consumer launch and refinement
 
-## M6: Pilot readiness
+Start with recruited eligible supply, limited geographic coverage and staffed operating hours. Monitor conversion, no-driver rate, time to match, driver acceptance, cancellation, pickup ETA accuracy, payments and incidents. Tune candidates/deadlines from evidence; do not extend an expired offer or hide failures to improve metrics.
 
-Complete real-device tests, accessible end-to-end journeys, security review, account revocation, provider agreements, data retention, monitoring, incident contacts and restore drill. Configure correct release/promotion behavior, database roles, production region, rate/budget controls and store disclosures.
+Exit: agreed service and reliability targets hold at controlled load. Expand supply/area only with operational support. Prioritize optional ratings, tips, schedules or promotions from product evidence; no assumption that every Uber/Lyft feature is required immediately.
 
-Exit: a release candidate has recorded test evidence on iOS and Android; approved operating staff can handle no-shows, missing drivers and return delays; backup recovery and a code rollback are rehearsed; production data/provider requirements are approved. Real ride launch requires operational readiness as well as software readiness.
+## B1: Optional institution product definition
 
-## M7: Controlled pilot and measured expansion
+Independent later track. Founder chooses the customer use case, repository name, roles, pricing and program/funding policy. Define whether an institution books for employees, care recipients, guests or another population. Review specific data/contract obligations, especially for healthcare use.
 
-Start with a small approved cohort and staffed service windows. Review late pickups, stale GPS, failed reminders, financial discrepancies and support cases daily. Fix operational defects before widening service area. Add route optimization, additional payer models, subscriptions or consumer rides only when supported by measured needs and an updated decision record.
+Exit: add-on scope and named repository decision exist without rewriting the consumer product or making institutions owners of global driver/rider records.
 
-Exit: expansion criteria are agreed from pilot evidence; software capacity, driver supply and service coverage all support the change. A larger user count alone is not proof of a successful care-transport service.
+## B2: Optional core extensions and separate dashboard
 
-## Suggested first implementation PRs
+Add backend organization memberships/entitlements, explicit ride sponsorships, funding adapter and reporting APIs under module boundaries. Publish versioned contracts/client artifacts. Build the dashboard in its own repository against those APIs; no direct core database access or migrations from B2B CI.
+
+Schedules, recurrence, caregiver grants and return readiness are optional modules added when a real product use case requires them. Implement their timezone, permission, funding and failure tests before exposing them. They may serve consumer features too and must not require an institutional tenant for personal use.
+
+Exit: organization can arrange an authorized sponsored ride; ordinary personal trips stay private; separately released B2B clients remain compatible. B2B outage or reporting load does not break consumer matching; already accepted sponsored trips continue through the core platform.
+
+## B3: Add-on release and expansion
+
+Deploy B2B independently with its customer access, quotas, support and finance procedures. Gate sensitive/regulated programs on actual vendor/operational requirements. Track organization usage separately from consumer measures. Keep reports/batch work bounded and isolate high-cost jobs as measurements justify.
+
+Exit: customer acceptance, cross-organization isolation, safe funding, contract compatibility and core-independence tests pass. Add-on changes do not force simultaneous mobile/store releases.
+
+## First implementation PRs
 
 1. Workspace/tooling and executable docs/static CI.
-2. API/admin/mobile shells with synthetic local setup and build checks.
-3. Authentication provider proof and accepted auth ADR.
-4. Driver location proof and real-device test report.
-5. Initial schema, roles, migrations and isolation tests.
-6. One-time ride request and operator assignment with concurrency tests.
+2. Core API/ops/mobile shells and synthetic database setup.
+3. Auth provider proof and platform ownership/permissions.
+4. Driver availability/background tracking and timed-offer feasibility report.
+5. Quotes/payment sandbox, match/offer schema and transaction tests.
+6. Rider request, automatic matching and driver acceptance vertical slice.
 
-Keep PRs reviewable around one deliverable. Do not make one giant scaffold PR claim it completes authentication, money movement and fleet operations. Authorizing this architecture commit does not automatically authorize production data changes or application releases.
+Keep PRs scoped to a reviewable outcome with real evidence. Current scope changes do not authorize application releases or production mutations. See [CI/CD](08-cicd-and-environments.md) and [B2B boundary](14-b2b-product-boundary.md).

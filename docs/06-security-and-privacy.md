@@ -4,7 +4,7 @@ Status: required controls to implement. This document is not a security certific
 
 ## Assets and trust boundaries
 
-Protect identity/session tokens, home and destination addresses, assistance details, precise location, caregiver relationships, operator privileges, driver documents, payment references and audit trails. Protect availability: delayed or corrupted dispatch can affect a person's access to care even without a data breach.
+Protect identity/session tokens, home/destination addresses, precise location, driver documents, payment references and staff privileges. Consumer ride reliability and physical safety matter independently of institutional programs. Assistance details, caregiver relationships and healthcare data require additional controls when those optional features are introduced.
 
 Treat mobile/browser input, deep links, provider callbacks, downloaded files, and contributions to public PRs as untrusted. Authentication identifies a caller; authorization checks whether that caller can perform this action on this resource now.
 
@@ -24,10 +24,14 @@ Treat mobile/browser input, deep links, provider callbacks, downloaded files, an
 | Malicious upload | Private storage, size/type allowlist, scanning before staff access | Fake MIME, oversized files, unauthorized signed-URL requests |
 | Dependency/CI compromise | Pinned tooling/actions, least privilege, isolated fork tests | Workflow review, secret scan, dependency review |
 | Lost device | Session revocation, encrypted minimal cache, expiry | Logout and expired-session/offline behavior |
+| Driver/rider marketplace abuse | Rate limits, eligibility checks, offer deadlines and transactional capacity claims | Spam requests, expired acceptance, offline driver and competing claims |
+| Discovery location scraping | No public exact driver discovery endpoint; minimal authorized match disclosure | Unmatched rider enumerates driver ids/location sessions |
+| Institution reads personal rides | Explicit sponsorship association plus scoped role | Member has both personal and sponsored rides; personal history stays private |
+| B2B disrupts consumer traffic | Bounded batches, per-organization quotas and optional dependencies | Disable add-on/funding; overload reporting; core loop still works |
 
 ## Authorization design
 
-The server resolves trusted identity-provider subject to an internal user, then loads tenant membership and resource relationships. Do not trust organization ids, fares, capabilities or staff roles supplied in a request. Signed identity claims may identify a role context, but critical operations recheck authoritative eligibility and grants.
+The server resolves provider subject to a platform user and checks resource ownership, staff capability, or current accepted assignment. Consumer access never depends on organization membership. For optional B2B requests, additionally verify membership, program entitlement and explicit ride association. Never trust supplied organization ids, fares or staff roles. Institution administrators cannot grant Rove staff privileges or inspect unrelated personal rides.
 
 Define reusable authorization policies by capability and resource; avoid scattered `isAdmin` shortcuts. Default deny. Scope SQL queries before reading rows. Use composite ownership constraints and defense-in-depth RLS where practical, but do not claim RLS exists until migrations and tests prove it.
 
@@ -61,7 +65,9 @@ Before real-data pilot, approve a retention matrix with owner, purpose, duration
 
 Deletion may anonymize a user profile while retaining legally required financial records. Explain this accurately in product policy. Test exports/deletions, cascading references, retained backups and restored-data deletion replay. Restrict who can retrieve location trails or bulk exports and audit those reads.
 
-## Healthcare and operating requirements
+## Core operating requirements and optional healthcare programs
+
+Consumer launch still requires approved driver/vehicle processes, insurance/operating decisions, support coverage, payment responsibilities and privacy practices. A healthcare partnership is not a universal consumer launch prerequisite. Evaluate additional healthcare obligations when Rove's actual relationships/data require them; do not treat every consumer destination as automatically establishing HIPAA applicability.
 
 Determine whether Rove acts as a covered entity/business associate for each pilot relationship, and whether the information handled is PHI. Identify every relevant processor, including maps, notifications, observability, support, files, authentication and hosting; assess data flows and required agreements. A vendor's general compliance marketing is not proof the specific service/plan and Rove configuration are covered. [HHS cloud guidance](https://www.hhs.gov/hipaa/for-professionals/special-topics/health-information-technology/cloud-computing/index.html)
 
@@ -69,4 +75,4 @@ Obtain qualified review of transport operating requirements, insurance, accessib
 
 ## Release evidence
 
-Before pilot, demonstrate permission tests, dependency/secret scans, abuse controls, signed webhook validation, redacted telemetry, authenticated preview isolation, backup restore, account revocation and incident response. Record owner and expiry for any accepted exception. Critical unresolved access or financial-integrity failures block release.
+Before consumer pilot, demonstrate ownership/assignment tests, abuse controls, payment/webhook integrity, redacted telemetry, preview isolation, restore, revocation and incident response. Before B2B release, additionally prove cross-organization and consumer-personal-history isolation plus funded-trip continuation when the dashboard is unavailable. Record owner/expiry for exceptions. Critical access or financial-integrity failures block the affected release. A separate repository never substitutes for server-side access control.

@@ -1,78 +1,83 @@
-# Product scope and pilot assumptions
+# Product scope: consumer ride-hailing with an optional B2B product
 
-Status: proposed implementation baseline. Owner: product lead/founder. The source materials establish a care-transportation direction, not a signed pilot, final fare model, or legal operating approval.
+Status: current user-directed scope. Owner: founder/product lead. This supersedes the earlier scheduled care-transport pilot as the primary product. Historical research remains useful for future institutional programs, but does not override this direction.
 
 ## Product outcome
 
-Make a recurring transportation plan visible and dependable for a rider, the people authorized to help them, and the operator responsible for delivering it. A successful booking is more than a database row: someone must cover the trip, the return must be addressed, and failures must reach a human who can act.
+Rove's main product works like a ride-hailing service: riders select a destination, see an estimate, request a ride, get matched with an available driver, track pickup and travel, and pay through the app. Drivers go online, receive offers, accept work, navigate, and see earnings. The first release can have a small service area and recruited driver supply while still providing this self-service, on-demand flow.
 
-Use a scheduled, manually dispatched pilot as the first scope. Start with a small service area and approved drivers. Do not implement general on-demand matching, surge pricing, pooled routing, or automated insurance claims as prerequisites for the first ride.
+An institution-facing dashboard is a separate optional B2B product. It may let employers, clinics or other organizations arrange and fund rides for eligible people. A consumer must not need organization membership, a facility account, a sponsor, or a coordinator to use Rove.
 
-## Actors and ownership
+## Repository and responsibility split
 
-| Actor | Primary job | Boundaries |
+| Product | Repository | Owns |
 | --- | --- | --- |
-| Rider | Request, view, change, or cancel their rides | Cannot assign a driver, change a fare, or access another rider |
-| Caregiver | Help a specifically authorized rider | Invitation or relationship alone does not grant all permissions |
-| Driver | View assigned work, accept, navigate, report milestones | Cannot browse all riders, approve themselves, or set settlement values |
-| Dispatcher | Schedule and assign rides for their organization | Scoped to the organization and service programs they operate |
-| Facility coordinator | Arrange rides for enrolled riders | Restricted program membership; never unrestricted clinical or fleet access |
-| Finance operator | Reconcile authorized funding and settlements | Does not need access to detailed GPS trails |
-| Platform administrator | Manage organizations and exceptional support | Explicit privileged actions, MFA, audit, and limited access |
+| Core Rove platform | `Rove_Mobile` | Rider and driver apps; identity mapping; matching; ride lifecycle; payments; shared API; core database/migrations; essential Rove staff tools |
+| Institutional add-on | Separate repository, name TBD | Customer dashboard, organization-facing workflows, reports and a thin session/API proxy if needed |
+| Marketing website | Existing `Rove` repository | Public marketing website |
 
-Initially, an organization is the operational/security tenant. A rider may participate in more than one organization, but membership and ride access are explicit per organization. Cross-organization dispatch and shared-fleet optimization are later capabilities. A user can hold multiple roles without receiving the union of those roles in every organization.
+Keep one authoritative backend for rides, driver availability, settlement and permissions. Splitting the B2B frontend into another repository is useful for independent ownership and releases; duplicating the ride engine or database would create conflicting truth. See [B2B boundary](14-b2b-product-boundary.md).
 
-## Pilot journeys
+## Actors
 
-### Scheduled outbound ride
-
-1. An authenticated rider, delegated caregiver, or coordinator selects pickup, destination, desired arrival time, and supported assistance requirements.
-2. The API checks enrollment, service area, contract rules, and time validity. It returns a request identifier and the true confirmation state.
-3. An operator confirms coverage and assigns an eligible driver/vehicle. A request is not a promise of transport until coverage is confirmed.
-4. The driver accepts, starts travel to pickup, confirms arrival, confirms pickup, and completes the leg.
-5. Authorized viewers see server-confirmed state and location freshness. Operators can intervene when a milestone is late.
-
-### Return ride
-
-An outbound and a return are separate ride legs linked by a journey. Treatment completion cannot be assumed from a fixed duration. Support both scheduled return windows and a `ready_for_return` signal from an authorized rider/caregiver/coordinator. That signal changes readiness; it does not invent capacity or automatically confirm a driver.
-
-Show whether the return is requested, covered, or still needs assignment. An outbound cancellation must explicitly resolve the linked return rather than silently deleting it. Once a person has been picked up, use an assisted exception process rather than allowing an ordinary cancel action to abandon the ride.
-
-### Recurring rides
-
-A recurring schedule is a template, not an infinite collection of confirmed rides. Generate a bounded horizon of legs, display which ones are covered, allow a single-date exception, and version changes to future occurrences. Every date needs its own coverage and financial authorization checks.
-
-## Scope by stage
-
-| Initial product | Before funded pilot | Later, when justified |
+| Actor | Core behavior | Access boundary |
 | --- | --- | --- |
-| Sign-in and scoped roles | Verified operating/driver eligibility process | Automated credential-provider integration |
-| Rider/caregiver and driver apps | Confirmed payer and payment workflow | General consumer marketplace |
-| Operator scheduling and manual assignment | Recurring rides and return escalation | Multi-rider route optimization |
-| Ride status and location freshness | Documented incident and support coverage | Embedded turn-by-turn navigation |
-| Basic assistance capability matching | Privacy/vendor decisions and recovery drill | Employer/intern pooled programs |
-| Synthetic demonstration data | Tested actual-device workflows | Automated payer/broker claims |
+| Consumer rider | Quote, request, follow, cancel under policy, pay, review receipt | Own rides/payment methods; authorized sharing only |
+| Driver | Go online/offline, accept/decline offers, complete trips, view earnings | Own availability/earnings; limited offer data and accepted-trip details |
+| Rove support/dispatcher | Handle incidents, failed matching, reassignment and disputes | Explicit staff permissions and audited intervention |
+| Rove safety/eligibility staff | Review drivers, vehicles and incidents | Privileged scopes; separate from institutional customer roles |
+| Rove finance staff | Reconcile charges, refunds and driver payables | Financial access without unnecessary location trails |
+| Institutional coordinator (add-on) | Book/manage eligible sponsored rides | Only explicitly organization-associated rides/programs |
+| Institution administrator (add-on) | Manage members, budgets and organization roles | Cannot become Rove staff or browse consumer trips |
+| Caregiver/delegate (optional extension) | Help a rider under an explicit grant | Relationship-specific permissions, independent of organization membership |
 
-An operator may enter a ride for someone without a smartphone. Do not make device ownership or push-notification delivery a condition of receiving transport. Support staff must have a documented contact fallback.
+Rove internal operations are required to run a transport service. They are not the optional B2B dashboard. We may implement a minimal `apps/ops` staff console in this repository; it must remain available when the institutional product is disabled.
 
-## Business decisions that remain open
+## Initial consumer journey
 
-| Decision | Working assumption | Required resolution |
+1. Rider signs in, selects pickup/destination and an offered service type, and sees availability and a time-bounded quote.
+2. Backend validates service coverage, quote, rider/payment eligibility and duplicate-request rules. It creates a request in `searching`, with no promise that a driver exists.
+3. Matching selects eligible online drivers using fresh availability/location and a bounded geographic/ETA search. The first implementation uses sequential time-limited offers; concurrent fanout is a later optimization.
+4. A driver accepts an unexpired offer. The backend atomically claims the ride and driver so no other rider or offer can win the same capacity.
+5. Rider sees the accepted driver, vehicle and pickup estimate. Driver navigates, confirms arrival, pickup and completion.
+6. Backend calculates the fare under the accepted pricing policy, settles payment once, records driver earnings and issues a receipt. Financial failure is tracked separately from physical trip completion.
+
+There must be visible states for no driver found, declined/expired offers, quote changes, cancellation, unavailable payment method, stale location and pending synchronization. Staff assist with exceptions; manual assignment is not the normal consumer booking path.
+
+## MVP and later scope
+
+| Required for initial ride-hailing release | Optional follow-up | Institutional add-on |
 | --- | --- | --- |
-| Launch corridor and facility | One NC pilot | Founder validates demand and coverage before pilot enrollment |
-| Who pays | Institutional/sponsored first | Name the contracting payer and authorization requirements |
-| Fare and driver subscription | Configurable; brief's $20 is a hypothesis | Approve rates, processor fees, refunds, and subscription applicability |
-| Funding model | Contract may be prepaid or invoiced | Choose first model; never silently assume public buyers prepay |
-| Driver relationship | Approved supply only | Determine employment/contractor model and operating requirements |
-| Accessibility | Record requirements and match verified capabilities | Define actual fleet capabilities; unsupported trips require escalation |
-| Return coverage | Scheduled window or explicit ready signal | Agree coverage hours and escalation responsibility |
-| Caregiver delegation | Explicit scoped grants | Define verification, revocation, and representatives without rider self-consent |
-| PHI and retention | Synthetic data until reviewed | Determine obligations and vendor contracts before real data |
+| Rider/driver authentication and profiles | Scheduled rides | Organization onboarding/roles |
+| Driver approval, online availability and vehicle capability | Recurring rides | Sponsor budgets and policy controls |
+| Pickup/destination, quote and payment method | Caregiver/delegated booking | Coordinator booking and guest riders |
+| Automated matching and acceptance timeout | Return planning | Organization-scoped reporting/invoicing |
+| Live trip status and location freshness | Promotions, tips and ratings as prioritized | Contract-specific care transportation |
+| Cancellation/no-driver recovery | Advanced optimization or pooled rides | Employer and facility programs |
+| Ride completion, receipts and driver earnings | Embedded navigation | Payer/broker integrations only if approved |
+| Essential Rove support/safety/finance operations | Additional markets/service types | Separate product rollout |
 
-Prices and eligibility rules belong in versioned policy/configuration, not hardcoded UI conditions. The app must never advertise zero commission, clinical support, wheelchair capacity, or guaranteed pickup unless the operating model supports the claim.
+Uber/Lyft-style operation describes the core interaction, not a requirement to copy every incumbent feature. Surge pricing, pooling and all vehicle classes are not automatic MVP requirements. Define initial pricing and service rules explicitly.
 
-## Success measures
+## Business decisions still needed
 
-Define the event and denominator before reporting a metric. Track coverage rate, cancellations by initiator/reason, on-time pickup within the agreed window, return wait measured from readiness, completed legs, missed rides, and intervention time. Track driver earnings separately from platform revenue and payment fees. Segment operations by program and service window; do not combine unmatched definitions into one on-time percentage.
+| Decision | Baseline | Resolution before affected release |
+| --- | --- | --- |
+| Launch area and hours | Small controlled consumer service area | Confirm supply, support hours and local operating requirements |
+| Consumer payment | Rider pays for their own rides | Choose provider/charge model, authorization/capture timing and disputes |
+| Fare policy | Versioned server-owned pricing, quote expiry | Choose upfront/final fare calculation, changes, minimums and cancellation fees |
+| Driver earnings | Transparent configurable policy | Confirm commission/subscription, fees and payout timing; the old $20 hypothesis is not locked |
+| Driver relationship and eligibility | Only verified drivers go online/accept | Resolve legal, insurance, vehicle and onboarding requirements |
+| Dispatch policy | Sequential timed offers, bounded search | Set offer expiry, search deadline, radius/ETA ranking and reassignment rules |
+| Safety/accessibility | Verified capabilities and staffed escalation | Define supported services, safety features and accessibility procedures |
+| B2B packaging | Optional separate product | Name/pricing/roadmap and organization funding model later |
 
-Product evidence comes from the internal brief and research memos listed in [sources](13-sources-and-assumptions.md). They contain different geographic priorities and unvalidated demand assumptions. This architecture does not resolve those commercial questions by choosing a software stack.
+## Optional scheduled and care features
+
+Future schedules generate bounded occurrences and explicit coverage states. A return is a separate leg; no automatic promise that a driver waits while someone attends an appointment. Caregiver access requires a grant. Healthcare programs need an additional data/operational review before enabling them. These are extension requirements, not prerequisites for a consumer to request a ride.
+
+## Acceptance and measurement
+
+The core acceptance test runs without any institution or sponsored program configured. A rider can book, an online driver can be matched, a trip completes and payment/earnings reconcile. Disabling the B2B frontend or organization entitlements must not break unrelated consumer rides.
+
+Measure quote-to-request conversion, match rate, time to match, driver acceptance, cancellation by actor/stage, pickup ETA error, trip completion, payment success, driver utilization and support incidents. Define denominators and event timestamps before dashboards. Add sponsor/return metrics only for the optional programs that use them.

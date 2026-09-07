@@ -4,6 +4,8 @@
 
 This is the Rove product monorepo. The marketing website lives in a different repository. Begin with [README.md](README.md) and the relevant documents in `docs/`. This initial revision contains plans only; do not report applications, checks or infrastructure as implemented until evidence exists.
 
+Current scope: Rove is consumer ride-hailing with automatic matching, online drivers and consumer payments. The institution-facing B2B dashboard is an optional separate-repository product, not the default operating model. `Rove_Mobile` owns both mobile apps, the shared ride backend/database and essential Rove internal ops. Do not reinstate the superseded care-first/manual-dispatch assumptions from historical research.
+
 ## Working rules
 
 - Respect the user's current scope and commit/push/deployment instructions. Do not infer production authorization from permission to create a PR or update documentation.
@@ -17,6 +19,8 @@ This is the Rove product monorepo. The marketing website lives in a different re
 - Follow versioned migrations and compatibility rules. Do not run migrations during application startup or normal build steps.
 - Keep native platform dependencies aligned with the selected Expo SDK. Test relevant iOS and Android changes.
 - Update ADRs and affected docs when a meaningful architecture decision changes. Keep open decisions explicit rather than silently choosing a vendor with material cost/privacy consequences.
+- Consumer signup/booking/matching/payment must work without organization membership or a B2B deployment. Keep institution access scoped to explicitly associated rides, never a member's full personal history.
+- Share versioned API contracts across product repositories; do not share database credentials, duplicate ride/payment mutations or create cross-repository filesystem imports.
 
 ## Completion evidence
 

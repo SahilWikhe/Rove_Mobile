@@ -26,9 +26,17 @@ Use a PostgreSQL service container with matching major version/extensions for un
 
 ## Minimum scenario matrix
 
+Core release gates cover on-demand consumer booking without organization rows, sponsor configuration or a B2B frontend. Caregiver, recurrence, return-readiness and sponsored-balance cases below become mandatory for the corresponding extension before it ships, not prerequisites for building the consumer MVP.
+
 | Area | Required cases | Best test layer |
 | --- | --- | --- |
 | Identity | Invalid signature/issuer/audience/expiry; disabled user; role escalation | API integration |
+| Core independence | Consumer signup/quote/match/trip/payment with all B2B features disabled | API + E2E |
+| Quotes | Ownership, expiry, route change, replay, server-owned final price policy | Domain + API |
+| Driver availability | Online/offline, stale heartbeat, revoked eligibility, two active devices | API + database |
+| Matching | No candidates, decline, expired offer, worker restart, bounded deadline, late push | Domain + integration |
+| Acceptance races | Same driver accepts two rides; cancellation races accept; offer superseded | Concurrent database tests |
+| Consumer payment | Token ownership, failed hold, no-driver hold release, capture/retry/refund, payable exactly once | Provider sandbox + integration |
 | Tenant boundaries | Cross-tenant ids, list filters, exports, admin proxy | API + database |
 | Caregiver access | Partial capability; expired/revoked grant; cached/deep-linked access | API + native |
 | Scheduling | Weekdays, date bounds, DST gap/overlap, leap date, exception, repeated generation | Domain + database |
@@ -48,12 +56,14 @@ Use a PostgreSQL service container with matching major version/extensions for un
 | Schema | Empty bootstrap, upgrade from previous schema, resumable backfill | Database integration |
 | Compatibility | Supported prior client requests/responses and unknown display state | Contract fixtures |
 | Accessibility | Large text, screen reader labels, keyboard focus, reduced motion and contrast | Component + E2E + manual |
+| B2B boundary | Customer admin is not Rove staff; organization cannot see member's personal trips | API + separate dashboard E2E |
+| Cross-repo compatibility | Pinned B2B client against candidate core API; add-on outage during active ride | Contract + trusted integration |
 
 For race tests, coordinate two independent database connections with a barrier so they actually contend. Assert final rows, event counts and financial totals, not just HTTP response codes. Run these repeatedly in a dedicated lane if necessary to expose serialization errors, but do not hide flaky results with blanket retries.
 
 ## Fixtures and test isolation
 
-Use builders with explicit organization, rider, driver and clock contexts. Factories produce obviously synthetic names, addresses and provider ids. No production backups or exported patient data. Seed two tenants in access tests by default.
+Use builders with explicit rider, driver, market, availability and clock contexts. Core fixtures create no organization. Extension access tests seed two institutions and users with both personal/sponsored trips to prove isolation. Use synthetic names, addresses and provider ids; no production backups or exported patient data.
 
 Give each worker a unique database/schema or rollback-isolated fixture strategy compatible with parallel requests. Clean up disposable Neon branches on success, failure and timeout, and run an orphan cleanup job with a TTL. Tests should not depend on order, current time, network geocoding or randomly selected fares.
 
@@ -70,7 +80,9 @@ Exclude generated clients, declarations and platform-generated code with documen
 - **Every PR:** formatting/docs, types, lint, boundaries, relevant unit/component suites, API/database integration for affected backend paths, migration checks when applicable, contract compatibility, security scans and affected build checks.
 - **Trusted integration PR or explicit run:** sandbox provider smoke, isolated Neon driver/pooling test, browser E2E and native build/E2E according to affected paths.
 - **Nightly:** full dependency graph, full API/database suite, scheduled security scans and device-emulator flows within budget.
-- **Release candidate:** both platform build checks, complete critical ride journey, permissions/security regression, real-device tracking evidence, migration/rollback rehearsal and sandbox financial reconciliation if money features changed.
+- **Release candidate:** both platform builds, complete quote -> automatic match -> trip -> payment loop, ownership/security regression, real-device online/trip tracking, matching timeout/worker recovery, migration/rollback and sandbox financial reconciliation. The core loop must pass with B2B disabled.
+
+The B2B repository owns dashboard component/E2E tests; this repository retains organization API/policy tests when implemented. Contract distribution/consumer checks cover separately released versions. A dashboard-only change need not build mobile binaries, but an incompatible shared API change cannot be waved through because its frontend is in another repository.
 
 Native builds can be slower or paid. Optimize with path/dependency impact detection, but a change to Expo configuration, shared native code, authentication, location, native plugins or dependencies must get appropriate iOS and Android build evidence before release. Do not make pure Markdown edits wait for app-store builds.
 

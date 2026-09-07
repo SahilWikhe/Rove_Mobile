@@ -2,6 +2,8 @@
 
 These standards apply when implementation begins. Prefer explicit, testable modules over maximum abstraction. Modularity means a change has a clear owner and limited consequences, not that every function needs an interface and separate package.
 
+The core consumer product lives in `Rove_Mobile`; the optional institution dashboard is a separate repository using versioned contracts. Core matching, trips, payments, permissions and database migrations have one owner here. Internal Rove staff tooling is separate from institution customer tooling. Consumer use cases must run with the B2B module disabled and without fabricated organization records.
+
 ## TypeScript and boundaries
 
 Enable strict TypeScript, unchecked indexed-access protection and explicit optional-property behavior where supported. Parse external values as `unknown`; narrow through schemas. Avoid `any`, double casts and suppression comments. An exception requires a narrow scope, reason and test, not a repo-wide compiler downgrade.
@@ -14,7 +16,7 @@ Expose a small public API per feature/module. Never import `../../another-featur
 
 A transport handler parses a request, resolves actor context, calls a use case and maps the result to HTTP. The use case authorizes, coordinates domain policy and transactions, and records outbox/audit intent. The repository performs explicit scoped SQL. Provider adapters own SDK-specific retries, error mapping and serialization; use cases decide business retry/reconciliation policy.
 
-Prefer functions and composition over inheritance hierarchies. Name use cases after behavior (`assignDriver`, `cancelRide`, `markReturnReady`), not generic CRUD. Avoid hidden global database clients with mutable tenant context. Do not swallow errors to return a success-shaped payload.
+Prefer functions and composition over inheritance hierarchies. Name use cases after behavior (`quoteRide`, `requestRide`, `acceptOffer`, `captureFare`, `cancelRide`), not generic CRUD. Separate pricing, matching and settlement policy from provider transports. Avoid hidden global clients with mutable user/tenant context. Do not swallow errors to return a success-shaped payload.
 
 Transactions must cover the complete invariant, not just individual inserts. Avoid network calls inside locks; use durable intents. Retrying a transaction requires idempotent local behavior and bounded attempts. A log line is not an audit event and an audit row is not a durable notification queue.
 
@@ -49,6 +51,8 @@ Group routine upgrades, review majors separately, and fix actionable security is
 ## Tests and review
 
 Each behavior change includes the right test layer described in [testing](07-testing-strategy.md). Verify unhappy paths and authorization, not just the happy path. Prefer semantic assertions over implementation details; test fakes must preserve the provider boundary contract.
+
+Cross-repository reuse uses a pinned published schema/client version, never filesystem imports or copied business logic. Contract changes document supported mobile and B2B consumers. Do not require simultaneous releases to make an API change safe. Apply organization checks to institutional operations without accidentally applying them to unrelated personal rides.
 
 PR descriptions state the problem, resulting behavior, validation and material limitations. Mention schema/API changes, privacy implications and migration/release ordering when relevant. Update architecture decisions when boundaries or providers change. Do not claim a test passed unless it was actually executed successfully.
 
