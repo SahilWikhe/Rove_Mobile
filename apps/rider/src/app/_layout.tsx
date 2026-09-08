@@ -1,3 +1,4 @@
+import { PaymentProvider } from '../payments/provider';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -19,19 +20,21 @@ export default function Layout() {
         synthetic: process.env.EXPO_PUBLIC_SYNTHETIC === 'true',
       }}
     >
-      <SafeAreaProvider>
-        <StatusBar style="light" />
-        <Stack
-          screenOptions={{
-            headerStyle: { backgroundColor: theme.background },
-            headerTintColor: theme.text,
-            contentStyle: { backgroundColor: theme.background },
-            headerBackTitle: 'Back',
-          }}
-        >
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-        </Stack>
-      </SafeAreaProvider>
+      <PaymentProvider>
+        <SafeAreaProvider>
+          <StatusBar style="light" />
+          <Stack
+            screenOptions={{
+              headerStyle: { backgroundColor: theme.background },
+              headerTintColor: theme.text,
+              contentStyle: { backgroundColor: theme.background },
+              headerBackTitle: 'Back',
+            }}
+          >
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+          </Stack>
+        </SafeAreaProvider>
+      </PaymentProvider>
     </SessionProvider>
   );
 }

@@ -16,6 +16,7 @@
     "@rove/contracts": "workspace:*",
     "@rove/mobile-core": "workspace:*",
     "@rove/mobile-ui": "workspace:*",
+    "@stripe/stripe-react-native": "0.64.0",
     "expo": "~57.0.20",
     "expo-auth-session": "~57.0.11",
     "expo-constants": "~57.0.17",

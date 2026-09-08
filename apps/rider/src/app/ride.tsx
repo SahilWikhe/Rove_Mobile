@@ -20,7 +20,7 @@ const titles: Record<RideDetails['state'], string> = {
 };
 export default function Ride() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { api } = useSession();
+  const { api, synthetic } = useSession();
   const { pending, restoring, recoveryError, execute } = useOperations();
   const [ride, setRide] = useState<RideDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -89,7 +89,11 @@ export default function Ride() {
 
       {ride ? (
         <>
-          <Copy kind="title">{titles[ride.state]}</Copy>
+          <Copy kind="title">
+            {ride.state === 'searching' && !synthetic && ride.paymentState !== 'authorized'
+              ? 'Confirm your payment.'
+              : titles[ride.state]}
+          </Copy>
           <RouteSummary
             pickup={ride.pickup?.label ?? ride.pickupArea}
             destination={ride.destination?.label ?? ride.destinationArea}
@@ -104,6 +108,14 @@ export default function Ride() {
             <Money cents={ride.fare.amount} label="FARE" />
             <Copy kind="muted">Payment: {ride.paymentState.replaceAll('_', ' ')}</Copy>
           </Card>
+          {!synthetic &&
+            ride.state === 'searching' &&
+            ['pending', 'action_required'].includes(ride.paymentState) && (
+              <Button
+                title="Confirm payment"
+                onPress={() => router.push({ pathname: '/payment', params: { id: ride.id } })}
+              />
+            )}
           {!pending &&
             !restoring &&
             !recoveryError &&

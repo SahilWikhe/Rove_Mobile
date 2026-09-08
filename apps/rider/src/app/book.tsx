@@ -5,7 +5,7 @@ import type { Place, Quote } from '@rove/contracts';
 import { useSession } from '@rove/mobile-core/session';
 import { Banner, Button, Card, Copy, Field, Money, RouteSummary, Screen } from '@rove/mobile-ui';
 export default function Book() {
-  const { api, profile } = useSession();
+  const { api, profile, synthetic } = useSession();
   const { pending, restoring, recoveryError, execute } = useOperations();
   const [pickup, setPickup] = useState<Place | null>(null);
   const [destination, setDestination] = useState<Place | null>(null);
@@ -17,7 +17,7 @@ export default function Book() {
   const [error, setError] = useState<string | null>(null);
   async function submit(quoteId: string) {
     const ride = await execute({ kind: 'book', quoteId });
-    router.replace({ pathname: '/ride', params: { id: ride.id } });
+    router.replace({ pathname: synthetic ? '/ride' : '/payment', params: { id: ride.id } });
   }
   async function perform(work: () => Promise<void>) {
     setLoading(true);
