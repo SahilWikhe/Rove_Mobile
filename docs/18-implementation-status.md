@@ -83,6 +83,8 @@ Shared native endpoint maps have been added to authorized ride/trip details; see
 
 Driver payout onboarding now has a durable provider binding, Accounts v2 adapter, authenticated endpoints and a driver setup screen; see [payout onboarding](56-driver-payout-onboarding.md). It defaults off, does not enable driving or transfer money, and still requires real sandbox/native verification. Dedicated account-event reconciliation now updates expiring payout readiness and revokes stale eligibility without abandoning active rides; see [payout account events](57-payout-account-reconciliation.md).
 
+Driver directions now recheck trip authorization and endpoint freshness before external Maps handoff; see [driver navigation](58-driver-navigation.md). Real device navigation remains unverified.
+
 ## Delivery instructions
 
 The user authorized building and verifying the complete mobile product, deferring paid account setup and final business decisions to the handoff, and pushing the result to `main`. The current implementation is being committed as an intermediate checkpoint at the user’s explicit request. This push does not represent completion of the full product. No production deployment is included.

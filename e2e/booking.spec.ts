@@ -110,12 +110,41 @@ test('rider request reaches the driver and both apps follow a completed syntheti
     await expect(page.getByText(/Driver location last reported at/)).toHaveCount(0);
     await page.unroute(locationUrl);
     await driver.bringToFront();
+    await driver.evaluate(() => {
+      window.open = (url) => {
+        document.documentElement.dataset.navigationUrl = String(url);
+        return null;
+      };
+    });
     for (const action of ['Head to pickup', 'I’ve arrived', 'Start trip', 'Complete trip']) {
+      await expect(driver.getByRole('button', { name: action, exact: true })).toBeVisible();
+      const leg = action === 'Complete trip' ? 'destination' : 'pickup';
+      const before = await request.get('http://localhost:4085/v1/rides/' + id, {
+        headers: { Authorization: 'Bearer synthetic-driver' },
+      });
+      const trip = await before.json();
+      await driver.evaluate(() => {
+        delete document.documentElement.dataset.navigationUrl;
+      });
+      await driver.getByRole('button', { name: 'Directions to ' + leg, exact: true }).click();
+      await expect
+        .poll(() => driver.evaluate(() => document.documentElement.dataset.navigationUrl))
+        .toBeTruthy();
+      const navigationUrl = await driver.evaluate(() => document.documentElement.dataset.navigationUrl!);
+      expect(new URL(navigationUrl).searchParams.get('destination')).toBe(
+        `${trip[leg].coordinate.latitude},${trip[leg].coordinate.longitude}`,
+      );
+      const after = await request.get('http://localhost:4085/v1/rides/' + id, {
+        headers: { Authorization: 'Bearer synthetic-driver' },
+      });
+      expect((await after.json()).state).toBe(trip.state);
+
       await driver.getByRole('button', { name: action, exact: true }).click();
       await driver.getByRole('button', { name: 'Confirm: ' + action, exact: true }).click();
     }
     await expect(driver.getByRole('button', { name: 'Back to driving', exact: true })).toBeVisible();
     await expect(driver.getByText('TRIP MAP', { exact: true })).toHaveCount(0);
+    await expect(driver.getByRole('button', { name: /Directions to/ })).toHaveCount(0);
     await page.bringToFront();
     await expect(page.getByText('You’ve arrived.', { exact: true })).toBeVisible();
     const saved = await request.get('http://localhost:4085/v1/rides/' + id, {

@@ -4,7 +4,7 @@ import { useOperations } from '@rove/mobile-core/use-operations';
 import { pollWhileForeground } from '@rove/mobile-core/foreground-polling';
 import { useTrackingError } from '../tracking/provider';
 import { useCallback, useState } from 'react';
-import { Linking } from 'react-native';
+import { NavigationButton } from '../navigation/button';
 import { router, Stack, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import type { RideDetails } from '@rove/contracts';
 import { useSession } from '@rove/mobile-core/session';
@@ -17,7 +17,7 @@ const actions = {
 } as const;
 export default function Trip() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { api, synthetic } = useSession();
+  const { api, synthetic, profile } = useSession();
   const { pending, restoring, recoveryError, execute } = useOperations();
   const trackingError = useTrackingError();
   const [ride, setRide] = useState<RideDetails | null>(null);
@@ -58,7 +58,6 @@ export default function Trip() {
       setBusy(false);
     }
   }
-  const destination = ride?.state === 'in_progress' ? ride.destination : ride?.pickup;
   async function recover() {
     if (!pending) return;
     setBusy(true);
@@ -120,17 +119,11 @@ export default function Trip() {
             pickup={ride.pickup?.label ?? ride.pickupArea}
             destination={ride.destination?.label ?? ride.destinationArea}
           />
-          {destination && action && (
-            <Button
-              title="Open navigation"
-              variant="secondary"
-              onPress={() =>
-                void Linking.openURL(
-                  `https://www.google.com/maps/dir/?api=1&destination=${destination.coordinate.latitude},${destination.coordinate.longitude}&travelmode=driving`,
-                ).catch(() => setError('Navigation could not be opened.'))
-              }
-            />
-          )}
+          <NavigationButton
+            key={`${profile?.id}:${ride.id}:${ride.version}`}
+            ride={ride}
+            disabled={busy || !!readError || !!pending || restoring || !!recoveryError}
+          />
           {action &&
             !pending &&
             !restoring &&
