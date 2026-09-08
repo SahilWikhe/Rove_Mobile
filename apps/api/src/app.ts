@@ -164,7 +164,7 @@ export function createApp(deps: Dependencies) {
     const user = result.rows[0];
     if (user?.disabled)
       throw new DomainError('ACCOUNT_DISABLED', 'Contact support for help with your account.', 403);
-    if (user) c.set('actor', { id: user.id, role: user.role });
+    if (user) c.set('actor', { id: user.id, role: user.role, mfa: identity.mfa === true });
     else if (!(c.req.path === '/v1/me' && c.req.method === 'POST'))
       throw new DomainError('PROFILE_REQUIRED', 'Complete your profile to continue.', 403);
     await next();

@@ -31,9 +31,9 @@ beforeAll(async () => {
     }),
     maps,
     verifyIdentity: async (token) => {
-      if (!['rider', 'new-user', 'driver', 'staff'].includes(token))
+      if (!['rider', 'new-user', 'driver', 'staff', 'staff-no-mfa'].includes(token))
         throw new DomainError('UNAUTHENTICATED', 'Please sign in.', 401);
-      return { subject: token };
+      return { subject: token === 'staff-no-mfa' ? 'staff' : token, mfa: token === 'staff' };
     },
     flags: async () => {
       throw new Error('Provider unavailable');
@@ -319,6 +319,13 @@ test('staff vehicle endpoints deny access without the explicit review permission
       })
     ).status,
   ).toBe(404);
+  expect(
+    (
+      await app.request(`/v1/staff/drivers/${target}/vehicle-submission`, {
+        headers: { Authorization: 'Bearer staff-no-mfa', 'X-MFA': 'true', amr: 'mfa' },
+      })
+    ).status,
+  ).toBe(403);
   expect(
     (
       await app.request(`/v1/staff/drivers/${target}/vehicle-submission`, {

@@ -8,6 +8,7 @@ import { command, event } from './transactions';
 export interface Actor {
   id: string;
   role: ActorRole;
+  mfa?: boolean;
 }
 interface RideRow {
   id: string;

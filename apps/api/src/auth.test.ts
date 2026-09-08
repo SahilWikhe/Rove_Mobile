@@ -19,7 +19,7 @@ test('OIDC verifies signature, issuer, audience, expiry and required claims', as
     })
       .setProtectedHeader({ alg: 'RS256' })
       .sign(pair.privateKey);
-  expect(await verify(await token())).toEqual({ subject: 'https://identity.example|user-1' });
+  expect(await verify(await token())).toEqual({ subject: 'https://identity.example|user-1', mfa: false });
   for (const claims of [
     { iss: 'https://attacker.example' },
     { aud: 'other-api' },
@@ -29,6 +29,12 @@ test('OIDC verifies signature, issuer, audience, expiry and required claims', as
   ]) {
     await expect(verify(await token(claims))).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
   }
-  const valid = await token();
+  for (const amr of [undefined, [], ['pwd'], ['otp'], 'mfa', ['MFA'], ['mfa', 1], { mfa: true }]) {
+    expect((await verify(await token({ amr }))).mfa).toBe(false);
+  }
+  for (const amr of [['mfa'], ['pwd', 'otp', 'mfa']]) {
+    expect((await verify(await token({ amr }))).mfa).toBe(true);
+  }
+  const valid = await token({ amr: ['mfa'] });
   await expect(verify(`${valid.slice(0, -10)}0000000000`)).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
 });

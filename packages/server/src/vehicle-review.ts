@@ -4,13 +4,14 @@ import { command, transaction } from './transactions';
 import { DomainError } from './errors';
 import type { Actor } from './rides';
 async function authorize(client: PoolClient, actor: Actor) {
-  if (actor.role !== 'staff')
-    throw new DomainError('FORBIDDEN', 'Vehicle review permission is required.', 403);
+  if (actor.role !== 'staff' || actor.mfa !== true)
+    throw new DomainError('FORBIDDEN', 'Verified MFA and vehicle review permission are required.', 403);
   const result = await client.query(
     "SELECT u.id FROM users u JOIN staff_permissions p ON p.staff_id=u.id WHERE u.id=$1 AND u.role='staff' AND u.disabled=false AND p.permission='driver.vehicle.review' FOR SHARE OF u,p",
     [actor.id],
   );
-  if (!result.rowCount) throw new DomainError('FORBIDDEN', 'Vehicle review permission is required.', 403);
+  if (!result.rowCount)
+    throw new DomainError('FORBIDDEN', 'Verified MFA and vehicle review permission are required.', 403);
 }
 export class VehicleReviewService {
   constructor(private pool: Pool) {}

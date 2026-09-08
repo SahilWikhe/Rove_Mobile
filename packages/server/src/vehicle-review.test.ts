@@ -6,7 +6,9 @@ import { VehicleSubmissionService } from './vehicle-submissions';
 import { VehicleReviewService } from './vehicle-review';
 let db: Awaited<ReturnType<typeof testDatabase>>;
 let review: VehicleReviewService, submissions: VehicleSubmissionService;
-let driver: { id: string; role: 'driver' }, staff: { id: string; role: 'staff' }, revision: string;
+let driver: { id: string; role: 'driver' },
+  staff: { id: string; role: 'staff'; mfa: boolean },
+  revision: string;
 const vehicle = {
   make: 'Synthetic',
   model: 'Test',
@@ -27,7 +29,7 @@ afterAll(async () => {
 beforeEach(async () => {
   await db.pool.query('TRUNCATE users CASCADE');
   driver = { id: randomUUID(), role: 'driver' };
-  staff = { id: randomUUID(), role: 'staff' };
+  staff = { id: randomUUID(), role: 'staff', mfa: true };
   await db.db
     .insert(users)
     .values([driver, staff].map((actor) => ({ ...actor, subject: actor.id, name: 'Synthetic' })));
@@ -110,4 +112,24 @@ test('disabled reviewers and unrequested accessible capability are rejected', as
   ).rejects.toMatchObject({ code: 'INVALID_SERVICE' });
   await db.pool.query('UPDATE users SET disabled=true WHERE id=$1', [staff.id]);
   await expect(review.inspect(staff, driver.id)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+});
+
+test('permission does not bypass missing MFA, including a recorded decision replay', async () => {
+  await grant();
+  const key = randomUUID();
+  for (const actor of [
+    { id: staff.id, role: staff.role },
+    { ...staff, mfa: false },
+  ]) {
+    await expect(review.inspect(actor, driver.id)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(review.decide(actor, driver.id, approve(), key)).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+  }
+  expect((await db.pool.query('SELECT id FROM audit WHERE actor_id=$1', [staff.id])).rowCount).toBe(0);
+  expect((await db.pool.query('SELECT id FROM vehicle_review_decisions')).rowCount).toBe(0);
+  await review.decide(staff, driver.id, approve(), key);
+  await expect(review.decide({ ...staff, mfa: false }, driver.id, approve(), key)).rejects.toMatchObject({
+    code: 'FORBIDDEN',
+  });
 });

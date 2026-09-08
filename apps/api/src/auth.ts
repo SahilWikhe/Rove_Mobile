@@ -1,7 +1,7 @@
 import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from 'jose';
 import { DomainError } from '@rove/server';
 
-export type VerifyIdentity = (token: string) => Promise<{ subject: string }>;
+export type VerifyIdentity = (token: string) => Promise<{ subject: string; mfa?: boolean }>;
 export function oidcIdentity(
   config: { issuer: string; audience: string; jwksUrl: string },
   testKeys?: JWTVerifyGetKey,
@@ -22,7 +22,14 @@ export function oidcIdentity(
         clockTolerance: 5,
       });
       if (!payload.sub || payload.sub.length > 300) throw new Error('Invalid subject');
-      return { subject: `${config.issuer}|${payload.sub}` };
+      return {
+        subject: `${config.issuer}|${payload.sub}`,
+        // Trust only the configured issuer's signed MFA evidence, never request headers.
+        mfa:
+          Array.isArray(payload.amr) &&
+          payload.amr.every((method) => typeof method === 'string') &&
+          payload.amr.includes('mfa'),
+      };
     } catch {
       throw new DomainError('UNAUTHENTICATED', 'Please sign in again.', 401);
     }
