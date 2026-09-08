@@ -1,0 +1,12 @@
+# Requires a signed-in synthetic app and an existing accepted synthetic trip.
+appId: ${APP_ID}
+---
+- openLink: ${TRIP_LINK}
+- tapOn:
+    text: Open
+    optional: true
+- extendedWaitUntil:
+    visible: ${EXPECTED_TITLE}
+    timeout: 30000
+- assertVisible: '.*Pickup and destination only.*'
+- takeScreenshot: native-trip-map

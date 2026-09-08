@@ -86,12 +86,15 @@ test('rider request reaches the driver and both apps follow a completed syntheti
     await driver.getByRole('button', { name: 'View ride request', exact: true }).click();
     await expect(driver.getByText('Home · synthetic pickup', { exact: true })).toHaveCount(0);
     await expect(driver.getByText('Alex Rider', { exact: true })).toHaveCount(0);
+    await expect(driver.getByText('TRIP MAP', { exact: true })).toHaveCount(0);
     await driver.getByRole('button', { name: 'Accept ride', exact: true }).click();
+    await expect(driver.getByText('TRIP MAP', { exact: true })).toBeVisible();
     for (const action of ['Head to pickup', 'I’ve arrived', 'Start trip', 'Complete trip']) {
       await driver.getByRole('button', { name: action, exact: true }).click();
       await driver.getByRole('button', { name: 'Confirm: ' + action, exact: true }).click();
     }
     await expect(driver.getByRole('button', { name: 'Back to driving', exact: true })).toBeVisible();
+    await expect(driver.getByText('TRIP MAP', { exact: true })).toHaveCount(0);
     await page.bringToFront();
     await expect(page.getByText('You’ve arrived.', { exact: true })).toBeVisible();
     const saved = await request.get('http://localhost:4085/v1/rides/' + id, {

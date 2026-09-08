@@ -1,3 +1,4 @@
+import { TripMap } from '@rove/mobile-ui/trip-map';
 import { TripEarningsSummary } from '../earnings/trip-summary';
 import { useOperations } from '@rove/mobile-core/use-operations';
 import { pollWhileForeground } from '@rove/mobile-core/foreground-polling';
@@ -16,7 +17,7 @@ const actions = {
 } as const;
 export default function Trip() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { api } = useSession();
+  const { api, synthetic } = useSession();
   const { pending, restoring, recoveryError, execute } = useOperations();
   const trackingError = useTrackingError();
   const [ride, setRide] = useState<RideDetails | null>(null);
@@ -104,6 +105,16 @@ export default function Trip() {
               <Copy kind="label">YOUR RIDER</Copy>
               <Copy kind="heading">{ride.rider.name}</Copy>
             </Card>
+          )}
+          {ride.pickup && ride.destination && (
+            <TripMap
+              key={ride.id}
+              pickup={ride.pickup.coordinate}
+              destination={ride.destination.coordinate}
+              synthetic={synthetic}
+              androidEnabled={!!process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY}
+              iosEnabled={!!process.env.EXPO_PUBLIC_GOOGLE_MAPS_IOS_KEY}
+            />
           )}
           <RouteSummary
             pickup={ride.pickup?.label ?? ride.pickupArea}

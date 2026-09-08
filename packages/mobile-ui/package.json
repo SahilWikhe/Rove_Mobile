@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.tsx",
     "./profile-name-form": "./src/profile-name-form.tsx",
-    "./support-form": "./src/support-form.tsx"
+    "./support-form": "./src/support-form.tsx",
+    "./trip-map": "./src/trip-map.tsx"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
@@ -14,12 +15,14 @@
   "peerDependencies": {
     "react": "19.2.3",
     "react-native": "0.86.3",
-    "react-native-safe-area-context": "~5.7.0"
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-maps": "1.27.2"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
     "react": "19.2.3",
     "react-native": "0.86.3",
+    "react-native-maps": "1.27.2",
     "react-native-safe-area-context": "~5.7.0"
   }
 }

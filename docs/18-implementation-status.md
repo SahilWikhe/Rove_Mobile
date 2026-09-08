@@ -69,9 +69,17 @@ Temporary auth refresh failures now preserve saved sessions while preventing exp
 
 An owned Home/Work saved-place API, migration, mobile client and booking controls are implemented; Home-screen shortcuts, native verification and hosted-environment migration remain pending. See [saved places](47-saved-places.md).
 
-A driver-owned vehicle-submission API and client now separate pending vehicle details from effective approval; a driver vehicle form is implemented, while documents and staff review remain pending. See [vehicle submissions](48-driver-vehicle-submission.md).
+A driver-owned vehicle-submission API and client now separate pending vehicle details from effective approval; a driver vehicle form and staff review API are implemented, while document upload and full eligibility activation remain pending. See [vehicle submissions](48-driver-vehicle-submission.md).
 
-A permission-scoped staff vehicle review API now records immutable decisions without enabling driver eligibility; see [staff vehicle review](49-staff-vehicle-review.md). Staff MFA, documents and the separate dashboard remain pending.
+A permission-scoped staff vehicle review API now records immutable decisions without enabling driver eligibility; see [staff vehicle review](49-staff-vehicle-review.md). Staff review requires verified MFA and explicit permission. Provider MFA setup verification, document upload and the separate dashboard remain pending.
+
+Consumer support intake, history, staff queue/response APIs and safe vehicle correction guidance are implemented; see [support requests](50-support-requests.md). This is not a staffed or emergency support operation.
+
+Required browser CI now covers booking/cancellation, the two-app synthetic trip, receipt/earnings history, lost-response recovery, support and real search-deadline recovery; see [browser checks](51-browser-ci.md). Local payments run through shared reconciliation/ledger services with a synthetic provider; real Stripe settlement remains unverified.
+
+Completed driver trips show ledger-backed earnings with explicit payout limitations; see [trip earnings](52-driver-trip-earnings.md). An unmatched rider search can lead to a fresh route/quote review without automatic booking; see [search recovery](53-no-driver-recovery.md).
+
+Shared native endpoint maps have been added to authorized ride/trip details; see [native maps](54-native-trip-maps.md). Production SDK key setup, real Google rendering and rider-visible live driver tracking remain outstanding.
 
 ## Delivery instructions
 
