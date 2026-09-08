@@ -1,6 +1,6 @@
 # Support request intake
 
-Implemented September 8, 2026 for signed-in riders and drivers. This is request intake and private read access, not a staffed support service or emergency channel. Staff replies, resolution, assignment, notification delivery and the separate dashboard queue remain outstanding.
+Implemented September 8, 2026 for signed-in riders and drivers. This includes request intake, private read access and one staff response with resolution. It is not a staffed support service or emergency channel. Assignment, notification delivery and the separate dashboard queue remain outstanding.
 
 ## Mobile behavior
 
@@ -22,10 +22,20 @@ The caller cannot supply an owner, status, reviewer or privileged field. Consume
 
 Transactions lock the owner to serialize concurrent creation, cap open requests at five per account, and commit the saved request, audit and command result together. POST also has a five-per-minute database-backed API limit. Existing identical open requests return their original result without another request or creation audit. Audit metadata includes category, not message text. Request bodies and command results contain private messages and require restricted database access and coordinated retention/deletion; no encryption-at-rest deployment claim is made here.
 
-Status is reserved for the upcoming audited staff resolution workflow. There is currently no public status mutation, staff queue listing or reply endpoint. Do not release this as staffed support until the full operational workflow and notification delivery are verified. No production support team, inbox or service-level agreement was configured.
+Resolution is available only through the staff endpoint described below. There is no consumer status mutation, staff queue listing or ongoing conversation thread. Do not release this as staffed support until the full operational workflow and notification delivery are verified. No production support team, inbox or service-level agreement was configured.
 
 ## Verification
 
 Real disposable Postgres tests cover concurrent retry, owner isolation, the concurrent open-request cap, disabled-account replay, role spoofing, MFA/permission denial, audited staff access, strict payload validation and transactional rollback. API tests verify no-store responses, strict ownership input, retry and rate limiting; client tests verify payload validation and propagation of the mutation key.
 
 The driver web preview was exercised at 390×844: Account → Help & support → load → select Vehicle → submit a synthetic question → receive reference and view saved request. Both mobile apps were exported for iOS, Android and web. Physical-device keyboard, screen-reader and native support submission checks remain pending.
+
+## Staff response and resolution
+
+Migration `0017_support_resolution.sql` adds the public response, resolution timestamp and private resolving-staff foreign key. POST `/v1/staff/support-requests/:id/resolve` accepts a strict `response` body (10–2000 characters) plus Idempotency-Key. Staff must have both `support.read` and `support.resolve`, verified MFA and an enabled account. No permission is granted automatically.
+
+The service locks the request and permits only open → resolved. Competing resolutions cannot overwrite the winning response. A same-key retry returns the original committed result, but permissions are rechecked before replay. The response, status, staff identity, timestamp, audit and command result commit together; an audit failure leaves the request open. Resolved requests no longer consume an open-request slot.
+
+Responses are deliberately customer-visible copy, not private staff notes. The owner history returns response and resolution time without staff identity. Both apps render the response as plain text in the request card after refresh, with no HTML/link execution or claim that a push notification was delivered. Missing fields from older API responses default to null. Existing records are preserved by nullable columns; coordinated app/API rollout remains required because old clients use strict DTOs.
+
+Tests cover permission and MFA denial, revoked permission on replay, concurrent resolution, audit rollback, released capacity, owner-only visibility and endpoint payload validation. A synthetic resolved response was visually checked at 390×844 in the driver web preview. Actual provider notifications, multi-message conversations, reopening/escalation policy, staff queue pagination and the dashboard are still pending. Resolution does not change driver eligibility, refund a payment or mutate a ride.

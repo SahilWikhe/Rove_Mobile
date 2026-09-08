@@ -293,12 +293,19 @@ export const SupportRequestInput = z
       .regex(/^[^\p{Cc}\p{Cf}]*$/u),
   })
   .strict();
+export const SupportResolution = z
+  .object({
+    response: SupportRequestInput.shape.message,
+  })
+  .strict();
 export const SupportRequest = z
   .object({
     id: z.uuid(),
     category: SupportCategory,
     message: z.string(),
     status: z.enum(['open', 'resolved']),
+    response: z.string().nullable().default(null),
+    resolvedAt: z.iso.datetime().nullable().default(null),
     createdAt: z.iso.datetime(),
   })
   .strict();

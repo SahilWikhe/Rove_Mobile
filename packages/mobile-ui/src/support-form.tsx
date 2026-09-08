@@ -6,6 +6,8 @@ type Request = {
   category: Category;
   message: string;
   status: 'open' | 'resolved';
+  response?: string | null;
+  resolvedAt?: string | null;
   createdAt: string;
 };
 const categories: Category[] = ['account', 'vehicle', 'trip', 'payment', 'other'];
@@ -119,6 +121,15 @@ export function SupportForm({
                 {request.category} · {request.status}
               </Copy>
               <Copy>{request.message}</Copy>
+              {request.response && (
+                <>
+                  <Copy kind="heading">Rove support</Copy>
+                  <Copy>{request.response}</Copy>
+                  {request.resolvedAt && (
+                    <Copy kind="muted">Resolved {new Date(request.resolvedAt).toLocaleString()}</Copy>
+                  )}
+                </>
+              )}
               <Copy kind="muted">{new Date(request.createdAt).toLocaleString()}</Copy>
               <Copy kind="muted">Reference: {request.id}</Copy>
             </Card>

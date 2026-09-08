@@ -1,5 +1,5 @@
 import type { Pool, PoolClient } from 'pg';
-import { SupportRequest, SupportRequestInput } from '@rove/contracts';
+import { SupportRequest, SupportRequestInput, SupportResolution } from '@rove/contracts';
 import type { Actor } from './rides';
 import { DomainError } from './errors';
 import { command, transaction } from './transactions';
@@ -20,6 +20,8 @@ function dto(row: Record<string, unknown>) {
     category: row.category,
     message: row.message,
     status: row.status,
+    response: row.response ?? null,
+    resolvedAt: row.resolved_at ? (row.resolved_at as Date).toISOString() : null,
     createdAt: (row.created_at as Date).toISOString(),
   });
 }
@@ -29,7 +31,7 @@ export class SupportService {
     return transaction(this.pool, async (client) => {
       await owner(client, actor);
       const result = await client.query(
-        'SELECT id,category,message,status,created_at FROM support_requests WHERE owner_id=$1 ORDER BY created_at DESC,id DESC LIMIT 50',
+        'SELECT id,category,message,status,created_at,response,resolved_at FROM support_requests WHERE owner_id=$1 ORDER BY created_at DESC,id DESC LIMIT 50',
         [actor.id],
       );
       return { requests: result.rows.map(dto) };
@@ -42,7 +44,7 @@ export class SupportService {
     return command(this.pool, actor.id, key, { action: 'support.create', ...input }, async (client) => {
       await owner(client, actor);
       const existing = await client.query(
-        "SELECT id,category,message,status,created_at FROM support_requests WHERE owner_id=$1 AND category=$2 AND message=$3 AND status='open' LIMIT 1",
+        "SELECT id,category,message,status,created_at,response,resolved_at FROM support_requests WHERE owner_id=$1 AND category=$2 AND message=$3 AND status='open' LIMIT 1",
         [actor.id, input.category, input.message],
       );
       if (existing.rows[0]) return dto(existing.rows[0]);
@@ -57,7 +59,7 @@ export class SupportService {
           409,
         );
       const result = await client.query(
-        'INSERT INTO support_requests(owner_id,category,message) VALUES($1,$2,$3) RETURNING id,category,message,status,created_at',
+        'INSERT INTO support_requests(owner_id,category,message) VALUES($1,$2,$3) RETURNING id,category,message,status,created_at,response,resolved_at',
         [actor.id, input.category, input.message],
       );
       const request = dto(result.rows[0]);
@@ -68,11 +70,48 @@ export class SupportService {
       return request;
     });
   }
+
+  async resolve(actor: Actor, requestId: string, raw: unknown, key: string) {
+    const input = SupportResolution.parse(raw);
+    const authorize = async (client: PoolClient) => {
+      await requireStaffPermission(client, actor, 'support.read');
+      await requireStaffPermission(client, actor, 'support.resolve');
+    };
+    await transaction(this.pool, authorize);
+    return command(
+      this.pool,
+      actor.id,
+      key,
+      { action: 'support.resolve', requestId, ...input },
+      async (client) => {
+        await authorize(client);
+        const found = await client.query('SELECT id,status FROM support_requests WHERE id=$1 FOR UPDATE', [
+          requestId,
+        ]);
+        if (!found.rows[0]) throw new DomainError('NOT_FOUND', 'Support request not found.', 404);
+        if (found.rows[0].status !== 'open')
+          throw new DomainError(
+            'SUPPORT_RESOLVED',
+            'This request was already resolved. Reload before continuing.',
+            409,
+          );
+        const result = await client.query(
+          "UPDATE support_requests SET status='resolved',response=$2,resolved_at=now(),resolved_by=$3 WHERE id=$1 RETURNING id,category,message,status,created_at,response,resolved_at",
+          [requestId, input.response, actor.id],
+        );
+        await client.query(
+          "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'support.resolved',$2,'{}')",
+          [actor.id, requestId],
+        );
+        return dto(result.rows[0]);
+      },
+    );
+  }
   async inspect(actor: Actor, requestId: string) {
     return transaction(this.pool, async (client) => {
       await requireStaffPermission(client, actor, 'support.read');
       const result = await client.query(
-        'SELECT id,category,message,status,created_at FROM support_requests WHERE id=$1',
+        'SELECT id,category,message,status,created_at,response,resolved_at FROM support_requests WHERE id=$1',
         [requestId],
       );
       if (!result.rows[0]) throw new DomainError('NOT_FOUND', 'Support request not found.', 404);

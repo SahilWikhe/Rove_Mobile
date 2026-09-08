@@ -100,3 +100,80 @@ test('a failed audit rolls back request and idempotency result together', async 
   expect((await db.pool.query('SELECT * FROM commands')).rowCount).toBe(0);
   await expect(service.create(rider, input, key)).resolves.toMatchObject({ status: 'open' });
 });
+
+async function grantResolution() {
+  await db.pool.query(
+    "INSERT INTO staff_permissions(staff_id,permission) VALUES($1,'support.read'),($1,'support.resolve')",
+    [staff.id],
+  );
+}
+test('only an MFA staff resolver can publish a response; the owner sees no staff identity', async () => {
+  const request = await service.create(driver, input, randomUUID());
+  const reply = { response: 'Synthetic review instructions for the driver' };
+  await expect(service.resolve(driver, request.id, reply, randomUUID())).rejects.toMatchObject({
+    code: 'FORBIDDEN',
+  });
+  await db.pool.query("INSERT INTO staff_permissions(staff_id,permission) VALUES($1,'support.read')", [
+    staff.id,
+  ]);
+  await expect(service.resolve(staff, request.id, reply, randomUUID())).rejects.toMatchObject({
+    code: 'FORBIDDEN',
+  });
+  await db.pool.query("INSERT INTO staff_permissions(staff_id,permission) VALUES($1,'support.resolve')", [
+    staff.id,
+  ]);
+  await expect(
+    service.resolve({ ...staff, mfa: false }, request.id, reply, randomUUID()),
+  ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  const key = randomUUID();
+  const result = await service.resolve(staff, request.id, reply, key);
+  expect(result).toMatchObject({ status: 'resolved', response: reply.response });
+  expect(result.resolvedAt).toBeTruthy();
+  expect(await service.resolve(staff, request.id, reply, key)).toEqual(result);
+  expect((await service.list(driver)).requests).toEqual([result]);
+  expect((await service.list(rider)).requests).toEqual([]);
+  expect(result).not.toHaveProperty('resolvedBy');
+  expect((await db.pool.query("SELECT id FROM audit WHERE action='support.resolved'")).rowCount).toBe(1);
+  await db.pool.query("DELETE FROM staff_permissions WHERE staff_id=$1 AND permission='support.resolve'", [
+    staff.id,
+  ]);
+  await expect(service.resolve(staff, request.id, reply, key)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+});
+test('competing resolutions preserve exactly one public response', async () => {
+  await grantResolution();
+  const request = await service.create(rider, input, randomUUID());
+  const results = await Promise.allSettled([
+    service.resolve(staff, request.id, { response: 'Synthetic first resolution' }, randomUUID()),
+    service.resolve(staff, request.id, { response: 'Synthetic second resolution' }, randomUUID()),
+  ]);
+  expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+  expect(results.find((result) => result.status === 'rejected')).toMatchObject({
+    reason: { code: 'SUPPORT_RESOLVED' },
+  });
+  const winning = results.find((result) => result.status === 'fulfilled');
+  if (winning?.status === 'fulfilled') expect((await service.list(rider)).requests[0]).toEqual(winning.value);
+});
+test('resolution frees open-request capacity and audit failure leaves the request open', async () => {
+  await grantResolution();
+  const requests = [];
+  for (let i = 0; i < 5; i++)
+    requests.push(await service.create(rider, { ...input, message: input.message + i }, randomUUID()));
+  await db.pool.query(
+    "ALTER TABLE audit ADD CONSTRAINT support_resolve_audit_fixture CHECK(action <> 'support.resolved')",
+  );
+  const key = randomUUID(),
+    request = requests[0]!;
+  try {
+    await expect(
+      service.resolve(staff, request.id, { response: 'Synthetic response' }, key),
+    ).rejects.toThrow();
+  } finally {
+    await db.pool.query('ALTER TABLE audit DROP CONSTRAINT support_resolve_audit_fixture');
+  }
+  expect((await service.inspect(staff, request.id)).status).toBe('open');
+  expect((await service.inspect(staff, request.id)).response).toBeNull();
+  await service.resolve(staff, request.id, { response: 'Synthetic response' }, key);
+  await expect(
+    service.create(rider, { ...input, message: 'Synthetic additional question' }, randomUUID()),
+  ).resolves.toMatchObject({ status: 'open' });
+});

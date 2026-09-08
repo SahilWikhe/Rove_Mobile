@@ -7,6 +7,7 @@ import { cors } from 'hono/cors';
 import { z } from 'zod';
 import {
   SupportRequestInput,
+  SupportResolution,
   QuoteRequest,
   VehicleReviewDecision,
   VehicleSubmissionUpdate,
@@ -253,6 +254,16 @@ export function createApp(deps: Dependencies) {
       await support.create(
         c.var.actor,
         await body(c, SupportRequestInput),
+        c.req.header('Idempotency-Key') ?? '',
+      ),
+    ),
+  );
+  app.post('/v1/staff/support-requests/:id/resolve', async (c) =>
+    c.json(
+      await support.resolve(
+        c.var.actor,
+        id(c.req.param('id')),
+        await body(c, SupportResolution),
         c.req.header('Idempotency-Key') ?? '',
       ),
     ),

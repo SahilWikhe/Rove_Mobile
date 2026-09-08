@@ -350,3 +350,28 @@ test('support submission is private, idempotent, strict and rate limited', async
   await request('/v1/support-requests', input);
   expect((await request('/v1/support-requests', input)).status).toBe(429);
 });
+
+test('staff support resolution is permission-gated and returned in owner history', async () => {
+  const created = await (
+    await request('/v1/support-requests', { category: 'account', message: 'Synthetic support request' })
+  ).json();
+  const staffId = randomUUID();
+  await database.db
+    .insert(users)
+    .values({ id: staffId, subject: 'staff', name: 'Synthetic staff', role: 'staff' });
+  const path = '/v1/staff/support-requests/' + created.id + '/resolve';
+  const reply = { response: 'Synthetic account resolution' };
+  expect((await request(path, reply, 'rider')).status).toBe(403);
+  expect((await request(path, reply, 'staff')).status).toBe(403);
+  await database.pool.query(
+    "INSERT INTO staff_permissions(staff_id,permission) VALUES($1,'support.read'),($1,'support.resolve')",
+    [staffId],
+  );
+  expect((await request(path, reply, 'staff-no-mfa')).status).toBe(403);
+  expect((await request(path, { ...reply, status: 'open' }, 'staff')).status).toBe(400);
+  const resolved = await request(path, reply, 'staff');
+  expect(resolved.status).toBe(200);
+  const history = await (await request('/v1/support-requests')).json();
+  expect(history.requests[0]).toMatchObject({ status: 'resolved', response: reply.response });
+  expect(history.requests[0]).not.toHaveProperty('resolvedBy');
+});

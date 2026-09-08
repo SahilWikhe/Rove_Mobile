@@ -195,7 +195,11 @@ test('support requests validate input and keep the caller retry key', async () =
   };
   const transport = vi.fn<Transport>(async () => new Response(JSON.stringify(saved)));
   const api = new ApiClient('https://api.example', async () => 'fixture', transport);
-  expect(await api.createSupportRequest(input, 'support-fixture-key')).toEqual(saved);
+  expect(await api.createSupportRequest(input, 'support-fixture-key')).toEqual({
+    ...saved,
+    response: null,
+    resolvedAt: null,
+  });
   expect(transport.mock.calls[0]?.[1]).toMatchObject({
     method: 'POST',
     headers: { 'Idempotency-Key': 'support-fixture-key' },

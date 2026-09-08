@@ -369,6 +369,10 @@ export const supportRequests = pgTable(
     category: text().notNull(),
     message: text().notNull(),
     status: text().notNull().default('open'),
+    response: text(),
+    resolvedAt: timestamp({ withTimezone: true }),
+    resolvedBy: uuid().references(() => users.id),
+
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
