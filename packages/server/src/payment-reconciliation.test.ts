@@ -309,6 +309,13 @@ test('ride completion drives durable capture and verified settlement without wai
     "INSERT INTO outbox(topic,aggregate_id,payload,dedupe_key) VALUES ('ride.completed',$1,'{}','fixture-completed')",
     [reference.rideId],
   );
+  const driver = randomUUID();
+  await database.pool.query(
+    "INSERT INTO users(id,subject,name,role) VALUES($1::uuid,$1::text,'Fixture driver','driver')",
+    [driver],
+  );
+  await database.pool.query('INSERT INTO drivers(id) VALUES($1)', [driver]);
+  await database.pool.query('UPDATE rides SET driver_id=$1 WHERE id=$2', [driver, reference.rideId]);
   const worker = new OutboxWorker(
     database.pool,
     {
@@ -321,4 +328,26 @@ test('ride completion drives durable capture and verified settlement without wai
   expect(await state()).toMatchObject({ payment_state: 'paid' });
   expect(capture).toHaveBeenCalledTimes(1);
   expect((await database.pool.query('SELECT * FROM outbox WHERE completed_at IS NULL')).rows).toHaveLength(0);
+});
+
+test('ledger persistence failure rolls back paid state and reconciliation revision for a safe retry', async () => {
+  await database.pool.query(
+    "UPDATE rides SET state='completed',payment_state='capture_pending' WHERE id=$1",
+    [reference.rideId],
+  );
+  retrieve.mockResolvedValue(snapshot({ status: 'succeeded', receivedCents: 1050, capturableCents: 0 }));
+  await database.pool.query(
+    "ALTER TABLE ledger_postings ADD CONSTRAINT fixture_ledger_failure CHECK (account <> 'stripe_clearing')",
+  );
+  try {
+    await expect(reconcile.reconcile(reference.intentId)).rejects.toMatchObject({ code: '23514' });
+    expect(await state()).toMatchObject({ payment_state: 'capture_pending' });
+    expect((await database.pool.query('SELECT revision FROM payment_attempts')).rows[0].revision).toBe(0);
+    expect((await database.pool.query('SELECT * FROM ledger_journals')).rows).toHaveLength(0);
+  } finally {
+    await database.pool.query('ALTER TABLE ledger_postings DROP CONSTRAINT fixture_ledger_failure');
+  }
+  await reconcile.reconcile(reference.intentId);
+  expect(await state()).toMatchObject({ payment_state: 'paid' });
+  expect((await database.pool.query('SELECT * FROM ledger_journals')).rows).toHaveLength(1);
 });

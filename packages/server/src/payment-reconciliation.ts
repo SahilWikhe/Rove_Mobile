@@ -1,6 +1,7 @@
 import type { Pool } from 'pg';
 import { z } from 'zod';
 import type { PaymentProvider, PaymentReference, PaymentSnapshot } from './payment-provider';
+import { recordCapturedFunds } from './ledger';
 import { DomainError } from './errors';
 import { transaction, event } from './transactions';
 import type { JobHandler } from './outbox';
@@ -160,6 +161,8 @@ export class PaymentReconciler {
       const ride = (
         await client.query<{
           rider_id: string;
+          driver_id: string | null;
+          earnings_cents: number;
           fare_cents: number;
           state: string;
           payment_state: string;
@@ -197,7 +200,19 @@ export class PaymentReconciler {
       let work: string | undefined;
       if (current.status === 'succeeded') {
         next = current.receivedCents === before.amount_cents ? 'paid' : 'review_required';
-        if (ride.state !== 'completed' || next === 'review_required') work = 'payment.review_required';
+        const allocated =
+          current.receivedCents > 0 &&
+          (await recordCapturedFunds(client, {
+            attemptId: before.id,
+            rideId: before.ride_id,
+            riderId: ride.rider_id,
+            receivedCents: current.receivedCents,
+            driverId: ride.driver_id,
+            earningsCents: ride.earnings_cents,
+            completed: ride.state === 'completed',
+            fullFare: current.receivedCents === before.amount_cents,
+          }));
+        if (!allocated) work = 'payment.review_required';
       } else if (current.status === 'canceled') {
         next = 'released';
         if (!['cancelled', 'no_driver_found'].includes(ride.state)) work = 'payment.review_required';

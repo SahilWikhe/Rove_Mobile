@@ -237,3 +237,45 @@ export const paymentAttempts = pgTable(
     check('valid_payment_attempt_revision', sql`${t.revision} >= 0`),
   ],
 );
+
+export const ledgerJournals = pgTable('ledger_journals', {
+  id: uuid().primaryKey().defaultRandom(),
+  key: text().notNull().unique(),
+  fingerprint: text().notNull(),
+  attemptId: uuid()
+    .notNull()
+    .references(() => paymentAttempts.id),
+  rideId: uuid()
+    .notNull()
+    .references(() => rides.id),
+  kind: text().notNull(),
+  createdTransaction: text()
+    .notNull()
+    .default(sql`pg_current_xact_id()::text`),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+});
+export const ledgerPostings = pgTable(
+  'ledger_postings',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    journalId: uuid()
+      .notNull()
+      .references(() => ledgerJournals.id),
+    account: text().notNull(),
+    ownerId: uuid().references(() => users.id),
+    amountCents: integer().notNull(),
+  },
+  (t) => [
+    index('ledger_postings_journal').on(t.journalId),
+    index('ledger_postings_owner_account').on(t.ownerId, t.account),
+    check('ledger_nonzero_amount', sql`${t.amountCents} <> 0`),
+    check(
+      'ledger_valid_account',
+      sql`${t.account} in ('stripe_clearing','rider_funds','driver_payable','platform_revenue')`,
+    ),
+    check(
+      'ledger_scoped_owner',
+      sql`(${t.account} in ('rider_funds','driver_payable')) = (${t.ownerId} is not null)`,
+    ),
+  ],
+);
