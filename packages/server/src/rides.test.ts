@@ -138,3 +138,15 @@ test('trip lifecycle needs current version, assigned driver and explicit start',
     'completed',
   );
 });
+
+test('a committed booking replays after quote expiry while a new key is rejected', async () => {
+  const fixture = await setup();
+  const key = randomUUID();
+  const original = await service.request(fixture.rider, fixture.quoteId, key);
+  const later = new RideService(database.pool, () => new Date(now.getTime() + 120_000));
+  expect(await later.request(fixture.rider, fixture.quoteId, key)).toEqual(original);
+  await expect(later.request(fixture.rider, fixture.quoteId, randomUUID())).rejects.toMatchObject({
+    status: 409,
+  });
+  expect((await database.pool.query('SELECT count(*) FROM rides')).rows[0].count).toBe('1');
+});

@@ -1,11 +1,12 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
+import { useOperations } from '@rove/mobile-core/use-operations';
 import { router, Stack } from 'expo-router';
-import * as Crypto from 'expo-crypto';
 import type { Place, Quote } from '@rove/contracts';
 import { useSession } from '@rove/mobile-core/session';
 import { Banner, Button, Card, Copy, Field, Money, RouteSummary, Screen } from '@rove/mobile-ui';
 export default function Book() {
   const { api, profile } = useSession();
+  const { pending, restoring, recoveryError, execute } = useOperations();
   const [pickup, setPickup] = useState<Place | null>(null);
   const [destination, setDestination] = useState<Place | null>(null);
   const [target, setTarget] = useState<'pickup' | 'destination'>('pickup');
@@ -14,7 +15,10 @@ export default function Book() {
   const [quote, setQuote] = useState<Quote | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const key = useRef<string | null>(null);
+  async function submit(quoteId: string) {
+    const ride = await execute({ kind: 'book', quoteId });
+    router.replace({ pathname: '/ride', params: { id: ride.id } });
+  }
   async function perform(work: () => Promise<void>) {
     setLoading(true);
     setError(null);
@@ -31,6 +35,46 @@ export default function Book() {
       <Screen>
         <Copy kind="heading">Sign in to book a ride.</Copy>
         <Button title="Back to sign in" onPress={() => router.replace('/')} />
+      </Screen>
+    );
+  if (restoring)
+    return (
+      <Screen>
+        <Copy>Checking your previous request…</Copy>
+      </Screen>
+    );
+  if (recoveryError)
+    return (
+      <Screen>
+        <Banner error message={recoveryError} />
+      </Screen>
+    );
+  if (pending)
+    return (
+      <Screen>
+        <Stack.Screen options={{ title: 'Confirm previous request' }} />
+        <Copy kind="title">Let’s confirm your request.</Copy>
+        <Copy>We saved your previous action. Check its result before starting another ride.</Copy>
+        {error && <Banner error message={error} />}
+        {pending.operation.kind === 'book' ? (
+          <Button
+            title="Check booking result"
+            loading={loading}
+            onPress={() => {
+              const operation = pending.operation;
+              if (operation.kind === 'book') void perform(() => submit(operation.quoteId));
+            }}
+          />
+        ) : (
+          <Button
+            title="Return to your trip"
+            onPress={() => {
+              const operation = pending.operation;
+              if (operation.kind === 'transition')
+                router.replace({ pathname: '/ride', params: { id: operation.rideId } });
+            }}
+          />
+        )}
       </Screen>
     );
   return (
@@ -57,19 +101,16 @@ export default function Book() {
               void perform(async () => {
                 if (Date.parse(quote.expiresAt) <= Date.now()) {
                   setQuote(null);
-                  key.current = null;
                   throw new Error('This quote expired. Review an updated fare before requesting.');
                 }
-                key.current ??= Crypto.randomUUID();
-                const ride = await api.book(quote.id, key.current);
-                router.replace({ pathname: '/ride', params: { id: ride.id } });
+                await submit(quote.id);
               })
             }
           />
           <Button
             title="Change route"
             variant="secondary"
-            disabled={loading || key.current !== null}
+            disabled={loading}
             onPress={() => setQuote(null)}
           />
         </>
@@ -139,7 +180,6 @@ export default function Book() {
               loading={loading}
               onPress={() =>
                 void perform(async () => {
-                  key.current = null;
                   setQuote(await api.quote(pickup, destination, 'standard'));
                 })
               }

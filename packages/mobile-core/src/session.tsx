@@ -15,6 +15,8 @@ import * as WebBrowser from 'expo-web-browser';
 import { z } from 'zod';
 import type { Profile } from '@rove/contracts';
 import { ApiClient, ApiError } from './index';
+import { operationJournal } from './operation-store';
+import type { OperationJournal } from './operations';
 
 WebBrowser.maybeCompleteAuthSession();
 const StoredSession = z.object({
@@ -33,6 +35,7 @@ interface Config {
   synthetic?: boolean;
 }
 interface Session {
+  operations: Promise<OperationJournal> | null;
   ready: boolean;
   api: ApiClient;
   profile: Profile | null;
@@ -73,6 +76,10 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
   const tokenRef = useRef<Tokens | null>(null);
   const refreshRef = useRef<Promise<string | null> | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const operations = useMemo(
+    () => (profile ? operationJournal(config.apiUrl, profile.id, synthetic) : null),
+    [config.apiUrl, profile, synthetic],
+  );
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
   const [needsProfile, setNeedsProfile] = useState(false);
@@ -243,6 +250,7 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
   return (
     <SessionContext.Provider
       value={{
+        operations,
         ready,
         api,
         profile,

@@ -1,7 +1,7 @@
+import { useOperations } from '@rove/mobile-core/use-operations';
 import { pollWhileForeground } from '@rove/mobile-core/foreground-polling';
-import { useCallback, useRef, useState } from 'react';
-import { Stack, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import * as Crypto from 'expo-crypto';
+import { useCallback, useState } from 'react';
+import { router, Stack, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import type { RideDetails } from '@rove/contracts';
 import { useSession } from '@rove/mobile-core/session';
 import { Banner, Button, Card, Copy, Money, RouteSummary, Screen } from '@rove/mobile-ui';
@@ -21,11 +21,11 @@ const titles: Record<RideDetails['state'], string> = {
 export default function Ride() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { api } = useSession();
+  const { pending, restoring, recoveryError, execute } = useOperations();
   const [ride, setRide] = useState<RideDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const cancelKey = useRef<string | null>(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
   useFocusEffect(
     useCallback(
@@ -46,14 +46,28 @@ export default function Ride() {
     ),
   );
   async function cancel() {
-    if (!ride) return;
+    if (!ride || restoring || recoveryError) return;
     setBusy(true);
+    setError(null);
     try {
-      cancelKey.current ??= Crypto.randomUUID();
-      await api.transition(ride.id, 'cancelled', ride.version, cancelKey.current);
+      await execute({ kind: 'transition', rideId: ride.id, state: 'cancelled', version: ride.version });
       setRide(await api.ride(id));
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'Cancellation could not be confirmed.');
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function recover() {
+    if (!pending) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await execute(pending.operation);
+      if (pending.operation.kind === 'book') router.replace({ pathname: '/ride', params: { id: result.id } });
+      else setRide(await api.ride(id));
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'Request could not be confirmed.');
     } finally {
       setBusy(false);
     }
@@ -62,6 +76,17 @@ export default function Ride() {
     <Screen>
       <Stack.Screen options={{ title: 'Your ride' }} />
       {(error || readError) && <Banner error message={error ?? readError!} />}
+      {recoveryError && <Banner error message={recoveryError} />}
+      {pending && (
+        <Card>
+          <Copy kind="heading">A previous request needs confirmation.</Copy>
+          <Copy>
+            Check its result before submitting another action. Your original request will be reused.
+          </Copy>
+          <Button title="Check previous action" loading={busy} onPress={() => void recover()} />
+        </Card>
+      )}
+
       {ride ? (
         <>
           <Copy kind="title">{titles[ride.state]}</Copy>
@@ -79,7 +104,10 @@ export default function Ride() {
             <Money cents={ride.fare.amount} label="FARE" />
             <Copy kind="muted">Payment: {ride.paymentState.replaceAll('_', ' ')}</Copy>
           </Card>
-          {['searching', 'matched', 'en_route', 'arrived'].includes(ride.state) &&
+          {!pending &&
+            !restoring &&
+            !recoveryError &&
+            ['searching', 'matched', 'en_route', 'arrived'].includes(ride.state) &&
             (confirmCancel ? (
               <Card>
                 <Copy kind="heading">Cancel this ride?</Copy>

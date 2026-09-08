@@ -7,7 +7,10 @@
     "./session": "./src/session.tsx",
     "./driver-tracking": "./src/driver-tracking.ts",
     "./location-sample": "./src/location-sample.ts",
-    "./foreground-polling": "./src/foreground-polling.ts"
+    "./foreground-polling": "./src/foreground-polling.ts",
+    "./operations": "./src/operations.ts",
+    "./operation-store": "./src/operation-store.ts",
+    "./use-operations": "./src/use-operations.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

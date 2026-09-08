@@ -1,9 +1,9 @@
+import { useOperations } from '@rove/mobile-core/use-operations';
 import { pollWhileForeground } from '@rove/mobile-core/foreground-polling';
 import { useTrackingError } from '../tracking/provider';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Linking } from 'react-native';
 import { router, Stack, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import * as Crypto from 'expo-crypto';
 import type { RideDetails } from '@rove/contracts';
 import { useSession } from '@rove/mobile-core/session';
 import { Banner, Button, Card, Copy, RouteSummary, Screen } from '@rove/mobile-ui';
@@ -16,13 +16,13 @@ const actions = {
 export default function Trip() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { api } = useSession();
+  const { pending, restoring, recoveryError, execute } = useOperations();
   const trackingError = useTrackingError();
   const [ride, setRide] = useState<RideDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState(false);
-  const operation = useRef<{ state: RideDetails['state']; version: number; key: string } | null>(null);
   useFocusEffect(
     useCallback(
       () =>
@@ -43,20 +43,13 @@ export default function Trip() {
   );
   const action = ride && ride.state in actions ? actions[ride.state as keyof typeof actions] : null;
   async function transition() {
-    if (!ride || !action) return;
+    if (!ride || !action || restoring || recoveryError) return;
     setBusy(true);
     setError(null);
-    if (
-      !operation.current ||
-      operation.current.state !== action[0] ||
-      operation.current.version !== ride.version
-    )
-      operation.current = { state: action[0], version: ride.version, key: Crypto.randomUUID() };
     try {
-      await api.transition(id, operation.current.state, operation.current.version, operation.current.key);
+      await execute({ kind: 'transition', rideId: id, state: action[0], version: ride.version });
       setRide(await api.ride(id));
       setConfirm(false);
-      operation.current = null;
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'Trip update was not confirmed.');
     } finally {
@@ -64,10 +57,34 @@ export default function Trip() {
     }
   }
   const destination = ride?.state === 'in_progress' ? ride.destination : ride?.pickup;
+  async function recover() {
+    if (!pending) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await execute(pending.operation);
+      setRide(await api.ride(id));
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'Request could not be confirmed.');
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
     <Screen>
       <Stack.Screen options={{ title: 'Active trip' }} />
       {(error || readError) && <Banner error message={error ?? readError!} />}
+      {recoveryError && <Banner error message={recoveryError} />}
+      {pending && (
+        <Card>
+          <Copy kind="heading">A previous request needs confirmation.</Copy>
+          <Copy>
+            Check its result before submitting another action. Your original request will be reused.
+          </Copy>
+          <Button title="Check previous action" loading={busy} onPress={() => void recover()} />
+        </Card>
+      )}
+
       {trackingError && <Banner error message={trackingError} />}
       {ride ? (
         <>
@@ -103,6 +120,9 @@ export default function Trip() {
             />
           )}
           {action &&
+            !pending &&
+            !restoring &&
+            !recoveryError &&
             (confirm ? (
               <Card>
                 <Copy kind="heading">{action[1]}?</Copy>
