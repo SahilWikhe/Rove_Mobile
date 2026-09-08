@@ -235,3 +235,5 @@ export const VehicleReview = z
   })
   .strict();
 export const VehicleReviewResponse = z.object({ submission: VehicleReview.nullable() }).strict();
+
+export type VehicleReview = z.infer<typeof VehicleReview>;

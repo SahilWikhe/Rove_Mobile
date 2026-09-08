@@ -1,6 +1,6 @@
 # Driver vehicle submission
 
-Backend and client foundation implemented September 8, 2026. Driver UI, document uploads, staff review and provider verification remain outstanding. This is not a completed onboarding flow.
+Backend, client and driver vehicle form implemented September 8, 2026. Document uploads, staff review and provider verification remain outstanding. This is not a completed onboarding flow.
 
 ## Behavior and boundaries
 
@@ -18,6 +18,14 @@ Postgres tests cover approval invalidation, tracking revocation, unchanged effec
 
 Shared client methods expose reading/submitting, with no automatic mutation replay. Both apps' exports and repository quality checks were run. No production migration or cloud review workflow was executed.
 
+## Driver form
+
+Account now links to Vehicle & review status. The form loads the latest owned revision before editing, validates required fields, offers Standard/Accessible requests and displays a separate review step warning that submission pauses driving approval. Online drivers see a route back to Drive so they can go offline first. Pending/approved/rejected status is shown from the server; no client checkmark grants eligibility.
+
+Duplicate submission taps are guarded synchronously. Account-keyed mounts and focus generations prevent late loads/submission responses from replacing a newer screen state. Reload saved vehicle replaces the draft with the server record. A successful submission also attempts device tracking cleanup; a cleanup failure is reported separately from submission success. Document upload and review staff notifications are not represented as implemented.
+
+The running synthetic driver preview was exercised through Account, empty form validation, completing the fields, review warning, submit and pending status. The backend then reported approved=false and eligible=false with the prior effective vehicle unchanged. This intentionally leaves that disposable demo driver pending until the local synthetic environment is recreated; it does not grant test approval through a public API. Phone-width layout, shared suites, type checks and driver platform exports were checked. Native keyboard, screen-reader and physical tracking cleanup remain unverified.
+
 ## Next steps
 
-Build the driver form and review-status screen with explicit confirmation that submitting a changed vehicle pauses approval. Add secure document intake and an audited staff review API, retaining immutable review history. Real eligibility rules, registration jurisdictions, vehicle-age limits, accessible equipment standards and payout/document provider setup remain launch decisions. Complete native offline/tracking and onboarding end-to-end verification before accepting real drivers.
+Refine the driver form against native device behavior. Add secure document intake and an audited staff review API, retaining immutable review history. Real eligibility rules, registration jurisdictions, vehicle-age limits, accessible equipment standards and payout/document provider setup remain launch decisions. Complete native offline/tracking and onboarding end-to-end verification before accepting real drivers.

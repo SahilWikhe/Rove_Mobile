@@ -69,7 +69,7 @@ Temporary auth refresh failures now preserve saved sessions while preventing exp
 
 An owned Home/Work saved-place API, migration, mobile client and booking controls are implemented; Home-screen shortcuts, native verification and hosted-environment migration remain pending. See [saved places](47-saved-places.md).
 
-A driver-owned vehicle-submission API and client now separate pending vehicle details from effective approval; UI, documents and staff review remain pending. See [vehicle submissions](48-driver-vehicle-submission.md).
+A driver-owned vehicle-submission API and client now separate pending vehicle details from effective approval; a driver vehicle form is implemented, while documents and staff review remain pending. See [vehicle submissions](48-driver-vehicle-submission.md).
 
 ## Delivery instructions
 

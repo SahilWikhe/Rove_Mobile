@@ -44,6 +44,12 @@ export default function Account() {
             <Copy kind="heading">{profile.name}</Copy>
             <Copy kind="muted">Rove driver</Copy>
           </Card>
+          <Button
+            title="Vehicle & review status"
+            variant="secondary"
+            disabled={busy}
+            onPress={() => router.push('/vehicle')}
+          />
           <ProfileNameForm
             key={profile.id}
             initialName={profile.name}
