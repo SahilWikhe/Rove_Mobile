@@ -32,6 +32,8 @@ export class DriverService {
       if (!online && active.rowCount) throw new DomainError('ACTIVE_TRIP', 'Finish or resolve your active trip before going offline.');
       await client.query('UPDATE drivers SET online=$2,location=CASE WHEN $2 THEN $3::jsonb ELSE NULL END,location_at=CASE WHEN $2 THEN $4::timestamptz ELSE NULL END,location_sequence=location_sequence+1 WHERE id=$1',
         [actor.id, online, JSON.stringify(coordinate ?? null), this.now()]);
+      // Offline revokes background upload access even if a device retains its credential.
+      if (!online) await client.query('DELETE FROM driver_tracking_sessions WHERE driver_id=$1', [actor.id]);
       // Do not lock ride rows here: acceptance takes the ride lock before driver lock.
       // The matching worker observes offline state and expires/revokes this offer safely.
       return { online };

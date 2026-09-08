@@ -124,3 +124,7 @@ See [testing](07-testing-strategy.md) for verification and [operations](11-opera
 Proposed `GET /v1/me/capabilities` exposes effective scheduling booleans and expiry only; the backend re-evaluates new scheduling mutations and rejects unavailable features with `FEATURE_UNAVAILABLE`. Accepted work remains viewable, executable and cancellable. See [flag contract](17-scheduling-feature-flags.md).
 
 Use different allowlisted offer and accepted-assignment DTOs. Before acceptance exclude exact addresses/coordinates, identifying rider details/history and medical/payer data, including indirect leaks through map polylines, push and errors. The offer retains coarse areas, ETA/distance, earnings/terms, expiry and necessary service capability. Assigned exact-route access requires committed acceptance and current assignment permission. See [design contract](16-mobile-design-contract.md).
+
+## Implemented driver tracking boundary
+
+The native background location task authenticates with a separate location-only grant. See [driver location lifecycle](20-driver-location.md) for issuance/upload/revocation endpoints, freshness and authorization rules, native behavior, and verification limits. Do not reuse account refresh tokens in headless location tasks or expose ride reads through tracking credentials.

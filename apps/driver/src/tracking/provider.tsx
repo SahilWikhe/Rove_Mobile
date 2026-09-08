@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type PropsWithChildren 
 import { AppState } from 'react-native';
 import * as Location from 'expo-location';
 import { useSession } from '@rove/mobile-core/session';
+import { stopBackgroundTracking, synchronizeBackgroundTracking } from './background';
 import { DriverTracking, type LocationSample } from '@rove/mobile-core/driver-tracking';
 
 const TrackingContext = createContext<string | null>(null);
@@ -31,12 +32,38 @@ export async function currentPosition(synthetic: boolean): Promise<LocationSampl
 
 /** Mounted above the navigator: route changes must never own driver tracking. */
 export function DriverTrackingProvider({ children }: PropsWithChildren) {
-  const { api, profile, synthetic } = useSession();
+  const { api, profile, synthetic, ready } = useSession();
   const driverId = profile?.role === 'driver' ? profile.id : null;
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     setError(null);
-    if (!driverId) return;
+    if (!ready) return;
+    if (!driverId) {
+      void stopBackgroundTracking().catch(() => setError('Location tracking could not be stopped. Restart the app.'));
+      return;
+    }
+    if (!synthetic) {
+      let stopped = false;
+      let pending = false;
+      const update = () => {
+        if (AppState.currentState !== 'active' || stopped || pending) return;
+        pending = true;
+        void synchronizeBackgroundTracking(api, driverId).then(() => {
+          if (!stopped) setError(null);
+        }).catch(failure => {
+          if (!stopped) setError(failure instanceof Error ? failure.message : 'Location tracking is unavailable.');
+        }).finally(() => { pending = false; });
+      };
+      update();
+      const subscription = AppState.addEventListener('change', update);
+      const timer = setInterval(update, 20_000);
+      return () => {
+        stopped = true;
+        subscription.remove();
+        clearInterval(timer);
+        void stopBackgroundTracking().catch(() => undefined);
+      };
+    }
     const tracking = new DriverTracking({
       profile: signal => api.driverProfile(signal),
       position: () => currentPosition(synthetic),
@@ -55,6 +82,6 @@ export function DriverTrackingProvider({ children }: PropsWithChildren) {
       subscription.remove();
       clearInterval(timer);
     };
-  }, [api, driverId, synthetic]);
+  }, [api, driverId, synthetic, ready]);
   return <TrackingContext.Provider value={error}>{children}</TrackingContext.Provider>;
 }

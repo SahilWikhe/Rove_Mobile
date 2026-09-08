@@ -8,6 +8,8 @@ This repository contains the architecture plans and an in-progress implementatio
 
 The proposed technical baseline is React Native + Expo for mobile, a Hono/TypeScript API on Vercel, and Postgres on Neon. A small Next.js staff console in a separate repository supports Rove operations; a third product repository holds the optional B2B dashboard. Both dashboards consume the shared API. Use a modular backend with one transactional ride database before considering separate services.
 
+Driver background tracking details and remaining device checks are recorded in [driver location lifecycle](docs/20-driver-location.md).
+
 ## Reading order
 
 | Document | Purpose |

@@ -4,8 +4,8 @@ import { bodyLimit } from 'hono/body-limit';
 import { secureHeaders } from 'hono/secure-headers';
 import { cors } from 'hono/cors';
 import { z } from 'zod';
-import { QuoteRequest, RideState, Coordinate, Heartbeat } from '@rove/contracts';
-import { DomainError, DriverService, RideService, QuoteService, capabilities, type Actor, type MapsProvider } from '@rove/server';
+import { QuoteRequest, RideState, Coordinate, Heartbeat, BackgroundLocation } from '@rove/contracts';
+import { DomainError, TrackingService, DriverService, RideService, QuoteService, capabilities, type Actor, type MapsProvider } from '@rove/server';
 import type { Pool } from 'pg';
 import type { VerifyIdentity } from './auth';
 import { getRide, listRides } from './ride-queries';
@@ -30,6 +30,7 @@ function id(value: string): string {
 export function createApp(deps: Dependencies) {
   const app = new Hono<Environment>();
   const drivers = new DriverService(deps.pool);
+  const tracking = new TrackingService(deps.pool);
   if (deps.allowedOrigins?.length) app.use('*', cors({ origin: deps.allowedOrigins, allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], allowHeaders: ['Authorization', 'Content-Type', 'Idempotency-Key'] }));
   app.use('*', async (c, next) => { c.set('requestId', randomUUID()); c.header('X-Request-ID', c.var.requestId); c.header('Cache-Control', 'no-store'); await next(); });
   app.use('*', secureHeaders());
@@ -40,6 +41,14 @@ export function createApp(deps: Dependencies) {
   });
   app.notFound(c => c.json({ error: { code: 'NOT_FOUND', message: 'Endpoint not found.', requestId: c.var.requestId } }, 404));
   app.get('/health/live', c => c.json({ status: 'ok' }));
+  // These routes authenticate a location-only grant, never an account bearer token.
+  function trackingToken(c: Context) {
+    const match = /^Bearer (rt_[A-Za-z0-9_-]{43})$/.exec(c.req.header('Authorization') ?? '');
+    if (!match?.[1]) throw new DomainError('TRACKING_UNAUTHORIZED', 'Open the driver app to reconnect location.', 401);
+    return match[1];
+  }
+  app.post('/tracking/v1/location', async c => c.json(await tracking.location(trackingToken(c), await body(c, BackgroundLocation))));
+  app.delete('/tracking/v1/session', async c => c.json(await tracking.revoke(trackingToken(c))));
   app.use('/v1/*', async (c, next) => {
     const match = /^Bearer ([^\s]+)$/.exec(c.req.header('Authorization') ?? '');
     if (!match?.[1] || match[1].length > 16_384) throw new DomainError('UNAUTHENTICATED', 'Please sign in.', 401);
@@ -75,6 +84,10 @@ export function createApp(deps: Dependencies) {
     return c.json({ places: await deps.maps.search(q) });
   });
   app.post('/v1/quotes', async c => c.json(await deps.quotes.create(c.var.actor, await body(c, QuoteRequest)), 201));
+  app.post('/v1/drivers/me/tracking-session', async c => {
+    await body(c, z.object({}).strict());
+    return c.json(await tracking.issue(c.var.actor), 201);
+  });
   app.get('/v1/drivers/me', async c => c.json(await drivers.profile(c.var.actor)));
   app.put('/v1/drivers/me/availability', async c => {
     const input = await body(c, z.object({ online: z.boolean(), coordinate: Coordinate.optional() }).strict());

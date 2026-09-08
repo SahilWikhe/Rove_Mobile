@@ -5,7 +5,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./session": "./src/session.tsx",
-    "./driver-tracking": "./src/driver-tracking.ts"
+    "./driver-tracking": "./src/driver-tracking.ts",
+    "./location-sample": "./src/location-sample.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

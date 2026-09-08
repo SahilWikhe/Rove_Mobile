@@ -22,6 +22,13 @@
       "when": 1788838696115,
       "tag": "0002_long_molecule_man",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788840363838,
+      "tag": "0003_past_talon",
+      "breakpoints": true
     }
   ]
 }

@@ -22,9 +22,10 @@ Updated: September 7, 2026. This is an implementation ledger, not a production-r
 - Automatic bounded candidate ranking by route ETA, one pending offer per ride/driver, expiry advancement, deadline exhaustion and cancellation-race checks.
 - Persistent outbox leases, fenced completion, retry backoff and dead letters.
 - Google Places/Routes adapter with bounded requests, provider-response validation, coarse offer areas and mocked transport tests; not yet wired to a live provider.
+- Location-only expiring/rotating background credentials, hash-only storage, offline revocation and monotonic upload validation. Native Expo task/permissions, credential storage, reconnect and cleanup are wired; physical-device verification remains outstanding.
 - Disposable local integration server with clearly labeled synthetic maps, identities and payments.
 
-Executed checks: contracts 3 tests; database 4 tests; server 25 tests; API 8 tests; mobile client/tracking 7 tests (47 total). All eight workspace typechecks pass. Both current Expo apps export iOS, Android and web bundles. Local browser verification exercised rider search/quote/request, driver online/offer/acceptance, arrival/start/completion, rider payment-state update, cancellation and expired-offer handling. Exact details disappeared from the driver view after completion. This used synthetic providers and real local PostgreSQL; it is not native-device or real-provider verification.
+Executed checks: contracts 3 tests; database 4 tests; server 31 tests; API 9 tests; mobile client/tracking 9 tests; driver native lifecycle 7 tests (63 total). All eight workspace typechecks pass. Both current Expo apps export iOS, Android and web bundles. Local browser verification exercised rider search/quote/request, driver online/offer/acceptance, arrival/start/completion, rider payment-state update, cancellation and expired-offer handling. Exact details disappeared from the driver view after completion. This used synthetic providers and real local PostgreSQL; it is not native-device or real-provider verification.
 
 ## Remaining implementation
 
@@ -32,7 +33,7 @@ Executed checks: contracts 3 tests; database 4 tests; server 25 tests; API 8 tes
 - Live route/place provider wiring and verification, payment authorization/capture/refund, tokenized payment UI and webhook reconciliation.
 - Production durable wakeup/queue integration, reconciliation and operational dead-letter replay.
 - Driver onboarding, location/availability, profile/account, ride history, support and earnings.
-- Driver earnings/account/onboarding, remaining rider account/help/payment screens, native maps and background location tracking.
+- Driver earnings/account/onboarding, remaining rider account/help/payment screens, native maps and physical-device background location verification.
 - Scheduling module behind default-off flags and provider integration.
 - Staff backend permissions and audited use cases; dashboard UI remains a separate repository.
 - CI, security checks, provider integration tests, API tests and native end-to-end verification.
@@ -40,7 +41,7 @@ Executed checks: contracts 3 tests; database 4 tests; server 25 tests; API 8 tes
 
 ## Known intermediate gaps
 
-The local synthetic API entrypoint runs; the production entrypoint and real providers remain to be composed. The apps are not end-to-end functional with real accounts yet. Rider booking needs payment-method review, persistent command recovery across app restarts, no-driver retry and verified cancel-fee copy. Current rider polling must become foreground-aware. Driver foreground tracking is now owned by the app layout and survives route navigation, with cancellation on backgrounding/sign-out and fresh server sequence recovery. Native background execution is still required, including permissions, headless authentication and device verification. Driver profile creation does not yet lead to the full document/payout onboarding flow. OAuth account selection and real native callbacks still need provider/device verification. Figma design context and screenshots for rider Home (2:12) and driver Online (1:62) were retrieved successfully on September 7. Shared visual tokens/layouts still need alignment and native visual verification. The driver “Trips & earnings” entry currently opens trip history; earnings must be added before that wording ships.
+The local synthetic API entrypoint runs; the production entrypoint and real providers remain to be composed. The apps are not end-to-end functional with real accounts yet. Rider booking needs payment-method review, persistent command recovery across app restarts, no-driver retry and verified cancel-fee copy. Current rider polling must become foreground-aware. Driver foreground tracking is now owned by the app layout and survives route navigation, with cancellation on backgrounding/sign-out and fresh server sequence recovery. Native background tracking now uses a separate location-only grant and module-scope task, with native permission configuration and lifecycle tests. Physical-device background delivery and complete operational recovery remain unverified; see docs/20-driver-location.md. Driver profile creation does not yet lead to the full document/payout onboarding flow. OAuth account selection and real native callbacks still need provider/device verification. Figma design context and screenshots for rider Home (2:12) and driver Online (1:62) were retrieved successfully on September 7. Shared visual tokens/layouts still need alignment and native visual verification. The driver “Trips & earnings” entry currently opens trip history; earnings must be added before that wording ships.
 
 ## Delivery instructions
 

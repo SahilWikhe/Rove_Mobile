@@ -16,7 +16,17 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Rove uses your precise location while online to find nearby ride requests and guide your active trip.",
+          "locationAlwaysAndWhenInUsePermission": "Rove shares your location while you are online or on a trip, including when using navigation or locking your phone. Go offline to stop.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ]
     ],
     "web": {
       "bundler": "metro"

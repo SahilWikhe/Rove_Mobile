@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Profile, Quote, RideDetails, RideSummary, Place, Capabilities, DriverProfile, DriverOffer, type Coordinate, type Heartbeat } from '@rove/contracts';
+import { TrackingGrant, Profile, Quote, RideDetails, RideSummary, Place, Capabilities, DriverProfile, DriverOffer, type Coordinate, type Heartbeat } from '@rove/contracts';
 export class ApiError extends Error {
   constructor(public code: string, message: string, public status: number, public requestId?: string) { super(message); }
 }
@@ -44,6 +44,7 @@ export class ApiClient {
   transition(id: string, state: RideSummary['state'], expectedVersion: number, key: string) {
     return this.request(`/v1/rides/${encodeURIComponent(id)}/transitions`, RideSummary, { method: 'POST', body: { state, expectedVersion }, key });
   }
+  trackingSession() { return this.request('/v1/drivers/me/tracking-session', TrackingGrant, { method: 'POST', body: {} }); }
   driverProfile(signal?: AbortSignal) { return this.request('/v1/drivers/me', DriverProfile, signal ? { signal } : {}); }
   availability(online: boolean, coordinate: Coordinate | undefined, key: string) {
     return this.request('/v1/drivers/me/availability', z.object({ online: z.boolean() }), { method: 'PUT', body: { online, coordinate }, key });

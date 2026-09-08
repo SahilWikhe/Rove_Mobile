@@ -12,7 +12,7 @@ const StoredSession = z.object({ accessToken: z.string(), refreshToken: z.string
 type Tokens = z.infer<typeof StoredSession>;
 interface Config { apiUrl: string; issuer: string; clientId: string; audience: string; scheme: string; role: 'rider' | 'driver'; synthetic?: boolean }
 interface Session {
-  api: ApiClient; profile: Profile | null; loading: boolean; error: string | null; needsProfile: boolean; configured: boolean;
+  ready: boolean; api: ApiClient; profile: Profile | null; loading: boolean; error: string | null; needsProfile: boolean; configured: boolean;
   signIn: () => Promise<void>; signOut: () => Promise<void>; register: (name: string) => Promise<void>;
   synthetic: boolean;
 }
@@ -33,6 +33,7 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
   const refreshRef = useRef<Promise<string | null> | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(false);
+  const [ready, setReady] = useState(false);
   const [needsProfile, setNeedsProfile] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const storageKey = `rove.${config.role}.${synthetic ? 'synthetic' : 'oidc'}.session.v1`;
@@ -69,7 +70,8 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
     }
   }
   useEffect(() => {
-    if (!configured || !discovery || Platform.OS === 'web') return;
+    if (!configured || Platform.OS === 'web') { setReady(true); return; }
+    if (!discovery) return;
     let alive = true;
     void (async () => {
       setLoading(true);
@@ -81,7 +83,7 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
         tokenRef.current = tokens.data;
         await loadProfile();
       } catch { if (alive) setError('Please sign in to continue.'); }
-      finally { if (alive) setLoading(false); }
+      finally { if (alive) { setLoading(false); setReady(true); } }
     })();
     return () => { alive = false; };
   }, [api, configured, discovery, storageKey]);
@@ -118,5 +120,5 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
     catch (failure) { setError(failure instanceof ApiError ? failure.message : 'Unable to save your profile.'); }
     finally { setLoading(false); }
   }
-  return <SessionContext.Provider value={{ api, profile, loading, error, needsProfile, configured, synthetic, signIn, signOut, register }}>{children}</SessionContext.Provider>;
+  return <SessionContext.Provider value={{ ready, api, profile, loading, error, needsProfile, configured, synthetic, signIn, signOut, register }}>{children}</SessionContext.Provider>;
 }

@@ -77,3 +77,21 @@ test('unassigned drivers cannot read rides and exact details are removed after t
   expect(completed.pickup).toBeUndefined(); expect(completed.destination).toBeUndefined(); expect(completed.rider).toBeUndefined();
   const owned = await (await request(`/v1/rides/${ride.id}`)).json(); expect(owned.pickup).toEqual(place);
 });
+
+test('background credentials cannot become account tokens or read trip data', async () => {
+  const driver = await (await request('/v1/me', { name: 'Driver fixture', role: 'driver' }, 'driver')).json();
+  expect((await request('/v1/drivers/me/tracking-session', {}, 'rider')).status).toBe(403);
+  expect((await request('/v1/drivers/me/tracking-session', {}, 'driver')).status).toBe(401);
+  await database.pool.query('UPDATE drivers SET online=true WHERE id=$1', [driver.id]);
+  const response = await request('/v1/drivers/me/tracking-session', {}, 'driver');
+  expect(response.status).toBe(201);
+  expect(response.headers.get('cache-control')).toBe('no-store');
+  const grant = await response.json();
+  for (const path of ['/v1/me', '/v1/rides', '/v1/drivers/me']) {
+    expect((await request(path, undefined, grant.token)).status).toBe(401);
+  }
+  const location = { coordinate: place.coordinate, sampledAt: new Date().toISOString(), accuracyMeters: 5 };
+  expect((await request('/tracking/v1/location', location, 'driver')).status).toBe(401);
+  expect((await request('/tracking/v1/location', location, grant.token)).status).toBe(200);
+  expect((await request('/tracking/v1/location', { ...location, driverId: riderId }, grant.token)).status).toBe(400);
+});

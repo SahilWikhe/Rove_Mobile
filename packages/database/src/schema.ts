@@ -62,3 +62,11 @@ export const audit = pgTable('audit', {
   action: text().notNull(), aggregateId: uuid().notNull(), metadata: jsonb().notNull(),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
+
+export const driverTrackingSessions = pgTable('driver_tracking_sessions', {
+  driverId: uuid().primaryKey().references(() => drivers.id),
+  tokenHash: text().notNull().unique(),
+  expiresAt: timestamp({ withTimezone: true }).notNull(),
+  sampledAt: timestamp({ withTimezone: true }),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+});

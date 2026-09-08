@@ -45,3 +45,12 @@ export const DriverProfile = z.object({ approved: z.boolean(), online: z.boolean
   locationAt: z.iso.datetime().nullable(), locationSequence: z.number().int().nonnegative(), vehicle: z.unknown(), service: Service });
 export const Heartbeat = z.object({ coordinate: Coordinate, sequence: z.number().int().positive(), sampledAt: z.iso.datetime(), accuracyMeters: z.number().min(0).max(100) }).strict();
 export type DriverProfile = z.infer<typeof DriverProfile>;
+
+// A location-only credential is separate from the account's OIDC access/refresh tokens.
+export const TrackingGrant = z.object({
+  token: z.string().regex(/^rt_[A-Za-z0-9_-]{43}$/),
+  expiresAt: z.iso.datetime(),
+}).strict();
+export const BackgroundLocation = Heartbeat.omit({ sequence: true });
+export type TrackingGrant = z.infer<typeof TrackingGrant>;
+export type BackgroundLocation = z.infer<typeof BackgroundLocation>;
