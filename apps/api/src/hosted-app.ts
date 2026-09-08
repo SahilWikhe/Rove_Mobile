@@ -1,5 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import { Hono, type Env } from 'hono';
+import { readRecoverySecret } from './hosting-config';
 import type { WorkerScheduling } from './worker-scheduling';
 export function createHostedApp<E extends Env>(
   api: Hono<E>,
@@ -7,7 +8,7 @@ export function createHostedApp<E extends Env>(
   secret: string,
   background: (work: Promise<unknown>) => void,
 ) {
-  if (!/^[A-Za-z0-9_-]{32,128}$/.test(secret)) throw new Error('A strong CRON_SECRET is required.');
+  readRecoverySecret(secret);
   const app = new Hono();
   app.use('*', async (c, next) => {
     await next();

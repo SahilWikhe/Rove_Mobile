@@ -30,6 +30,20 @@ Still needed: a clean provider-testing database branch and pooled restricted-rol
 
 Do not attach real payment workers to the existing synthetic Neon branch. Its outbox/payment records belong to process-local mock providers; see [Neon staging](60-neon-staging.md).
 
+## Offline configuration preflight
+
+From the repository root:
+
+```sh
+pnpm staging:preflight /path/to/ignored-staging.env
+```
+
+The command reads exactly that file, not ambient provider credentials. It uses the same API/payment/optional-integration validation as hosted runtime and the same recovery-secret validation as hosted startup. Missing/invalid configuration exits nonzero with field names only. It requires application staging mode and rejects live payments. It neither connects to providers/database nor deploys, migrates or changes settings.
+
+Validation follows the runtime parser order, so fix reported fields and rerun to reveal later payment/integration errors. A passing result proves configuration shape only: syntactically valid fixtures can pass. It does not prove credentials work, pricing is approved, the database branch is isolated, the role is restricted or the hosting plan supports the configured schedule.
+
+The existing partial file was checked and correctly rejected for missing database, maps and OIDC fields. Its remaining Stripe credentials must still be supplied after those fields are resolved. Do not treat that initial error list as the entire deployment checklist.
+
 ## Deployment gate and verification
 
 The current recovery cron runs once per minute. Keep that recovery design intact; the current Hobby plan cannot run that schedule. The user will handle the upgrade later.

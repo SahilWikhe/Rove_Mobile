@@ -13,7 +13,7 @@ This section is the current summary; dated entries below are historical implemen
 - **Current scope:** prepare `rove-api-staging` under that team. No deployment or paid-plan upgrade at this checkpoint. Broad mobile feature work remains paused while staging infrastructure is prepared.
 - **Verification baseline:** the prior notification checkpoint passed 397 workspace tests. The later Neon change passed seven database tests, relevant typechecks/lint/docs/boundary/build checks and the Neon smoke. The entire workspace suite was not rerun for that later checkpoint.
 
-Checkpoint verification: project settings readback and empty deployment/environment lists passed. Documentation lint and `git diff --check` passed for this documentation-only repository change; application tests were not rerun because runtime code did not change.
+Checkpoint verification: project settings readback and empty deployment/environment lists passed at project creation. Added `pnpm staging:preflight` to validate one explicit environment file with runtime validators and shared recovery-secret validation. It does not use ambient credentials or perform network calls. Twelve targeted preflight/worker tests passed, plus API typecheck, changed-source lint, boundaries, API build and packaged smoke verification. The actual local partial file correctly failed for missing database/maps/OIDC fields. Documentation lint and diff whitespace checks passed. The full workspace suite was not rerun for this checkpoint; no cloud deployment was performed.
 
 ### Next steps in order
 
