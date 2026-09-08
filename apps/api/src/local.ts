@@ -1,10 +1,14 @@
 /** Disposable local integration environment. Never imported by the production entrypoint. */
+import { LocalPayments } from './local-payments';
 import { randomUUID } from 'node:crypto';
 import { serve } from '@hono/node-server';
 import { testDatabase } from '@rove/database/testing';
 import { users, drivers } from '@rove/database';
 import {
   DomainError,
+  PaymentCustomers,
+  PaymentSessions,
+  PaymentReconciler,
   MatchingService,
   SearchExpiry,
   OutboxWorker,
@@ -65,40 +69,35 @@ for (const role of ['rider', 'driver'] as const) {
 }
 const matching = new MatchingService(database.pool, maps);
 const searchExpiry = new SearchExpiry(database.pool);
+const paymentSource = 'acct_synthetic:test';
+const payments = new LocalPayments();
+const paymentCustomers = new PaymentCustomers(database.pool, payments, paymentSource);
+const sessions = new PaymentSessions(database.pool, payments, paymentSource, undefined, paymentCustomers);
+const reconciliation = new PaymentReconciler(database.pool, payments, paymentSource);
 const worker = new OutboxWorker(database.pool, {
+  ...reconciliation.handlers(),
   'ride.search_expire': async (job) => {
     await searchExpiry.expire(job.aggregateId);
   },
   'ride.requested': async (job) => {
-    await database.pool.query(
-      "UPDATE rides SET payment_state='authorized' WHERE id=$1 AND state='searching' AND payment_state='pending'",
-      [job.aggregateId],
-    );
-    await matching.tick(job.aggregateId);
+    const ride = (
+      await database.pool.query('SELECT rider_id,state FROM rides WHERE id=$1', [job.aggregateId])
+    ).rows[0];
+    if (!ride || ride.state !== 'searching') return;
+    try {
+      await sessions.create({ id: ride.rider_id, role: 'rider' }, job.aggregateId);
+    } catch (error) {
+      if (!(error instanceof DomainError) || error.code !== 'PAYMENT_SESSION_UNAVAILABLE') throw error;
+    }
   },
   'matching.tick': async (job) => matching.tick(job.aggregateId),
-  'offer.created': async () => {}, // Local apps poll the real offer table; no external notifications.
+  // Local apps poll; these acknowledgments do not represent delivered notifications.
+  'offer.created': async () => {},
   'ride.matched': async () => {},
   'ride.en_route': async () => {},
   'ride.arrived': async () => {},
   'ride.in_progress': async () => {},
-  'ride.interrupted': async () => {},
-  'ride.completed': async (job) => {
-    await database.pool.query("UPDATE rides SET payment_state='paid' WHERE id=$1 AND state='completed'", [
-      job.aggregateId,
-    ]);
-  },
-  'ride.cancelled': async (job) => {
-    await database.pool.query("UPDATE rides SET payment_state='released' WHERE id=$1 AND state='cancelled'", [
-      job.aggregateId,
-    ]);
-  },
-  'ride.no_driver_found': async (job) => {
-    await database.pool.query(
-      "UPDATE rides SET payment_state='released' WHERE id=$1 AND state='no_driver_found'",
-      [job.aggregateId],
-    );
-  },
+  'payment.updated': async () => {},
 });
 const app = createApp({
   pool: database.pool,

@@ -16,7 +16,7 @@ const result = await build({
 });
 if (
   Object.keys(result.metafile.inputs).some((path) =>
-    /embedded-postgres|database\/src\/testing|api\/src\/local\.ts/.test(path),
+    /embedded-postgres|database\/src\/testing|api\/src\/local(?:-payments)?\.ts/.test(path),
   )
 )
   throw new Error('Synthetic database/runtime included in deployment bundle.');

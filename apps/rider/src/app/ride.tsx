@@ -1,3 +1,4 @@
+import { ApiError } from '@rove/mobile-core';
 import { useOperations } from '@rove/mobile-core/use-operations';
 import { pollWhileForeground } from '@rove/mobile-core/foreground-polling';
 import { useCallback, useState } from 'react';
@@ -53,7 +54,17 @@ export default function Ride() {
       await execute({ kind: 'transition', rideId: ride.id, state: 'cancelled', version: ride.version });
       setRide(await api.ride(id));
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'Cancellation could not be confirmed.');
+      if (failure instanceof ApiError && failure.code === 'STALE_RIDE') {
+        setConfirmCancel(false);
+        try {
+          setRide(await api.ride(id));
+          setError('Your trip changed. Review the latest details and confirm cancellation again.');
+        } catch {
+          setError(
+            'Your trip changed and could not be refreshed. Wait for current details before trying again.',
+          );
+        }
+      } else setError(failure instanceof Error ? failure.message : 'Cancellation could not be confirmed.');
     } finally {
       setBusy(false);
     }

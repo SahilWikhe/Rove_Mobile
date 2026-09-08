@@ -44,7 +44,7 @@ Synthetic mode only activates in development bundles. The local API refuses to s
 6. Confirm heading to pickup, arrival, rider onboard/start, and completion.
 7. Verify the rider sees the completed ride and synthetic payment result. Verify the driver no longer sees rider identity or exact endpoints after completion.
 
-The local worker applies synthetic authorization and settlement to real database records. The production payment implementation remains separate work; these handlers are not a payment integration.
+The local worker uses the shared payment-session, reconciliation and ledger services with an in-memory synthetic payment provider. A completed test ride produces a ledger-backed receipt, clearly labeled as synthetic in the rider app. No money moves and no Stripe requests are made. The provider supports repeatable authorization, full capture and cancellation; synthetic refunds remain unsupported. Its state lasts only as long as the disposable runtime. Production/Vercel execution is rejected and the production bundle check excludes the local provider. Real provider credentials, native payment authentication, webhook delivery and settlement still require separate verification.
 
 Each API restart creates a new disposable database and identities. Do not rely on this environment to retain work. Browser preview sessions are in-memory and require sign-in after a reload. Native tokens use secure storage with a separate synthetic storage key.
 

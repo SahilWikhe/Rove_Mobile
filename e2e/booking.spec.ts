@@ -24,9 +24,43 @@ test('rider reviews a quote and explicitly confirms cancellation', async ({ page
   await expect(page.getByText('Cancel this ride?', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Keep ride', exact: true }).click();
   await expect(page.getByText('Finding your ride.', { exact: true })).toBeVisible();
+  const rideUrl = 'http://localhost:4085/v1/rides/' + id;
+  await expect
+    .poll(async () => {
+      const response = await request.get(rideUrl, {
+        headers: { Authorization: 'Bearer synthetic-rider' },
+      });
+      return (await response.json()).version;
+    })
+    .toBeGreaterThan(1);
+  let cancellationRequests = 0;
+  await page.route(rideUrl + '/transitions', async (route) => {
+    if (route.request().method() !== 'POST') return route.continue();
+    cancellationRequests++;
+    if (cancellationRequests === 1) {
+      // Deliver an outdated confirmation to the real API; its version check must reject it.
+      const response = await route.fetch({
+        postData: { ...route.request().postDataJSON(), expectedVersion: 1 },
+      });
+      expect(response.status()).toBe(409);
+      expect((await response.json()).error.code).toBe('STALE_RIDE');
+      await route.fulfill({ response });
+    } else await route.continue();
+  });
   await page.getByRole('button', { name: 'Cancel ride', exact: true }).click();
   await page.getByRole('button', { name: 'Confirm cancellation', exact: true }).click();
-  await expect(page.getByText('Ride cancelled.', { exact: true })).toBeVisible();
+  await expect(
+    page.getByText('Your trip changed. Review the latest details and confirm cancellation again.', {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Confirm cancellation', exact: true })).toHaveCount(0);
+  expect(cancellationRequests).toBe(1);
+  const unchanged = await request.get(rideUrl, {
+    headers: { Authorization: 'Bearer synthetic-rider' },
+  });
+  expect((await unchanged.json()).state).toBe('searching');
+  await cancelWithReconfirmation(page);
   const saved = await request.get('http://localhost:4085/v1/rides/' + id, {
     headers: { Authorization: 'Bearer synthetic-rider' },
   });
@@ -64,6 +98,24 @@ test('rider request reaches the driver and both apps follow a completed syntheti
       headers: { Authorization: 'Bearer synthetic-rider' },
     });
     expect((await saved.json()).state).toBe('completed');
+    await expect
+      .poll(async () => {
+        const receipt = await request.get('http://localhost:4085/v1/rides/' + id + '/receipt', {
+          headers: { Authorization: 'Bearer synthetic-rider' },
+        });
+        return receipt.status();
+      })
+      .toBe(200);
+    await page.getByRole('button', { name: 'View receipt', exact: true }).click();
+    await expect(page.getByText('Your payment record.', { exact: true })).toBeVisible();
+    await expect(
+      page.getByText('Synthetic payment record · no money was charged.', { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText('Payment: paid', { exact: true }).filter({ visible: true })).toBeVisible();
+    const receipt = await request.get('http://localhost:4085/v1/rides/' + id + '/receipt', {
+      headers: { Authorization: 'Bearer synthetic-rider' },
+    });
+    expect((await receipt.json()).capturedAmount).toEqual({ amount: 1185, currency: 'USD' });
     await driver.getByRole('button', { name: 'Back to driving', exact: true }).click();
     await driver.getByRole('button', { name: 'Go offline', exact: true }).click();
   } finally {
@@ -100,7 +152,21 @@ test('lost booking response recovers the original ride instead of creating anoth
   });
   const newRides = (await after.json()).rides.filter((ride: { id: string }) => !beforeIds.includes(ride.id));
   expect(newRides.map((ride: { id: string }) => ride.id)).toEqual([committedId]);
-  await page.getByRole('button', { name: 'Cancel ride', exact: true }).click();
-  await page.getByRole('button', { name: 'Confirm cancellation', exact: true }).click();
-  await expect(page.getByText('Ride cancelled.', { exact: true })).toBeVisible();
+  await cancelWithReconfirmation(page);
 });
+
+async function cancelWithReconfirmation(page: Page) {
+  const cancelled = page.getByText('Ride cancelled.', { exact: true });
+  const changed = page.getByText(
+    'Your trip changed. Review the latest details and confirm cancellation again.',
+    { exact: true },
+  );
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await page.getByRole('button', { name: 'Cancel ride', exact: true }).click();
+    await page.getByRole('button', { name: 'Confirm cancellation', exact: true }).click();
+    await expect(cancelled.or(changed)).toBeVisible();
+    if (await cancelled.isVisible()) return;
+    // Explicitly review/reconfirm after a real version change; never bypass backend concurrency checks.
+  }
+  await expect(cancelled).toBeVisible();
+}
