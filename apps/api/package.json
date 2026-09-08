@@ -1,0 +1,24 @@
+{
+  "name": "@rove/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/local.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.1.1",
+    "@rove/contracts": "workspace:*",
+    "@rove/database": "workspace:*",
+    "@rove/server": "workspace:*",
+    "hono": "4.13.7",
+    "jose": "6.2.12",
+    "pg": "8.23.0",
+    "zod": "4.5.4"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1"
+  }
+}

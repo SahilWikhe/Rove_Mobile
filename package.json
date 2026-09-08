@@ -1,0 +1,23 @@
+{
+  "name": "rove-mobile",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@11.19.0",
+  "engines": {
+    "node": ">=24.19.0 <25"
+  },
+  "scripts": {
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "dev:api": "pnpm --filter @rove/api dev",
+    "docs:check": "markdownlint-cli2 'docs/**/*.md' '*.md'"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.3",
+    "markdownlint-cli2": "0.23.2",
+    "tsx": "4.23.13",
+    "turbo": "2.10.12",
+    "typescript": "7.0.2",
+    "vitest": "5.0.0"
+  }
+}

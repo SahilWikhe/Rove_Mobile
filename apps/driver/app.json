@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "Rove Driver",
+    "slug": "rove-driver",
+    "version": "1.0.0",
+    "scheme": "rove-driver",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "co.roveride.driver"
+    },
+    "android": {
+      "package": "co.roveride.driver"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-web-browser"
+    ],
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}

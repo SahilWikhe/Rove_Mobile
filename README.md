@@ -4,7 +4,7 @@ Rove is a consumer ride-hailing product: a rider requests a ride, the platform f
 
 ## Current status
 
-This repository currently contains architecture and implementation plans only. **No application, database schema, automated checks, or deployment has been implemented here.** A described control is a requirement to implement and verify, not a claim that it already exists. The consumer-first scope supersedes the original care-pilot-first architecture; see [the decision history](docs/12-decisions.md).
+This repository contains the architecture plans and an in-progress implementation of the rider/driver apps, shared API, database and automated tests. See the [implementation ledger](docs/18-implementation-status.md) for verified behavior and remaining work, and [local development](docs/19-local-development.md) to run the synthetic integration environment. **This is not a production-ready release.** Planned controls are requirements until implementation and verification evidence exists. The consumer-first scope supersedes the original care-pilot-first architecture; see [the decision history](docs/12-decisions.md).
 
 The proposed technical baseline is React Native + Expo for mobile, a Hono/TypeScript API on Vercel, and Postgres on Neon. A small Next.js staff console in a separate repository supports Rove operations; a third product repository holds the optional B2B dashboard. Both dashboards consume the shared API. Use a modular backend with one transactional ride database before considering separate services.
 
@@ -49,7 +49,7 @@ There are three product repositories, plus the existing website repository: four
 
 The initial Neon setup was performed in a separate local research directory named `Rove`. Its `.env.local`, `.neon`, installed packages, and credentials do not belong in this documentation commit. Provisioning a Neon project does not imply that this repository is connected or production-ready. See the [environment plan](docs/08-cicd-and-environments.md) before linking application environments.
 
-Future source folders shown in these documents are proposed paths. Commands described as future scripts will become executable during the foundation milestone. Do not assume `pnpm test` or a deployment command works yet.
+The architecture documents include future components. The root `pnpm test`, `pnpm typecheck` and `pnpm docs:check` commands are implemented; production deployment is not yet configured.
 
 ## Mobile design implementation baseline
 

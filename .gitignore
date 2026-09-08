@@ -1,0 +1,14 @@
+node_modules/
+.expo/
+.turbo/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+.vercel/
+.neon
+*.tsbuildinfo
+playwright-report/
+test-results/
+.DS_Store
