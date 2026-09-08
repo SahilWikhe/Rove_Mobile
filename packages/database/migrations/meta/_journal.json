@@ -78,6 +78,13 @@
       "when": 1788846256532,
       "tag": "0010_funny_wallow",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1788855017118,
+      "tag": "0011_saved_places",
+      "breakpoints": true
     }
   ]
 }

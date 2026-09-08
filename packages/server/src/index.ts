@@ -19,3 +19,4 @@ export * from './payment-customers';
 export * from './search-expiry';
 export * from './outbox-drain';
 export * from './profiles';
+export * from './saved-places';

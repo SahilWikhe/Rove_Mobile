@@ -189,3 +189,15 @@ export const DriverEarnings = z
   })
   .strict();
 export type DriverEarnings = z.infer<typeof DriverEarnings>;
+
+export const SavedPlaceKind = z.enum(['home', 'work']);
+export type SavedPlaceKind = z.infer<typeof SavedPlaceKind>;
+export const SavedPlace = z.object({ kind: SavedPlaceKind, placeId: z.string().min(1).max(512) }).strict();
+export const SavedPlaces = z.object({ places: z.array(SavedPlace).max(2) }).strict();
+export const SavedPlaceUpdate = z
+  .object({
+    placeId: z.string().trim().min(1).max(512),
+    expectedPlaceId: z.string().min(1).max(512).nullable(),
+  })
+  .strict();
+export const SavedPlaceDelete = z.object({ expectedPlaceId: z.string().min(1).max(512) }).strict();

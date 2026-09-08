@@ -227,3 +227,40 @@ test('profile editing is authenticated, owned, strict and returns the saved prof
   await database.pool.query('UPDATE users SET disabled=true WHERE id=$1', [riderId]);
   expect((await update('rider')).status).toBe(403);
 });
+
+test('saved place endpoints bind the signed-in rider and validate slots and request fields', async () => {
+  const headers = { Authorization: 'Bearer rider', 'Content-Type': 'application/json' };
+  const put = (slot: string, input: unknown) =>
+    app.request(`/v1/saved-places/${slot}`, { method: 'PUT', headers, body: JSON.stringify(input) });
+  expect((await app.request('/v1/saved-places')).status).toBe(401);
+  expect(
+    (await put('home', { placeId: 'synthetic-place', expectedPlaceId: null, riderId: randomUUID() })).status,
+  ).toBe(400);
+  expect((await put('unknown', { placeId: 'synthetic-place', expectedPlaceId: null })).status).toBe(400);
+  expect((await put('home', { placeId: 'synthetic-place', expectedPlaceId: null })).status).toBe(200);
+  expect(await (await app.request('/v1/saved-places', { headers })).json()).toEqual({
+    places: [{ kind: 'home', placeId: 'synthetic-place' }],
+  });
+  expect((await app.request('/v1/saved-places/home', { headers })).headers.get('Cache-Control')).toBe(
+    'no-store',
+  );
+  expect(
+    (
+      await app.request('/v1/saved-places/home', {
+        method: 'DELETE',
+        headers,
+        body: JSON.stringify({ expectedPlaceId: 'obsolete' }),
+      })
+    ).status,
+  ).toBe(409);
+  expect(
+    (
+      await app.request('/v1/saved-places/home', {
+        method: 'DELETE',
+        headers,
+        body: JSON.stringify({ expectedPlaceId: 'synthetic-place' }),
+      })
+    ).status,
+  ).toBe(200);
+  expect((await app.request('/v1/saved-places/home', { headers })).status).toBe(404);
+});

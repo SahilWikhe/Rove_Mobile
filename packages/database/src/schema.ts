@@ -279,3 +279,21 @@ export const ledgerPostings = pgTable(
     ),
   ],
 );
+
+// Persist user-chosen labels and provider IDs, not indefinitely cached provider addresses.
+export const savedPlaces = pgTable(
+  'saved_places',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    riderId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    kind: text().notNull(),
+    placeId: text().notNull(),
+  },
+  (table) => [
+    uniqueIndex('saved_places_rider_kind').on(table.riderId, table.kind),
+    check('saved_places_kind', sql`${table.kind} IN ('home', 'work')`),
+    check('saved_places_id_length', sql`length(${table.placeId}) BETWEEN 1 AND 512`),
+  ],
+);

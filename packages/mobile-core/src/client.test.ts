@@ -154,3 +154,18 @@ test('quote creation forwards cancellation without retrying or booking a ride', 
   expect(transport).toHaveBeenCalledOnce();
   expect(transport.mock.calls[0]?.[0]).toBe('https://api.example/v1/quotes');
 });
+
+test('saved place writes send only a slot and expected provider ID without automatic replay', async () => {
+  const transport = vi.fn<Transport>(async () => new Response(JSON.stringify({ ok: true })));
+  const api = new ApiClient('https://api.example', async () => 'fixture', transport);
+  await api.savePlace('home', 'new-id', 'old-id');
+  expect(transport.mock.calls[0]?.[0]).toBe('https://api.example/v1/saved-places/home');
+  expect(JSON.parse(transport.mock.calls[0]![1].body as string)).toEqual({
+    placeId: 'new-id',
+    expectedPlaceId: 'old-id',
+  });
+  await api.removeSavedPlace('home', 'new-id');
+  expect(transport.mock.calls[1]?.[1].method).toBe('DELETE');
+  expect(JSON.parse(transport.mock.calls[1]![1].body as string)).toEqual({ expectedPlaceId: 'new-id' });
+  expect(transport).toHaveBeenCalledTimes(2);
+});

@@ -7,6 +7,9 @@ import { cors } from 'hono/cors';
 import { z } from 'zod';
 import {
   QuoteRequest,
+  SavedPlaceKind,
+  SavedPlaceUpdate,
+  SavedPlaceDelete,
   RideState,
   Coordinate,
   Heartbeat,
@@ -16,6 +19,7 @@ import {
 } from '@rove/contracts';
 import {
   DomainError,
+  SavedPlaceService,
   updateProfileName,
   RequestLimiter,
   RateLimitError,
@@ -66,6 +70,7 @@ export function createApp(deps: Dependencies) {
   const app = new Hono<Environment>();
   const limiter = new RequestLimiter(deps.pool);
   const drivers = new DriverService(deps.pool);
+  const savedPlaces = new SavedPlaceService(deps.pool, deps.maps);
   const tracking = new TrackingService(deps.pool);
   if (deps.allowedOrigins?.length)
     app.use(
@@ -138,7 +143,7 @@ export function createApp(deps: Dependencies) {
     const identity = await deps.verifyIdentity(match[1]);
     c.set('subject', identity.subject);
     let policy: RequestLimit = c.req.method === 'GET' ? 'read' : 'mutation';
-    if (c.req.path === '/v1/places') policy = 'places';
+    if (c.req.path === '/v1/places' || c.req.path.startsWith('/v1/saved-places/')) policy = 'places';
     else if (c.req.path === '/v1/quotes') policy = 'quotes';
     else if (c.req.method === 'POST' && /^\/v1\/rides\/[^/]+\/payment-session$/.test(c.req.path))
       policy = 'paymentSessions';
@@ -186,6 +191,32 @@ export function createApp(deps: Dependencies) {
       /* New feature access fails closed. */
     }
     return c.json(capabilities(flags, new Date()));
+  });
+  function savedKind(value: string) {
+    const parsed = SavedPlaceKind.safeParse(value);
+    if (!parsed.success) throw new DomainError('INVALID_ID', 'Choose Home or Work.', 400);
+    return parsed.data;
+  }
+  app.get('/v1/saved-places', async (c) => c.json(await savedPlaces.list(c.var.actor)));
+  app.get('/v1/saved-places/:kind', async (c) =>
+    c.json(await savedPlaces.resolve(c.var.actor, savedKind(c.req.param('kind')))),
+  );
+  app.put('/v1/saved-places/:kind', async (c) => {
+    const input = await body(c, SavedPlaceUpdate);
+    return c.json(
+      await savedPlaces.update(
+        c.var.actor,
+        savedKind(c.req.param('kind')),
+        input.placeId,
+        input.expectedPlaceId,
+      ),
+    );
+  });
+  app.delete('/v1/saved-places/:kind', async (c) => {
+    const input = await body(c, SavedPlaceDelete);
+    return c.json(
+      await savedPlaces.remove(c.var.actor, savedKind(c.req.param('kind')), input.expectedPlaceId),
+    );
   });
   app.get('/v1/places', async (c) => {
     const q = c.req.query('q')?.trim() ?? '';

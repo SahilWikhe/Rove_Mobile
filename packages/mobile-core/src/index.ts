@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import {
   TrackingGrant,
+  SavedPlaces,
+  SavedPlaceKind,
+  SavedPlaceUpdate,
+  SavedPlaceDelete,
   ProfileNameUpdate,
   PaymentSession,
   RideReceipt,
@@ -29,6 +33,26 @@ export class ApiError extends Error {
 }
 export type Transport = (url: string, options: RequestInit) => Promise<Response>;
 export class ApiClient {
+  savedPlaces() {
+    return this.request('/v1/saved-places', SavedPlaces);
+  }
+  savedPlace(kind: SavedPlaceKind) {
+    return this.request(`/v1/saved-places/${SavedPlaceKind.parse(kind)}`, Place);
+  }
+  savePlace(kind: SavedPlaceKind, placeId: string, expectedPlaceId: string | null) {
+    return this.request(
+      `/v1/saved-places/${SavedPlaceKind.parse(kind)}`,
+      z.object({ ok: z.literal(true) }).strict(),
+      { method: 'PUT', body: SavedPlaceUpdate.parse({ placeId, expectedPlaceId }) },
+    );
+  }
+  removeSavedPlace(kind: SavedPlaceKind, expectedPlaceId: string) {
+    return this.request(
+      `/v1/saved-places/${SavedPlaceKind.parse(kind)}`,
+      z.object({ ok: z.literal(true) }).strict(),
+      { method: 'DELETE', body: SavedPlaceDelete.parse({ expectedPlaceId }) },
+    );
+  }
   constructor(
     private baseUrl: string,
     private token: () => Promise<string | null>,
