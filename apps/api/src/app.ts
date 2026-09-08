@@ -6,6 +6,7 @@ import { secureHeaders } from 'hono/secure-headers';
 import { cors } from 'hono/cors';
 import { z } from 'zod';
 import {
+  SupportRequestInput,
   QuoteRequest,
   VehicleReviewDecision,
   VehicleSubmissionUpdate,
@@ -20,6 +21,7 @@ import {
   ProfileNameUpdate,
 } from '@rove/contracts';
 import {
+  SupportService,
   DomainError,
   VehicleReviewService,
   VehicleSubmissionService,
@@ -72,6 +74,7 @@ function id(value: string): string {
 }
 export function createApp(deps: Dependencies) {
   const app = new Hono<Environment>();
+  const support = new SupportService(deps.pool);
   const limiter = new RequestLimiter(deps.pool);
   const vehicleSubmissions = new VehicleSubmissionService(deps.pool);
   const vehicleReviews = new VehicleReviewService(deps.pool);
@@ -150,6 +153,7 @@ export function createApp(deps: Dependencies) {
     c.set('subject', identity.subject);
     let policy: RequestLimit = c.req.method === 'GET' ? 'read' : 'mutation';
     if (c.req.path === '/v1/places' || c.req.path.startsWith('/v1/saved-places/')) policy = 'places';
+    else if (c.req.path === '/v1/support-requests' && c.req.method === 'POST') policy = 'support';
     else if (c.req.path === '/v1/quotes') policy = 'quotes';
     else if (c.req.method === 'POST' && /^\/v1\/rides\/[^/]+\/payment-session$/.test(c.req.path))
       policy = 'paymentSessions';
@@ -242,6 +246,19 @@ export function createApp(deps: Dependencies) {
   );
   app.put('/v1/drivers/me/vehicle-submission', async (c) =>
     c.json(await vehicleSubmissions.submit(c.var.actor, await body(c, VehicleSubmissionUpdate))),
+  );
+  app.get('/v1/support-requests', async (c) => c.json(await support.list(c.var.actor)));
+  app.post('/v1/support-requests', async (c) =>
+    c.json(
+      await support.create(
+        c.var.actor,
+        await body(c, SupportRequestInput),
+        c.req.header('Idempotency-Key') ?? '',
+      ),
+    ),
+  );
+  app.get('/v1/staff/support-requests/:id', async (c) =>
+    c.json(await support.inspect(c.var.actor, id(c.req.param('id')))),
   );
   app.get('/v1/staff/drivers/:id/vehicle-submission', async (c) =>
     c.json(await vehicleReviews.inspect(c.var.actor, id(c.req.param('id')))),

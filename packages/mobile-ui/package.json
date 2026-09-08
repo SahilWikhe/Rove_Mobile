@@ -5,7 +5,8 @@
   "main": "src/index.tsx",
   "exports": {
     ".": "./src/index.tsx",
-    "./profile-name-form": "./src/profile-name-form.tsx"
+    "./profile-name-form": "./src/profile-name-form.tsx",
+    "./support-form": "./src/support-form.tsx"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

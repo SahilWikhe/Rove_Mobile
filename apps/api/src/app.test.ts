@@ -334,3 +334,19 @@ test('staff vehicle endpoints deny access without the explicit review permission
     ).status,
   ).toBe(403);
 });
+
+test('support submission is private, idempotent, strict and rate limited', async () => {
+  const input = { category: 'account', message: 'Synthetic account support request' };
+  const key = randomUUID();
+  const created = await request('/v1/support-requests', input, 'rider', key);
+  expect(created.status).toBe(200);
+  const saved = await created.json();
+  expect(created.headers.get('cache-control')).toContain('no-store');
+  expect(await (await request('/v1/support-requests', input, 'rider', key)).json()).toEqual(saved);
+  expect(await (await request('/v1/support-requests')).json()).toEqual({ requests: [saved] });
+  expect((await request('/v1/support-requests', { ...input, ownerId: randomUUID() })).status).toBe(400);
+  expect((await request('/v1/staff/support-requests/' + saved.id)).status).toBe(403);
+  await request('/v1/support-requests', input);
+  await request('/v1/support-requests', input);
+  expect((await request('/v1/support-requests', input)).status).toBe(429);
+});

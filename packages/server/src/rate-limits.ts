@@ -9,6 +9,7 @@ export const requestLimits = {
   quotes: 10,
   paymentSessions: 10,
   signup: 5,
+  support: 5,
   trackingGrant: 6,
   heartbeat: 60,
   backgroundLocation: 60,

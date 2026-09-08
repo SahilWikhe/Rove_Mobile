@@ -184,3 +184,23 @@ test('saved place resolution forwards the route editor cancellation signal', asy
   expect(transport.mock.calls[0]?.[0]).toBe('https://api.example/v1/saved-places/work');
   expect(transport).toHaveBeenCalledOnce();
 });
+
+test('support requests validate input and keep the caller retry key', async () => {
+  const input = { category: 'account' as const, message: 'Synthetic support question' };
+  const saved = {
+    ...input,
+    id: '11111111-1111-4111-8111-111111111111',
+    status: 'open',
+    createdAt: '2026-09-08T08:00:00.000Z',
+  };
+  const transport = vi.fn<Transport>(async () => new Response(JSON.stringify(saved)));
+  const api = new ApiClient('https://api.example', async () => 'fixture', transport);
+  expect(await api.createSupportRequest(input, 'support-fixture-key')).toEqual(saved);
+  expect(transport.mock.calls[0]?.[1]).toMatchObject({
+    method: 'POST',
+    headers: { 'Idempotency-Key': 'support-fixture-key' },
+    body: JSON.stringify(input),
+  });
+  expect(() => api.createSupportRequest({ ...input, message: 'short' }, 'support-fixture-key')).toThrow();
+  expect(transport).toHaveBeenCalledTimes(1);
+});

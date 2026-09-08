@@ -50,6 +50,14 @@ export default function Account() {
           disabled={busy}
         />
       )}
+      {profile && (
+        <Button
+          title="Help & support"
+          variant="secondary"
+          disabled={busy}
+          onPress={() => router.push('/support')}
+        />
+      )}
       {error && <Banner error message={error} />}
       <Button
         title={cleanupRequired ? 'Retry device sign-out' : 'Sign out'}

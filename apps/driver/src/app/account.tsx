@@ -60,6 +60,14 @@ export default function Account() {
           <Copy kind="muted">
             Changing this name does not change your verified identity, driver approval or payout details.
           </Copy>
+          {profile && (
+            <Button
+              title="Help & support"
+              variant="secondary"
+              disabled={busy}
+              onPress={() => router.push('/support')}
+            />
+          )}
           {error && <Banner error message={error} />}
           <Copy kind="muted">
             Signing out takes you offline and stops location sharing. Finish or resolve an active trip first.

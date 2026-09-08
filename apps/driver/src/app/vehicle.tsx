@@ -118,6 +118,12 @@ function VehicleForm() {
       ) : (
         <>
           <VehicleReviewStatus submission={submission} />
+          <Button
+            title="Ask for help with this review"
+            variant="secondary"
+            disabled={busy}
+            onPress={() => router.push('/support')}
+          />
           {online ? (
             <>
               <Banner message="Go offline before submitting vehicle changes." />

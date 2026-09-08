@@ -1,0 +1,86 @@
+import type { Pool, PoolClient } from 'pg';
+import { SupportRequest, SupportRequestInput } from '@rove/contracts';
+import type { Actor } from './rides';
+import { DomainError } from './errors';
+import { command, transaction } from './transactions';
+import { requireStaffPermission } from './staff-access';
+
+async function owner(client: PoolClient, actor: Actor) {
+  if (!['rider', 'driver'].includes(actor.role))
+    throw new DomainError('FORBIDDEN', 'A consumer account is required.', 403);
+  const result = await client.query(
+    'SELECT id FROM users WHERE id=$1 AND role=$2 AND disabled=false FOR UPDATE',
+    [actor.id, actor.role],
+  );
+  if (!result.rowCount) throw new DomainError('FORBIDDEN', 'This account cannot submit requests.', 403);
+}
+function dto(row: Record<string, unknown>) {
+  return SupportRequest.parse({
+    id: row.id,
+    category: row.category,
+    message: row.message,
+    status: row.status,
+    createdAt: (row.created_at as Date).toISOString(),
+  });
+}
+export class SupportService {
+  constructor(private pool: Pool) {}
+  async list(actor: Actor) {
+    return transaction(this.pool, async (client) => {
+      await owner(client, actor);
+      const result = await client.query(
+        'SELECT id,category,message,status,created_at FROM support_requests WHERE owner_id=$1 ORDER BY created_at DESC,id DESC LIMIT 50',
+        [actor.id],
+      );
+      return { requests: result.rows.map(dto) };
+    });
+  }
+  async create(actor: Actor, raw: unknown, key: string) {
+    const input = SupportRequestInput.parse(raw);
+    // Disabled accounts cannot use command replay to retrieve stored private messages.
+    await transaction(this.pool, (client) => owner(client, actor));
+    return command(this.pool, actor.id, key, { action: 'support.create', ...input }, async (client) => {
+      await owner(client, actor);
+      const existing = await client.query(
+        "SELECT id,category,message,status,created_at FROM support_requests WHERE owner_id=$1 AND category=$2 AND message=$3 AND status='open' LIMIT 1",
+        [actor.id, input.category, input.message],
+      );
+      if (existing.rows[0]) return dto(existing.rows[0]);
+      const count = await client.query(
+        "SELECT count(*)::int AS count FROM support_requests WHERE owner_id=$1 AND status='open'",
+        [actor.id],
+      );
+      if (count.rows[0].count >= 5)
+        throw new DomainError(
+          'SUPPORT_LIMIT',
+          'You already have five open requests. Review your existing requests.',
+          409,
+        );
+      const result = await client.query(
+        'INSERT INTO support_requests(owner_id,category,message) VALUES($1,$2,$3) RETURNING id,category,message,status,created_at',
+        [actor.id, input.category, input.message],
+      );
+      const request = dto(result.rows[0]);
+      await client.query(
+        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'support.created',$2,$3)",
+        [actor.id, request.id, JSON.stringify({ category: input.category })],
+      );
+      return request;
+    });
+  }
+  async inspect(actor: Actor, requestId: string) {
+    return transaction(this.pool, async (client) => {
+      await requireStaffPermission(client, actor, 'support.read');
+      const result = await client.query(
+        'SELECT id,category,message,status,created_at FROM support_requests WHERE id=$1',
+        [requestId],
+      );
+      if (!result.rows[0]) throw new DomainError('NOT_FOUND', 'Support request not found.', 404);
+      await client.query(
+        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'support.viewed',$2,'{}')",
+        [actor.id, requestId],
+      );
+      return dto(result.rows[0]);
+    });
+  }
+}

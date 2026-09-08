@@ -358,3 +358,26 @@ export const vehicleReviewDecisions = pgTable(
   },
   (table) => [check('vehicle_review_decision_value', sql`${table.decision} IN ('approved','rejected')`)],
 );
+
+export const supportRequests = pgTable(
+  'support_requests',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    ownerId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    category: text().notNull(),
+    message: text().notNull(),
+    status: text().notNull().default('open'),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('support_requests_owner').on(table.ownerId, table.createdAt),
+    check('support_request_status', sql`${table.status} IN ('open','resolved')`),
+    check(
+      'support_request_category',
+      sql`${table.category} IN ('account','vehicle','trip','payment','other')`,
+    ),
+    check('support_request_message_length', sql`length(${table.message}) BETWEEN 10 AND 2000`),
+  ],
+);

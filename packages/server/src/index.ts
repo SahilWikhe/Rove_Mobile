@@ -22,3 +22,5 @@ export * from './profiles';
 export * from './saved-places';
 export * from './vehicle-submissions';
 export * from './vehicle-review';
+
+export * from './support';

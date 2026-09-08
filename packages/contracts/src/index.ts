@@ -280,3 +280,28 @@ export const VehicleReviewDecision = z
         path: ['verifiedService'],
       });
   });
+
+export const SupportCategory = z.enum(['account', 'vehicle', 'trip', 'payment', 'other']);
+export const SupportRequestInput = z
+  .object({
+    category: SupportCategory,
+    message: z
+      .string()
+      .trim()
+      .min(10)
+      .max(2000)
+      .regex(/^[^\p{Cc}\p{Cf}]*$/u),
+  })
+  .strict();
+export const SupportRequest = z
+  .object({
+    id: z.uuid(),
+    category: SupportCategory,
+    message: z.string(),
+    status: z.enum(['open', 'resolved']),
+    createdAt: z.iso.datetime(),
+  })
+  .strict();
+export type SupportRequest = z.infer<typeof SupportRequest>;
+export type SupportRequestInput = z.infer<typeof SupportRequestInput>;
+export const SupportRequests = z.object({ requests: z.array(SupportRequest).max(50) }).strict();

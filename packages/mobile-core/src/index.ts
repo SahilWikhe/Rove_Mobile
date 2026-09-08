@@ -1,5 +1,8 @@
 import { z } from 'zod';
 import {
+  SupportRequest,
+  SupportRequests,
+  SupportRequestInput,
   TrackingGrant,
   VehicleSubmissionUpdate,
   VehicleReviewResponse,
@@ -36,6 +39,16 @@ export class ApiError extends Error {
 }
 export type Transport = (url: string, options: RequestInit) => Promise<Response>;
 export class ApiClient {
+  supportRequests() {
+    return this.request('/v1/support-requests', SupportRequests);
+  }
+  createSupportRequest(input: SupportRequestInput, key: string) {
+    return this.request('/v1/support-requests', SupportRequest, {
+      method: 'POST',
+      body: SupportRequestInput.parse(input),
+      key,
+    });
+  }
   vehicleSubmission() {
     return this.request('/v1/drivers/me/vehicle-submission', VehicleReviewResponse);
   }
