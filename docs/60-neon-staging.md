@@ -72,3 +72,30 @@ Synthetic provider state exists only during the smoke process. Its persisted out
 ## Remaining deployment work
 
 Vercel hosting, managed authentication, real Stripe sandbox credentials/webhooks, maps and notifications remain separate integrations. A deployed backend should receive only the pooled runtime URL; migration credentials belong in a separately controlled migration job. Real production setup, backups/recovery rehearsal, load/cold-start behavior and physical-device journeys are still unverified.
+
+## Clean provider-integration branch
+
+On September 8, 2026, created a second schema-only staging branch for real sandbox integrations:
+
+- Name: `rove-provider-staging`; branch ID: `br-super-leaf-axpo6edu`.
+- Same project: `square-frost-35273983`.
+- Direct endpoint: `ep-lucky-bar-ax4k1m1t.c-4.us-east-2.aws.neon.tech`.
+- Fixed 0.25 CU, default idle suspension; no plan upgrade.
+- All 24 migrations applied. Verified journal count and all 26 public tables empty.
+- Separate `rove_staging_app` password and verified pooled TLS. Role has no superuser, role/database creation, bypass-RLS, schema CREATE or table TRUNCATE permission.
+
+Credentials are in `.staging-provider/.env.neon.staging` (ignored, mode 600) with the same four keys described above. This separate working directory allows the existing role-provisioning script to operate without replacing the original synthetic environment. Existing `.neon` context, local phone backend and root `.env.neon.staging` remain unchanged.
+
+From repository root, migrate this branch explicitly:
+
+```sh
+node --env-file=.staging-provider/.env.neon.staging --import tsx packages/database/src/staging-migrate.ts
+```
+
+To refresh role grants after migrations, load this file and run the existing role script with `.staging-provider` as its working directory:
+
+```sh
+node --env-file=.staging-provider/.env.neon.staging --import tsx --input-type=module -e 'const moduleUrl = new URL("./packages/database/src/staging-role.ts", "file://" + process.cwd() + "/"); process.chdir(".staging-provider"); await import(moduleUrl.href);'
+```
+
+Do not run the synthetic ride smoke against this branch. It is reserved for managed-auth accounts and actual sandbox-provider IDs once configured. No payment/provider calls, application rows or Vercel environment upload were made during provisioning. The empty-table check is a provisioning observation, not a permanent invariant after provider testing begins.

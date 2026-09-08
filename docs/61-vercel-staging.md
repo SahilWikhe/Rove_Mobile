@@ -26,7 +26,7 @@ No environment variables have been uploaded to Vercel yet.
 
 The ignored, permission-600 `.env.vercel.staging.partial` holds only a partial local configuration: staging mode, empty browser origins, synthetic rate/service-area fixtures, disabled Connect/push, Stripe test mode/account identifier and a generated recovery secret. It is not an import-ready complete runtime environment. Never commit or print its values.
 
-Still needed: a clean provider-testing database branch and pooled restricted-role URL; OIDC issuer/audience/JWKS from the chosen provider; Google Maps credentials; Stripe sandbox API credentials, an appropriate payment-method configuration and webhook signing secret. Provider connections in the assistant do not supply runtime credentials to the backend automatically.
+The clean `rove-provider-staging` database branch is now migrated and its restricted runtime URL is saved locally; see [database setup](60-neon-staging.md#clean-provider-integration-branch). It has not been uploaded to Vercel. Still needed: OIDC issuer/audience/JWKS from the chosen provider; Google Maps credentials; Stripe sandbox API credentials, an appropriate payment-method configuration and webhook signing secret. Provider connections in the assistant do not supply runtime credentials to the backend automatically.
 
 Do not attach real payment workers to the existing synthetic Neon branch. Its outbox/payment records belong to process-local mock providers; see [Neon staging](60-neon-staging.md).
 
