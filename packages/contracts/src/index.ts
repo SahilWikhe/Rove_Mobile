@@ -201,3 +201,37 @@ export const SavedPlaceUpdate = z
   })
   .strict();
 export const SavedPlaceDelete = z.object({ expectedPlaceId: z.string().min(1).max(512) }).strict();
+
+const VehicleText = z
+  .string()
+  .trim()
+  .min(1)
+  .max(80)
+  .regex(/^[^\p{Cc}]+$/u);
+export const VehicleSubmission = z
+  .object({
+    make: VehicleText,
+    model: VehicleText,
+    year: z.number().int().min(1900).max(2100),
+    color: VehicleText,
+    plate: VehicleText,
+    registrationRegion: z
+      .string()
+      .trim()
+      .regex(/^[A-Z]{2}$/),
+    requestedService: Service,
+  })
+  .strict();
+export type VehicleSubmission = z.infer<typeof VehicleSubmission>;
+export const VehicleSubmissionUpdate = z
+  .object({ vehicle: VehicleSubmission, expectedRevision: z.uuid().nullable() })
+  .strict();
+export const VehicleReview = z
+  .object({
+    revision: z.uuid(),
+    vehicle: VehicleSubmission,
+    status: z.enum(['pending', 'approved', 'rejected']),
+    submittedAt: z.iso.datetime(),
+  })
+  .strict();
+export const VehicleReviewResponse = z.object({ submission: VehicleReview.nullable() }).strict();

@@ -7,6 +7,7 @@ import { cors } from 'hono/cors';
 import { z } from 'zod';
 import {
   QuoteRequest,
+  VehicleSubmissionUpdate,
   SavedPlaceKind,
   SavedPlaceUpdate,
   SavedPlaceDelete,
@@ -19,6 +20,7 @@ import {
 } from '@rove/contracts';
 import {
   DomainError,
+  VehicleSubmissionService,
   SavedPlaceService,
   updateProfileName,
   RequestLimiter,
@@ -69,6 +71,7 @@ function id(value: string): string {
 export function createApp(deps: Dependencies) {
   const app = new Hono<Environment>();
   const limiter = new RequestLimiter(deps.pool);
+  const vehicleSubmissions = new VehicleSubmissionService(deps.pool);
   const drivers = new DriverService(deps.pool);
   const savedPlaces = new SavedPlaceService(deps.pool, deps.maps);
   const tracking = new TrackingService(deps.pool);
@@ -231,6 +234,12 @@ export function createApp(deps: Dependencies) {
     await body(c, z.object({}).strict());
     return c.json(await tracking.issue(c.var.actor), 201);
   });
+  app.get('/v1/drivers/me/vehicle-submission', async (c) =>
+    c.json(await vehicleSubmissions.get(c.var.actor)),
+  );
+  app.put('/v1/drivers/me/vehicle-submission', async (c) =>
+    c.json(await vehicleSubmissions.submit(c.var.actor, await body(c, VehicleSubmissionUpdate))),
+  );
   app.get('/v1/drivers/me', async (c) => c.json(await drivers.profile(c.var.actor)));
   app.put('/v1/drivers/me/availability', async (c) => {
     const input = await body(

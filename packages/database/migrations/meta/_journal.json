@@ -85,6 +85,13 @@
       "when": 1788855017118,
       "tag": "0011_saved_places",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1788855681112,
+      "tag": "0012_driver_vehicle_submissions",
+      "breakpoints": true
     }
   ]
 }

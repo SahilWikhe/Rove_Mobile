@@ -297,3 +297,19 @@ export const savedPlaces = pgTable(
     check('saved_places_id_length', sql`length(${table.placeId}) BETWEEN 1 AND 512`),
   ],
 );
+
+export const driverVehicleSubmissions = pgTable(
+  'driver_vehicle_submissions',
+  {
+    driverId: uuid()
+      .primaryKey()
+      .references(() => drivers.id, { onDelete: 'cascade' }),
+    revision: uuid().notNull(),
+    vehicle: jsonb().notNull(),
+    status: text().notNull().default('pending'),
+    submittedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check('driver_vehicle_submission_status', sql`${table.status} IN ('pending', 'approved', 'rejected')`),
+  ],
+);

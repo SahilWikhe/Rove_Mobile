@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import {
   TrackingGrant,
+  VehicleSubmissionUpdate,
+  VehicleReviewResponse,
+  type VehicleSubmission,
   SavedPlaces,
   SavedPlaceKind,
   SavedPlaceUpdate,
@@ -33,6 +36,15 @@ export class ApiError extends Error {
 }
 export type Transport = (url: string, options: RequestInit) => Promise<Response>;
 export class ApiClient {
+  vehicleSubmission() {
+    return this.request('/v1/drivers/me/vehicle-submission', VehicleReviewResponse);
+  }
+  submitVehicle(vehicle: VehicleSubmission, expectedRevision: string | null) {
+    return this.request('/v1/drivers/me/vehicle-submission', VehicleReviewResponse, {
+      method: 'PUT',
+      body: VehicleSubmissionUpdate.parse({ vehicle, expectedRevision }),
+    });
+  }
   savedPlaces() {
     return this.request('/v1/saved-places', SavedPlaces);
   }

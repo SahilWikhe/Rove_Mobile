@@ -264,3 +264,33 @@ test('saved place endpoints bind the signed-in rider and validate slots and requ
   ).toBe(200);
   expect((await app.request('/v1/saved-places/home', { headers })).status).toBe(404);
 });
+
+test('vehicle submission API never allows client approval fields and requires a driver', async () => {
+  const vehicle = {
+    make: 'Synthetic',
+    model: 'Test',
+    year: 2025,
+    color: 'Black',
+    plate: 'DEMO',
+    registrationRegion: 'NC',
+    requestedService: 'standard',
+  };
+  const input = { vehicle, expectedRevision: null };
+  const submit = (value: unknown, token: string) =>
+    app.request('/v1/drivers/me/vehicle-submission', {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(value),
+    });
+  expect((await submit(input, 'rider')).status).toBe(403);
+  await request('/v1/me', { name: 'Driver', role: 'driver' }, 'driver');
+  expect((await submit({ ...input, approved: true }, 'driver')).status).toBe(400);
+  const response = await submit(input, 'driver');
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ submission: { vehicle, status: 'pending' } });
+  expect(
+    (
+      await app.request('/v1/drivers/me/vehicle-submission', { headers: { Authorization: 'Bearer driver' } })
+    ).headers.get('Cache-Control'),
+  ).toBe('no-store');
+});
