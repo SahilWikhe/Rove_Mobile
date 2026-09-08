@@ -236,3 +236,35 @@ test('payout link requests send an empty JSON object and reject untrusted redire
   );
   await expect(api.driverPayoutLink()).rejects.toMatchObject({ code: 'INCOMPATIBLE_RESPONSE' });
 });
+
+test('push installation methods send proof in authenticated bodies and retain caller retry identity', async () => {
+  const installationId = '00000000-0000-4000-8000-000000000001';
+  const proof = { installationId, secret: 's'.repeat(43) };
+  const mutationId = '00000000-0000-4000-8000-000000000002';
+  const transport = vi.fn<Transport>(
+    async () => new Response(JSON.stringify({ installationId, revision: 1, enabled: true })),
+  );
+  const api = new ApiClient('https://api.example', async () => 'fixture', transport);
+  await api.pushInstallationStatus(proof);
+  const update = {
+    ...proof,
+    mutationId,
+    expectedRevision: null,
+    token: 'ExpoPushToken[synthetic]',
+    platform: 'ios' as const,
+  };
+  await api.registerPushInstallation(update);
+  const removal = { ...proof, mutationId, expectedRevision: 1 };
+  await api.removePushInstallation(removal);
+  expect(
+    transport.mock.calls.map(([url, options]) => ({
+      url,
+      method: options.method,
+      body: JSON.parse(options.body as string),
+    })),
+  ).toEqual([
+    { url: 'https://api.example/v1/push-installations/status', method: 'POST', body: proof },
+    { url: 'https://api.example/v1/push-installations', method: 'PUT', body: update },
+    { url: 'https://api.example/v1/push-installations', method: 'DELETE', body: removal },
+  ]);
+});

@@ -22,6 +22,10 @@ beforeAll(async () => {
   database = await testDatabase();
   app = createApp({
     pool: database.pool,
+    pushProjects: {
+      rider: '00000000-0000-4000-8000-000000000001',
+      driver: '00000000-0000-4000-8000-000000000002',
+    },
     rides: new RideService(database.pool),
     quotes: new QuoteService(database.pool, maps, developmentRates, {
       south: 35,
@@ -418,4 +422,36 @@ test('Connect return and refresh pages never mark setup complete or reflect quer
     expect(html).not.toContain('private-marker');
     expect(html).not.toContain('attacker.example');
   }
+});
+
+test('notification registration requires authentication and device proof, with strict redacted responses', async () => {
+  const input = {
+    installationId: randomUUID(),
+    secret: 's'.repeat(43),
+    mutationId: randomUUID(),
+    expectedRevision: null,
+    token: 'ExpoPushToken[synthetic_registration]',
+    platform: 'ios',
+  };
+  const send = (method: string, value: unknown, token = 'rider', path = '/v1/push-installations') =>
+    app.request(path, {
+      method,
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(value),
+    });
+  expect((await send('PUT', input, 'unknown')).status).toBe(401);
+  expect((await send('PUT', { ...input, ownerId: randomUUID() })).status).toBe(400);
+  const saved = await send('PUT', input);
+  expect(saved.status).toBe(200);
+  expect(saved.headers.get('cache-control')).toContain('no-store');
+  expect(await saved.json()).toEqual({ installationId: input.installationId, revision: 1, enabled: true });
+  const proof = { installationId: input.installationId, secret: input.secret };
+  expect(
+    (await send('POST', { ...proof, secret: 'x'.repeat(43) }, 'rider', '/v1/push-installations/status'))
+      .status,
+  ).toBe(403);
+  const status = await send('POST', proof, 'rider', '/v1/push-installations/status');
+  expect(await status.json()).toEqual({ installationId: input.installationId, revision: 1, enabled: true });
+  const removed = await send('DELETE', { ...proof, mutationId: randomUUID(), expectedRevision: 1 });
+  expect(await removed.json()).toEqual({ installationId: input.installationId, revision: 2, enabled: false });
 });

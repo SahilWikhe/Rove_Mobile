@@ -249,3 +249,17 @@ test('Connect requires a separate valid thin-event signing secret', () => {
     ).toThrow('connect.webhookSecret');
   }
 });
+
+test('push registration is off by default and requires two distinct configured app projects', () => {
+  expect(readRuntimeConfig(environment()).pushProjects).toBeUndefined();
+  const rider = randomUUID(),
+    driver = randomUUID();
+  expect(
+    readRuntimeConfig({ ...environment(), EXPO_RIDER_PROJECT_ID: rider, EXPO_DRIVER_PROJECT_ID: driver })
+      .pushProjects,
+  ).toEqual({ rider, driver });
+  expect(() => readRuntimeConfig({ ...environment(), EXPO_RIDER_PROJECT_ID: rider })).toThrow();
+  expect(() =>
+    readRuntimeConfig({ ...environment(), EXPO_RIDER_PROJECT_ID: rider, EXPO_DRIVER_PROJECT_ID: rider }),
+  ).toThrow();
+});

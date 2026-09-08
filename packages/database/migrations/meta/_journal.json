@@ -155,6 +155,13 @@
       "when": 1788863024486,
       "tag": "0021_payout_account_reconciliation",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1788864766715,
+      "tag": "0022_push_installations",
+      "breakpoints": true
     }
   ]
 }

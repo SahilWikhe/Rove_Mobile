@@ -423,3 +423,31 @@ export const payoutWebhookEvents = pgTable(
   },
   (t) => [uniqueIndex('payout_webhook_source_event').on(t.source, t.eventId)],
 );
+
+export const pushInstallations = pgTable(
+  'push_installations',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    projectId: uuid().notNull(),
+    installationId: uuid().notNull(),
+    secretHash: text().notNull(),
+    ownerId: uuid()
+      .notNull()
+      .references(() => users.id),
+    token: text().notNull(),
+    platform: text().notNull(),
+    revision: integer().notNull().default(1),
+    enabled: boolean().notNull().default(true),
+    mutationId: uuid(),
+    mutationHash: text(),
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('push_installation_identity').on(t.projectId, t.installationId),
+    uniqueIndex('push_installation_active_token')
+      .on(t.projectId, t.token)
+      .where(sql`${t.enabled}=true`),
+    check('push_installation_platform', sql`${t.platform} in ('ios','android')`),
+    check('push_installation_revision', sql`${t.revision}>0`),
+  ],
+);

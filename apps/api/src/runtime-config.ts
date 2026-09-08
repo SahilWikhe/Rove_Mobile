@@ -55,7 +55,18 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
     if (webhook.data === payments.webhookSecret) throw new ConfigurationError(['connect.webhookSecret']);
     connect = { origin: parsedOrigin.data, webhookSecret: webhook.data };
   }
+  let pushProjects: { rider: string; driver: string } | undefined;
+  if (env.EXPO_RIDER_PROJECT_ID !== undefined || env.EXPO_DRIVER_PROJECT_ID !== undefined) {
+    const projects = z.object({ rider: z.uuid(), driver: z.uuid() }).safeParse({
+      rider: env.EXPO_RIDER_PROJECT_ID,
+      driver: env.EXPO_DRIVER_PROJECT_ID,
+    });
+    if (!projects.success || projects.data.rider === projects.data.driver)
+      throw new ConfigurationError(['push.projects']);
+    pushProjects = projects.data;
+  }
   return {
+    ...(pushProjects ? { pushProjects } : {}),
     ...api,
     payments,
     ...(connect ? { connect } : {}),

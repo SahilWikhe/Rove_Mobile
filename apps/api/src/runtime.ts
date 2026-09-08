@@ -73,6 +73,7 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
     quotes: new QuoteService(pool, maps, config.rates, config.serviceArea),
     flags: async () => ({ scheduling: false, weekly: false, monthly: false }),
     allowedOrigins: config.allowedOrigins,
+    ...(config.pushProjects ? { pushProjects: config.pushProjects } : {}),
     paymentSessions: new PaymentSessions(pool, payments, config.paymentSource, undefined, customers),
     paymentWebhooks: new PaymentWebhookInbox(pool, payments, config.paymentSource),
   });

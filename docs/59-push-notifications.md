@@ -34,9 +34,29 @@ Use separate EAS project configuration for rider and driver, and isolate product
 
 Expo recommends checking receipts after about fifteen minutes; receipts are removed after twenty-four hours. Invalid-device responses mean the token should stop receiving sends until registered again. Receipt success means acceptance by APNs/FCM, not guaranteed phone delivery. These semantics and setup come from the [Expo send and receipt documentation](https://docs.expo.dev/push-notifications/sending-notifications/).
 
+## Installation registrations
+
+Migration `0022_push_installations.sql`, the domain service, authenticated API routes and shared mobile-client methods are implemented. No production migration has run. `EXPO_RIDER_PROJECT_ID` and `EXPO_DRIVER_PROJECT_ID` must both be valid, distinct EAS project UUIDs to enable registration in the hosted runtime. With both omitted the endpoints return `PUSH_UNAVAILABLE`. This enables registration only, not delivery. Project selection derives from the authenticated role; a request cannot pick a project, environment or owner. Staging and production still require isolated databases and native build configuration.
+
+| Route | Body and behavior |
+| --- | --- |
+| POST `/v1/push-installations/status` | Installation UUID and device secret; returns current revision and whether enabled for this account. |
+| PUT `/v1/push-installations` | Proof, platform, Expo token, expected revision and mutation UUID; creates, refreshes or transfers the binding. |
+| DELETE `/v1/push-installations` | Proof, expected revision and mutation UUID; revokes only the current account's binding. |
+
+The device must generate a random 32-byte secret and keep it in secure storage alongside its installation ID and pending mutation. The server stores its SHA-256 hash, never the original secret. Proof is sent in an authenticated body rather than a URL. Responses contain only installation ID, revision and enabled state, never tokens, proof or another account's identity. A new signed-in account possessing the installation secret can read its revision and explicitly transfer the binding; knowing a push token alone cannot take over an existing installation.
+
+Owner and installation locks serialize initial writes and transfers. Revisions fence stale updates. A retry of the last identical mutation returns its existing result; changed content under that mutation ID or a stale revision fails. Status lookup allows recovery after an uncertain response, but callers must not automatically reapply an obsolete account's intent after reading a newer revision. The native session generation must cancel old account work.
+
+Enabled tokens are unique within a project, checked under a token-specific lock before a write and protected by a unique database index. One account may have at most ten active registrations. Receipt invalidation requires the internal registration ID and exact revision captured before sending. It increments the revision and clears retry metadata, so an old receipt or delayed registration cannot undo a refresh or account transfer. Revoked rows remain as fencing records; automatic row deletion could permit stale requests to recreate them and is not implemented.
+
+An installation that loses its secret cannot silently reclaim a binding. Account device-management/recovery and a reviewed token-retention policy still need implementation. The API is not proof of physical device possession or an attestation mechanism: authenticated clients must securely obtain and protect their own native Expo tokens. Configure database logging/access so bound tokens and proof bodies are not captured in logs.
+
+Verification: six disposable-Postgres registration tests cover retries, concurrency, transfers, invalid proof, stale logout/receipts, duplicate tokens, limits and disabled/forged roles. API tests cover authentication, strict fields, no-store output and proof checks. Runtime tests cover omitted, incomplete and conflicting project settings; mobile-client tests cover exact bodies and caller-owned retry identifiers. All 350 workspace tests, workspace type/lint/import checks and packaged API verification pass. Native permission, token refresh and logout wiring are not yet implemented.
+
 ## Remaining integration
 
-1. Authenticated registration per installation/account/app/environment; ownership transfer and logout revocation with generation fencing. Registration must not let a stale logout or receipt disable a newer account's token binding.
+1. Wire the implemented registration API into native permission, secure installation state, token refresh, account transfer and logout flows. Add account device-management recovery.
 2. Transactional event fan-out to authorized recipients, durable delivery attempts and receipt jobs. Recheck active ownership/offer expiry before send; never reserve a driver through push.
 3. Per-project throughput controls and operational visibility for failures/dead letters. Do not replay expired historical offers when enabling the consumer.
 4. Explicit native notification permission, token refresh, logout cleanup and authenticated deep-link handling. Fetch current resource data before showing details or offering actions.

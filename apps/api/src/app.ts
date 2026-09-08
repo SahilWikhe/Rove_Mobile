@@ -7,6 +7,9 @@ import { secureHeaders } from 'hono/secure-headers';
 import { cors } from 'hono/cors';
 import { z } from 'zod';
 import {
+  PushInstallationProof,
+  PushInstallationUpdate,
+  PushInstallationDelete,
   SupportRequestInput,
   SupportResolution,
   QuoteRequest,
@@ -23,6 +26,7 @@ import {
   ProfileNameUpdate,
 } from '@rove/contracts';
 import {
+  PushInstallations,
   DriverPayouts,
   SupportService,
   DomainError,
@@ -55,6 +59,7 @@ interface Dependencies {
   maps: MapsProvider;
   flags: () => Promise<{ scheduling: boolean; weekly: boolean; monthly: boolean }>;
   allowedOrigins?: string[];
+  pushProjects?: Partial<Record<'rider' | 'driver', string>>;
   paymentSessions?: {
     create(actor: Actor, rideId: string): Promise<{ rideId: string; clientSecret: string }>;
   };
@@ -79,6 +84,7 @@ function id(value: string): string {
 }
 export function createApp(deps: Dependencies) {
   const app = new Hono<Environment>();
+  const pushInstallations = new PushInstallations(deps.pool, deps.pushProjects ?? {});
   const support = new SupportService(deps.pool);
   const limiter = new RequestLimiter(deps.pool);
   const vehicleSubmissions = new VehicleSubmissionService(deps.pool);
@@ -233,6 +239,15 @@ export function createApp(deps: Dependencies) {
     if (!parsed.success) throw new DomainError('INVALID_ID', 'Choose Home or Work.', 400);
     return parsed.data;
   }
+  app.post('/v1/push-installations/status', async (c) =>
+    c.json(await pushInstallations.status(c.var.actor, await body(c, PushInstallationProof))),
+  );
+  app.put('/v1/push-installations', async (c) =>
+    c.json(await pushInstallations.register(c.var.actor, await body(c, PushInstallationUpdate))),
+  );
+  app.delete('/v1/push-installations', async (c) =>
+    c.json(await pushInstallations.remove(c.var.actor, await body(c, PushInstallationDelete))),
+  );
   app.get('/v1/saved-places', async (c) => c.json(await savedPlaces.list(c.var.actor)));
   app.get('/v1/saved-places/:kind', async (c) =>
     c.json(await savedPlaces.resolve(c.var.actor, savedKind(c.req.param('kind')))),

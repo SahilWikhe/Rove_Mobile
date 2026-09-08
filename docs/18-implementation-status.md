@@ -85,7 +85,7 @@ Driver payout onboarding now has a durable provider binding, Accounts v2 adapter
 
 Driver directions now recheck trip authorization and endpoint freshness before external Maps handoff; see [driver navigation](58-driver-navigation.md). Real device navigation remains unverified.
 
-An Expo push transport adapter now validates generic hints and handles tickets/receipts; see [push notifications](59-push-notifications.md). Installation registration, durable delivery consumers and native permission/delivery flows remain unimplemented.
+An Expo push transport adapter now validates generic hints and handles tickets/receipts; see [push notifications](59-push-notifications.md). Versioned installation registration, ownership transfer and stale-receipt fencing are implemented with migration/API/client tests. Durable delivery consumers and native permission/token/logout flows remain unimplemented.
 
 ## Delivery instructions
 

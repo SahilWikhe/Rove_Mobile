@@ -385,3 +385,30 @@ export const DriverPayoutLink = z
   })
   .strict();
 export type DriverPayoutLink = z.infer<typeof DriverPayoutLink>;
+
+export const PushInstallationProof = z
+  .object({
+    installationId: z.uuid(),
+    secret: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+  })
+  .strict();
+export const PushInstallationUpdate = PushInstallationProof.extend({
+  mutationId: z.uuid(),
+  expectedRevision: z.number().int().positive().nullable(),
+  token: z
+    .string()
+    .max(256)
+    .regex(/^(ExponentPushToken|ExpoPushToken)\[[A-Za-z0-9_-]+\]$/),
+  platform: z.enum(['ios', 'android']),
+}).strict();
+export const PushInstallationDelete = PushInstallationProof.extend({
+  mutationId: z.uuid(),
+  expectedRevision: z.number().int().positive(),
+}).strict();
+export const PushInstallationStatus = z
+  .object({
+    installationId: z.uuid(),
+    revision: z.number().int().positive().nullable(),
+    enabled: z.boolean(),
+  })
+  .strict();

@@ -1,5 +1,9 @@
 import { z } from 'zod';
 import {
+  PushInstallationProof,
+  PushInstallationUpdate,
+  PushInstallationDelete,
+  PushInstallationStatus,
   DriverPayoutStatus,
   DriverPayoutLink,
   SupportRequest,
@@ -60,6 +64,25 @@ export class ApiClient {
     return this.request('/v1/drivers/me/vehicle-submission', VehicleReviewResponse, {
       method: 'PUT',
       body: VehicleSubmissionUpdate.parse({ vehicle, expectedRevision }),
+    });
+  }
+  pushInstallationStatus(input: z.infer<typeof PushInstallationProof>, signal?: AbortSignal) {
+    return this.request('/v1/push-installations/status', PushInstallationStatus, {
+      method: 'POST',
+      body: PushInstallationProof.parse(input),
+      ...(signal ? { signal } : {}),
+    });
+  }
+  registerPushInstallation(input: z.infer<typeof PushInstallationUpdate>) {
+    return this.request('/v1/push-installations', PushInstallationStatus, {
+      method: 'PUT',
+      body: PushInstallationUpdate.parse(input),
+    });
+  }
+  removePushInstallation(input: z.infer<typeof PushInstallationDelete>) {
+    return this.request('/v1/push-installations', PushInstallationStatus, {
+      method: 'DELETE',
+      body: PushInstallationDelete.parse(input),
     });
   }
   savedPlaces(signal?: AbortSignal) {
