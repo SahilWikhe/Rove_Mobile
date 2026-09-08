@@ -46,6 +46,7 @@ export const drivers = pgTable('drivers', {
   online: boolean().notNull().default(false),
   service: text().notNull().default('standard'),
   payoutReady: boolean().notNull().default(false),
+  payoutValidUntil: timestamp({ withTimezone: true }),
   eligibilityExpiresAt: timestamp({ withTimezone: true }),
   locationSequence: integer().notNull().default(0),
   location: jsonb(),
@@ -397,10 +398,28 @@ export const driverPayoutAccounts = pgTable(
       .references(() => drivers.id),
     source: text().notNull(),
     accountId: text(),
+    syncRevision: integer().notNull().default(0),
+    status: text().notNull().default('unknown'),
+    checkedAt: timestamp({ withTimezone: true }),
+    lastRequestedAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     uniqueIndex('driver_payout_driver_source').on(t.driverId, t.source),
     uniqueIndex('driver_payout_account_source').on(t.source, t.accountId),
   ],
+);
+
+export const payoutWebhookEvents = pgTable(
+  'payout_webhook_events',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    source: text().notNull(),
+    eventId: text().notNull(),
+    eventType: text().notNull(),
+    accountId: text().notNull(),
+    providerCreated: timestamp({ withTimezone: true }).notNull(),
+    receivedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('payout_webhook_source_event').on(t.source, t.eventId)],
 );

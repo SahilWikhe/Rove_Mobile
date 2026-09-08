@@ -31,6 +31,7 @@ beforeEach(async () => {
     online: true,
     approved: true,
     payoutReady: true,
+    payoutValidUntil: new Date(now.getTime() + 86400000),
     eligibilityExpiresAt: new Date(now.getTime() + 86_400_000),
   });
 });

@@ -103,10 +103,11 @@ export class RideService {
           disabled: boolean;
           location_at: Date | null;
           payout_ready: boolean;
+          payout_valid_until: Date | null;
           eligibility_expires_at: Date | null;
           service: string;
         }>(
-          'SELECT d.approved,d.online,d.location_at,d.payout_ready,d.eligibility_expires_at,d.service,u.disabled FROM drivers d JOIN users u ON u.id=d.id WHERE d.id=$1 FOR UPDATE OF d',
+          'SELECT d.approved,d.online,d.location_at,d.payout_ready,d.payout_valid_until,d.eligibility_expires_at,d.service,u.disabled FROM drivers d JOIN users u ON u.id=d.id WHERE d.id=$1 FOR UPDATE OF d',
           [actor.id],
         )
       ).rows[0];
@@ -115,6 +116,8 @@ export class RideService {
         !driver.online ||
         driver.disabled ||
         !driver.payout_ready ||
+        !driver.payout_valid_until ||
+        driver.payout_valid_until <= this.now() ||
         !driver.eligibility_expires_at ||
         driver.eligibility_expires_at <= this.now() ||
         !driver.location_at ||

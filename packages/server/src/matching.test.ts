@@ -45,6 +45,7 @@ async function driver(eligible = true, service: 'standard' | 'accessible' = 'sta
     service,
     approved: eligible,
     payoutReady: eligible,
+    payoutValidUntil: new Date(now.getTime() + 86400000),
     eligibilityExpiresAt: new Date(now.getTime() + 86_400_000),
     online: eligible,
     location: place.coordinate,
@@ -248,4 +249,23 @@ test('losing accessible eligibility after an offer prevents assignment', async (
   const saved = (await database.pool.query('SELECT state,driver_id FROM rides WHERE id=$1', [request.id]))
     .rows[0];
   expect(saved).toMatchObject({ state: 'searching', driver_id: null });
+});
+
+test('expired payout freshness blocks candidates and expires their pending offers', async () => {
+  const candidate = await driver(true, 'standard');
+  const request = await ride('standard');
+  await authorize(request.id);
+  await database.pool.query('UPDATE drivers SET payout_valid_until=$2 WHERE id=$1', [candidate.id, now]);
+  await matcher.tick(request.id);
+  expect((await database.pool.query('SELECT id FROM offers')).rowCount).toBe(0);
+  await database.pool.query(
+    "UPDATE drivers SET payout_valid_until=$2::timestamptz+interval '1 hour' WHERE id=$1",
+    [candidate.id, now],
+  );
+  await matcher.tick(request.id);
+  expect((await driverService.offers(candidate)).offers).toHaveLength(1);
+  await database.pool.query('UPDATE drivers SET payout_valid_until=NULL WHERE id=$1', [candidate.id]);
+  expect((await driverService.offers(candidate)).offers).toHaveLength(0);
+  await matcher.tick(request.id);
+  expect((await database.pool.query('SELECT status FROM offers')).rows[0].status).toBe('expired');
 });

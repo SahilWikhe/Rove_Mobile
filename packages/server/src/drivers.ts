@@ -16,7 +16,7 @@ export class DriverService {
     driverOnly(actor);
     const row = (
       await this.pool.query(
-        'SELECT approved,online,payout_ready,eligibility_expires_at,location_at,location_sequence,vehicle,service FROM drivers WHERE id=$1',
+        'SELECT approved,online,payout_ready,payout_valid_until,eligibility_expires_at,location_at,location_sequence,vehicle,service FROM drivers WHERE id=$1',
         [actor.id],
       )
     ).rows[0];
@@ -24,9 +24,12 @@ export class DriverService {
     return {
       approved: row.approved,
       online: row.online,
-      payoutReady: row.payout_ready,
+      payoutReady: !!(row.payout_ready && row.payout_valid_until > this.now()),
       eligible:
-        row.approved && row.payout_ready && row.eligibility_expires_at?.getTime() > this.now().getTime(),
+        row.approved &&
+        row.payout_ready &&
+        row.payout_valid_until > this.now() &&
+        row.eligibility_expires_at?.getTime() > this.now().getTime(),
       locationAt: row.location_at?.toISOString() ?? null,
       locationSequence: row.location_sequence,
       vehicle: row.vehicle,
@@ -54,6 +57,8 @@ export class DriverService {
           online &&
           (!row.approved ||
             !row.payout_ready ||
+            !row.payout_valid_until ||
+            row.payout_valid_until <= this.now() ||
             row.disabled ||
             !row.eligibility_expires_at ||
             row.eligibility_expires_at <= this.now())
@@ -118,7 +123,7 @@ export class DriverService {
       await this.pool.query(
         `SELECT o.snapshot FROM offers o JOIN rides r ON r.id=o.ride_id JOIN drivers d ON d.id=o.driver_id
       WHERE o.driver_id=$1 AND o.status='pending' AND o.expires_at>$2 AND r.state='searching' AND r.payment_state='authorized'
-      AND r.search_deadline>$2 AND d.online=true AND d.approved=true AND d.payout_ready=true AND d.eligibility_expires_at>$2 AND d.location_at>$2::timestamptz-interval '60 seconds'`,
+      AND r.search_deadline>$2 AND d.online=true AND d.approved=true AND d.payout_ready=true AND d.payout_valid_until>$2 AND d.eligibility_expires_at>$2 AND d.location_at>$2::timestamptz-interval '60 seconds'`,
         [actor.id, this.now()],
       )
     ).rows;

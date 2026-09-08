@@ -1,5 +1,9 @@
 import { createDatabase } from '@rove/database';
 import {
+  PayoutReconciler,
+  PayoutWebhookInbox,
+  StripePayoutWebhookVerifier,
+  type PayoutWebhookVerifier,
   DriverPayouts,
   StripeDriverPayouts,
   type DriverPayoutProvider,
@@ -30,6 +34,7 @@ interface Resources {
   payments: PaymentProvider & PaymentCustomerProvider & PaymentWebhookVerifier;
   verifyIdentity: VerifyIdentity;
   driverPayoutProvider?: DriverPayoutProvider;
+  payoutWebhookVerifier?: PayoutWebhookVerifier;
 }
 /** Composition shared by HTTP and worker hosts; resource ownership stays with the caller. */
 export function composeRuntime(config: RuntimeConfig, resources: Resources) {
@@ -39,8 +44,12 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
   const reconciliation = new PaymentReconciler(pool, payments, config.paymentSource);
   const matching = new MatchingService(pool, maps);
   const searchExpiry = new SearchExpiry(pool);
+  const payoutReconciliation = resources.driverPayoutProvider
+    ? new PayoutReconciler(pool, resources.driverPayoutProvider, config.paymentSource)
+    : undefined;
   const worker = new OutboxWorker(pool, {
     ...reconciliation.handlers(),
+    ...(payoutReconciliation ? { 'payout.reconcile': payoutReconciliation.handle } : {}),
     'ride.search_expire': async (job) => {
       await searchExpiry.expire(job.aggregateId);
     },
@@ -52,6 +61,11 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
   });
   const app = createApp({
     pool,
+    ...(resources.payoutWebhookVerifier
+      ? {
+          payoutWebhooks: new PayoutWebhookInbox(pool, resources.payoutWebhookVerifier, config.paymentSource),
+        }
+      : {}),
     driverPayouts: new DriverPayouts(pool, config.paymentSource, resources.driverPayoutProvider),
     maps,
     verifyIdentity,
@@ -62,7 +76,14 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
     paymentSessions: new PaymentSessions(pool, payments, config.paymentSource, undefined, customers),
     paymentWebhooks: new PaymentWebhookInbox(pool, payments, config.paymentSource),
   });
-  return { app, worker, drain: new OutboxDrain(pool, worker), searchExpiry, close: database.close };
+  return {
+    app,
+    worker,
+    drain: new OutboxDrain(pool, worker),
+    searchExpiry,
+    ...(payoutReconciliation ? { payoutReconciliation } : {}),
+    close: database.close,
+  };
 }
 /** Only validated environment configuration can construct the real deployment resources. */
 export function createRuntime(env: Record<string, string | undefined>) {
@@ -84,6 +105,11 @@ export function createRuntime(env: Record<string, string | undefined>) {
     verifyIdentity,
     ...(config.connect
       ? {
+          payoutWebhookVerifier: new StripePayoutWebhookVerifier({
+            secretKey: config.payments.secretKey,
+            webhookSecret: config.connect.webhookSecret,
+            live: config.payments.mode === 'live',
+          }),
           driverPayoutProvider: new StripeDriverPayouts({
             secretKey: config.payments.secretKey,
             live: config.payments.mode === 'live',

@@ -28,6 +28,7 @@ async function setup() {
     online: true,
     approved: true,
     payoutReady: true,
+    payoutValidUntil: new Date(now.getTime() + 86400000),
     eligibilityExpiresAt: new Date(now.getTime() + 86_400_000),
     locationAt: now,
   });
@@ -166,4 +167,22 @@ test('lost authorization blocks pickup progression but preserves cancellation', 
   expect((await service.transition(fixture.rider, fixture.ride.id, 'cancelled', 2, randomUUID())).state).toBe(
     'cancelled',
   );
+});
+
+test('expired payout verification blocks accepting new work but does not abandon an accepted trip', async () => {
+  const f = await offered();
+  await database.pool.query('UPDATE drivers SET payout_valid_until=$2 WHERE id=$1', [f.driver.id, now]);
+  await expect(service.accept(f.driver, f.offerId, randomUUID())).rejects.toMatchObject({
+    code: 'DRIVER_UNAVAILABLE',
+  });
+  await database.pool.query(
+    "UPDATE drivers SET payout_valid_until=$2::timestamptz+interval '1 hour' WHERE id=$1",
+    [f.driver.id, now],
+  );
+  const accepted = await service.accept(f.driver, f.offerId, randomUUID());
+  await database.pool.query('UPDATE drivers SET payout_ready=false,payout_valid_until=NULL WHERE id=$1', [
+    f.driver.id,
+  ]);
+  const result = await service.transition(f.driver, accepted.id, 'en_route', accepted.version, randomUUID());
+  expect(result.state).toBe('en_route');
 });

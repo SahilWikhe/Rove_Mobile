@@ -63,6 +63,7 @@ for (const role of ['rider', 'driver'] as const) {
       id,
       approved: true,
       payoutReady: true,
+      payoutValidUntil: new Date(Date.now() + 86400000),
       eligibilityExpiresAt: new Date(Date.now() + 86_400_000),
       vehicle: { make: 'Synthetic', model: 'Test vehicle', color: 'Black', plate: 'DEMO' },
     });

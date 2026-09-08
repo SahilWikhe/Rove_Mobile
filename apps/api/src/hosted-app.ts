@@ -13,6 +13,8 @@ export function createHostedApp<E extends Env>(
     await next();
     const createsWork =
       c.req.path === '/webhooks/stripe' ||
+      c.req.path === '/webhooks/stripe-connect' ||
+      c.req.path === '/v1/drivers/me/payout-setup' ||
       c.req.path === '/v1/ride-requests' ||
       /^\/v1\/offers\/[^/]+\/(accept|decline)$/.test(c.req.path) ||
       /^\/v1\/rides\/[^/]+\/(payment-session|transitions)$/.test(c.req.path);

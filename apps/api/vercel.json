@@ -38,6 +38,10 @@
     {
       "source": "/internal/:path*",
       "destination": "/api/index"
+    },
+    {
+      "source": "/connect/:path*",
+      "destination": "/api/index"
     }
   ],
   "crons": [

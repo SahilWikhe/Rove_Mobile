@@ -216,8 +216,9 @@ test('Connect onboarding defaults off and requires valid origin and live model a
       ...environment(),
       STRIPE_CONNECT_ONBOARDING_ENABLED: 'true',
       STRIPE_CONNECT_RETURN_ORIGIN: 'https://api.example.test',
+      STRIPE_CONNECT_WEBHOOK_SECRET: 'whsec_connectfixture',
     }).connect,
-  ).toEqual({ origin: 'https://api.example.test' });
+  ).toEqual({ origin: 'https://api.example.test', webhookSecret: 'whsec_connectfixture' });
   const live = {
     ...environment(),
     ROVE_ENVIRONMENT: 'production',
@@ -227,10 +228,24 @@ test('Connect onboarding defaults off and requires valid origin and live model a
     RATE_POLICY_JSON: JSON.stringify({ ...developmentRates, version: 'approved-v1' }),
     STRIPE_CONNECT_ONBOARDING_ENABLED: 'true',
     STRIPE_CONNECT_RETURN_ORIGIN: 'https://api.example.test',
+    STRIPE_CONNECT_WEBHOOK_SECRET: 'whsec_connectfixture',
   };
   expect(() => readRuntimeConfig(live)).toThrow('connect.modelApproval');
   expect(
     readRuntimeConfig({ ...live, STRIPE_CONNECT_MODEL_APPROVED: 'recipient-express-platform-responsibility' })
       .connect,
   ).toBeDefined();
+});
+
+test('Connect requires a separate valid thin-event signing secret', () => {
+  for (const secret of [undefined, '', 'private-invalid', 'whsec_fixture']) {
+    expect(() =>
+      readRuntimeConfig({
+        ...environment(),
+        STRIPE_CONNECT_ONBOARDING_ENABLED: 'true',
+        STRIPE_CONNECT_RETURN_ORIGIN: 'https://api.example.test',
+        STRIPE_CONNECT_WEBHOOK_SECRET: secret,
+      }),
+    ).toThrow('connect.webhookSecret');
+  }
 });

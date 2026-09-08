@@ -43,7 +43,7 @@ export class MatchingService {
     if (!ride || ride.state !== 'searching' || ride.payment_state !== 'authorized') return null;
     await client.query(
       `UPDATE offers o SET status='expired' FROM drivers d WHERE o.ride_id=$1 AND o.driver_id=d.id AND o.status='pending'
-      AND (o.expires_at<=$2 OR d.online=false OR d.approved=false OR d.payout_ready=false OR d.eligibility_expires_at<=$2 OR d.location_at<$2::timestamptz-interval '60 seconds')`,
+      AND (o.expires_at<=$2 OR d.online=false OR d.approved=false OR d.payout_ready=false OR d.payout_valid_until IS NULL OR d.payout_valid_until<=$2 OR d.eligibility_expires_at<=$2 OR d.location_at<$2::timestamptz-interval '60 seconds')`,
       [rideId, this.now()],
     );
     const count = (
@@ -78,7 +78,7 @@ export class MatchingService {
     const candidates = (
       await this.pool.query<{ id: string; location: unknown }>(
         `SELECT d.id,d.location FROM drivers d JOIN users u ON u.id=d.id
-      WHERE d.online=true AND d.approved=true AND d.payout_ready=true AND d.eligibility_expires_at>$1 AND u.disabled=false
+      WHERE d.online=true AND d.approved=true AND d.payout_ready=true AND d.payout_valid_until>$1 AND d.eligibility_expires_at>$1 AND u.disabled=false
       AND d.location_at>$1::timestamptz-interval '60 seconds' AND d.location IS NOT NULL
       AND ($2='standard' OR d.service='accessible')
       AND NOT EXISTS (SELECT 1 FROM offers WHERE driver_id=d.id AND (ride_id=$3 OR status='pending'))
@@ -136,7 +136,7 @@ export class MatchingService {
         const current = (
           await client.query<{ location: unknown }>(
             `SELECT d.location FROM drivers d JOIN users u ON u.id=d.id
-          WHERE d.id=$1 AND d.online=true AND d.approved=true AND d.payout_ready=true AND d.eligibility_expires_at>$2 AND u.disabled=false
+          WHERE d.id=$1 AND d.online=true AND d.approved=true AND d.payout_ready=true AND d.payout_valid_until>$2 AND d.eligibility_expires_at>$2 AND u.disabled=false
           AND d.location_at>$2::timestamptz-interval '60 seconds' AND ($3='standard' OR d.service='accessible') FOR UPDATE OF d SKIP LOCKED`,
             [candidate.id, this.now(), quote.service],
           )

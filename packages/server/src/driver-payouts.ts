@@ -70,11 +70,17 @@ export class DriverPayouts {
       );
       if (!/^acct_[a-zA-Z0-9]{1,96}$/.test(accountId)) throw unavailable();
       // Save recovery mapping before checking disablement again. Never create a second account after an uncertain result.
-      const result = await this.pool.query(
-        'UPDATE driver_payout_accounts SET account_id=$2 WHERE id=$1 AND (account_id IS NULL OR account_id=$2)',
-        [binding.id, accountId],
-      );
-      if (result.rowCount !== 1) throw unavailable();
+      await transaction(this.pool, async (client) => {
+        const result = await client.query(
+          'UPDATE driver_payout_accounts SET account_id=$2 WHERE id=$1 AND (account_id IS NULL OR account_id=$2)',
+          [binding.id, accountId],
+        );
+        if (result.rowCount !== 1) throw unavailable();
+        await client.query(
+          `INSERT INTO outbox(topic,aggregate_id,payload,dedupe_key) VALUES('payout.reconcile',$1,$2,$3) ON CONFLICT(dedupe_key) DO NOTHING`,
+          [binding.id, JSON.stringify({ source: this.source, accountId }), `payout-initial:${binding.id}`],
+        );
+      });
     }
     await this.authorize(this.pool, actor);
     // Verify mode/metadata of an existing mapping before minting a sensitive one-use URL.

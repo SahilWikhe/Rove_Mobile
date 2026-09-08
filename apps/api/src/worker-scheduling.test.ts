@@ -82,3 +82,51 @@ test('only successful mutations wake work; publish failure preserves committed H
     log.mockRestore();
   }
 });
+
+test('recovery refreshes payout accounts before draining their durable jobs', async () => {
+  const order: string[] = [];
+  const scheduler = new WorkerScheduling(
+    {
+      searchExpiry: {
+        sweep: async () => {
+          order.push('search');
+          return 0;
+        },
+      },
+      payoutReconciliation: {
+        sweep: async () => {
+          order.push('payout');
+          return 1;
+        },
+      },
+      drain: {
+        run: async () => {
+          order.push('drain');
+          return { processed: 1, failed: 0, wakeAfterSeconds: null };
+        },
+      },
+    },
+    {
+      publish: async () => {
+        throw new Error('No continuation needed');
+      },
+    },
+  );
+  await scheduler.recover();
+  expect(order).toEqual(['search', 'payout', 'drain']);
+});
+test('successful Connect notifications and onboarding mutations wake the worker, reads do not', async () => {
+  const { scheduler, publish } = setup();
+  const work: Promise<unknown>[] = [];
+  const api = new Hono()
+    .post('/webhooks/stripe-connect', (c) => c.json({ received: true }))
+    .post('/v1/drivers/me/payout-setup', (c) => c.json({ ok: true }))
+    .get('/v1/drivers/me/payout-setup', (c) => c.json({ status: 'pending' }));
+  const app = createHostedApp(api, scheduler, secret, (p) => work.push(p));
+  await app.request('/v1/drivers/me/payout-setup');
+  expect(publish).not.toHaveBeenCalled();
+  await app.request('/webhooks/stripe-connect', { method: 'POST' });
+  await app.request('/v1/drivers/me/payout-setup', { method: 'POST' });
+  await Promise.all(work);
+  expect(publish).toHaveBeenCalledTimes(2);
+});

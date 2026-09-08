@@ -59,6 +59,7 @@ interface Dependencies {
     create(actor: Actor, rideId: string): Promise<{ rideId: string; clientSecret: string }>;
   };
   driverPayouts?: DriverPayouts;
+  payoutWebhooks?: { receive(body: Buffer, signature: string): Promise<void> };
   paymentWebhooks?: { receive(body: Buffer, signature: string): Promise<void> };
 }
 const Id = z.uuid();
@@ -114,7 +115,7 @@ export function createApp(deps: Dependencies) {
     });
   app.use('*', (c, next) =>
     bodyLimit({
-      maxSize: c.req.path === '/webhooks/stripe' ? 1_048_576 : 32_768,
+      maxSize: ['/webhooks/stripe', '/webhooks/stripe-connect'].includes(c.req.path) ? 1_048_576 : 32_768,
       onError: (c) =>
         c.json(
           { error: { code: 'BODY_TOO_LARGE', message: 'Request is too large.', requestId: c.var.requestId } },
@@ -147,6 +148,15 @@ export function createApp(deps: Dependencies) {
     if (!signature || signature.length > 8192)
       throw new DomainError('INVALID_PAYMENT_WEBHOOK', 'Invalid payment event.', 400);
     await deps.paymentWebhooks.receive(Buffer.from(await c.req.arrayBuffer()), signature);
+    return c.json({ received: true });
+  });
+  app.post('/webhooks/stripe-connect', async (c) => {
+    if (!deps.payoutWebhooks)
+      throw new DomainError('PAYOUTS_UNAVAILABLE', 'Payout events are not configured.', 503);
+    const signature = c.req.header('stripe-signature') ?? '';
+    if (!signature || signature.length > 8192)
+      throw new DomainError('INVALID_PAYOUT_WEBHOOK', 'Invalid payout event.', 400);
+    await deps.payoutWebhooks.receive(Buffer.from(await c.req.arrayBuffer()), signature);
     return c.json({ received: true });
   });
   // These routes authenticate a location-only grant, never an account bearer token.

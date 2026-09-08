@@ -6,6 +6,7 @@ export interface WakePublisher {
 export interface WorkerTasks {
   drain: { run(): Promise<{ processed: number; failed: number; wakeAfterSeconds: number | null }> };
   searchExpiry: { sweep(): Promise<number> };
+  payoutReconciliation?: { sweep(): Promise<number> };
 }
 export class WorkerScheduling {
   constructor(
@@ -24,6 +25,7 @@ export class WorkerScheduling {
   }
   async recover() {
     await this.tasks.searchExpiry.sweep();
+    await this.tasks.payoutReconciliation?.sweep();
     return this.consume({ version: 1 });
   }
 }

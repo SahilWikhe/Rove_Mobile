@@ -31,7 +31,7 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
   const enabled = env.STRIPE_CONNECT_ONBOARDING_ENABLED;
   if (enabled !== undefined && !['true', 'false'].includes(enabled))
     throw new ConfigurationError(['connect.enabled']);
-  let connect: { origin: string } | undefined;
+  let connect: { origin: string; webhookSecret: string } | undefined;
   if (enabled === 'true') {
     const parsedOrigin = z
       .string()
@@ -47,7 +47,13 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
       env.STRIPE_CONNECT_MODEL_APPROVED !== 'recipient-express-platform-responsibility'
     )
       throw new ConfigurationError(['connect.modelApproval']);
-    connect = { origin: parsedOrigin.data };
+    const webhook = z
+      .string()
+      .regex(/^whsec_[a-zA-Z0-9]+$/)
+      .safeParse(env.STRIPE_CONNECT_WEBHOOK_SECRET);
+    if (!webhook.success) throw new ConfigurationError(['connect.webhookSecret']);
+    if (webhook.data === payments.webhookSecret) throw new ConfigurationError(['connect.webhookSecret']);
+    connect = { origin: parsedOrigin.data, webhookSecret: webhook.data };
   }
   return {
     ...api,
