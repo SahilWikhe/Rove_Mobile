@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
+import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { testDatabase } from '@rove/database/testing';
 import { users } from '@rove/database';
@@ -45,7 +45,7 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   await database.pool.query('TRUNCATE users CASCADE');
-  await database.pool.query('TRUNCATE outbox');
+  await database.pool.query('TRUNCATE outbox, rate_limit_buckets');
   await database.db
     .insert(users)
     .values({ id: riderId, subject: 'rider', name: 'Test rider', role: 'rider' });
@@ -162,4 +162,23 @@ test('background credentials cannot become account tokens or read trip data', as
   expect(
     (await request('/tracking/v1/location', { ...location, driverId: riderId }, grant.token)).status,
   ).toBe(400);
+});
+
+test('maps requests receive a shared limit and Retry-After without raw subject or token storage', async () => {
+  const search = vi.spyOn(maps, 'search');
+  const responses = await Promise.all(Array.from({ length: 35 }, () => request('/v1/places?q=Raleigh')));
+  expect(responses.filter((response) => response.status === 200)).toHaveLength(30);
+  const blocked = responses.filter((response) => response.status === 429);
+  expect(blocked).toHaveLength(5);
+  expect(search).toHaveBeenCalledTimes(30);
+  search.mockRestore();
+  expect(Number(blocked[0]!.headers.get('Retry-After'))).toBeGreaterThan(0);
+  expect((await blocked[0]!.json()).error.code).toBe('RATE_LIMITED');
+  expect((await request('/v1/me')).status).toBe(200);
+  const rows = (await database.pool.query('SELECT key FROM rate_limit_buckets')).rows;
+  expect(rows.every((row) => /^[a-f0-9]{64}$/.test(row.key))).toBe(true);
+});
+test('unverified tokens cannot allocate rate-limit identities', async () => {
+  expect((await request('/v1/me', undefined, 'forged')).status).toBe(401);
+  expect((await database.pool.query('SELECT count(*) FROM rate_limit_buckets')).rows[0].count).toBe('0');
 });

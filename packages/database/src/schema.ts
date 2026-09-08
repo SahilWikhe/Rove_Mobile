@@ -9,6 +9,7 @@ import {
   timestamp,
   jsonb,
   uniqueIndex,
+  index,
   check,
 } from 'drizzle-orm/pg-core';
 
@@ -164,3 +165,18 @@ export const driverTrackingSessions = pgTable('driver_tracking_sessions', {
   sampledAt: timestamp({ withTimezone: true }),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
+
+// One bounded counter per authenticated subject/policy. No bearer tokens or raw identity strings.
+export const rateLimitBuckets = pgTable(
+  'rate_limit_buckets',
+  {
+    key: text().primaryKey(),
+    count: integer().notNull(),
+    expiresAt: timestamp({ withTimezone: true }).notNull(),
+  },
+  (t) => [
+    index('rate_limit_expiry').on(t.expiresAt),
+    check('rate_limit_positive_count', sql`${t.count} > 0`),
+    check('rate_limit_digest_key', sql`${t.key} ~ '^[a-f0-9]{64}$'`),
+  ],
+);

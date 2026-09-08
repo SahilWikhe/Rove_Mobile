@@ -29,6 +29,20 @@
       "when": 1788840363838,
       "tag": "0003_past_talon",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788842234507,
+      "tag": "0004_blushing_diamondback",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788842296970,
+      "tag": "0005_abnormal_genesis",
+      "breakpoints": true
     }
   ]
 }

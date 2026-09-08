@@ -30,14 +30,14 @@ export async function testDatabase() {
       migrationsFolder: fileURLToPath(new URL('../migrations/', import.meta.url)),
     });
   } catch (error) {
-    await database.pool.end();
+    await database.close();
     await postgres.stop();
     throw error;
   }
   return {
     ...database,
     close: async () => {
-      await database.pool.end();
+      await database.close();
       await postgres.stop();
     },
   };

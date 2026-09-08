@@ -1,37 +1,14 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
-import EmbeddedPostgres from 'embedded-postgres';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { createServer } from 'node:net';
 import { randomUUID } from 'node:crypto';
-import { migrate } from 'drizzle-orm/node-postgres/migrator';
-import { createDatabase, users, drivers, quotes, rides } from './index';
+import { users, drivers, quotes, rides } from './index';
+import { testDatabase } from './testing';
 
-let postgres: EmbeddedPostgres;
-let database: ReturnType<typeof createDatabase>;
+let database: Awaited<ReturnType<typeof testDatabase>>;
 beforeAll(async () => {
-  const server = createServer();
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const address = server.address();
-  if (!address || typeof address === 'string') throw new Error('No test port');
-  const port = address.port;
-  await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
-  postgres = new EmbeddedPostgres({
-    databaseDir: await mkdtemp(join(tmpdir(), 'rove-postgres-')),
-    port,
-    user: 'rove_test',
-    password: 'local-fixture-only',
-    persistent: false,
-  });
-  await postgres.initialise();
-  await postgres.start();
-  database = createDatabase(`postgresql://rove_test:local-fixture-only@127.0.0.1:${port}/postgres`);
-  await migrate(database.db, { migrationsFolder: './migrations' });
+  database = await testDatabase();
 }, 60_000);
 afterAll(async () => {
-  await database?.pool.end();
-  await postgres?.stop();
+  await database?.close();
 });
 beforeEach(async () => {
   await database.pool.query('TRUNCATE users CASCADE');

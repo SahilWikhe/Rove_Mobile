@@ -11,7 +11,7 @@ Updated: September 7, 2026. This is an implementation ledger, not a production-r
 - Database constraints for active rider/driver assignments and pending offers.
 - Transactional booking, driver acceptance and consumer trip transitions.
 - Actor-scoped idempotency results committed with ride mutations, audit records and outbox events.
-- Real, isolated local PostgreSQL testing; no production database used.
+- Real, isolated local PostgreSQL testing; no production database used. Database shutdown now waits for all connection end events, with a regression test for concurrent/idempotent close.
 - Hono API with signed OIDC token validation, database-owned roles, disabled-account checks, JSON validation, bounded bodies and non-cacheable responses.
 - Profile registration cannot create staff or approve drivers. Quote creation resolves provider places before pricing.
 - Role-scoped ride history/details; drivers lose exact endpoints and rider identity after the trip ends.
@@ -25,13 +25,13 @@ Updated: September 7, 2026. This is an implementation ledger, not a production-r
 - Location-only expiring/rotating background credentials, hash-only storage, offline revocation and monotonic upload validation. Native Expo task/permissions, credential storage, reconnect and cleanup are wired; physical-device verification remains outstanding.
 - Disposable local integration server with clearly labeled synthetic maps, identities and payments.
 
-Executed checks: contracts 3 tests; database 4 tests; server 31 tests; API 15 tests; mobile client/tracking 9 tests; driver native lifecycle 7 tests (69 total). All eight workspace typechecks pass. Both current Expo apps export iOS, Android and web bundles. Local browser verification exercised rider search/quote/request, driver online/offer/acceptance, arrival/start/completion, rider payment-state update, cancellation and expired-offer handling. Exact details disappeared from the driver view after completion. This used synthetic providers and real local PostgreSQL; it is not native-device or real-provider verification.
+Executed checks: contracts 3 tests; database 5 tests; server 35 tests; API 17 tests; mobile client/tracking 9 tests; driver native lifecycle 7 tests (76 total). All eight workspace typechecks pass. Both current Expo apps export iOS, Android and web bundles. Local browser verification exercised rider search/quote/request, driver online/offer/acceptance, arrival/start/completion, rider payment-state update, cancellation and expired-offer handling. Exact details disappeared from the driver view after completion. This used synthetic providers and real local PostgreSQL; it is not native-device or real-provider verification.
 
 CI now has committed-source configuration for full-suite quality, tests, mobile exports, dependency/secret scanning, CodeQL and a fail-closed aggregate gate. Seven tooling regression tests supplement the 63 application tests. See [CI verification](21-ci-verification.md) for dependencies, scope and remaining native verification. The initial pipeline passed all six jobs on [GitHub run 34187153892](https://github.com/SahilWikhe/Rove_Mobile/actions/runs/34187153892).
 
 ## Remaining implementation
 
-- Deployable API composition, production provider wiring, rate limiting and expanded authorization coverage. Explicit deployment configuration parsing and secret-safe validation are implemented; see docs/22-api-configuration.md.
+- Deployable API composition, production provider wiring, perimeter/background-upload rate limits and expanded authorization coverage. Authenticated API rate limits now share atomic PostgreSQL counters with concurrency tests; see docs/23-request-rate-limits.md. Explicit deployment configuration parsing and secret-safe validation are implemented; see docs/22-api-configuration.md.
 - Live route/place provider wiring and verification, payment authorization/capture/refund, tokenized payment UI and webhook reconciliation.
 - Production durable wakeup/queue integration, reconciliation and operational dead-letter replay.
 - Driver onboarding, location/availability, profile/account, ride history, support and earnings.

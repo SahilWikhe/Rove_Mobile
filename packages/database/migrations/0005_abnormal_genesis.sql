@@ -1,0 +1,1 @@
+CREATE INDEX "rate_limit_expiry" ON "rate_limit_buckets" USING btree ("expires_at");

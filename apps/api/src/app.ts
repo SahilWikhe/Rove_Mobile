@@ -7,6 +7,9 @@ import { z } from 'zod';
 import { QuoteRequest, RideState, Coordinate, Heartbeat, BackgroundLocation } from '@rove/contracts';
 import {
   DomainError,
+  RequestLimiter,
+  RateLimitError,
+  type RequestLimit,
   TrackingService,
   DriverService,
   RideService,
@@ -46,6 +49,7 @@ function id(value: string): string {
 }
 export function createApp(deps: Dependencies) {
   const app = new Hono<Environment>();
+  const limiter = new RequestLimiter(deps.pool);
   const drivers = new DriverService(deps.pool);
   const tracking = new TrackingService(deps.pool);
   if (deps.allowedOrigins?.length)
@@ -77,6 +81,7 @@ export function createApp(deps: Dependencies) {
   );
   app.onError((error, c) => {
     const known = error instanceof DomainError;
+    if (error instanceof RateLimitError) c.header('Retry-After', String(error.retryAfterSeconds));
     return c.json(
       {
         error: {
@@ -109,6 +114,13 @@ export function createApp(deps: Dependencies) {
       throw new DomainError('UNAUTHENTICATED', 'Please sign in.', 401);
     const identity = await deps.verifyIdentity(match[1]);
     c.set('subject', identity.subject);
+    let policy: RequestLimit = c.req.method === 'GET' ? 'read' : 'mutation';
+    if (c.req.path === '/v1/places') policy = 'places';
+    else if (c.req.path === '/v1/quotes') policy = 'quotes';
+    else if (c.req.path === '/v1/me' && c.req.method === 'POST') policy = 'signup';
+    else if (c.req.path === '/v1/drivers/me/tracking-session') policy = 'trackingGrant';
+    else if (c.req.path === '/v1/drivers/me/heartbeat') policy = 'heartbeat';
+    await limiter.consume(identity.subject, policy);
     const result = await deps.pool.query<{ id: string; role: Actor['role']; disabled: boolean }>(
       'SELECT id,role,disabled FROM users WHERE subject=$1',
       [identity.subject],
