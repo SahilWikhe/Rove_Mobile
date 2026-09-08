@@ -6,8 +6,10 @@ export function ProfileNameForm({
   initialName,
   save,
   reload,
+  disabled = false,
 }: {
   initialName: string;
+  disabled?: boolean;
   save: (name: string, expectedName: string) => Promise<string>;
   reload: () => Promise<string>;
 }) {
@@ -25,7 +27,7 @@ export function ProfileNameForm({
     };
   }, []);
   async function run(refresh: boolean) {
-    if (pending.current) return;
+    if (pending.current || disabled) return;
     pending.current = true;
     setBusy(true);
     setError(null);
@@ -55,7 +57,7 @@ export function ProfileNameForm({
           setName(value);
           setSaved(false);
         }}
-        editable={!busy}
+        editable={!busy && !disabled}
         maxLength={100}
         autoComplete="name"
         autoCapitalize="words"
@@ -65,10 +67,15 @@ export function ProfileNameForm({
       <Button
         title="Save name"
         loading={busy}
-        disabled={!name.trim() || name.trim() === savedName}
+        disabled={disabled || !name.trim() || name.trim() === savedName}
         onPress={() => void run(false)}
       />
-      <Button title="Reload saved name" variant="secondary" disabled={busy} onPress={() => void run(true)} />
+      <Button
+        title="Reload saved name"
+        variant="secondary"
+        disabled={busy || disabled}
+        onPress={() => void run(true)}
+      />
       <Copy kind="muted">Reload replaces your unsaved edit with the name currently on your account.</Copy>
     </Card>
   );

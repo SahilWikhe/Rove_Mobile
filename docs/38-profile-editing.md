@@ -18,7 +18,7 @@ Rider Account and the new Driver Account route share one form. It starts with th
 
 “Reload saved name” explicitly replaces the draft with the server value. A failed request preserves the draft and offers this recovery path. The form is keyed by account ID, and delayed response handling cannot write a previous account's profile into a different current session. This does not replace the separate planned authentication callback/session race audit.
 
-The editable name is the name currently shown in profiles and assigned-trip details. It does not approve drivers, change verified legal identity, replace document review or update Stripe details. Driver sign-out and full onboarding/account-management workflows remain separate unfinished work.
+The editable name is the name currently shown in profiles and assigned-trip details. It does not approve drivers, change verified legal identity, replace document review or update Stripe details. Driver sign-out is now implemented separately; see [driver sign-out](39-driver-sign-out.md). Full onboarding/account-management workflows remain unfinished.
 
 ## Verification
 
