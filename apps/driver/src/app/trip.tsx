@@ -1,3 +1,4 @@
+import { TripEarningsSummary } from '../earnings/trip-summary';
 import { useOperations } from '@rove/mobile-core/use-operations';
 import { pollWhileForeground } from '@rove/mobile-core/foreground-polling';
 import { useTrackingError } from '../tracking/provider';
@@ -144,6 +145,7 @@ export default function Trip() {
             ) : (
               <Button title={action[1]} onPress={() => setConfirm(true)} />
             ))}
+          {ride.state === 'completed' && <TripEarningsSummary key={ride.id} rideId={ride.id} />}
           {!action && <Button title="Back to driving" onPress={() => router.replace('/drive')} />}
         </>
       ) : (

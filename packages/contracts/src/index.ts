@@ -170,6 +170,17 @@ export const RideReceipt = z
   .strict();
 export type RideReceipt = z.infer<typeof RideReceipt>;
 
+export const DriverTripEarnings = z
+  .object({
+    rideId: z.uuid(),
+    estimatedAmount: Money,
+    recordedAmount: Money.nullable(),
+    recordedAt: z.iso.datetime().nullable(),
+    payoutStatus: z.literal('not_configured'),
+  })
+  .strict();
+export type DriverTripEarnings = z.infer<typeof DriverTripEarnings>;
+
 export const DriverEarnings = z
   .object({
     recordedTotal: z

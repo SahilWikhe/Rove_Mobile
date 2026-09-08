@@ -116,6 +116,23 @@ test('rider request reaches the driver and both apps follow a completed syntheti
       headers: { Authorization: 'Bearer synthetic-rider' },
     });
     expect((await receipt.json()).capturedAmount).toEqual({ amount: 1185, currency: 'USD' });
+    const earnings = await request.get('http://localhost:4085/v1/drivers/me/earnings/' + id, {
+      headers: { Authorization: 'Bearer synthetic-driver' },
+    });
+    expect(earnings.ok()).toBe(true);
+    const tripEarnings = await earnings.json();
+    expect(tripEarnings.recordedAmount).toEqual(tripEarnings.estimatedAmount);
+    expect(tripEarnings.recordedAmount.amount).toBeGreaterThan(0);
+    expect(tripEarnings.payoutStatus).toBe('not_configured');
+    await driver.bringToFront();
+    await expect(driver.getByText('RECORDED TRIP EARNINGS', { exact: true })).toBeVisible();
+    await expect(
+      driver.getByText('Synthetic earnings · no money will be paid out.', { exact: true }),
+    ).toBeVisible();
+    await driver.getByRole('button', { name: 'View earnings', exact: true }).click();
+    await expect(driver.getByText('Your work. Recorded.', { exact: true })).toBeVisible();
+    await expect(driver.getByText('Trip reference ' + id, { exact: true })).toBeVisible();
+    await driver.goBack();
     await driver.getByRole('button', { name: 'Back to driving', exact: true }).click();
     await driver.getByRole('button', { name: 'Go offline', exact: true }).click();
   } finally {

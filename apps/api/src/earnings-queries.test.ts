@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { testDatabase } from '@rove/database/testing';
 import { transaction } from '@rove/server';
-import { getEarnings } from './earnings-queries';
+import { getEarnings, getTripEarnings } from './earnings-queries';
 let db: Awaited<ReturnType<typeof testDatabase>>;
 let driver: string;
 let other: string;
@@ -121,4 +121,57 @@ test('malformed, unknown and foreign-owner cursors are rejected', async () => {
       status: 400,
     });
   }
+});
+
+test('trip earnings distinguish a completed estimate from an allocated payment', async () => {
+  const pending = await entry(driver, 790, null);
+  expect(await getTripEarnings(db.pool, { id: driver, role: 'driver' }, pending)).toEqual({
+    rideId: pending,
+    estimatedAmount: { amount: 790, currency: 'USD' },
+    recordedAmount: null,
+    recordedAt: null,
+    payoutStatus: 'not_configured',
+  });
+  const recorded = await entry(driver, 700);
+  const result = await getTripEarnings(db.pool, { id: driver, role: 'driver' }, recorded);
+  expect(result.recordedAmount).toEqual({ amount: 700, currency: 'USD' });
+  expect(result.estimatedAmount.amount).toBe(790);
+  expect(result.recordedAt).toBe('2026-09-07T12:00:00.000Z');
+  expect(JSON.stringify(result)).not.toMatch(/cus_private|acct_private|Private name/);
+});
+test('trip earnings require the assigned driver and a completed trip', async () => {
+  const ride = await entry();
+  for (const actor of [
+    { id: other, role: 'driver' as const },
+    { id: rider, role: 'rider' as const },
+    { id: driver, role: 'staff' as const },
+  ]) {
+    await expect(getTripEarnings(db.pool, actor, ride)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  }
+  await db.pool.query("UPDATE rides SET state='in_progress' WHERE id=$1", [ride]);
+  await expect(getTripEarnings(db.pool, { id: driver, role: 'driver' }, ride)).rejects.toMatchObject({
+    code: 'NOT_FOUND',
+  });
+});
+
+test('duplicate allocation journals require review instead of displaying doubled earnings', async () => {
+  const ride = await entry();
+  await transaction(db.pool, async (client) => {
+    const duplicate = randomUUID();
+    await client.query(
+      `INSERT INTO ledger_journals(id,key,fingerprint,attempt_id,ride_id,kind)
+       SELECT $1::uuid,$1::text,'duplicate-fixture',attempt_id,ride_id,kind
+       FROM ledger_journals WHERE ride_id=$2 LIMIT 1`,
+      [duplicate, ride],
+    );
+    await client.query(
+      `INSERT INTO ledger_postings(journal_id,account,owner_id,amount_cents)
+       VALUES($1,'rider_funds',$2,790),($1,'driver_payable',$3,-790)`,
+      [duplicate, rider, driver],
+    );
+  });
+  await expect(getTripEarnings(db.pool, { id: driver, role: 'driver' }, ride)).rejects.toMatchObject({
+    code: 'EARNINGS_REVIEW_REQUIRED',
+    status: 409,
+  });
 });

@@ -29,7 +29,7 @@ function EarningsContent({
   older: (cursor: string) => void;
   newer: (() => void) | undefined;
 }) {
-  const { api, profile } = useSession();
+  const { api, profile, synthetic } = useSession();
   const [data, setData] = useState<DriverEarnings | null>(null);
   const [error, setError] = useState<string | null>(null);
   useFocusEffect(
@@ -53,6 +53,7 @@ function EarningsContent({
     <Screen>
       <Stack.Screen options={{ title: 'Earnings' }} />
       <Copy kind="title">Your work. Recorded.</Copy>
+      {synthetic && <Banner message="Synthetic earnings · no money will be paid out." />}
       {newer && <Button title="Newer earnings" variant="secondary" onPress={newer} />}
       {error && <Banner error message={error} />}
       {data ? (

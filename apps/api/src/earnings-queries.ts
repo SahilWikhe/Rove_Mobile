@@ -1,6 +1,6 @@
 import type { Pool } from 'pg';
 import { z } from 'zod';
-import { DriverEarnings } from '@rove/contracts';
+import { DriverEarnings, DriverTripEarnings } from '@rove/contracts';
 import { DomainError, type Actor } from '@rove/server';
 export async function getEarnings(pool: Pool, actor: Actor, before?: string) {
   if (actor.role !== 'driver') throw new DomainError('NOT_FOUND', 'Earnings not found.', 404);
@@ -44,6 +44,38 @@ export async function getEarnings(pool: Pool, actor: Actor, before?: string) {
     })),
     hasMore,
     nextCursor: hasMore ? page[49]!.id : null,
+    payoutStatus: 'not_configured',
+  });
+}
+
+export async function getTripEarnings(pool: Pool, actor: Actor, rideId: string) {
+  if (actor.role !== 'driver') throw new DomainError('NOT_FOUND', 'Trip earnings not found.', 404);
+  const { rows } = await pool.query<{
+    earnings_cents: number;
+    amount: string | null;
+    recorded_at: Date | null;
+    journals: string;
+  }>(
+    `SELECT r.earnings_cents, a.amount, a.recorded_at, a.journals
+      FROM rides r LEFT JOIN LATERAL (
+        SELECT (-SUM(l.amount_cents))::text AS amount, MAX(j.created_at) AS recorded_at,
+               COUNT(DISTINCT j.id)::text AS journals
+        FROM ledger_journals j JOIN ledger_postings l ON l.journal_id=j.id
+        WHERE j.ride_id=r.id AND j.kind='allocation'
+          AND l.account='driver_payable' AND l.owner_id=$1
+      ) a ON true
+      WHERE r.id=$2 AND r.driver_id=$1 AND r.state='completed'`,
+    [actor.id, rideId],
+  );
+  const row = rows[0];
+  if (!row) throw new DomainError('NOT_FOUND', 'Trip earnings not found.', 404);
+  if (Number(row.journals) > 1)
+    throw new DomainError('EARNINGS_REVIEW_REQUIRED', 'This trip’s earnings need review.', 409);
+  return DriverTripEarnings.parse({
+    rideId,
+    estimatedAmount: { amount: row.earnings_cents, currency: 'USD' },
+    recordedAmount: row.amount === null ? null : { amount: Number(row.amount), currency: 'USD' },
+    recordedAt: row.recorded_at?.toISOString() ?? null,
     payoutStatus: 'not_configured',
   });
 }

@@ -1,4 +1,4 @@
-import { getEarnings } from './earnings-queries';
+import { getEarnings, getTripEarnings } from './earnings-queries';
 import { randomUUID } from 'node:crypto';
 import { Hono, type Context } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
@@ -331,6 +331,9 @@ export function createApp(deps: Dependencies) {
   });
   app.get('/v1/drivers/me/earnings', async (c) =>
     c.json(await getEarnings(deps.pool, c.var.actor, c.req.query('before'))),
+  );
+  app.get('/v1/drivers/me/earnings/:id', async (c) =>
+    c.json(await getTripEarnings(deps.pool, c.var.actor, id(c.req.param('id')))),
   );
   app.get('/v1/rides/:id/receipt', async (c) =>
     c.json(await getReceipt(deps.pool, c.var.actor, id(c.req.param('id')))),
