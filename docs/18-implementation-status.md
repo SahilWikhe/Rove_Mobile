@@ -51,6 +51,8 @@ The local synthetic API entrypoint runs. A separate Hono entrypoint now composes
 
 Both apps now support owned profile-name editing with conflict detection and shared mobile UI; see [profile editing](38-profile-editing.md).
 
+The rider native Debug build now compiled successfully with Xcode for the local iPhone 17 Pro simulator (iOS 26.5). The installed `co.roveride.rider` app launched and its synthetic welcome screen was visually inspected. CocoaPods 1.17.0 was installed locally for this build. This proves native compilation/startup only: native sign-in, trip execution, PaymentSheet, physical-device background delivery and Android native builds remain unverified. The simulator and local preview servers were left running for the founder to explore.
+
 ## Delivery instructions
 
 The user authorized building and verifying the complete mobile product, deferring paid account setup and final business decisions to the handoff, and pushing the result to `main`. The current implementation is being committed as an intermediate checkpoint at the user’s explicit request. This push does not represent completion of the full product. No production deployment is included.
