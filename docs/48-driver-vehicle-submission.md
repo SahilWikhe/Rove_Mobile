@@ -1,6 +1,6 @@
 # Driver vehicle submission
 
-Backend, client and driver vehicle form implemented September 8, 2026. Document uploads, staff review and provider verification remain outstanding. This is not a completed onboarding flow.
+Backend, client and driver vehicle form implemented September 8, 2026. Document uploads and provider verification remain outstanding; the backend [staff review API](49-staff-vehicle-review.md) is now implemented. This is not a completed onboarding flow.
 
 ## Behavior and boundaries
 

@@ -7,6 +7,7 @@ import { cors } from 'hono/cors';
 import { z } from 'zod';
 import {
   QuoteRequest,
+  VehicleReviewDecision,
   VehicleSubmissionUpdate,
   SavedPlaceKind,
   SavedPlaceUpdate,
@@ -20,6 +21,7 @@ import {
 } from '@rove/contracts';
 import {
   DomainError,
+  VehicleReviewService,
   VehicleSubmissionService,
   SavedPlaceService,
   updateProfileName,
@@ -72,6 +74,7 @@ export function createApp(deps: Dependencies) {
   const app = new Hono<Environment>();
   const limiter = new RequestLimiter(deps.pool);
   const vehicleSubmissions = new VehicleSubmissionService(deps.pool);
+  const vehicleReviews = new VehicleReviewService(deps.pool);
   const drivers = new DriverService(deps.pool);
   const savedPlaces = new SavedPlaceService(deps.pool, deps.maps);
   const tracking = new TrackingService(deps.pool);
@@ -239,6 +242,19 @@ export function createApp(deps: Dependencies) {
   );
   app.put('/v1/drivers/me/vehicle-submission', async (c) =>
     c.json(await vehicleSubmissions.submit(c.var.actor, await body(c, VehicleSubmissionUpdate))),
+  );
+  app.get('/v1/staff/drivers/:id/vehicle-submission', async (c) =>
+    c.json(await vehicleReviews.inspect(c.var.actor, id(c.req.param('id')))),
+  );
+  app.post('/v1/staff/drivers/:id/vehicle-review', async (c) =>
+    c.json(
+      await vehicleReviews.decide(
+        c.var.actor,
+        id(c.req.param('id')),
+        await body(c, VehicleReviewDecision),
+        c.req.header('Idempotency-Key') ?? '',
+      ),
+    ),
   );
   app.get('/v1/drivers/me', async (c) => c.json(await drivers.profile(c.var.actor)));
   app.put('/v1/drivers/me/availability', async (c) => {

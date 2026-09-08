@@ -171,12 +171,18 @@ test('a failed audit write rolls back the submission, history and approval chang
 test('history migration backfills the current submission from the previous schema', async () => {
   const current = (await service.submit(actor, { vehicle, expectedRevision: null })).submission!;
   // Recreate the pre-0013 state inside this disposable test database.
+  await db.pool.query(
+    'ALTER TABLE vehicle_review_decisions DROP CONSTRAINT vehicle_review_decisions_revision_driver_vehicle_history_revision_fk',
+  );
   await db.pool.query('DROP TABLE driver_vehicle_history; DROP FUNCTION prevent_vehicle_history_update()');
   const migration = await readFile(
     new URL('../../database/migrations/0013_vehicle_submission_history.sql', import.meta.url),
     'utf8',
   );
   await db.pool.query(migration);
+  await db.pool.query(
+    'ALTER TABLE vehicle_review_decisions ADD CONSTRAINT vehicle_review_decisions_revision_driver_vehicle_history_revision_fk FOREIGN KEY(revision) REFERENCES driver_vehicle_history(revision) ON DELETE CASCADE',
+  );
   const row = (
     await db.pool.query(
       'SELECT revision,vehicle,submitted_at FROM driver_vehicle_history WHERE driver_id=$1',

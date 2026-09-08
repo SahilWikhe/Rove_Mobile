@@ -237,3 +237,27 @@ export const VehicleReview = z
 export const VehicleReviewResponse = z.object({ submission: VehicleReview.nullable() }).strict();
 
 export type VehicleReview = z.infer<typeof VehicleReview>;
+
+export const VehicleReviewDecision = z
+  .object({
+    revision: z.uuid(),
+    decision: z.enum(['approved', 'rejected']),
+    reason: z
+      .string()
+      .trim()
+      .min(10)
+      .max(1000)
+      .regex(/^[^\p{Cc}]+$/u),
+    verifiedService: Service.optional(),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.decision === 'approved' && !value.verifiedService)
+      ctx.addIssue({ code: 'custom', message: 'Select the verified service.', path: ['verifiedService'] });
+    if (value.decision === 'rejected' && value.verifiedService)
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Rejected vehicles cannot receive service verification.',
+        path: ['verifiedService'],
+      });
+  });

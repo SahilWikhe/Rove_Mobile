@@ -327,3 +327,33 @@ export const driverVehicleHistory = pgTable(
   },
   (table) => [index('driver_vehicle_history_owner').on(table.driverId, table.submittedAt)],
 );
+
+export const staffPermissions = pgTable(
+  'staff_permissions',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    staffId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    permission: text().notNull(),
+  },
+  (table) => [uniqueIndex('staff_permission_unique').on(table.staffId, table.permission)],
+);
+export const vehicleReviewDecisions = pgTable(
+  'vehicle_review_decisions',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    revision: uuid()
+      .notNull()
+      .unique()
+      .references(() => driverVehicleHistory.revision, { onDelete: 'cascade' }),
+    reviewerId: uuid()
+      .notNull()
+      .references(() => users.id),
+    decision: text().notNull(),
+    reason: text().notNull(),
+    verifiedService: text(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [check('vehicle_review_decision_value', sql`${table.decision} IN ('approved','rejected')`)],
+);

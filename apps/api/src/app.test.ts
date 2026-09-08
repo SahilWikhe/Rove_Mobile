@@ -31,7 +31,7 @@ beforeAll(async () => {
     }),
     maps,
     verifyIdentity: async (token) => {
-      if (!['rider', 'new-user', 'driver'].includes(token))
+      if (!['rider', 'new-user', 'driver', 'staff'].includes(token))
         throw new DomainError('UNAUTHENTICATED', 'Please sign in.', 401);
       return { subject: token };
     },
@@ -293,4 +293,37 @@ test('vehicle submission API never allows client approval fields and requires a 
       await app.request('/v1/drivers/me/vehicle-submission', { headers: { Authorization: 'Bearer driver' } })
     ).headers.get('Cache-Control'),
   ).toBe('no-store');
+});
+
+test('staff vehicle endpoints deny access without the explicit review permission', async () => {
+  const staffId = randomUUID();
+  await database.db
+    .insert(users)
+    .values({ id: staffId, subject: 'staff', name: 'Synthetic staff', role: 'staff' });
+  const target = randomUUID();
+  expect(
+    (
+      await app.request(`/v1/staff/drivers/${target}/vehicle-submission`, {
+        headers: { Authorization: 'Bearer staff' },
+      })
+    ).status,
+  ).toBe(403);
+  await database.pool.query(
+    "INSERT INTO staff_permissions(staff_id,permission) VALUES($1,'driver.vehicle.review')",
+    [staffId],
+  );
+  expect(
+    (
+      await app.request(`/v1/staff/drivers/${target}/vehicle-submission`, {
+        headers: { Authorization: 'Bearer staff' },
+      })
+    ).status,
+  ).toBe(404);
+  expect(
+    (
+      await app.request(`/v1/staff/drivers/${target}/vehicle-submission`, {
+        headers: { Authorization: 'Bearer rider' },
+      })
+    ).status,
+  ).toBe(403);
 });

@@ -71,6 +71,8 @@ An owned Home/Work saved-place API, migration, mobile client and booking control
 
 A driver-owned vehicle-submission API and client now separate pending vehicle details from effective approval; a driver vehicle form is implemented, while documents and staff review remain pending. See [vehicle submissions](48-driver-vehicle-submission.md).
 
+A permission-scoped staff vehicle review API now records immutable decisions without enabling driver eligibility; see [staff vehicle review](49-staff-vehicle-review.md). Staff MFA, documents and the separate dashboard remain pending.
+
 ## Delivery instructions
 
 The user authorized building and verifying the complete mobile product, deferring paid account setup and final business decisions to the handoff, and pushing the result to `main`. The current implementation is being committed as an intermediate checkpoint at the user’s explicit request. This push does not represent completion of the full product. No production deployment is included.
