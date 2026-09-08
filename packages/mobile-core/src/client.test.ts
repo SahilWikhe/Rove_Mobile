@@ -94,3 +94,31 @@ test('payment sessions use authenticated requests and validate the sensitive res
   await expect(api.paymentSession(rideId)).rejects.toMatchObject({ code: 'INCOMPATIBLE_RESPONSE' });
   expect(fetcher).toHaveBeenCalledTimes(2);
 });
+
+test('profile updates bind the expected account and saved name without automatic retries', async () => {
+  const profile = { id: '09f4e751-09d5-4f04-a47c-f70d621fc54f', name: 'New name', role: 'rider' };
+  const fetcher = vi.fn<Transport>(async () => new Response(JSON.stringify(profile)));
+  const api = new ApiClient('https://api.example', async () => 'fixture', fetcher);
+  expect(await api.updateProfileName(profile.id, 'Old name', '  New name  ')).toEqual(profile);
+  expect(fetcher.mock.calls[0]?.[1].method).toBe('PATCH');
+  expect(JSON.parse(fetcher.mock.calls[0]![1].body as string)).toEqual({
+    expectedProfileId: profile.id,
+    expectedName: 'Old name',
+    name: 'New name',
+  });
+  expect(() => api.updateProfileName(profile.id, 'Old name', ' ')).toThrow();
+  expect(fetcher).toHaveBeenCalledOnce();
+});
+test('profile conflicts surface to the editor without replaying over newer data', async () => {
+  const fetcher = vi.fn<Transport>(
+    async () =>
+      new Response(JSON.stringify({ error: { code: 'PROFILE_CHANGED', message: 'Reload your profile.' } }), {
+        status: 409,
+      }),
+  );
+  const api = new ApiClient('https://api.example', async () => 'fixture', fetcher);
+  await expect(
+    api.updateProfileName('09f4e751-09d5-4f04-a47c-f70d621fc54f', 'Old', 'New'),
+  ).rejects.toMatchObject({ code: 'PROFILE_CHANGED', status: 409 });
+  expect(fetcher).toHaveBeenCalledOnce();
+});

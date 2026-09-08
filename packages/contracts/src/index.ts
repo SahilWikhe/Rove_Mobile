@@ -77,6 +77,19 @@ export type RideState = z.infer<typeof RideState>;
 export type Service = z.infer<typeof Service>;
 export type Capabilities = z.infer<typeof Capabilities>;
 
+export const DisplayName = z
+  .string()
+  .trim()
+  .min(1)
+  .max(100)
+  .regex(/^[^\p{Cc}]+$/u, 'Use a name without control characters.');
+export const ProfileNameUpdate = z
+  .object({
+    expectedProfileId: z.uuid(),
+    expectedName: z.string().min(1).max(100),
+    name: DisplayName,
+  })
+  .strict();
 export const Profile = z.object({
   id: z.uuid(),
   name: z.string(),

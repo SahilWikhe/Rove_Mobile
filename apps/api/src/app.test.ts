@@ -203,3 +203,27 @@ test('background upload throttling returns retry metadata without blocking grant
   expect(revoked.status).toBe(200);
   expect((await request('/tracking/v1/location', location, grant.token)).status).toBe(401);
 });
+
+test('profile editing is authenticated, owned, strict and returns the saved profile without caching', async () => {
+  const update = (token: string, extra = {}) =>
+    app.request('/v1/me', {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedProfileId: riderId,
+        expectedName: 'Test rider',
+        name: 'Updated rider',
+        ...extra,
+      }),
+    });
+  expect((await update('forged')).status).toBe(401);
+  expect((await update('rider', { role: 'staff' })).status).toBe(400);
+  const saved = await update('rider');
+  expect(saved.status).toBe(200);
+  expect(saved.headers.get('cache-control')).toBe('no-store');
+  expect(await saved.json()).toEqual({ id: riderId, role: 'rider', name: 'Updated rider' });
+  expect((await (await request('/v1/me')).json()).name).toBe('Updated rider');
+  expect((await update('rider', { name: 'Conflicting' })).status).toBe(409);
+  await database.pool.query('UPDATE users SET disabled=true WHERE id=$1', [riderId]);
+  expect((await update('rider')).status).toBe(403);
+});

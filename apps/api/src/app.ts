@@ -5,9 +5,18 @@ import { bodyLimit } from 'hono/body-limit';
 import { secureHeaders } from 'hono/secure-headers';
 import { cors } from 'hono/cors';
 import { z } from 'zod';
-import { QuoteRequest, RideState, Coordinate, Heartbeat, BackgroundLocation } from '@rove/contracts';
+import {
+  QuoteRequest,
+  RideState,
+  Coordinate,
+  Heartbeat,
+  BackgroundLocation,
+  DisplayName,
+  ProfileNameUpdate,
+} from '@rove/contracts';
 import {
   DomainError,
+  updateProfileName,
   RequestLimiter,
   RateLimitError,
   type RequestLimit,
@@ -63,7 +72,7 @@ export function createApp(deps: Dependencies) {
       '*',
       cors({
         origin: deps.allowedOrigins,
-        allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
         allowHeaders: ['Authorization', 'Content-Type', 'Idempotency-Key'],
       }),
     );
@@ -150,10 +159,7 @@ export function createApp(deps: Dependencies) {
     await next();
   });
   app.post('/v1/me', async (c) => {
-    const input = await body(
-      c,
-      z.object({ name: z.string().trim().min(1).max(100), role: z.enum(['rider', 'driver']) }).strict(),
-    );
+    const input = await body(c, z.object({ name: DisplayName, role: z.enum(['rider', 'driver']) }).strict());
     // Public signup can never grant staff access or driver approval.
     const result = await deps.pool.query<{ id: string; role: Actor['role']; name: string }>(
       'INSERT INTO users (subject,name,role) VALUES ($1,$2,$3) ON CONFLICT (subject) DO UPDATE SET subject=EXCLUDED.subject RETURNING id,role,name',
@@ -164,6 +170,9 @@ export function createApp(deps: Dependencies) {
       await deps.pool.query('INSERT INTO drivers (id) VALUES ($1) ON CONFLICT DO NOTHING', [user.id]);
     return c.json(user);
   });
+  app.patch('/v1/me', async (c) =>
+    c.json(await updateProfileName(deps.pool, c.var.actor, await body(c, ProfileNameUpdate))),
+  );
   app.get('/v1/me', async (c) => {
     const user = (await deps.pool.query('SELECT id,name,role FROM users WHERE id=$1', [c.var.actor.id]))
       .rows[0];

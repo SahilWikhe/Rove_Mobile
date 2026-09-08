@@ -69,6 +69,7 @@ async function files(directory) {
   for (const item of await readdir(directory, { withFileTypes: true })) {
     if (['node_modules', 'dist', '.expo', '.turbo'].includes(item.name)) continue;
     const path = resolve(directory, item.name);
+    if (/^apps\/[^/]+\/(ios|android)$/.test(relative(root, path).replaceAll('\\', '/'))) continue;
     if (item.isDirectory()) result.push(...(await files(path)));
     else if (/\.(?:ts|tsx)$/.test(item.name)) result.push(path);
   }

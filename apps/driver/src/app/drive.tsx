@@ -161,6 +161,7 @@ export default function Drive() {
       />
       <Button title="Earnings" variant="secondary" onPress={() => router.push('/earnings')} />
       <Button title="Trips" variant="secondary" onPress={() => router.push('/trips')} />
+      <Button title="Account" variant="secondary" onPress={() => router.push('/account')} />
     </Screen>
   );
 }

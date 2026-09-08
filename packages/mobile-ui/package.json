@@ -4,7 +4,8 @@
   "private": true,
   "main": "src/index.tsx",
   "exports": {
-    ".": "./src/index.tsx"
+    ".": "./src/index.tsx",
+    "./profile-name-form": "./src/profile-name-form.tsx"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

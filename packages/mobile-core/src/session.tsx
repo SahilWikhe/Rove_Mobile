@@ -46,6 +46,8 @@ interface Session {
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
   register: (name: string) => Promise<void>;
+  updateName: (name: string, expectedName: string) => Promise<string>;
+  reloadName: () => Promise<string>;
   synthetic: boolean;
 }
 const SessionContext = createContext<Session | null>(null);
@@ -235,6 +237,20 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
       }
     }
   }
+  async function updateName(name: string, expectedName: string) {
+    if (!profile) throw new Error('Sign in to edit your profile.');
+    const updated = await api.updateProfileName(profile.id, expectedName, name);
+    if (updated.id !== profile.id) throw new Error('Your signed-in account changed. Reopen your profile.');
+    setProfile((current) => (current?.id === updated.id ? updated : current));
+    return updated.name;
+  }
+  async function reloadName() {
+    if (!profile) throw new Error('Sign in to view your profile.');
+    const updated = await api.me();
+    if (updated.id !== profile.id) throw new Error('Your signed-in account changed. Reopen your profile.');
+    setProfile((current) => (current?.id === updated.id ? updated : current));
+    return updated.name;
+  }
   async function register(name: string) {
     setLoading(true);
     setError(null);
@@ -262,6 +278,8 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
         signIn,
         signOut,
         register,
+        updateName,
+        reloadName,
       }}
     >
       {children}

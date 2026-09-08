@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   TrackingGrant,
+  ProfileNameUpdate,
   PaymentSession,
   RideReceipt,
   DriverEarnings,
@@ -89,6 +90,10 @@ export class ApiClient {
       clearTimeout(timeout);
       options.signal?.removeEventListener('abort', abort);
     }
+  }
+  updateProfileName(expectedProfileId: string, expectedName: string, name: string) {
+    const body = ProfileNameUpdate.parse({ expectedProfileId, expectedName, name });
+    return this.request('/v1/me', Profile, { method: 'PATCH', body });
   }
   me() {
     return this.request('/v1/me', Profile);

@@ -58,3 +58,18 @@ pnpm --filter @rove/rider --filter @rove/driver --parallel build
 ```
 
 Database tests intentionally attempt invalid concurrent assignments and invalid monetary values; PostgreSQL constraint errors in their logs are expected when the tests pass. See the implementation ledger for current coverage and remaining release requirements.
+
+## Local iPhone simulator builds
+
+With Xcode and an iOS Simulator runtime installed, use the local API and development Metro servers above. In another terminal, build/install a native debug app:
+
+```sh
+EXPO_PUBLIC_API_URL=http://localhost:4080 EXPO_PUBLIC_SYNTHETIC=true \
+  pnpm --filter @rove/rider exec expo run:ios --device 'iPhone 17 Pro' --port 8081
+```
+
+Choose an available simulator name from `xcrun simctl list devices available`. Expo can reuse the existing Metro server for that app. The driver equivalent uses `--filter @rove/driver` and `--port 8082`. Do not combine `--port` with `--no-bundler`; the installed Expo CLI rejects that combination. If using `--no-bundler` alone, it defaults to port 8081.
+
+The first build generates the native project, installs CocoaPods/dependencies and compiles the native modules; subsequent launches reuse build caches. `apps/*/ios` and `apps/*/android` are generated Expo prebuild output, excluded from Git and JS source checks. Native configuration belongs in the committed app config/plugins; do not place permanent hand edits only in generated directories. Schema migrations remain separate from native builds.
+
+Simulator previews use synthetic identities/maps/funding and the disposable local database. Keep Metro and the API running while exploring. This setup does not test real GPS, lock-screen delivery, real OAuth accounts or Stripe payment authorization, and does not install the app on a physical phone.

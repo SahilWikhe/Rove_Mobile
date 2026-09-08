@@ -3,7 +3,16 @@ import ts from 'typescript-eslint';
 import hooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 export default ts.config(
-  { ignores: ['**/node_modules/**', '**/dist/**', '**/.expo/**', '**/migrations/meta/**'] },
+  {
+    ignores: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/.expo/**',
+      '**/migrations/meta/**',
+      'apps/*/ios/**',
+      'apps/*/android/**',
+    ],
+  },
   js.configs.recommended,
   ...ts.configs.recommended,
   {
