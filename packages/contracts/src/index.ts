@@ -156,3 +156,22 @@ export const RideReceipt = z
   })
   .strict();
 export type RideReceipt = z.infer<typeof RideReceipt>;
+
+export const DriverEarnings = z
+  .object({
+    recordedTotal: z
+      .object({
+        amount: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+        currency: z.literal('USD'),
+      })
+      .strict(),
+    entries: z
+      .array(
+        z.object({ id: z.uuid(), rideId: z.uuid(), recordedAt: z.iso.datetime(), amount: Money }).strict(),
+      )
+      .max(50),
+    hasMore: z.boolean(),
+    payoutStatus: z.literal('not_configured'),
+  })
+  .strict();
+export type DriverEarnings = z.infer<typeof DriverEarnings>;

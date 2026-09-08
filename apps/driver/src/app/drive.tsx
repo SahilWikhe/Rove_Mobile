@@ -159,7 +159,8 @@ export default function Drive() {
         loading={busy}
         onPress={() => void availability()}
       />
-      <Button title="Trips & earnings" variant="secondary" onPress={() => router.push('/trips')} />
+      <Button title="Earnings" variant="secondary" onPress={() => router.push('/earnings')} />
+      <Button title="Trips" variant="secondary" onPress={() => router.push('/trips')} />
     </Screen>
   );
 }

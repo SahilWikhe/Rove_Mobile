@@ -3,6 +3,7 @@ import {
   TrackingGrant,
   PaymentSession,
   RideReceipt,
+  DriverEarnings,
   Profile,
   Quote,
   RideDetails,
@@ -110,6 +111,9 @@ export class ApiClient {
   }
   book(quoteId: string, key: string) {
     return this.request('/v1/ride-requests', RideSummary, { method: 'POST', body: { quoteId }, key });
+  }
+  earnings(signal?: AbortSignal) {
+    return this.request('/v1/drivers/me/earnings', DriverEarnings, signal ? { signal } : {});
   }
   receipt(rideId: string, signal?: AbortSignal) {
     return this.request(
