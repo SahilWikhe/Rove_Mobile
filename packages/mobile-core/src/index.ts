@@ -111,8 +111,12 @@ export class ApiClient {
       signal ? { signal } : {},
     );
   }
-  quote(pickup: Place, destination: Place, service: 'standard' | 'accessible') {
-    return this.request('/v1/quotes', Quote, { method: 'POST', body: { pickup, destination, service } });
+  quote(pickup: Place, destination: Place, service: 'standard' | 'accessible', signal?: AbortSignal) {
+    return this.request('/v1/quotes', Quote, {
+      method: 'POST',
+      ...(signal ? { signal } : {}),
+      body: { pickup, destination, service },
+    });
   }
   book(quoteId: string, key: string) {
     return this.request('/v1/ride-requests', RideSummary, { method: 'POST', body: { quoteId }, key });

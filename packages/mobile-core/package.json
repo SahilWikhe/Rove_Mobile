@@ -12,7 +12,8 @@
     "./operation-store": "./src/operation-store.ts",
     "./use-operations": "./src/use-operations.ts",
     "./payment-flow": "./src/payment-flow.ts",
-    "./use-ride-page": "./src/use-ride-page.ts"
+    "./use-ride-page": "./src/use-ride-page.ts",
+    "./latest-request": "./src/latest-request.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

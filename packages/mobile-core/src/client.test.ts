@@ -132,3 +132,24 @@ test('history pagination forwards an opaque cursor and keeps its continuation', 
   expect(fetcher.mock.calls[0]?.[0]).toBe('https://api.example/v1/rides?before=cursor%3Fprivate%26value');
   expect(fetcher).toHaveBeenCalledOnce();
 });
+
+test('quote creation forwards cancellation without retrying or booking a ride', async () => {
+  const controller = new AbortController();
+  let forwarded: AbortSignal | undefined;
+  const transport = vi.fn<Transport>(async (_url, options) => {
+    forwarded = options.signal as AbortSignal;
+    controller.abort();
+    return new Response('{}');
+  });
+  const api = new ApiClient('https://api.example', async () => 'fixture', transport);
+  const place = {
+    id: 'fixture',
+    label: 'Fixture',
+    area: 'Raleigh',
+    coordinate: { latitude: 35.8, longitude: -78.6 },
+  };
+  await api.quote(place, place, 'standard', controller.signal).catch(() => undefined);
+  expect(forwarded?.aborted).toBe(true);
+  expect(transport).toHaveBeenCalledOnce();
+  expect(transport.mock.calls[0]?.[0]).toBe('https://api.example/v1/quotes');
+});

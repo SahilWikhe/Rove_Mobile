@@ -1,35 +1,81 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createLatestRequest } from '@rove/mobile-core/latest-request';
 import { useOperations } from '@rove/mobile-core/use-operations';
 import { router, Stack } from 'expo-router';
 import type { Place, Quote } from '@rove/contracts';
 import { useSession } from '@rove/mobile-core/session';
 import { Banner, Button, Card, Copy, Field, Money, RouteSummary, Screen } from '@rove/mobile-ui';
 export default function Book() {
+  const { profile } = useSession();
+  return <BookingForm key={profile?.id ?? 'signed-out'} />;
+}
+function BookingForm() {
   const { api, profile, synthetic } = useSession();
   const { pending, restoring, recoveryError, execute } = useOperations();
   const [pickup, setPickup] = useState<Place | null>(null);
   const [destination, setDestination] = useState<Place | null>(null);
   const [target, setTarget] = useState<'pickup' | 'destination'>('pickup');
   const [query, setQuery] = useState('');
+  const requests = useRef(createLatestRequest());
+  const mounted = useRef(true);
+  const submitting = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    const controller = requests.current;
+    return () => {
+      mounted.current = false;
+      controller.cancel();
+    };
+  }, []);
+  const [searched, setSearched] = useState(false);
   const [places, setPlaces] = useState<Place[]>([]);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   async function submit(quoteId: string) {
     const ride = await execute({ kind: 'book', quoteId });
+    if (!mounted.current) return;
     router.replace({ pathname: synthetic ? '/ride' : '/payment', params: { id: ride.id } });
   }
   async function perform(work: () => Promise<void>) {
+    if (submitting.current) return;
+    submitting.current = true;
     setLoading(true);
     setError(null);
     try {
       await work();
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'Please try again.');
+      if (mounted.current) setError(failure instanceof Error ? failure.message : 'Please try again.');
     } finally {
-      setLoading(false);
+      submitting.current = false;
+      if (mounted.current) setLoading(false);
     }
   }
+  function cancelRead() {
+    requests.current.cancel();
+    setLoading(false);
+    setPlaces([]);
+    setSearched(false);
+    setError(null);
+  }
+  function edit(next: 'pickup' | 'destination', text = '') {
+    cancelRead();
+    setQuote(null);
+    setTarget(next);
+    if (next === 'pickup') setPickup(null);
+    else setDestination(null);
+    setQuery(text);
+  }
+  async function read<T>(load: (signal: AbortSignal) => Promise<T>, apply: (value: T) => void) {
+    setLoading(true);
+    setError(null);
+    await requests.current.run(load, {
+      data: apply,
+      error: (failure) => setError(failure instanceof Error ? failure.message : 'Please try again.'),
+      settled: () => setLoading(false),
+    });
+  }
+
   if (!profile)
     return (
       <Screen>
@@ -124,9 +170,7 @@ export default function Book() {
                 title="Change pickup"
                 variant="secondary"
                 onPress={() => {
-                  setTarget('pickup');
-                  setQuery('');
-                  setPlaces([]);
+                  edit('pickup');
                 }}
               />
             </Card>
@@ -139,9 +183,7 @@ export default function Book() {
                 title="Change destination"
                 variant="secondary"
                 onPress={() => {
-                  setTarget('destination');
-                  setQuery('');
-                  setPlaces([]);
+                  edit('destination');
                 }}
               />
             </Card>
@@ -149,7 +191,7 @@ export default function Book() {
           <Field
             label={target === 'pickup' ? 'Pickup address' : 'Destination address'}
             value={query}
-            onChangeText={setQuery}
+            onChangeText={(text) => edit(target, text)}
             placeholder="Search an address or place"
             autoCorrect={false}
           />
@@ -157,14 +199,26 @@ export default function Book() {
             title="Search places"
             disabled={query.trim().length < 3}
             loading={loading}
-            onPress={() => void perform(async () => setPlaces((await api.places(query.trim())).places))}
+            onPress={() =>
+              void read(
+                (signal) => api.places(query.trim(), signal),
+                (result) => {
+                  setPlaces(result.places);
+                  setSearched(true);
+                },
+              )
+            }
           />
+          {searched && !loading && places.length === 0 && (
+            <Copy kind="muted">No places found. Try a different address.</Copy>
+          )}
           {places.map((place) => (
             <Button
               key={place.id}
               title={place.label}
               variant="secondary"
               onPress={() => {
+                cancelRead();
                 if (target === 'pickup') {
                   setPickup(place);
                   setTarget('destination');
@@ -179,9 +233,7 @@ export default function Book() {
               title="See your fare"
               loading={loading}
               onPress={() =>
-                void perform(async () => {
-                  setQuote(await api.quote(pickup, destination, 'standard'));
-                })
+                void read((signal) => api.quote(pickup, destination, 'standard', signal), setQuote)
               }
             />
           )}
