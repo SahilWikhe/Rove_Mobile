@@ -17,3 +17,4 @@ export * from './payment-reconciliation';
 export * from './payment-sessions';
 export * from './payment-customers';
 export * from './search-expiry';
+export * from './outbox-drain';

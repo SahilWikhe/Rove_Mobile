@@ -4,6 +4,7 @@ import {
   MatchingService,
   SearchExpiry,
   OutboxWorker,
+  OutboxDrain,
   PaymentCustomers,
   PaymentReconciler,
   PaymentSessions,
@@ -56,7 +57,7 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
     paymentSessions: new PaymentSessions(pool, payments, config.paymentSource, undefined, customers),
     paymentWebhooks: new PaymentWebhookInbox(pool, payments, config.paymentSource),
   });
-  return { app, worker, searchExpiry, close: database.close };
+  return { app, worker, drain: new OutboxDrain(pool, worker), searchExpiry, close: database.close };
 }
 /** Only validated environment configuration can construct the real deployment resources. */
 export function createRuntime(env: Record<string, string | undefined>) {

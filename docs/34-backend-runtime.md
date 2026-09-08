@@ -45,3 +45,9 @@ Provider verification, native-device payment testing, driver payout integration,
 Four runtime tests cover required secret-safe configuration, environment separation, real-adapter initialization with rejected synthetic identity, and the composed booking → customer/payment session → webhook reconciliation → authorization → cancellation → release path. The latter uses real PostgreSQL and simulated provider boundaries; real Stripe signature verification has its own existing tests.
 
 `pnpm --filter @rove/api build` bundles server code for Node 24 and rejects embedded PostgreSQL or the local synthetic entrypoint in the dependency graph. `pnpm --filter @rove/api verify:build` starts the bundle in a child process with an explicit fixture-only environment and verifies health, no-store, rejected synthetic identity and unknown routes. Both commands run in CI's required quality job. They never read ambient provider credentials or connect to the production database.
+
+## Bounded worker invocations
+
+The runtime now exposes `drain.run()`, which processes at most ten jobs and checks a twenty-second budget between jobs. In-flight provider requests retain their own timeouts; the budget is not a hard interruption deadline. Its result reports processed/failed counts and the next wakeup delay from persisted availability and lease expiry. Completed/dead-letter work is excluded. A future queue callback should publish that wakeup and propagate publishing failures; a periodic recovery trigger must cover a crash between database commit and publishing.
+
+Three real PostgreSQL tests cover bounded batches, delayed work, crashed-worker lease recovery, slow-job budgets and retry backoff. Vercel queue publishing/callbacks and periodic recovery are not connected yet.
