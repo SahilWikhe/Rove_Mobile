@@ -1,0 +1,3 @@
+# Verified prose false positive in docs/50 at line 51; see docs/51-browser-ci.md.
+# No credential is present. Suppress only this exact historical finding, not a path or rule.
+717ac52136a56a04d916e564eb663100bcc99c51:docs/50-support-requests.md:generic-api-key:51

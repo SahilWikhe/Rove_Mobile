@@ -1,5 +1,5 @@
 import { pathToFileURL } from 'node:url';
-export const requiredJobs = ['quality', 'tests', 'mobile', 'security', 'codeql'];
+export const requiredJobs = ['quality', 'tests', 'browser', 'mobile', 'security', 'codeql'];
 export function gateFailures(results) {
   if (!results || typeof results !== 'object') return ['Missing job results'];
   return requiredJobs

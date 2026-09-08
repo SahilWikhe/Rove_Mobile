@@ -16,6 +16,8 @@ import {
 import { createApp } from './app';
 if (process.env.NODE_ENV === 'production' || process.env.VERCEL)
   throw new Error('The synthetic server cannot run in a deployment.');
+const e2e = process.env.ROVE_E2E === '1';
+const port = e2e ? 4085 : 4080;
 const database = await testDatabase();
 const places = [
   {
@@ -114,27 +116,51 @@ const app = createApp({
       throw new DomainError('UNAUTHENTICATED', 'Invalid local test identity.', 401);
     return { subject: token };
   },
-  allowedOrigins: ['http://localhost:8081', 'http://localhost:8082', 'http://localhost:8083'],
+  allowedOrigins: e2e
+    ? ['http://localhost:8091', 'http://localhost:8092']
+    : ['http://localhost:8081', 'http://localhost:8082', 'http://localhost:8083'],
 });
-const server = serve({ fetch: app.fetch, port: 4080, hostname: '127.0.0.1' });
+// Only the isolated test runtime exposes cleanup; production never imports this module.
+if (e2e)
+  app.post('/__e2e/shutdown', async (c) => {
+    await drain();
+    return c.json({ stopped: true });
+  });
+const server = serve({ fetch: app.fetch, port, hostname: '127.0.0.1' });
 let stopped = false;
 let timer: ReturnType<typeof setTimeout>;
+let inFlight: Promise<void>;
+let draining: Promise<void> | undefined;
+function startJobs() {
+  inFlight = processJobs();
+}
 async function processJobs() {
   try {
     await worker.runOnce(20);
   } catch {
     console.error('Local worker failed; will retry.');
   } finally {
-    if (!stopped) timer = setTimeout(processJobs, 500);
+    if (!stopped) timer = setTimeout(startJobs, 500);
   }
 }
-void processJobs();
-console.log('Synthetic Rove API: http://localhost:4080. Disposable data; no real payments or notifications.');
+startJobs();
+console.log(
+  `Synthetic Rove API: http://localhost:${port}. Disposable data; no real payments or notifications.`,
+);
+function drain() {
+  if (!draining) {
+    stopped = true;
+    clearTimeout(timer);
+    draining = (async () => {
+      await inFlight;
+      await database.close();
+    })();
+  }
+  return draining;
+}
 async function stop() {
-  stopped = true;
-  clearTimeout(timer);
   server.close();
-  await database.close();
+  await drain();
   process.exit(0);
 }
 process.once('SIGINT', () => void stop());

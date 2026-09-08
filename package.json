@@ -7,7 +7,7 @@
     "node": ">=24.19.0 <25"
   },
   "scripts": {
-    "typecheck": "turbo run typecheck",
+    "typecheck": "turbo run typecheck && tsc -p tsconfig.e2e.json",
     "test": "turbo run test",
     "dev:api": "pnpm --filter @rove/api dev",
     "docs:check": "markdownlint-cli2 'docs/**/*.md' '*.md'",
@@ -17,10 +17,12 @@
     "boundaries:check": "node scripts/boundaries.mjs",
     "tooling:test": "node --test scripts/*.test.mjs",
     "security:audit": "pnpm audit --audit-level=moderate",
-    "build:mobile": "pnpm --filter @rove/rider build && pnpm --filter @rove/driver build"
+    "build:mobile": "pnpm --filter @rove/rider build && pnpm --filter @rove/driver build",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@playwright/test": "1.63.0",
     "@types/node": "24.13.3",
     "eslint": "10.10.0",
     "eslint-plugin-react-hooks": "7.1.1",
