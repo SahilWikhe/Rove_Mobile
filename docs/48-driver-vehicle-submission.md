@@ -10,13 +10,19 @@ GET and PUT `/v1/drivers/me/vehicle-submission` operate only on the authenticate
 
 A changed submission requires the driver to be offline and have no matched, en-route, arrived, in-progress or interrupted ride. The transaction writes a pending submission, clears approval and eligibility expiry, removes stored location and revokes tracking grants. It preserves payout readiness. Unverified vehicle details and requested accessible service never replace the effective vehicle/service shown to riders. Going online remains blocked until the separate review workflow establishes eligibility.
 
-The audit event records the submission revision without duplicating plate/address data into audit metadata. Only the latest submission is stored in this initial module; immutable document/review history and staff decision records remain future work. No client-facing approval endpoint exists. A `pending` status records receipt by the backend, not delivery to an operating staff review queue.
+The audit event records the submission revision without duplicating plate/address data into audit metadata. Migration `0013_vehicle_submission_history.sql` now preserves each submitted vehicle revision separately from the latest editable submission record. The migration backfills the current record for existing drivers; versions overwritten before this migration cannot be reconstructed. PostgreSQL rejects UPDATE on the history table. Document/review history and staff decision records remain future work. No client-facing approval endpoint exists. A `pending` status records receipt by the backend, not delivery to an operating staff review queue.
 
 ## Verification
 
 Postgres tests cover approval invalidation, tracking revocation, unchanged effective vehicle/service, concurrent submissions, identical retries, online rejection, owner scoping, disabled accounts, role/input restrictions and each active-ride state. The API test verifies driver-only access, strict rejection of approval fields and no-store responses. All tests use disposable synthetic databases with the new migration.
 
 Shared client methods expose reading/submitting, with no automatic mutation replay. Both apps' exports and repository quality checks were run. No production migration or cloud review workflow was executed.
+
+## Submission history integrity
+
+A new vehicle revision, its historical snapshot, approval invalidation and the audit event commit in one transaction. Identical pending retries produce no new revision. Historical rows contain the submitted facts, not an approval decision. There is no mobile endpoint exposing other drivers' history.
+
+Additional Postgres tests verify two edits retain both snapshots, identical retries do not duplicate history, direct UPDATE is rejected, audit failure rolls back all changes, and the actual migration backfills a current record from the previous schema. Driver deletion cascades to history; retention policy and least-privilege hosted database roles still need configuration before launch. The trigger is an update guard, not a claim that database administrators cannot delete data.
 
 ## Driver form
 

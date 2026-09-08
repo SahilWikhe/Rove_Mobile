@@ -84,6 +84,10 @@ export class VehicleSubmissionService {
         )
       ).rows[0];
       await client.query(
+        'INSERT INTO driver_vehicle_history(revision,driver_id,vehicle,submitted_at) VALUES($1,$2,$3,$4)',
+        [revision, actor.id, JSON.stringify(input.vehicle), row.submitted_at],
+      );
+      await client.query(
         'UPDATE drivers SET approved=false,eligibility_expires_at=NULL,location=NULL,location_at=NULL WHERE id=$1',
         [actor.id],
       );

@@ -92,6 +92,13 @@
       "when": 1788855681112,
       "tag": "0012_driver_vehicle_submissions",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1788856131524,
+      "tag": "0013_vehicle_submission_history",
+      "breakpoints": true
     }
   ]
 }

@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { testDatabase } from '@rove/database/testing';
@@ -133,3 +134,56 @@ test.each(['matched', 'en_route', 'arrived', 'in_progress', 'interrupted'])(
     ).toBe(true);
   },
 );
+
+test('editing a submission preserves each submitted revision and retries do not duplicate history', async () => {
+  const first = (await service.submit(actor, { vehicle, expectedRevision: null })).submission!;
+  const changed = { ...vehicle, color: 'White' };
+  const second = (await service.submit(actor, { vehicle: changed, expectedRevision: first.revision }))
+    .submission!;
+  await service.submit(actor, { vehicle: changed, expectedRevision: first.revision });
+  const rows = (
+    await db.pool.query('SELECT revision,vehicle FROM driver_vehicle_history WHERE driver_id=$1', [actor.id])
+  ).rows;
+  expect(rows).toHaveLength(2);
+  expect(rows.find((row) => row.revision === first.revision)?.vehicle).toEqual(vehicle);
+  expect(rows.find((row) => row.revision === second.revision)?.vehicle).toEqual(changed);
+  expect((await service.get(actor)).submission?.revision).toBe(second.revision);
+  await expect(
+    db.pool.query("UPDATE driver_vehicle_history SET vehicle='{}' WHERE revision=$1", [first.revision]),
+  ).rejects.toThrow('Submitted vehicle revisions cannot be edited');
+});
+test('a failed audit write rolls back the submission, history and approval changes together', async () => {
+  await db.pool.query(
+    "ALTER TABLE audit ADD CONSTRAINT reject_vehicle_audit_fixture CHECK(action <> 'driver.vehicle_submitted')",
+  );
+  try {
+    await expect(service.submit(actor, { vehicle, expectedRevision: null })).rejects.toThrow();
+    expect((await service.get(actor)).submission).toBeNull();
+    expect((await db.pool.query('SELECT revision FROM driver_vehicle_history')).rowCount).toBe(0);
+    expect(
+      (await db.pool.query('SELECT approved FROM drivers WHERE id=$1', [actor.id])).rows[0].approved,
+    ).toBe(true);
+  } finally {
+    await db.pool.query('ALTER TABLE audit DROP CONSTRAINT reject_vehicle_audit_fixture');
+  }
+});
+
+test('history migration backfills the current submission from the previous schema', async () => {
+  const current = (await service.submit(actor, { vehicle, expectedRevision: null })).submission!;
+  // Recreate the pre-0013 state inside this disposable test database.
+  await db.pool.query('DROP TABLE driver_vehicle_history; DROP FUNCTION prevent_vehicle_history_update()');
+  const migration = await readFile(
+    new URL('../../database/migrations/0013_vehicle_submission_history.sql', import.meta.url),
+    'utf8',
+  );
+  await db.pool.query(migration);
+  const row = (
+    await db.pool.query(
+      'SELECT revision,vehicle,submitted_at FROM driver_vehicle_history WHERE driver_id=$1',
+      [actor.id],
+    )
+  ).rows[0];
+  expect(row.revision).toBe(current.revision);
+  expect(row.vehicle).toEqual(vehicle);
+  expect(row.submitted_at.toISOString()).toBe(current.submittedAt);
+});

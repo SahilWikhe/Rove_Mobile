@@ -313,3 +313,17 @@ export const driverVehicleSubmissions = pgTable(
     check('driver_vehicle_submission_status', sql`${table.status} IN ('pending', 'approved', 'rejected')`),
   ],
 );
+
+// Historical submitted facts; review decisions belong to a separate audited workflow.
+export const driverVehicleHistory = pgTable(
+  'driver_vehicle_history',
+  {
+    revision: uuid().primaryKey(),
+    driverId: uuid()
+      .notNull()
+      .references(() => drivers.id, { onDelete: 'cascade' }),
+    vehicle: jsonb().notNull(),
+    submittedAt: timestamp({ withTimezone: true }).notNull(),
+  },
+  (table) => [index('driver_vehicle_history_owner').on(table.driverId, table.submittedAt)],
+);
