@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createLatestRequest } from '@rove/mobile-core/latest-request';
 import { useOperations } from '@rove/mobile-core/use-operations';
 import { router, Stack } from 'expo-router';
+import { SavedPlaceControls } from '../booking/saved-places';
 import { QuoteConfirmation } from '../booking/quote-confirmation';
 import { ServicePicker } from '../booking/service-picker';
 import type { Place, Quote } from '@rove/contracts';
@@ -149,6 +150,27 @@ function BookingForm() {
         />
       ) : (
         <>
+          <SavedPlaceControls
+            api={api}
+            selected={destination ?? pickup}
+            target={target}
+            busy={loading}
+            onUse={(kind) =>
+              void read(
+                (signal) => api.savedPlace(kind, signal),
+                (place) => {
+                  setQuote(null);
+                  setPlaces([]);
+                  setSearched(false);
+                  setQuery('');
+                  if (target === 'pickup') {
+                    setPickup(place);
+                    setTarget('destination');
+                  } else setDestination(place);
+                },
+              )
+            }
+          />
           {pickup && (
             <Card>
               <Copy kind="label">PICKUP</Copy>

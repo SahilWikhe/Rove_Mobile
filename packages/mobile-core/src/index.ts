@@ -36,8 +36,10 @@ export class ApiClient {
   savedPlaces() {
     return this.request('/v1/saved-places', SavedPlaces);
   }
-  savedPlace(kind: SavedPlaceKind) {
-    return this.request(`/v1/saved-places/${SavedPlaceKind.parse(kind)}`, Place);
+  savedPlace(kind: SavedPlaceKind, signal?: AbortSignal) {
+    return this.request(`/v1/saved-places/${SavedPlaceKind.parse(kind)}`, Place, {
+      ...(signal ? { signal } : {}),
+    });
   }
   savePlace(kind: SavedPlaceKind, placeId: string, expectedPlaceId: string | null) {
     return this.request(

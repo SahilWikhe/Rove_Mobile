@@ -169,3 +169,18 @@ test('saved place writes send only a slot and expected provider ID without autom
   expect(JSON.parse(transport.mock.calls[1]![1].body as string)).toEqual({ expectedPlaceId: 'new-id' });
   expect(transport).toHaveBeenCalledTimes(2);
 });
+
+test('saved place resolution forwards the route editor cancellation signal', async () => {
+  const controller = new AbortController();
+  let forwarded: AbortSignal | undefined;
+  const transport = vi.fn<Transport>(async (_url, options) => {
+    forwarded = options.signal as AbortSignal;
+    controller.abort();
+    return new Response('{}');
+  });
+  const api = new ApiClient('https://api.example', async () => 'fixture', transport);
+  await api.savedPlace('work', controller.signal).catch(() => undefined);
+  expect(forwarded?.aborted).toBe(true);
+  expect(transport.mock.calls[0]?.[0]).toBe('https://api.example/v1/saved-places/work');
+  expect(transport).toHaveBeenCalledOnce();
+});

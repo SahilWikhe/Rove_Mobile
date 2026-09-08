@@ -67,7 +67,7 @@ The quote confirmation now follows the supplied Figma route-card, typography and
 
 Temporary auth refresh failures now preserve saved sessions while preventing expired-token API requests; see [auth refresh recovery](46-auth-refresh-recovery.md).
 
-An owned Home/Work saved-place API, migration and mobile client are implemented; UI integration and environment migration remain pending. See [saved places](47-saved-places.md).
+An owned Home/Work saved-place API, migration, mobile client and booking controls are implemented; Home-screen shortcuts, native verification and hosted-environment migration remain pending. See [saved places](47-saved-places.md).
 
 ## Delivery instructions
 
