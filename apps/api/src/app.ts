@@ -268,6 +268,7 @@ export function createApp(deps: Dependencies) {
       ),
     ),
   );
+  app.get('/v1/staff/support-requests', async (c) => c.json(await support.queue(c.var.actor, c.req.query())));
   app.get('/v1/staff/support-requests/:id', async (c) =>
     c.json(await support.inspect(c.var.actor, id(c.req.param('id')))),
   );

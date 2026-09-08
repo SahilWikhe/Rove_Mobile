@@ -377,6 +377,7 @@ export const supportRequests = pgTable(
   },
   (table) => [
     index('support_requests_owner').on(table.ownerId, table.createdAt),
+    index('support_requests_queue').on(table.status, table.createdAt, table.id),
     check('support_request_status', sql`${table.status} IN ('open','resolved')`),
     check(
       'support_request_category',

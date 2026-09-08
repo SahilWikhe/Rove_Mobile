@@ -22,7 +22,7 @@ The caller cannot supply an owner, status, reviewer or privileged field. Consume
 
 Transactions lock the owner to serialize concurrent creation, cap open requests at five per account, and commit the saved request, audit and command result together. POST also has a five-per-minute database-backed API limit. Existing identical open requests return their original result without another request or creation audit. Audit metadata includes category, not message text. Request bodies and command results contain private messages and require restricted database access and coordinated retention/deletion; no encryption-at-rest deployment claim is made here.
 
-Resolution is available only through the staff endpoint described below. There is no consumer status mutation, staff queue listing or ongoing conversation thread. Do not release this as staffed support until the full operational workflow and notification delivery are verified. No production support team, inbox or service-level agreement was configured.
+Resolution is available only through the staff endpoint described below. There is no consumer status mutation or ongoing conversation thread. Do not release this as staffed support until the full operational workflow and notification delivery are verified. No production support team, inbox or service-level agreement was configured.
 
 ## Verification
 
@@ -38,4 +38,14 @@ The service locks the request and permits only open → resolved. Competing reso
 
 Responses are deliberately customer-visible copy, not private staff notes. The owner history returns response and resolution time without staff identity. Both apps render the response as plain text in the request card after refresh, with no HTML/link execution or claim that a push notification was delivered. Missing fields from older API responses default to null. Existing records are preserved by nullable columns; coordinated app/API rollout remains required because old clients use strict DTOs.
 
-Tests cover permission and MFA denial, revoked permission on replay, concurrent resolution, audit rollback, released capacity, owner-only visibility and endpoint payload validation. A synthetic resolved response was visually checked at 390×844 in the driver web preview. Actual provider notifications, multi-message conversations, reopening/escalation policy, staff queue pagination and the dashboard are still pending. Resolution does not change driver eligibility, refund a payment or mutate a ride.
+Tests cover permission and MFA denial, revoked permission on replay, concurrent resolution, audit rollback, released capacity, owner-only visibility and endpoint payload validation. A synthetic resolved response was visually checked at 390×844 in the driver web preview. Actual provider notifications, multi-message conversations, reopening/escalation policy, the dashboard and staff assignment are still pending. Resolution does not change driver eligibility, refund a payment or mutate a ride.
+
+## Staff queue
+
+GET `/v1/staff/support-requests` supplies an oldest-first queue for the separate staff dashboard. It requires enabled staff, verified MFA and `support.read`; resolving still requires the additional `support.resolve` permission. The default filter is `status=open`; `status=resolved` selects completed requests. Each page contains at most 50 summaries (ID, category, status, creation time), not message text, owner identity, response text or resolving-staff identity. Opening a request uses the separately audited detail endpoint.
+
+The response includes a nullable `nextCursor` with `afterCreatedAt` and `afterId`. Pass both fields unchanged as query parameters to fetch the next page with the same status filter; reset the cursor when changing filters. The service uses a creation-time/UUID keyset rather than offsets or lookup of the previous row. Resolving or deleting the cursor row therefore does not invalidate the cursor. The timestamp preserves PostgreSQL microseconds: do not round it through a JavaScript Date. The public display timestamp is separate from the cursor timestamp.
+
+Migration `0018_support_queue.sql` adds the status/creation-time/ID index. The query reads 51 rows to determine whether another page exists and returns 50. Every successful queue read writes an audit event with filter and returned count; the audit does not copy customer messages. Invalid, incomplete or unsupported query fields are rejected. Queue results are live, not a historical snapshot: refresh the first page for new work or state changes.
+
+Tests use 55 synthetic records with tied and sub-millisecond timestamps and resolve the cursor row between pages. They verify no missing/duplicated IDs, separate resolved filtering, omitted private fields, audited access, permission/MFA denial, disabled staff and invalid query rejection. API checks verify no-store responses and pagination validation. No staff dashboard UI or production permissions were created.

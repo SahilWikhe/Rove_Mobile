@@ -375,3 +375,21 @@ test('staff support resolution is permission-gated and returned in owner history
   expect(history.requests[0]).toMatchObject({ status: 'resolved', response: reply.response });
   expect(history.requests[0]).not.toHaveProperty('resolvedBy');
 });
+
+test('support queue requires staff authorization and rejects malformed pagination', async () => {
+  expect((await request('/v1/staff/support-requests')).status).toBe(403);
+  const staffId = randomUUID();
+  await database.db
+    .insert(users)
+    .values({ id: staffId, subject: 'staff', name: 'Synthetic staff', role: 'staff' });
+  await database.pool.query("INSERT INTO staff_permissions(staff_id,permission) VALUES($1,'support.read')", [
+    staffId,
+  ]);
+  expect(
+    (await request('/v1/staff/support-requests?afterId=' + randomUUID(), undefined, 'staff')).status,
+  ).toBe(400);
+  const response = await request('/v1/staff/support-requests', undefined, 'staff');
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ requests: [], nextCursor: null });
+  expect(response.headers.get('cache-control')).toContain('no-store');
+});

@@ -127,6 +127,13 @@
       "when": 1788857727896,
       "tag": "0017_support_resolution",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1788858010430,
+      "tag": "0018_support_queue",
+      "breakpoints": true
     }
   ]
 }

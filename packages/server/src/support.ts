@@ -1,5 +1,11 @@
 import type { Pool, PoolClient } from 'pg';
-import { SupportRequest, SupportRequestInput, SupportResolution } from '@rove/contracts';
+import {
+  SupportRequest,
+  SupportRequestInput,
+  SupportResolution,
+  SupportQueueQuery,
+  SupportQueue,
+} from '@rove/contracts';
 import type { Actor } from './rides';
 import { DomainError } from './errors';
 import { command, transaction } from './transactions';
@@ -71,6 +77,38 @@ export class SupportService {
     });
   }
 
+  async queue(actor: Actor, raw: unknown = {}) {
+    const parsed = SupportQueueQuery.safeParse(raw);
+    if (!parsed.success) throw new DomainError('INVALID_QUERY', 'Check the queue filters and cursor.', 400);
+    const input = parsed.data;
+    return transaction(this.pool, async (client) => {
+      await requireStaffPermission(client, actor, 'support.read');
+      const result = await client.query(
+        `SELECT id,category,status,created_at,
+          to_char(created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_time
+          FROM support_requests WHERE status=$1
+          AND ($2::timestamptz IS NULL OR (created_at,id)>($2::timestamptz,$3::uuid))
+          ORDER BY created_at,id LIMIT 51`,
+        [input.status, input.afterCreatedAt ?? null, input.afterId ?? null],
+      );
+      const rows = result.rows.slice(0, 50);
+      const last = rows.at(-1);
+      await client.query(
+        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'support.queue_viewed',$1,$2)",
+        [actor.id, JSON.stringify({ status: input.status, count: rows.length })],
+      );
+      return SupportQueue.parse({
+        requests: rows.map((row) => ({
+          id: row.id,
+          category: row.category,
+          status: row.status,
+          createdAt: row.created_at.toISOString(),
+        })),
+        nextCursor:
+          result.rows.length > 50 && last ? { afterCreatedAt: last.cursor_time, afterId: last.id } : null,
+      });
+    });
+  }
   async resolve(actor: Actor, requestId: string, raw: unknown, key: string) {
     const input = SupportResolution.parse(raw);
     const authorize = async (client: PoolClient) => {

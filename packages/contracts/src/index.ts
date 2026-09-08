@@ -312,3 +312,23 @@ export const SupportRequest = z
 export type SupportRequest = z.infer<typeof SupportRequest>;
 export type SupportRequestInput = z.infer<typeof SupportRequestInput>;
 export const SupportRequests = z.object({ requests: z.array(SupportRequest).max(50) }).strict();
+
+export const SupportQueueQuery = z
+  .object({
+    status: z.enum(['open', 'resolved']).default('open'),
+    afterCreatedAt: z.iso.datetime().optional(),
+    afterId: z.uuid().optional(),
+  })
+  .strict()
+  .refine(
+    (value) => Boolean(value.afterCreatedAt) === Boolean(value.afterId),
+    'Both cursor fields are required.',
+  );
+export const SupportQueue = z
+  .object({
+    requests: z
+      .array(SupportRequest.pick({ id: true, category: true, status: true, createdAt: true }))
+      .max(50),
+    nextCursor: z.object({ afterCreatedAt: z.iso.datetime(), afterId: z.uuid() }).strict().nullable(),
+  })
+  .strict();

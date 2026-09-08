@@ -177,3 +177,50 @@ test('resolution frees open-request capacity and audit failure leaves the reques
     service.create(rider, { ...input, message: 'Synthetic additional question' }, randomUUID()),
   ).resolves.toMatchObject({ status: 'open' });
 });
+
+test('staff queue pages tied and sub-millisecond timestamps without leaking messages', async () => {
+  await grantResolution();
+  // More than one page of synthetic rows, including precision JavaScript Date cannot retain.
+  await db.pool.query(
+    "INSERT INTO support_requests(owner_id,category,message,created_at) SELECT $1,'account','Synthetic private message','2026-09-08T08:00:00.000123Z'::timestamptz + (n/3)*interval '1 microsecond' FROM generate_series(1,55) n",
+    [rider.id],
+  );
+  const expected = (await db.pool.query('SELECT id FROM support_requests ORDER BY created_at,id')).rows.map(
+    (row) => row.id,
+  );
+  const first = await service.queue(staff);
+  expect(first.requests).toHaveLength(50);
+  expect(first.nextCursor).not.toBeNull();
+  expect(first.requests[0]).not.toHaveProperty('message');
+  expect(first.requests[0]).not.toHaveProperty('ownerId');
+  // Removing the cursor row from the open queue must not invalidate its cursor.
+  await service.resolve(staff, first.requests.at(-1)!.id, { response: 'Synthetic resolution' }, randomUUID());
+  const second = await service.queue(staff, first.nextCursor!);
+  expect(second.requests).toHaveLength(5);
+  expect(second.nextCursor).toBeNull();
+  expect([...first.requests, ...second.requests].map((row) => row.id)).toEqual(expected);
+  const resolved = await service.queue(staff, { status: 'resolved' });
+  expect(resolved.requests.map((row) => row.id)).toEqual([first.requests.at(-1)!.id]);
+  const audits = (await db.pool.query("SELECT metadata FROM audit WHERE action='support.queue_viewed'")).rows;
+  expect(audits).toHaveLength(3);
+  expect(JSON.stringify(audits)).not.toContain('Synthetic private');
+});
+test('queue permission, MFA, filters and cursor are enforced', async () => {
+  await expect(service.queue(staff)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  await grantResolution();
+  await expect(service.queue({ ...staff, mfa: false })).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  await expect(service.queue(driver)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  for (const query of [
+    { status: 'any' },
+    { afterId: randomUUID() },
+    { afterCreatedAt: '2026-09-08T08:00:00Z' },
+    { afterCreatedAt: 'bad', afterId: randomUUID() },
+    { ownerId: rider.id },
+    { limit: 999 },
+  ])
+    await expect(service.queue(staff, query)).rejects.toMatchObject({ code: 'INVALID_QUERY' });
+  expect((await db.pool.query("SELECT id FROM audit WHERE action='support.queue_viewed'")).rowCount).toBe(0);
+  expect(await service.queue(staff)).toEqual({ requests: [], nextCursor: null });
+  await db.pool.query('UPDATE users SET disabled=true WHERE id=$1', [staff.id]);
+  await expect(service.queue(staff)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+});

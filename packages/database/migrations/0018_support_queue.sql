@@ -1,0 +1,1 @@
+CREATE INDEX "support_requests_queue" ON "support_requests" USING btree ("status","created_at","id");
