@@ -108,6 +108,13 @@ export default function Ride() {
             <Money cents={ride.fare.amount} label="FARE" />
             <Copy kind="muted">Payment: {ride.paymentState.replaceAll('_', ' ')}</Copy>
           </Card>
+          {(ride.state === 'completed' || ['paid', 'review_required'].includes(ride.paymentState)) && (
+            <Button
+              title="View receipt"
+              variant="secondary"
+              onPress={() => router.push({ pathname: '/receipt', params: { id: ride.id } })}
+            />
+          )}
           {!synthetic &&
             ride.state === 'searching' &&
             ['pending', 'action_required'].includes(ride.paymentState) && (

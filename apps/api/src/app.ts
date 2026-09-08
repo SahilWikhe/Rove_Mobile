@@ -20,6 +20,7 @@ import {
 } from '@rove/server';
 import type { Pool } from 'pg';
 import type { VerifyIdentity } from './auth';
+import { getReceipt } from './receipt-queries';
 import { getRide, listRides } from './ride-queries';
 
 type Environment = { Variables: { actor: Actor; subject: string; requestId: string } };
@@ -233,6 +234,9 @@ export function createApp(deps: Dependencies) {
       await deps.rides.accept(c.var.actor, id(c.req.param('id')), c.req.header('Idempotency-Key') ?? ''),
     );
   });
+  app.get('/v1/rides/:id/receipt', async (c) =>
+    c.json(await getReceipt(deps.pool, c.var.actor, id(c.req.param('id')))),
+  );
   app.post('/v1/rides/:id/payment-session', async (c) => {
     await body(c, z.object({}).strict());
     if (!deps.paymentSessions)

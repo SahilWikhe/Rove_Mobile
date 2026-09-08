@@ -25,7 +25,7 @@ Updated: September 7, 2026. This is an implementation ledger, not a production-r
 - Location-only expiring/rotating background credentials, hash-only storage, offline revocation and monotonic upload validation. Native Expo task/permissions, credential storage, reconnect and cleanup are wired; physical-device verification remains outstanding.
 - Disposable local integration server with clearly labeled synthetic maps, identities and payments.
 
-Executed checks: contracts 3 tests; database 5 tests; server 75 tests; API 31 tests; mobile client/tracking/polling/recovery/payment 32 tests; driver native lifecycle 7 tests (153 total). All eight workspace typechecks pass. Both current Expo apps export iOS, Android and web bundles. Local browser verification exercised rider search/quote/request, driver online/offer/acceptance, arrival/start/completion, rider payment-state update, cancellation and expired-offer handling. Exact details disappeared from the driver view after completion. This used synthetic providers and real local PostgreSQL; it is not native-device or real-provider verification.
+Executed checks: contracts 3 tests; database 5 tests; server 75 tests; API 37 tests; mobile client/tracking/polling/recovery/payment 32 tests; driver native lifecycle 7 tests (159 total). All eight workspace typechecks pass. Both current Expo apps export iOS, Android and web bundles. Local browser verification exercised rider search/quote/request, driver online/offer/acceptance, arrival/start/completion, rider payment-state update, cancellation and expired-offer handling. Exact details disappeared from the driver view after completion. This used synthetic providers and real local PostgreSQL; it is not native-device or real-provider verification.
 
 CI now has committed-source configuration for full-suite quality, tests, mobile exports, dependency/secret scanning, CodeQL and a fail-closed aggregate gate. Seven tooling regression tests supplement the application tests. See [CI verification](21-ci-verification.md) for dependencies, scope and remaining native verification. The initial pipeline passed all six jobs on [GitHub run 34187153892](https://github.com/SahilWikhe/Rove_Mobile/actions/runs/34187153892).
 
@@ -42,6 +42,8 @@ Bookings, rider cancellation and driver trip transitions now preserve operation 
 - Staff backend permissions and audited use cases; dashboard UI remains a separate repository.
 - Extend provider integration/API tests and add native end-to-end verification.
 - Environment samples, operational setup and paid-provider/business-decision handoff.
+
+Rider capture receipts now use owned ledger records and show actual captured amounts independently from quoted fares; see [rider receipts](33-rider-receipts.md).
 
 ## Known intermediate gaps
 

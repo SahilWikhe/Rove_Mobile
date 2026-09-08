@@ -143,3 +143,16 @@ export const PaymentSession = z
   })
   .strict();
 export type PaymentSession = z.infer<typeof PaymentSession>;
+
+export const RideReceipt = z
+  .object({
+    id: z.uuid(),
+    rideId: z.uuid(),
+    recordedAt: z.iso.datetime(),
+    quotedFare: Money,
+    capturedAmount: Money,
+    rideState: RideState,
+    paymentState: z.string().min(1).max(100),
+  })
+  .strict();
+export type RideReceipt = z.infer<typeof RideReceipt>;

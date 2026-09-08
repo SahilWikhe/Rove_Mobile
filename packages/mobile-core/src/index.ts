@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   TrackingGrant,
   PaymentSession,
+  RideReceipt,
   Profile,
   Quote,
   RideDetails,
@@ -109,6 +110,13 @@ export class ApiClient {
   }
   book(quoteId: string, key: string) {
     return this.request('/v1/ride-requests', RideSummary, { method: 'POST', body: { quoteId }, key });
+  }
+  receipt(rideId: string, signal?: AbortSignal) {
+    return this.request(
+      `/v1/rides/${encodeURIComponent(rideId)}/receipt`,
+      RideReceipt,
+      signal ? { signal } : {},
+    );
   }
   paymentSession(rideId: string) {
     return this.request(`/v1/rides/${encodeURIComponent(rideId)}/payment-session`, PaymentSession, {
