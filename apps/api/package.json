@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "tsx watch src/local.ts",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build": "node build.mjs",
+    "verify:build": "node verify-build.mjs"
   },
   "dependencies": {
     "@hono/node-server": "2.1.1",
@@ -19,6 +21,7 @@
     "zod": "4.5.4"
   },
   "devDependencies": {
-    "@types/pg": "8.23.1"
+    "@types/pg": "8.23.1",
+    "esbuild": "0.28.2"
   }
 }

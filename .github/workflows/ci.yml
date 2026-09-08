@@ -45,6 +45,8 @@ jobs:
       - run: pnpm tooling:test
       - run: pnpm typecheck
       - run: pnpm docs:check
+      - run: pnpm --filter @rove/api build
+      - run: pnpm --filter @rove/api verify:build
       - name: Check migration snapshot matches the schema
         run: |
           pnpm --filter @rove/database exec drizzle-kit generate
