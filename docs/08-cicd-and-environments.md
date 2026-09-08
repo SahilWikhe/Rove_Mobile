@@ -89,3 +89,7 @@ Keep signing keys in the build platform's protected credentials management. Publ
 Foundation will implement `pnpm lint`, `pnpm typecheck`, `pnpm test:unit`, `pnpm test:integration`, `pnpm test:contracts`, `pnpm test:e2e:mobile`, `pnpm check:boundaries`, `pnpm docs:check` and workspace-specific build/migration commands. Each dashboard repository supplies its own web component/build checks and `pnpm test:e2e:web`; core CI retains backend policy and contract tests. Commands must fail when an expected suite/configuration is missing. Mobile E2E commands may require a prepared build/device and must explain that prerequisite clearly.
 
 Do not use these as working commands until the scaffold supplies them. [Vercel monorepo configuration](https://vercel.com/docs/monorepos)
+
+## Feature flag release controls
+
+Default scheduling flags off in each environment. Core CI uses deterministic fake evaluation and tests the full prerequisite matrix; trusted staging validates the Vercel/Hono adapter. Record flag changes separately from code deployments, limit management access and review impact before enabling cohorts. Never copy production targeting or provider keys into untrusted previews. Already accepted scheduling commitments survive flag rollback and normal API compatibility rules apply to older apps. See [flag plan](17-scheduling-feature-flags.md).

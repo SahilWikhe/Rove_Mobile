@@ -61,3 +61,7 @@ Some documentation endpoints returned fetch errors during review. Do not infer a
 ## How to revise the plan
 
 Change the relevant ADR and dependent documents together. Record the evidence, options, chosen direction, migration impact, cost/privacy consequences and acceptance test. Replace hypotheses with confirmed facts only when the founder or recorded operational evidence resolves them. Preserve historical decisions when they explain compatibility constraints.
+
+## September 7 design approval and flag research
+
+The founder approved the supplied mobile Figma theme/layouts with default consumer funding, removal of Pro subscription/100%-fare claims, restricted pre-acceptance data, retained scheduling behind flags and consistent new missing-flow designs. These decisions override mockup copy. Exact tokens await extraction after Figma quota availability; no invented values are authoritative. See [design contract](16-mobile-design-contract.md) for file/node provenance and [flag plan](17-scheduling-feature-flags.md) for current official Vercel sources, pricing date and the Hono integration gate. No Figma edits, service activation or implementation are claimed.

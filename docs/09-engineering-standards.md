@@ -68,3 +68,7 @@ PR descriptions state the problem, resulting behavior, validation and material l
 - No credentials, production data, generated build directories or unrelated files are included.
 
 Security-critical and money-moving changes receive explicit focused review. This requirement does not create a claim that review eliminates all defects; release evidence and operational recovery still matter.
+
+## Mobile design and feature modules
+
+Use [approved Figma mappings](16-mobile-design-contract.md) and shared native primitives for the new flows. Keep offer/assignment DTOs distinct and safe by construction. Route scheduling decisions through a typed FeatureAccess boundary rather than scattered provider calls or client-only conditions. Document flag owners, defaults, dependencies and cleanup; preserve admitted commitments independently of rollout state. See [flag plan](17-scheduling-feature-flags.md).

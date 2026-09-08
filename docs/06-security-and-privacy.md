@@ -78,3 +78,7 @@ Obtain qualified review of transport operating requirements, insurance, accessib
 ## Release evidence
 
 Before consumer pilot, demonstrate ownership/assignment tests, abuse controls, payment/webhook integrity, redacted telemetry, preview isolation, restore, revocation and incident response. Before B2B release, additionally prove cross-organization and consumer-personal-history isolation plus funded-trip continuation when the dashboard is unavailable. Record owner/expiry for exceptions. Critical access or financial-integrity failures block the affected release. A separate repository never substitutes for server-side access control.
+
+## Mobile design privacy and rollout controls
+
+Enforce the [offer data boundary](16-mobile-design-contract.md) in server responses, map data, caches, push and telemetry, not only visual masking. Flag credentials stay server-side; client capability booleans are not authorization. Scheduling flags grant no institution/staff role and cannot cancel existing transport obligations. Test forged overrides, targeting-data minimization and rollback as defined in [scheduling flags](17-scheduling-feature-flags.md).

@@ -50,3 +50,7 @@ There are three product repositories, plus the existing website repository: four
 The initial Neon setup was performed in a separate local research directory named `Rove`. Its `.env.local`, `.neon`, installed packages, and credentials do not belong in this documentation commit. Provisioning a Neon project does not imply that this repository is connected or production-ready. See the [environment plan](docs/08-cicd-and-environments.md) before linking application environments.
 
 Future source folders shown in these documents are proposed paths. Commands described as future scripts will become executable during the foundation milestone. Do not assume `pnpm test` or a deployment command works yet.
+
+## Mobile design implementation baseline
+
+Use the supplied Figma screens and theme with the approved changes recorded in [mobile design contract](docs/16-mobile-design-contract.md). It maps existing frames and specifies missing rider/driver journeys. [Scheduling feature flags](docs/17-scheduling-feature-flags.md) defines the default-off advance/weekly/monthly rollout, recommended Vercel integration, backend enforcement and existing-booking protection. Consumer-funded rides remain primary; the Pro subscription and 100%-fare promises are removed. These specifications are not implemented apps or configured flags.

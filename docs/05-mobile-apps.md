@@ -12,7 +12,7 @@ For future delegated booking, caregiver capabilities are separate: view, receive
 
 ## Driver application
 
-Organize around online/offline availability, incoming timed offers, accepted pickup/active trip, earnings/history and account/eligibility. Show an offer countdown derived from server expiry and require server acknowledgement of acceptance. Declined/expired offers must disappear; a late tap cannot claim an already reassigned trip. Display only necessary pre-acceptance information and reveal authorized pickup details after acceptance.
+Organize around online/offline availability, incoming timed offers, accepted pickup/active trip, earnings/history and account/eligibility. Show an offer countdown derived from server expiry and require server acknowledgement of acceptance. Declined/expired offers must disappear; a late tap cannot claim an already reassigned trip. Before acceptance, send only coarse route areas, ETA/distance, estimated earnings/terms, expiry and necessary service capabilities. Exclude rider identity/history, exact endpoints/coordinates, medical information and payer labels at the API serialization boundary. Reveal authorized assignment details only after committed acceptance, and revoke access when assignment ends or changes.
 
 Tracking has two explicit purposes. Online discovery provides private-to-platform position/heartbeat for finding available drivers. Accepted-trip tracking provides rider-visible position under ride authorization. Trip completion stops that ride's sharing; online discovery continues only while the driver intentionally stays online. Going offline, logout or revocation stops discovery; expired heartbeats remove the driver from matching. Reject superseded trip sessions even if the phone has queued samples.
 
@@ -80,3 +80,7 @@ Carry the black/gold brand into usable interfaces with tested contrast. Support 
 Test older supported devices, small screens, large fonts, dark/light appearance decisions, slow networks, and long names/addresses. Use loading skeletons only where they preserve meaning; avoid animated maps distracting from pickup instructions. App-store privacy disclosures must match actual SDK collection.
 
 Build and release mechanics are described in [CI/CD](08-cicd-and-environments.md). Institution dashboards are not an embedded required tab or prerequisite for either native app; their UI/release lifecycle belongs to the [separate B2B product](14-b2b-product-boundary.md).
+
+## Detailed screen contract
+
+The [mobile design contract](16-mobile-design-contract.md) is the frame-by-frame handoff for both supplied Figma files, shared visual components, approved copy/scope changes and proposed auth/payment/onboarding/error/start-trip screens. Follow its consumer-funded default and remove Pro subscription/100%-fare content. Scheduling UI and backend admission use [default-off scheduling flags](17-scheduling-feature-flags.md), including a capabilities response and grandfathered existing-work views. Scheduled service requirements do not permit sensitive pre-acceptance disclosure.

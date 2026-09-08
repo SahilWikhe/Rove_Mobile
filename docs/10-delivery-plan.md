@@ -82,3 +82,13 @@ Exit: customer acceptance, cross-organization isolation, safe funding, contract 
 6. Rider request, automatic matching and driver acceptance vertical slice.
 
 Keep PRs scoped to a reviewable outcome with real evidence. Current scope changes do not authorize application releases or production mutations. See [CI/CD](08-cicd-and-environments.md) and [B2B boundary](14-b2b-product-boundary.md).
+
+## September 7 mobile design and scheduling refinement
+
+- M1: establish Figma-derived theme/components and design evidence; capability contract and deterministic all-off feature access. Do not copy unverified example hex values or build Pro billing.
+- M2: design and implement auth/recovery, driver onboarding/eligibility and permissions in the supplied style; confirm redacted offer boundary.
+- M3: consumer quote/payment review, no-driver/cancel/expired-offer screens; prove sensitive data is absent before driver acceptance.
+- M4: explicit driver start-trip, pending-sync, payment result/receipt and support flows. Scheduling is not needed for this milestone.
+- After core readiness: implement retained scheduling modules behind default-off flags, prove the Vercel/Hono adapter, then roll out one-time, weekly and monthly separately after recurrence/funding/support acceptance. Existing obligations must survive rollback. Personal scheduling is independent of B2B delivery.
+
+The [design contract](16-mobile-design-contract.md) and [flag plan](17-scheduling-feature-flags.md) specify these tasks. Supplied layouts/theme remain the baseline; default medical sponsorship and the Pro subscription are removed. This documentation task does not activate providers or release code.

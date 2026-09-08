@@ -127,3 +127,7 @@ Paginate history with a stable cursor and bounded page size. Query only columns 
 6. Record migration id, release SHA, environment, and result. Prefer forward repairs. Test restore separately; restoring a database can discard newer valid operations and is not a routine code rollback.
 
 Retention and deletion policies must distinguish financial obligations, audit needs, contact information, and fine-grained location. Proposed development data is entirely synthetic. Before pilot launch, approve a retention matrix and test deletion/export behavior, including backup expiration and legal holds. See [security](06-security-and-privacy.md).
+
+## Scheduling admission and offer projections
+
+When scheduling is implemented, persist the accepted rule/version, pickup timezone, end/cancellation terms, generation horizon and admission decision alongside funding references. Creation flags do not delete or suppress accepted obligations. Each occurrence retains idempotent uniqueness. Offer DTOs are explicit projections: do not serialize rider names, exact endpoints or medical/payer fields before acceptance even though the core stores protected trip data. See [design contract](16-mobile-design-contract.md) and [flags](17-scheduling-feature-flags.md).

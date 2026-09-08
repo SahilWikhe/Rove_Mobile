@@ -127,3 +127,7 @@ The first backend and database should share the Ohio region where practical (Neo
 No Kubernetes, distributed microservices, Kafka cluster, general event sourcing, global active-active writes, AI dispatch, or mandatory Redis dependency at bootstrap. Automated matching is required; AI matching, surge pricing and pooled optimization are not. Recurrence and institution funding are extensions. The ride history and financial ledger are purpose-specific records, not a requirement to reconstruct the entire database from events.
 
 Platform references: [Expo monorepos](https://docs.expo.dev/guides/monorepos/), [Vercel monorepos](https://vercel.com/docs/monorepos), [Hono on Vercel](https://vercel.com/docs/frameworks/backend/hono), and [Turborepo](https://turborepo.dev/docs).
+
+## Feature access boundary
+
+Scheduling uses a server-side FeatureAccess port with a recommended Vercel Flags core-library adapter for Hono, subject to integration proof. Mobile clients consume sanitized effective capabilities from the core API; they do not import server SDKs or hold provider keys. Flags gate new commitments, not execution/cancellation of accepted work. See [scheduling rollout](17-scheduling-feature-flags.md).

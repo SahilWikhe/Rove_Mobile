@@ -25,3 +25,7 @@ Current scope: Rove is consumer ride-hailing with automatic matching, online dri
 ## Completion evidence
 
 Describe the outcome, affected behavior, executed verification and material limitations. Link the commit/PR or artifact when created. An architecture document is not proof of deployed security or production readiness.
+
+## Mobile design source of truth
+
+Read [design contract](docs/16-mobile-design-contract.md) before mobile UI work and [scheduling flags](docs/17-scheduling-feature-flags.md) before scheduling work. Preserve Figma theme/layouts except documented overrides. Do not restore default NEMT coverage, Rove Pro, $199/month or 100%-fare claims from mockups. New screens must reuse the design language. Pre-acceptance driver DTOs must exclude precise endpoints, rider identity and medical/payer data. Scheduling defaults off on both API and UI; disabling creation must preserve existing commitments and cancellation paths.

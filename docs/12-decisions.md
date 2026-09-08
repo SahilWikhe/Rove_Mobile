@@ -56,7 +56,7 @@ Reason: workable discovery/quote/pickup flow without building embedded navigatio
 
 ## ADR-009: Consumer payments first
 
-**Selected direction; supersedes sponsored-first ADR-009.** Rider-funded quotes, payment-method setup, authorization/release, completion capture, refunds, receipts and driver earnings belong to the core. Processor/charge model, fare rules, driver commission/subscription and fee responsibilities remain open business choices. Historical $20/month economics are not confirmed requirements.
+**Selected direction; supersedes sponsored-first ADR-009.** Rider-funded quotes, payment-method setup, authorization/release, completion capture, refunds, receipts and driver earnings belong to the core. Processor/charge model, fare rules, driver compensation and fee responsibilities remain open business choices. Rove Pro subscriptions, $199/month and 100%-fare guarantees are removed from scope by the September 7 approval; historical subscription hypotheses are superseded.
 
 Consequence: server-owned fare snapshots, provider idempotency, financial reconciliation and a ledger; trip completion stays independent of settlement outcome. Institutional prepaid/invoiced funding becomes a later adapter with explicit authorization and no silent payer switching. Stripe Connect remains a candidate pending fit/responsibility review.
 
@@ -83,3 +83,13 @@ Consequence: use synthetic development data, no claims of compliance from docume
 **Selected; supersedes manual-dispatch-first scope.** Sequential time-limited offers among eligible online drivers, with bounded candidate selection and search deadline. Acceptance atomically claims ride and driver. Staff dispatch is an audited exception path, not normal booking.
 
 Reason: the user wants the primary product to operate like Uber/Lyft. Consequence: driver presence, geospatial discovery, quote/payment readiness, expiry races, no-driver handling and matching observability become MVP work. Fanout, surge pricing, pooling and AI are optional optimizations, not implied requirements.
+
+## ADR-014: Figma baseline with approved product overrides
+
+**Selected September 7, 2026.** Preserve rider/driver Figma layouts and black/gold Manrope theme. Consumer payment replaces default NEMT/Medicaid coverage. Remove Pro subscriptions and 100%-fare promises. Add missing auth/payment/onboarding/recovery/start-trip flows in the same design language. Pre-acceptance offers exclude exact endpoints, rider identity/history and medical/payer information. See [design contract](16-mobile-design-contract.md).
+
+## ADR-015: Default-off scheduling with protected existing work
+
+**Selected behavior; recommended provider pending proof.** Advance, weekly and monthly scheduling remain planned behind server-enforced default-off flags. Recommend Vercel Flags through its framework-neutral core library in Hono; Expo reads only effective API capabilities. Use a small adapter and deterministic test implementation. No deployment/provider setup is implied.
+
+Flags gate admission/expansion; existing commitments continue with view/cancel/support access. Missing/provider-failed evaluation denies new scheduling without breaking ordinary rides. Validate platform fit, costs, timing, monthly recurrence and rollback before cohort rollout. See [flag plan](17-scheduling-feature-flags.md).

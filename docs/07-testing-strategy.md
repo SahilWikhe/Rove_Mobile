@@ -91,3 +91,9 @@ Native builds can be slower or paid. Optimize with path/dependency impact detect
 Record commit, environment, tool versions, executed suites, results and material limitations. A website health check is not a mobile background-tracking test. A provider sandbox test is not proof of production account permissions. A locally mocked payment cannot validate processor settlement behavior.
 
 Store traces/screenshots with bounded retention and synthetic data; redact credentials and URLs containing tokens. Assign an owner and short deadline to flaky-test quarantine. A quarantined critical test requires replacement evidence before release.
+
+## Design-contract and scheduling acceptance
+
+Add the frame/state tests in [mobile design contract](16-mobile-design-contract.md): consumer quote/payment, no-driver and cancellation recovery, pending financial results, onboarding/eligibility and driver arrival → start → completion. Assert no Pro subscription or default sponsored coverage in the core experience. Test pre-acceptance sensitive-field absence in actual serialized offer/map/push data, then assignment grant/revocation. Compare native screenshots and accessibility at supported sizes.
+
+Implement all scheduling flag combinations and rollback/provider-failure tests in [flag plan](17-scheduling-feature-flags.md), including weekly/monthly date boundaries, crafted API requests and already accepted schedule continuation. A disabled scheduling module must not block the on-demand core suite.

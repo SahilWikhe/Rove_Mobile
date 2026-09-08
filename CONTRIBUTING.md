@@ -41,3 +41,7 @@ Validate Markdown links and formatting. Check that code examples and state names
 Include reproduction, expected/actual behavior, affected app/build and safe diagnostic ids. Use synthetic examples. Report security-sensitive details privately through a repository-owner-approved channel; do not include rider details or credentials in public issues. A formal security contact/disclosure policy must be established before launch.
 
 See [engineering standards](docs/09-engineering-standards.md), [test strategy](docs/07-testing-strategy.md), and [CI/CD](docs/08-cicd-and-environments.md) for implementation requirements.
+
+## Design and rollout review
+
+Mobile PRs cite source Figma nodes and [approved design overrides](docs/16-mobile-design-contract.md), include relevant iOS/Android screenshots, and cover missing/error states. Scheduling PRs follow [flag admission and rollback rules](docs/17-scheduling-feature-flags.md), including direct API rejection and existing-commitment tests. Do not treat a hidden button as authorization or a mockup price/subscription as an approved business rule.

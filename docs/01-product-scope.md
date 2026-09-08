@@ -47,11 +47,10 @@ There must be visible states for no driver found, declined/expired offers, quote
 
 ## MVP and later scope
 
-| Required for initial ride-hailing release | Optional follow-up | Internal Rove dashboard | Separate repository, name TBD | Staff UI for approvals, support, safety and finance; staff session/API proxy |
-| Institutional add-on |
+| Required for initial ride-hailing release | Optional follow-up | Institutional add-on |
 | --- | --- | --- |
-| Rider/driver authentication and profiles | Scheduled rides | Organization onboarding/roles |
-| Driver approval, online availability and vehicle capability | Recurring rides | Sponsor budgets and policy controls |
+| Rider/driver authentication and profiles | Advance rides behind default-off scheduling flag | Organization onboarding/roles |
+| Driver approval, online availability and vehicle capability | Weekly/monthly rides behind default-off flags | Sponsor budgets and policy controls |
 | Pickup/destination, quote and payment method | Caregiver/delegated booking | Coordinator booking and guest riders |
 | Automated matching and acceptance timeout | Return planning | Organization-scoped reporting/invoicing |
 | Live trip status and location freshness | Promotions, tips and ratings as prioritized | Contract-specific care transportation |
@@ -68,7 +67,7 @@ Uber/Lyft-style operation describes the core interaction, not a requirement to c
 | Launch area and hours | Small controlled consumer service area | Confirm supply, support hours and local operating requirements |
 | Consumer payment | Rider pays for their own rides | Choose provider/charge model, authorization/capture timing and disputes |
 | Fare policy | Versioned server-owned pricing, quote expiry | Choose upfront/final fare calculation, changes, minimums and cancellation fees |
-| Driver earnings | Transparent configurable policy | Confirm commission/subscription, fees and payout timing; the old $20 hypothesis is not locked |
+| Driver earnings | Transparent configurable policy | Choose compensation, fees and payout timing; Rove Pro subscriptions and 100%-fare promises are removed from scope |
 | Driver relationship and eligibility | Only verified drivers go online/accept | Resolve legal, insurance, vehicle and onboarding requirements |
 | Dispatch policy | Sequential timed offers, bounded search | Set offer expiry, search deadline, radius/ETA ranking and reassignment rules |
 | Safety/accessibility | Verified capabilities and staffed escalation | Define supported services, safety features and accessibility procedures |
@@ -83,3 +82,7 @@ Future schedules generate bounded occurrences and explicit coverage states. A re
 The core acceptance test runs without any institution or sponsored program configured. A rider can book, an online driver can be matched, a trip completes and payment/earnings reconcile. Disabling the B2B frontend or organization entitlements must not break unrelated consumer rides.
 
 Measure quote-to-request conversion, match rate, time to match, driver acceptance, cancellation by actor/stage, pickup ETA error, trip completion, payment success, driver utilization and support incidents. Define denominators and event timestamps before dashboards. Add sponsor/return metrics only for the optional programs that use them.
+
+## Approved mobile design baseline
+
+Follow the supplied rider/driver Figma layouts and black/gold Manrope theme except for the explicitly approved overrides in [mobile design contract](16-mobile-design-contract.md). Consumer payment is the default; NEMT/Medicaid coverage is not assumed. Rove Pro, $199/month and “keep 100% of fares” are removed, not awaiting a subscription-price decision. Advance/weekly/monthly scheduling remains planned behind [default-off flags](17-scheduling-feature-flags.md). Exact rider addresses/identity and medical/payer information are excluded from pre-acceptance driver offers. Missing auth, payment, eligibility and recovery flows use the same design system.
