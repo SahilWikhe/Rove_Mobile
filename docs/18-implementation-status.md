@@ -63,6 +63,8 @@ Booking lookups now cancel obsolete search/quote responses, clear edited route s
 
 Rider booking now offers Standard and Accessible service selection with new-quote review and eligibility regression coverage; see [ride service selection](44-ride-service-selection.md).
 
+The quote confirmation now follows the supplied Figma route-card, typography and gold-action design with consumer quote data; see [confirmation design](45-booking-confirmation-design.md).
+
 ## Delivery instructions
 
 The user authorized building and verifying the complete mobile product, deferring paid account setup and final business decisions to the handoff, and pushing the result to `main`. The current implementation is being committed as an intermediate checkpoint at the user’s explicit request. This push does not represent completion of the full product. No production deployment is included.

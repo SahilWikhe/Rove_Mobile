@@ -25,4 +25,4 @@ The local synthetic browser flow was exercised at 390×844: select Home and Work
 
 ## Remaining work
 
-This step reuses the existing shared booking components; the complete confirmation screen is not yet a pixel-matched implementation of Figma frame `5:89`. Device screen-reader, large-font and full Android/iOS booking journeys still need verification. Service-specific operational criteria, approved rates and verified vehicle onboarding remain outstanding. Synthetic fares are fixtures; equal fixture prices do not establish a production pricing policy.
+The confirmation screen has since been adapted to Figma frame `5:89`; see [confirmation design](45-booking-confirmation-design.md). Device screen-reader, large-font and full Android/iOS booking journeys still need verification. Service-specific operational criteria, approved rates and verified vehicle onboarding remain outstanding. Synthetic fares are fixtures; equal fixture prices do not establish a production pricing policy.

@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { createLatestRequest } from '@rove/mobile-core/latest-request';
 import { useOperations } from '@rove/mobile-core/use-operations';
 import { router, Stack } from 'expo-router';
-import { ServicePicker, serviceLabels } from '../booking/service-picker';
+import { QuoteConfirmation } from '../booking/quote-confirmation';
+import { ServicePicker } from '../booking/service-picker';
 import type { Place, Quote } from '@rove/contracts';
 import { useSession } from '@rove/mobile-core/session';
-import { Banner, Button, Card, Copy, Field, Money, RouteSummary, Screen } from '@rove/mobile-ui';
+import { Banner, Button, Card, Copy, Field, Screen } from '@rove/mobile-ui';
 export default function Book() {
   const { profile } = useSession();
   return <BookingForm key={profile?.id ?? 'signed-out'} />;
@@ -126,43 +127,26 @@ function BookingForm() {
       </Screen>
     );
   return (
-    <Screen>
-      <Stack.Screen options={{ title: 'Book a ride' }} />
-      <Copy kind="title">{quote ? 'Confirm your ride.' : 'Your route.'}</Copy>
+    <Screen contentStyle={quote ? { paddingHorizontal: 20, paddingTop: 22, gap: 16 } : undefined}>
+      <Stack.Screen options={{ title: 'Book a ride', headerShown: !quote }} />
+      {!quote && <Copy kind="title">Your route.</Copy>}
       {error && <Banner error message={error} />}
       {quote ? (
-        <>
-          <RouteSummary pickup={quote.pickup.label} destination={quote.destination.label} />
-          <Card>
-            <Copy kind="heading">{serviceLabels[quote.service]}</Copy>
-            <Money cents={quote.fare.amount} label="YOUR FARE" />
-            <Copy kind="muted">
-              {Math.ceil(quote.durationSeconds / 60)} min · {(quote.distanceMeters / 1000).toFixed(1)} km
-            </Copy>
-            <Copy kind="muted">
-              A quote does not reserve a driver. You’ll see the matching status after requesting.
-            </Copy>
-          </Card>
-          <Button
-            title="Request ride"
-            loading={loading}
-            onPress={() =>
-              void perform(async () => {
-                if (Date.parse(quote.expiresAt) <= Date.now()) {
-                  setQuote(null);
-                  throw new Error('This quote expired. Review an updated fare before requesting.');
-                }
-                await submit(quote.id);
-              })
-            }
-          />
-          <Button
-            title="Change route or service"
-            variant="secondary"
-            disabled={loading}
-            onPress={() => setQuote(null)}
-          />
-        </>
+        <QuoteConfirmation
+          quote={quote}
+          synthetic={synthetic}
+          loading={loading}
+          onEdit={() => setQuote(null)}
+          onConfirm={() =>
+            void perform(async () => {
+              if (Date.parse(quote.expiresAt) <= Date.now()) {
+                setQuote(null);
+                throw new Error('This quote expired. Review an updated fare before requesting.');
+              }
+              await submit(quote.id);
+            })
+          }
+        />
       ) : (
         <>
           {pickup && (
