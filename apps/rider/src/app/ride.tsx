@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { pollWhileForeground } from '@rove/mobile-core/foreground-polling';
+import { useCallback, useRef, useState } from 'react';
+import { Stack, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import * as Crypto from 'expo-crypto';
 import type { RideDetails } from '@rove/contracts';
 import { useSession } from '@rove/mobile-core/session';
@@ -22,31 +23,28 @@ export default function Ride() {
   const { api } = useSession();
   const [ride, setRide] = useState<RideDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [readError, setReadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const cancelKey = useRef<string | null>(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
-  useEffect(() => {
-    let stopped = false;
-    let timer: ReturnType<typeof setTimeout>;
-    async function refresh() {
-      try {
-        const next = await api.ride(id);
-        if (!stopped) {
-          setRide(next);
-          setError(null);
-        }
-      } catch (failure) {
-        if (!stopped) setError(failure instanceof Error ? failure.message : 'Tracking is unavailable.');
-      } finally {
-        if (!stopped) timer = setTimeout(refresh, 5000);
-      }
-    }
-    void refresh();
-    return () => {
-      stopped = true;
-      clearTimeout(timer);
-    };
-  }, [api, id]);
+  useFocusEffect(
+    useCallback(
+      () =>
+        pollWhileForeground({
+          load: (signal) => api.ride(id, signal),
+          onData: (updated) => {
+            setRide((current) =>
+              current?.id === updated.id && current.version > updated.version ? current : updated,
+            );
+            setReadError(null);
+          },
+          onError: (failure) =>
+            setReadError(failure instanceof Error ? failure.message : 'Trip information is unavailable.'),
+          intervalMs: 4000,
+        }),
+      [api, id],
+    ),
+  );
   async function cancel() {
     if (!ride) return;
     setBusy(true);
@@ -63,7 +61,7 @@ export default function Ride() {
   return (
     <Screen>
       <Stack.Screen options={{ title: 'Your ride' }} />
-      {error && <Banner error message={error} />}
+      {(error || readError) && <Banner error message={error ?? readError!} />}
       {ride ? (
         <>
           <Copy kind="title">{titles[ride.state]}</Copy>

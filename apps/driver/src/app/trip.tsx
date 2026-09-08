@@ -1,7 +1,8 @@
+import { pollWhileForeground } from '@rove/mobile-core/foreground-polling';
 import { useTrackingError } from '../tracking/provider';
-import { useEffect, useRef, useState } from 'react';
-import { AppState, Linking } from 'react-native';
-import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
+import { Linking } from 'react-native';
+import { router, Stack, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import * as Crypto from 'expo-crypto';
 import type { RideDetails } from '@rove/contracts';
 import { useSession } from '@rove/mobile-core/session';
@@ -18,31 +19,28 @@ export default function Trip() {
   const trackingError = useTrackingError();
   const [ride, setRide] = useState<RideDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [readError, setReadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const operation = useRef<{ state: RideDetails['state']; version: number; key: string } | null>(null);
-  useEffect(() => {
-    let stopped = false;
-    let timer: ReturnType<typeof setTimeout>;
-    async function refresh() {
-      try {
-        if (AppState.currentState === 'active') {
-          const updated = await api.ride(id);
-          if (!stopped) setRide(updated);
-        }
-      } catch (failure) {
-        if (!stopped)
-          setError(failure instanceof Error ? failure.message : 'Trip information is unavailable.');
-      } finally {
-        if (!stopped) timer = setTimeout(refresh, 4000);
-      }
-    }
-    void refresh();
-    return () => {
-      stopped = true;
-      clearTimeout(timer);
-    };
-  }, [api, id]);
+  useFocusEffect(
+    useCallback(
+      () =>
+        pollWhileForeground({
+          load: (signal) => api.ride(id, signal),
+          onData: (updated) => {
+            setRide((current) =>
+              current?.id === updated.id && current.version > updated.version ? current : updated,
+            );
+            setReadError(null);
+          },
+          onError: (failure) =>
+            setReadError(failure instanceof Error ? failure.message : 'Trip information is unavailable.'),
+          intervalMs: 4000,
+        }),
+      [api, id],
+    ),
+  );
   const action = ride && ride.state in actions ? actions[ride.state as keyof typeof actions] : null;
   async function transition() {
     if (!ride || !action) return;
@@ -69,7 +67,7 @@ export default function Trip() {
   return (
     <Screen>
       <Stack.Screen options={{ title: 'Active trip' }} />
-      {error && <Banner error message={error} />}
+      {(error || readError) && <Banner error message={error ?? readError!} />}
       {trackingError && <Banner error message={trackingError} />}
       {ride ? (
         <>

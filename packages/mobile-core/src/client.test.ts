@@ -32,3 +32,47 @@ test('network failure does not retry a potentially successful booking', async ()
   await expect(api.book('quote', 'persisted-key')).rejects.toMatchObject({ code: 'CONNECTION_UNAVAILABLE' });
   expect(fetcher).toHaveBeenCalledTimes(1);
 });
+
+test('throttling exposes a bounded Retry-After without retrying the request', async () => {
+  for (const [header, expected] of [
+    ['20', 20],
+    ['999999', 3600],
+    ['-1', undefined],
+    ['invalid', undefined],
+  ] as const) {
+    const fetcher = vi.fn<Transport>(
+      async () =>
+        new Response(JSON.stringify({ error: { code: 'RATE_LIMITED', message: 'Wait before retrying.' } }), {
+          status: 429,
+          headers: { 'Retry-After': header },
+        }),
+    );
+    const api = new ApiClient('https://api.example', async () => 'fixture', fetcher);
+    await expect(api.offers()).rejects.toMatchObject({ status: 429, retryAfterSeconds: expected });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  }
+});
+test('live read methods forward cancellation to the underlying transport', async () => {
+  for (const method of ['ride', 'rides', 'offers'] as const) {
+    let signal: AbortSignal | undefined;
+    const fetcher: Transport = async (_url, options) => {
+      signal = options.signal as AbortSignal;
+      return new Promise((_resolve, reject) =>
+        signal!.addEventListener('abort', () => reject(new Error('aborted')), { once: true }),
+      );
+    };
+    const api = new ApiClient('https://api.example', async () => 'fixture', fetcher);
+    const abort = new AbortController();
+    const result =
+      method === 'ride'
+        ? api.ride('fixture', abort.signal)
+        : method === 'rides'
+          ? api.rides(undefined, abort.signal)
+          : api.offers(abort.signal);
+    const assertion = expect(result).rejects.toMatchObject({ code: 'CONNECTION_UNAVAILABLE' });
+    await Promise.resolve();
+    abort.abort();
+    expect(signal?.aborted).toBe(true);
+    await assertion;
+  }
+});

@@ -18,6 +18,7 @@ export class ApiError extends Error {
     message: string,
     public status: number,
     public requestId?: string,
+    public retryAfterSeconds?: number,
   ) {
     super(message);
   }
@@ -71,6 +72,7 @@ export class ApiClient {
           parsed.success ? parsed.data.error.message : 'Unable to complete this request.',
           response.status,
           parsed.success ? parsed.data.error.requestId : undefined,
+          retryAfter(response.headers.get('Retry-After')),
         );
       }
       const parsed = schema.safeParse(json);
@@ -107,13 +109,14 @@ export class ApiClient {
   book(quoteId: string, key: string) {
     return this.request('/v1/ride-requests', RideSummary, { method: 'POST', body: { quoteId }, key });
   }
-  ride(id: string) {
-    return this.request(`/v1/rides/${encodeURIComponent(id)}`, RideDetails);
+  ride(id: string, signal?: AbortSignal) {
+    return this.request(`/v1/rides/${encodeURIComponent(id)}`, RideDetails, signal ? { signal } : {});
   }
-  rides(before?: string) {
+  rides(before?: string, signal?: AbortSignal) {
     return this.request(
       `/v1/rides${before ? `?before=${encodeURIComponent(before)}` : ''}`,
       z.object({ rides: z.array(RideDetails), nextCursor: z.string().nullable() }),
+      signal ? { signal } : {},
     );
   }
   transition(id: string, state: RideSummary['state'], expectedVersion: number, key: string) {
@@ -143,8 +146,12 @@ export class ApiClient {
       ...(signal ? { signal } : {}),
     });
   }
-  offers() {
-    return this.request('/v1/drivers/me/offers', z.object({ offers: z.array(DriverOffer) }));
+  offers(signal?: AbortSignal) {
+    return this.request(
+      '/v1/drivers/me/offers',
+      z.object({ offers: z.array(DriverOffer) }),
+      signal ? { signal } : {},
+    );
   }
   accept(offerId: string, key: string) {
     return this.request(`/v1/offers/${encodeURIComponent(offerId)}/accept`, RideSummary, {
@@ -160,4 +167,10 @@ export class ApiClient {
       { method: 'POST', body: {}, key },
     );
   }
+}
+
+function retryAfter(value: string | null): number | undefined {
+  if (!value || !/^\d+$/.test(value)) return undefined;
+  const seconds = Number(value);
+  return Number.isSafeInteger(seconds) && seconds > 0 ? Math.min(seconds, 3600) : undefined;
 }

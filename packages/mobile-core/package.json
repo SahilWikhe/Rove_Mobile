@@ -6,7 +6,8 @@
     ".": "./src/index.ts",
     "./session": "./src/session.tsx",
     "./driver-tracking": "./src/driver-tracking.ts",
-    "./location-sample": "./src/location-sample.ts"
+    "./location-sample": "./src/location-sample.ts",
+    "./foreground-polling": "./src/foreground-polling.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

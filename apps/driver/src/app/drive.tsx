@@ -1,6 +1,7 @@
+import { pollWhileForeground } from '@rove/mobile-core/foreground-polling';
 import { currentPosition, useTrackingError } from '../tracking/provider';
 import { useCallback, useState } from 'react';
-import { AppState, View } from 'react-native';
+import { View } from 'react-native';
 import { Stack, router, useFocusEffect } from 'expo-router';
 import {
   requestTrackingPermissions,
@@ -18,25 +19,17 @@ export default function Drive() {
   const [offer, setOffer] = useState<DriverOffer | null>(null);
   const [active, setActive] = useState<RideDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [readError, setReadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const trackingError = useTrackingError();
   const [explainLocation, setExplainLocation] = useState(false);
   useFocusEffect(
-    useCallback(() => {
-      let stopped = false;
-      let timer: ReturnType<typeof setTimeout>;
-      async function refresh() {
-        if (AppState.currentState !== 'active') {
-          timer = setTimeout(refresh, 3000);
-          return;
-        }
-        try {
-          const [driver, offered, history] = await Promise.all([
-            api.driverProfile(),
-            api.offers(),
-            api.rides(),
-          ]);
-          if (!stopped) {
+    useCallback(
+      () =>
+        pollWhileForeground({
+          load: (signal) =>
+            Promise.all([api.driverProfile(signal), api.offers(signal), api.rides(undefined, signal)]),
+          onData: ([driver, offered, history]) => {
             setProfile(driver);
             setOffer(offered.offers[0] ?? null);
             setActive(
@@ -44,19 +37,14 @@ export default function Drive() {
                 ['matched', 'en_route', 'arrived', 'in_progress', 'interrupted'].includes(ride.state),
               ) ?? null,
             );
-          }
-        } catch (failure) {
-          if (!stopped) setError(failure instanceof Error ? failure.message : 'Connection unavailable.');
-        } finally {
-          if (!stopped) timer = setTimeout(refresh, 3000);
-        }
-      }
-      void refresh();
-      return () => {
-        stopped = true;
-        clearTimeout(timer);
-      };
-    }, [api]),
+            setReadError(null);
+          },
+          onError: (failure) =>
+            setReadError(failure instanceof Error ? failure.message : 'Connection unavailable.'),
+          intervalMs: 3000,
+        }),
+      [api],
+    ),
   );
   async function availability(confirmed = false) {
     if (!profile) return;
@@ -91,7 +79,7 @@ export default function Drive() {
       <Brand driver />
       {synthetic && <Banner message="Synthetic test mode · no real rides or payments" />}
       <Copy kind="title">{profile?.online ? 'You’re online.' : 'Ready when you are.'}</Copy>
-      {error && <Banner error message={error} />}
+      {(error || readError) && <Banner error message={error ?? readError!} />}
       {trackingError && <Banner error message={trackingError} />}
       <Card style={{ minHeight: 160, justifyContent: 'center', alignItems: 'center' }}>
         <View
