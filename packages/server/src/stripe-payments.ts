@@ -53,13 +53,19 @@ const mismatch = () => new DomainError('PAYMENT_REFERENCE_MISMATCH', 'Payment co
 export class StripePaymentProvider implements PaymentProvider {
   private stripe: StripeApi;
   constructor(
-    private config: { secretKey: string; webhookSecret: string; live: boolean },
+    private config: {
+      secretKey: string;
+      webhookSecret: string;
+      live: boolean;
+      paymentMethodConfiguration: string;
+    },
     client?: StripeApi,
   ) {
     const mode = config.live ? 'live' : 'test';
     if (
       !new RegExp(`^(sk|rk)_${mode}_[a-zA-Z0-9]+$`).test(config.secretKey) ||
-      !config.webhookSecret.startsWith('whsec_')
+      !config.webhookSecret.startsWith('whsec_') ||
+      !/^pmc_[a-zA-Z0-9]{1,96}$/.test(config.paymentMethodConfiguration)
     )
       throw new Error('Stripe credentials do not match the configured environment.');
     this.stripe =
@@ -122,7 +128,7 @@ export class StripePaymentProvider implements PaymentProvider {
           currency: 'usd',
           customer: request.customerId,
           capture_method: 'manual',
-          payment_method_types: ['card'],
+          payment_method_configuration: this.config.paymentMethodConfiguration,
           metadata: { roveRideId: request.rideId, roveAttemptId: request.attemptId },
         },
         { idempotencyKey: key },
@@ -226,7 +232,8 @@ export class StripePaymentProvider implements PaymentProvider {
       if (
         !Number.isFinite(timestamp) ||
         Math.abs(now / 1000 - timestamp) > 300 ||
-        event.livemode !== this.config.live
+        event.livemode !== this.config.live ||
+        event.account !== undefined
       )
         throw new Error('Invalid event environment or timestamp');
     } catch {

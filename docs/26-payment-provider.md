@@ -1,14 +1,16 @@
 # Payment provider boundary
 
-The server now has a `PaymentProvider` interface and a Stripe adapter for card authorization sessions, status retrieval, capture, cancellation/release and partial refunds. Stripe is implemented as a candidate integration; the merchant/Connect charge model and commercial responsibilities still require the final business decision. No live account was created or charged.
+The server now has a `PaymentProvider` interface and a Stripe adapter for authorization sessions, status retrieval, capture, cancellation/release and partial refunds. Stripe is implemented as a candidate integration; the merchant/Connect charge model and commercial responsibilities still require the final business decision. No live account was created or charged.
 
 ## Intended ride flow
 
-Create a card PaymentIntent with manual capture and server-owned fare/customer/ride/attempt identifiers. Return its client secret only through an authenticated owner-only endpoint to the native payment UI. That UI must handle authentication such as 3DS. Creating the intent alone does not authorize it. Before starting matching, the domain must retrieve and verify `requires_capture` with enough capturable funds. [Stripe authorization and capture](https://docs.stripe.com/payments/place-a-hold-on-a-payment-method)
+Create a PaymentIntent with manual capture and server-owned fare/customer/ride/attempt identifiers. Return its client secret only through an authenticated owner-only endpoint to the native payment UI. That UI must handle authentication such as 3DS. Creating the intent alone does not authorize it. Before starting matching, the domain must retrieve and verify `requires_capture` with enough capturable funds. [Stripe authorization and capture](https://docs.stripe.com/payments/place-a-hold-on-a-payment-method)
 
 After completion, capture the approved amount with the persisted provider operation key. For cancellation/no-driver outcomes, cancel an uncaptured intent under the approved fare policy. A captured payment requires an explicit refund decision; cancellation does not silently issue a refund. Refunds can remain pending and must not be recorded as settled solely because creation returned successfully.
 
 The adapter pins Stripe SDK 22.6.1 and API version `2026-08-26.dahlia`, with ten-second request timeout and two network retries. Every mutating call requires an explicit stable idempotency key. The domain still needs to persist operation attempts before provider calls and reconcile uncertain outcomes. Stripe may prune idempotency records after at least 24 hours: an old unresolved creation must not be retried blindly after that retention window. [Stripe idempotency](https://docs.stripe.com/api/idempotent_requests)
+
+The adapter requires a server-configured `paymentMethodConfiguration` (`pmc_...`). Create a dedicated configuration for ride authorizations in each Stripe environment and enable only reviewed methods compatible with native PaymentSheet and manual capture. The adapter passes this configuration to Stripe and never hardcodes `payment_method_types`. Changing method availability is a Dashboard setting; it must still pass the sandbox authorization/capture/SCA test matrix before launch. This does not enable any methods or modify the connected account automatically. [Stripe payment method configurations](https://docs.stripe.com/payments/payment-method-configurations)
 
 ## Verification at the boundary
 
@@ -20,12 +22,12 @@ Provider errors are mapped to a safe unavailable response without exposing reque
 
 ## Webhook verification
 
-The adapter verifies the signature against the exact raw body with the Stripe SDK, checks a five-minute timestamp window in both directions, enforces the configured test/live mode, and bounds body/signature size. It returns only event id/type/time/resource id. Do not parse/re-serialize the body before verification.
+The adapter verifies the signature against the exact raw body with the Stripe SDK, checks a five-minute timestamp window in both directions, enforces the configured test/live mode, rejects connected-account events on this platform-only adapter, and bounds body/signature size. It returns only event id/type/time/resource id. Do not parse/re-serialize the body before verification.
 
-A verified event is a reconciliation hint. The future webhook endpoint must durably deduplicate event ids, enqueue processing, and retrieve authoritative current provider state before applying financial transitions. Duplicate/out-of-order events must not double-capture, double-refund or regress a settled state. [Stripe webhooks](https://docs.stripe.com/webhooks)
+A verified event is a reconciliation hint. The webhook endpoint now durably deduplicates event ids and enqueues processing; see [durable webhook ingress](27-payment-webhook-ingress.md). The reconciliation worker still must retrieve authoritative current provider state before applying financial transitions. Duplicate/out-of-order events must not double-capture, double-refund or regress a settled state. [Stripe webhooks](https://docs.stripe.com/webhooks)
 
 ## Executed tests and remaining integration
 
 Nine adapter tests use mocked Stripe API methods; webhook tests use the real SDK's signing and verification helpers with synthetic secrets. They cover request parameters, key propagation, credential modes, invalid amounts, reference mismatch before mutation, capture/release retries, action-required/underfunded state, partial pending refunds, safe errors and signature/timestamp/tampering checks. No sandbox network charge has been verified yet.
 
-Remaining work: payment/customer/method records, persisted attempt state, ledger/receipts/earnings, booking admission, owner-only PaymentSheet/session endpoints, durable outbox handlers, refund authorization, webhook ingestion/deduplication/reconciliation, sandbox acceptance tests, native UI and Connect/payout setup. The existing local synthetic settlement handlers remain clearly labeled fixtures until the real domain is wired. Do not enable production bookings based on this adapter alone.
+Remaining work: payment/customer/method records, persisted attempt state, ledger/receipts/earnings, booking admission, owner-only PaymentSheet/session endpoints, durable outbox handlers, refund authorization, webhook reconciliation, sandbox acceptance tests, native UI and Connect/payout setup. The existing local synthetic settlement handlers remain clearly labeled fixtures until the real domain is wired. Do not enable production bookings based on this adapter alone.

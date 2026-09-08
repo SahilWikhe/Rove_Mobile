@@ -31,6 +31,7 @@ interface Dependencies {
   maps: MapsProvider;
   flags: () => Promise<{ scheduling: boolean; weekly: boolean; monthly: boolean }>;
   allowedOrigins?: string[];
+  paymentWebhooks?: { receive(body: Buffer, signature: string): Promise<void> };
 }
 const Id = z.uuid();
 async function body<T>(c: Context, schema: z.ZodType<T>): Promise<T> {
@@ -68,16 +69,15 @@ export function createApp(deps: Dependencies) {
     await next();
   });
   app.use('*', secureHeaders());
-  app.use(
-    '*',
+  app.use('*', (c, next) =>
     bodyLimit({
-      maxSize: 32_768,
+      maxSize: c.req.path === '/webhooks/stripe' ? 1_048_576 : 32_768,
       onError: (c) =>
         c.json(
           { error: { code: 'BODY_TOO_LARGE', message: 'Request is too large.', requestId: c.var.requestId } },
           413,
         ),
-    }),
+    })(c, next),
   );
   app.onError((error, c) => {
     const known = error instanceof DomainError;
@@ -97,6 +97,15 @@ export function createApp(deps: Dependencies) {
     c.json({ error: { code: 'NOT_FOUND', message: 'Endpoint not found.', requestId: c.var.requestId } }, 404),
   );
   app.get('/health/live', (c) => c.json({ status: 'ok' }));
+  app.post('/webhooks/stripe', async (c) => {
+    if (!deps.paymentWebhooks)
+      throw new DomainError('PAYMENTS_UNAVAILABLE', 'Payment events are not configured.', 503);
+    const signature = c.req.header('stripe-signature') ?? '';
+    if (!signature || signature.length > 8192)
+      throw new DomainError('INVALID_PAYMENT_WEBHOOK', 'Invalid payment event.', 400);
+    await deps.paymentWebhooks.receive(Buffer.from(await c.req.arrayBuffer()), signature);
+    return c.json({ received: true });
+  });
   // These routes authenticate a location-only grant, never an account bearer token.
   function trackingToken(c: Context) {
     const match = /^Bearer (rt_[A-Za-z0-9_-]{43})$/.exec(c.req.header('Authorization') ?? '');

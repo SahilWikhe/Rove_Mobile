@@ -1,7 +1,12 @@
 import { expect, test, vi } from 'vitest';
 import Stripe from 'stripe';
 import { StripePaymentProvider } from './stripe-payments';
-const config = { secretKey: 'sk_test_fixture', webhookSecret: 'whsec_fixture', live: false };
+const config = {
+  secretKey: 'sk_test_fixture',
+  webhookSecret: 'whsec_fixture',
+  live: false,
+  paymentMethodConfiguration: 'pmc_fixture',
+};
 const reference = {
   intentId: 'pi_fixture',
   rideId: '00000000-0000-4000-8000-000000000001',
@@ -52,7 +57,7 @@ function fixture() {
   >;
   return { paymentIntents, refunds, sdk, provider: new StripePaymentProvider(config, client) };
 }
-test('creates a card-only manual-capture intent using server references and stable idempotency', async () => {
+test('creates a configured manual-capture intent using server references and stable idempotency', async () => {
   const { provider, paymentIntents } = fixture();
   const { intentId: _id, ...input } = reference;
   const result = await provider.create(input, requestKey);
@@ -62,7 +67,7 @@ test('creates a card-only manual-capture intent using server references and stab
       currency: 'usd',
       customer: 'cus_fixture',
       capture_method: 'manual',
-      payment_method_types: ['card'],
+      payment_method_configuration: 'pmc_fixture',
       metadata: { roveRideId: reference.rideId, roveAttemptId: reference.attemptId },
     },
     { idempotencyKey: requestKey },
@@ -73,6 +78,7 @@ test('creates a card-only manual-capture intent using server references and stab
 });
 test('rejects wrong environment credentials and malformed or fractional amounts before sending', async () => {
   expect(() => new StripePaymentProvider({ ...config, live: true })).toThrow();
+  expect(() => new StripePaymentProvider({ ...config, paymentMethodConfiguration: '' })).toThrow();
   const { provider, paymentIntents } = fixture();
   const { intentId: _id, ...input } = reference;
   await expect(provider.create({ ...input, amountCents: 1.5 }, requestKey)).rejects.toMatchObject({

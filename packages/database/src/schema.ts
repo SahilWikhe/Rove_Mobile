@@ -180,3 +180,18 @@ export const rateLimitBuckets = pgTable(
     check('rate_limit_digest_key', sql`${t.key} ~ '^[a-f0-9]{64}$'`),
   ],
 );
+
+// Minimal verified event references only: no raw webhook body, card data or client secrets.
+export const paymentWebhookEvents = pgTable(
+  'payment_webhook_events',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    source: text().notNull(),
+    eventId: text().notNull(),
+    eventType: text().notNull(),
+    resourceId: text().notNull(),
+    providerCreated: integer().notNull(),
+    receivedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('payment_webhook_source_event').on(t.source, t.eventId)],
+);
