@@ -18,6 +18,12 @@ Nine added cases cover retryable OAuth/configuration failures, explicit invalid-
 
 Both apps' platform exports, workspace type checks and existing automated tests were run. These are deterministic adapter/controller tests and bundle checks; they do not claim verification against a configured managed auth provider or a real locked device keychain.
 
+## Profile-loading recovery
+
+Both welcome screens now expose Retry loading account when credentials exist but the profile could not be loaded. Retrying reuses the current credential generation and the existing profile API. It does not start a new authorization flow, erase saved credentials, register a second account or replay a ride mutation. Concurrent taps are guarded synchronously; stale callbacks cannot retry a replacement session. Sign-in remains disabled until initial session restoration is ready.
+
+The synthetic rider and driver browser previews were each tested with `/v1/me` forcibly aborted: initial sign-in reached the retry state, a second failure retained it, and removing the network failure allowed retry to load the account. Existing session tests and both apps' exports were rerun. This is rendered browser recovery evidence; managed-provider/native keychain recovery still needs device verification.
+
 ## Remaining requirements
 
 Verify the chosen provider's actual error/rotation behavior, native callbacks, refresh request timeout policy and recovery during an active driver trip. A lost response after server-side rotation may make the old grant unusable on retry; provider reuse/grace policy still needs end-to-end validation. Device cleanup after terminal storage failures and environment-specific session isolation also remain part of launch verification.

@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type PropsWithChildren,
 } from 'react';
@@ -43,6 +44,8 @@ interface Session {
   error: string | null;
   needsProfile: boolean;
   cleanupRequired: boolean;
+  canRetryProfile: boolean;
+  retryProfile: () => Promise<void>;
   configured: boolean;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -81,6 +84,7 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
     () => (profile ? operationJournal(config.apiUrl, profile.id, synthetic) : null),
     [config.apiUrl, profile, synthetic],
   );
+  const retryingProfile = useRef(false);
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
   const [needsProfile, setNeedsProfile] = useState(false);
@@ -175,7 +179,12 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
         });
         if (restored && alive) await loadProfile(epoch, () => alive);
       } catch {
-        if (alive && credentials.current(epoch)) setError('Please sign in to continue.');
+        if (alive && credentials.current(epoch))
+          setError(
+            credentials.peek()
+              ? 'We couldn’t load your account. Please try again.'
+              : 'Please sign in to continue.',
+          );
       } finally {
         if (alive && credentials.current(epoch)) {
           setLoading(false);
@@ -276,6 +285,24 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
       }
     }
   }
+  async function retryProfile() {
+    if (retryingProfile.current || !credentials.current(renderEpoch) || !credentials.peek()) return;
+    retryingProfile.current = true;
+    const epoch = credentials.epoch();
+    setLoading(true);
+    setError(null);
+    try {
+      await loadProfile(epoch);
+    } catch (failure) {
+      if (credentials.current(epoch))
+        setError(
+          failure instanceof ApiError ? failure.message : 'We couldn’t load your account. Please try again.',
+        );
+    } finally {
+      retryingProfile.current = false;
+      if (credentials.current(epoch)) setLoading(false);
+    }
+  }
   async function updateName(name: string, expectedName: string) {
     if (!profile) throw new Error('Sign in to edit your profile.');
     const epoch = credentials.epoch();
@@ -321,6 +348,8 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
         error,
         needsProfile,
         cleanupRequired,
+        canRetryProfile: Boolean(credentials.peek()) && !profile && !needsProfile,
+        retryProfile,
         configured,
         synthetic,
         signIn,

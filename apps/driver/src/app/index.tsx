@@ -20,7 +20,16 @@ export default function DriverHome() {
       </View>
       <Card>
         <Copy kind="heading">{session.needsProfile ? 'Let’s get you started.' : 'Drive with Rove.'}</Copy>
-        {session.needsProfile ? (
+        {session.canRetryProfile ? (
+          <>
+            <Copy kind="muted">Your sign-in is saved. Retry loading your account to continue.</Copy>
+            <Button
+              title="Retry loading account"
+              loading={session.loading}
+              onPress={() => void session.retryProfile()}
+            />
+          </>
+        ) : session.needsProfile ? (
           <>
             <Field label="Your name" value={name} onChangeText={setName} autoComplete="name" />
             <Button
@@ -33,7 +42,12 @@ export default function DriverHome() {
         ) : (
           <>
             <Copy kind="muted">Sign in or create your driver account.</Copy>
-            <Button title="Get started" loading={session.loading} onPress={() => void session.signIn()} />
+            <Button
+              title="Get started"
+              disabled={!session.ready}
+              loading={session.loading}
+              onPress={() => void session.signIn()}
+            />
           </>
         )}
       </Card>
