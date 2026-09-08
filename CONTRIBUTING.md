@@ -1,6 +1,6 @@
 # Contributing to Rove
 
-This repository currently contains architecture documentation only. Implementation begins with the foundation milestone in the [delivery plan](docs/10-delivery-plan.md). Do not assume application scripts, tests or deployments exist yet.
+This repository contains architecture documents and an in-progress implementation. Consult the [implementation ledger](docs/18-implementation-status.md) for verified capabilities and the [delivery plan](docs/10-delivery-plan.md) for remaining scope. Passing local checks does not establish production readiness.
 
 Current scope is consumer ride-hailing. The institutional dashboard is an optional separate-repository product using the core API. Do not bring institution UI into this monorepo, duplicate the ride engine elsewhere, or make consumer booking require a sponsor. Rove's own support/dispatch dashboard belongs in a separate internal-tools repository. Its authorized API operations and audit records remain owned here. Neither dashboard gets core database access. See [B2B boundary](docs/14-b2b-product-boundary.md).
 

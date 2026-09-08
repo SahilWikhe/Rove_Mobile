@@ -1,4 +1,4 @@
-import type { PropsWithChildren } from 'react';
+import type { PropsWithChildren, ReactNode } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -12,27 +12,40 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Working tokens sampled from the approved visual direction; exact Figma variable audit remains pending.
+// Figma rider Home 2:12 and driver waiting 1:62. See docs/16-mobile-design-contract.md.
 export const theme = {
-  background: '#090B09',
-  surface: '#191D18',
-  raised: '#23281F',
-  gold: '#EBCB79',
-  text: '#F5F3EB',
-  muted: '#A7A99F',
-  border: '#343A2E',
+  background: '#000000',
+  surface: '#0F0F0F',
+  raised: '#0A0A0A',
+  gold: '#D6B26D',
+  text: '#F4F0E8',
+  muted: '#8B8B8B',
+  border: 'rgba(255,255,255,0.12)',
   danger: '#FFB3AD',
 };
-export function Screen({ children, scroll = true }: PropsWithChildren<{ scroll?: boolean }>) {
+export function Screen({
+  children,
+  scroll = true,
+  contentStyle,
+  footer,
+}: PropsWithChildren<{
+  scroll?: boolean;
+  contentStyle?: ViewStyle;
+  footer?: ReactNode;
+}>) {
   return (
     <SafeAreaView style={styles.screen}>
       {scroll ? (
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={[styles.content, contentStyle]}
+          keyboardShouldPersistTaps="handled"
+        >
           {children}
         </ScrollView>
       ) : (
-        <View style={[styles.content, { flex: 1 }]}>{children}</View>
+        <View style={[styles.content, { flex: 1 }, contentStyle]}>{children}</View>
       )}
+      {footer}
     </SafeAreaView>
   );
 }

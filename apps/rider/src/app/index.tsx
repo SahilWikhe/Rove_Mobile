@@ -1,8 +1,8 @@
+import { RiderHome } from '../home/rider-home';
 import { useState } from 'react';
 import { View } from 'react-native';
-import { router } from 'expo-router';
 import { useSession } from '@rove/mobile-core/session';
-import { Banner, Brand, Button, Card, Copy, Field, Screen, theme } from '@rove/mobile-ui';
+import { Banner, Brand, Button, Card, Copy, Field, Screen } from '@rove/mobile-ui';
 export default function Home() {
   const session = useSession();
   const [name, setName] = useState('');
@@ -41,23 +41,5 @@ export default function Home() {
         <Copy kind="label">ROVE · YOUR JOURNEY, SIMPLIFIED</Copy>
       </Screen>
     );
-  return (
-    <Screen>
-      <Brand />
-      {session.synthetic && <Banner message="Synthetic test mode · no real rides or payments" />}
-      <View style={{ gap: 8 }}>
-        <Copy kind="muted">Hello, {session.profile.name.split(' ')[0]}.</Copy>
-        <Copy kind="title">Where are{'\n'}we headed?</Copy>
-      </View>
-      <Button title="⌕   Where to?" onPress={() => router.push('/book')} />
-      <Card style={{ backgroundColor: theme.gold, borderColor: theme.gold, paddingVertical: 30 }}>
-        <Copy kind="heading" style={{ color: theme.background }}>
-          Your next stop{'\n'}starts here.
-        </Copy>
-        <Copy style={{ color: theme.background }}>Choose a destination.{'\n'}We’ll take it from there.</Copy>
-      </Card>
-      <Button title="My rides" variant="secondary" onPress={() => router.push('/rides')} />
-      <Button title="Account & help" variant="secondary" onPress={() => router.push('/account')} />
-    </Screen>
-  );
+  return <RiderHome key={session.profile.id} name={session.profile.name} />;
 }
