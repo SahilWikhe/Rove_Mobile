@@ -10,6 +10,7 @@ export const requestLimits = {
   paymentSessions: 10,
   signup: 5,
   support: 5,
+  payoutSetup: 10,
   trackingGrant: 6,
   heartbeat: 60,
   backgroundLocation: 60,

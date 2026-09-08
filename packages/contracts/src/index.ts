@@ -359,3 +359,29 @@ export const SupportQueue = z
     nextCursor: z.object({ afterCreatedAt: z.iso.datetime(), afterId: z.uuid() }).strict().nullable(),
   })
   .strict();
+
+export const DriverPayoutStatus = z
+  .object({
+    status: z.enum(['unavailable', 'not_started', 'pending', 'needs_information', 'ready']),
+  })
+  .strict();
+export type DriverPayoutStatus = z.infer<typeof DriverPayoutStatus>;
+export const DriverPayoutLink = z
+  .object({
+    url: z
+      .string()
+      .url()
+      .refine((value) => {
+        const url = new URL(value);
+        return (
+          url.protocol === 'https:' &&
+          !url.username &&
+          !url.password &&
+          !url.port &&
+          ['accounts.stripe.com', 'connect.stripe.com'].includes(url.hostname)
+        );
+      }),
+    expiresAt: z.iso.datetime(),
+  })
+  .strict();
+export type DriverPayoutLink = z.infer<typeof DriverPayoutLink>;

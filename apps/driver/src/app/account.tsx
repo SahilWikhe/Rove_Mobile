@@ -50,6 +50,12 @@ export default function Account() {
             disabled={busy}
             onPress={() => router.push('/vehicle')}
           />
+          <Button
+            title="Payout setup"
+            variant="secondary"
+            disabled={busy}
+            onPress={() => router.push('/payouts')}
+          />
           <ProfileNameForm
             key={profile.id}
             initialName={profile.name}

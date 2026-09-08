@@ -387,3 +387,20 @@ export const supportRequests = pgTable(
     check('support_request_message_length', sql`length(${table.message}) BETWEEN 10 AND 2000`),
   ],
 );
+
+export const driverPayoutAccounts = pgTable(
+  'driver_payout_accounts',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    driverId: uuid()
+      .notNull()
+      .references(() => drivers.id),
+    source: text().notNull(),
+    accountId: text(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('driver_payout_driver_source').on(t.driverId, t.source),
+    uniqueIndex('driver_payout_account_source').on(t.source, t.accountId),
+  ],
+);

@@ -38,3 +38,5 @@ All six journeys run serially against fresh synthetic data without automatic ret
 Payment authorization can change a ride version while cancellation confirmation is open. On `STALE_RIDE`, the app closes the confirmation, refreshes the ride and asks the rider to review and confirm again. It never automatically retries the cancellation. The first booking test deliberately submits version 1 after authorization advances the ride, verifies the real API returns `409 STALE_RIDE`, checks that the confirmation closes and the ride remains searching, then explicitly confirms again. The cancellation helper also follows this reconfirmation path for naturally occurring version changes.
 
 The [unmatched-search recovery case](53-no-driver-recovery.md) uses the real three-minute deadline, checks a fresh route/quote review and proves no automatic new booking occurs.
+
+The payout setup browser check verifies that the unconfigured synthetic environment exposes an honest unavailable state and no hosted-onboarding button. It does not exercise a real Stripe account or bank setup.

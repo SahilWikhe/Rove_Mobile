@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import {
+  DriverPayoutStatus,
+  DriverPayoutLink,
   SupportRequest,
   SupportRequests,
   SupportRequestInput,
@@ -227,6 +229,12 @@ export class ApiClient {
   }
   trackingSession() {
     return this.request('/v1/drivers/me/tracking-session', TrackingGrant, { method: 'POST', body: {} });
+  }
+  driverPayoutStatus(signal?: AbortSignal) {
+    return this.request('/v1/drivers/me/payout-setup', DriverPayoutStatus, { ...(signal ? { signal } : {}) });
+  }
+  driverPayoutLink() {
+    return this.request('/v1/drivers/me/payout-setup', DriverPayoutLink, { method: 'POST', body: {} });
   }
   driverProfile(signal?: AbortSignal) {
     return this.request('/v1/drivers/me', DriverProfile, signal ? { signal } : {});

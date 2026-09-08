@@ -192,3 +192,45 @@ test('composed HTTP and worker use one customer, authorization and cancellation 
   expect(unhandled.length).toBeGreaterThan(0);
   expect(unhandled.every((row) => row.last_error_code === 'UNKNOWN_JOB_TYPE')).toBe(true);
 });
+
+test('Connect onboarding defaults off and requires valid origin and live model acknowledgement', () => {
+  expect(readRuntimeConfig(environment()).connect).toBeUndefined();
+  for (const value of ['yes', '1'])
+    expect(() => readRuntimeConfig({ ...environment(), STRIPE_CONNECT_ONBOARDING_ENABLED: value })).toThrow(
+      'connect.enabled',
+    );
+  for (const origin of [
+    'http://api.example.test',
+    'https://user:pass@api.example.test',
+    'https://api.example.test/path',
+  ])
+    expect(() =>
+      readRuntimeConfig({
+        ...environment(),
+        STRIPE_CONNECT_ONBOARDING_ENABLED: 'true',
+        STRIPE_CONNECT_RETURN_ORIGIN: origin,
+      }),
+    ).toThrow('connect.origin');
+  expect(
+    readRuntimeConfig({
+      ...environment(),
+      STRIPE_CONNECT_ONBOARDING_ENABLED: 'true',
+      STRIPE_CONNECT_RETURN_ORIGIN: 'https://api.example.test',
+    }).connect,
+  ).toEqual({ origin: 'https://api.example.test' });
+  const live = {
+    ...environment(),
+    ROVE_ENVIRONMENT: 'production',
+    STRIPE_MODE: 'live',
+    STRIPE_SECRET_KEY: 'rk_live_fixture',
+    RATE_POLICY_APPROVED_VERSION: 'approved-v1',
+    RATE_POLICY_JSON: JSON.stringify({ ...developmentRates, version: 'approved-v1' }),
+    STRIPE_CONNECT_ONBOARDING_ENABLED: 'true',
+    STRIPE_CONNECT_RETURN_ORIGIN: 'https://api.example.test',
+  };
+  expect(() => readRuntimeConfig(live)).toThrow('connect.modelApproval');
+  expect(
+    readRuntimeConfig({ ...live, STRIPE_CONNECT_MODEL_APPROVED: 'recipient-express-platform-responsibility' })
+      .connect,
+  ).toBeDefined();
+});

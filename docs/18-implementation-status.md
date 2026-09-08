@@ -81,6 +81,8 @@ Completed driver trips show ledger-backed earnings with explicit payout limitati
 
 Shared native endpoint maps have been added to authorized ride/trip details; see [native maps](54-native-trip-maps.md). Production SDK key setup and real Google rendering remain outstanding. Rider-visible driver location now has assignment authorization, sample-time freshness and foreground polling; see [live driver location](55-live-driver-location.md). Physical-device GPS delivery is still unverified.
 
+Driver payout onboarding now has a durable provider binding, Accounts v2 adapter, authenticated endpoints and a driver setup screen; see [payout onboarding](56-driver-payout-onboarding.md). It defaults off, does not enable driving or transfer money, and still requires real sandbox/native verification and account-event reconciliation.
+
 ## Delivery instructions
 
 The user authorized building and verifying the complete mobile product, deferring paid account setup and final business decisions to the handoff, and pushing the result to `main`. The current implementation is being committed as an intermediate checkpoint at the user’s explicit request. This push does not represent completion of the full product. No production deployment is included.

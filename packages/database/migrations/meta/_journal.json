@@ -141,6 +141,13 @@
       "when": 1788861184805,
       "tag": "0019_driver_sample_time",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1788862111494,
+      "tag": "0020_driver_payout_accounts",
+      "breakpoints": true
     }
   ]
 }

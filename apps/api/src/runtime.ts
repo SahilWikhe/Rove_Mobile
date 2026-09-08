@@ -1,5 +1,8 @@
 import { createDatabase } from '@rove/database';
 import {
+  DriverPayouts,
+  StripeDriverPayouts,
+  type DriverPayoutProvider,
   GoogleMapsProvider,
   MatchingService,
   SearchExpiry,
@@ -26,6 +29,7 @@ interface Resources {
   maps: MapsProvider;
   payments: PaymentProvider & PaymentCustomerProvider & PaymentWebhookVerifier;
   verifyIdentity: VerifyIdentity;
+  driverPayoutProvider?: DriverPayoutProvider;
 }
 /** Composition shared by HTTP and worker hosts; resource ownership stays with the caller. */
 export function composeRuntime(config: RuntimeConfig, resources: Resources) {
@@ -48,6 +52,7 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
   });
   const app = createApp({
     pool,
+    driverPayouts: new DriverPayouts(pool, config.paymentSource, resources.driverPayoutProvider),
     maps,
     verifyIdentity,
     rides: new RideService(pool),
@@ -72,5 +77,19 @@ export function createRuntime(env: Record<string, string | undefined>) {
   const database = createDatabase(config.databaseUrl);
   // pg emits idle-client errors outside queries. Keep the process alive; never log driver error details.
   database.pool.on('error', () => console.error('Database connection interrupted.'));
-  return composeRuntime(config, { database, maps, payments, verifyIdentity });
+  return composeRuntime(config, {
+    database,
+    maps,
+    payments,
+    verifyIdentity,
+    ...(config.connect
+      ? {
+          driverPayoutProvider: new StripeDriverPayouts({
+            secretKey: config.payments.secretKey,
+            live: config.payments.mode === 'live',
+            origin: config.connect.origin,
+          }),
+        }
+      : {}),
+  });
 }

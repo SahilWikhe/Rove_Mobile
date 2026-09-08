@@ -23,6 +23,7 @@ import {
   ProfileNameUpdate,
 } from '@rove/contracts';
 import {
+  DriverPayouts,
   SupportService,
   DomainError,
   VehicleReviewService,
@@ -57,6 +58,7 @@ interface Dependencies {
   paymentSessions?: {
     create(actor: Actor, rideId: string): Promise<{ rideId: string; clientSecret: string }>;
   };
+  driverPayouts?: DriverPayouts;
   paymentWebhooks?: { receive(body: Buffer, signature: string): Promise<void> };
 }
 const Id = z.uuid();
@@ -99,6 +101,17 @@ export function createApp(deps: Dependencies) {
     await next();
   });
   app.use('*', secureHeaders());
+  for (const path of ['/connect/return', '/connect/refresh'])
+    app.get(path, (c) => {
+      c.header(
+        'Content-Security-Policy',
+        "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+      );
+      c.header('Referrer-Policy', 'no-referrer');
+      return c.html(
+        '<!doctype html><html lang="en"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Return to Rove</title><h1>Continue in Rove Driver</h1><p>Return to the app to check your payout setup or request a new secure link. Returning here does not confirm approval.</p><a href="rove-driver://payouts">Open Rove Driver</a></html>',
+      );
+    });
   app.use('*', (c, next) =>
     bodyLimit({
       maxSize: c.req.path === '/webhooks/stripe' ? 1_048_576 : 32_768,
@@ -156,6 +169,7 @@ export function createApp(deps: Dependencies) {
     let policy: RequestLimit = c.req.method === 'GET' ? 'read' : 'mutation';
     if (c.req.path === '/v1/places' || c.req.path.startsWith('/v1/saved-places/')) policy = 'places';
     else if (c.req.path === '/v1/support-requests' && c.req.method === 'POST') policy = 'support';
+    else if (c.req.path === '/v1/drivers/me/payout-setup') policy = 'payoutSetup';
     else if (c.req.path === '/v1/quotes') policy = 'quotes';
     else if (c.req.method === 'POST' && /^\/v1\/rides\/[^/]+\/payment-session$/.test(c.req.path))
       policy = 'paymentSessions';
@@ -229,6 +243,21 @@ export function createApp(deps: Dependencies) {
     return c.json(
       await savedPlaces.remove(c.var.actor, savedKind(c.req.param('kind')), input.expectedPlaceId),
     );
+  });
+  app.get('/v1/drivers/me/payout-setup', async (c) => {
+    if (c.var.actor.role !== 'driver')
+      throw new DomainError('FORBIDDEN', 'Payout setup is for drivers.', 403);
+    return c.json(
+      deps.driverPayouts ? await deps.driverPayouts.status(c.var.actor) : { status: 'unavailable' },
+    );
+  });
+  app.post('/v1/drivers/me/payout-setup', async (c) => {
+    await body(c, z.object({}).strict());
+    if (c.var.actor.role !== 'driver')
+      throw new DomainError('FORBIDDEN', 'Payout setup is for drivers.', 403);
+    if (!deps.driverPayouts)
+      throw new DomainError('PAYOUT_SETUP_UNAVAILABLE', 'Payout setup is not available yet.', 503);
+    return c.json(await deps.driverPayouts.start(c.var.actor));
   });
   app.get('/v1/places', async (c) => {
     const q = c.req.query('q')?.trim() ?? '';

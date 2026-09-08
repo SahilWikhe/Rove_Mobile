@@ -393,3 +393,29 @@ test('support queue requires staff authorization and rejects malformed paginatio
   expect(await response.json()).toEqual({ requests: [], nextCursor: null });
   expect(response.headers.get('cache-control')).toContain('no-store');
 });
+
+test('payout setup requires driver authentication, rejects caller-supplied account IDs and fails closed without provider', async () => {
+  const path = '/v1/drivers/me/payout-setup';
+  expect((await app.request(path)).status).toBe(401);
+  expect((await request(path)).status).toBe(403);
+  await request('/v1/me', { name: 'Driver fixture', role: 'driver' }, 'driver');
+  const response = await request(path, undefined, 'driver');
+  expect(await response.json()).toEqual({ status: 'unavailable' });
+  expect(response.headers.get('Cache-Control')).toContain('no-store');
+  expect(
+    (await request(path, { accountId: 'acct_other', returnUrl: 'https://attacker.example' }, 'driver'))
+      .status,
+  ).toBe(400);
+  expect((await request(path, {}, 'driver')).status).toBe(503);
+});
+test('Connect return and refresh pages never mark setup complete or reflect query inputs', async () => {
+  for (const path of ['/connect/return', '/connect/refresh']) {
+    const response = await app.request(path + '?account=private-marker&url=https://attacker.example');
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Cache-Control')).toContain('no-store');
+    const html = await response.text();
+    expect(html).toContain('rove-driver://payouts');
+    expect(html).not.toContain('private-marker');
+    expect(html).not.toContain('attacker.example');
+  }
+});

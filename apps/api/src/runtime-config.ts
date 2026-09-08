@@ -28,6 +28,32 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
     throw new ConfigurationError(['payments.mode']);
   if ((api.environment === 'production') !== (payments.mode === 'live'))
     throw new ConfigurationError(['payments.mode']);
-  return { ...api, payments, paymentSource: `${payments.accountId}:${payments.mode}` };
+  const enabled = env.STRIPE_CONNECT_ONBOARDING_ENABLED;
+  if (enabled !== undefined && !['true', 'false'].includes(enabled))
+    throw new ConfigurationError(['connect.enabled']);
+  let connect: { origin: string } | undefined;
+  if (enabled === 'true') {
+    const parsedOrigin = z
+      .string()
+      .url()
+      .refine((value) => {
+        const url = new URL(value);
+        return url.protocol === 'https:' && url.origin === value;
+      })
+      .safeParse(env.STRIPE_CONNECT_RETURN_ORIGIN);
+    if (!parsedOrigin.success) throw new ConfigurationError(['connect.origin']);
+    if (
+      payments.mode === 'live' &&
+      env.STRIPE_CONNECT_MODEL_APPROVED !== 'recipient-express-platform-responsibility'
+    )
+      throw new ConfigurationError(['connect.modelApproval']);
+    connect = { origin: parsedOrigin.data };
+  }
+  return {
+    ...api,
+    payments,
+    ...(connect ? { connect } : {}),
+    paymentSource: `${payments.accountId}:${payments.mode}`,
+  };
 }
 export type RuntimeConfig = ReturnType<typeof readRuntimeConfig>;

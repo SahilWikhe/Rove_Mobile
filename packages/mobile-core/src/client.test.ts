@@ -208,3 +208,19 @@ test('support requests validate input and keep the caller retry key', async () =
   expect(() => api.createSupportRequest({ ...input, message: 'short' }, 'support-fixture-key')).toThrow();
   expect(transport).toHaveBeenCalledTimes(1);
 });
+
+test('payout link requests send an empty JSON object and reject untrusted redirect responses', async () => {
+  const fetcher = vi.fn<Transport>(
+    async () =>
+      new Response(
+        JSON.stringify({ url: 'https://accounts.stripe.com/r/fixture', expiresAt: '2026-09-08T12:10:00Z' }),
+      ),
+  );
+  const api = new ApiClient('https://api.example', async () => 'fixture-token', fetcher);
+  await api.driverPayoutLink();
+  expect(fetcher.mock.calls[0]?.[1]).toMatchObject({ method: 'POST', body: '{}' });
+  fetcher.mockResolvedValueOnce(
+    new Response(JSON.stringify({ url: 'https://attacker.example', expiresAt: '2026-09-08T12:10:00Z' })),
+  );
+  await expect(api.driverPayoutLink()).rejects.toMatchObject({ code: 'INCOMPATIBLE_RESPONSE' });
+});

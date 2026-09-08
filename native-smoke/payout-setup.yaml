@@ -1,0 +1,13 @@
+# Requires a signed-in synthetic driver with the local API and Metro running.
+appId: co.roveride.driver
+---
+- openLink: rove-driver://payouts
+- tapOn:
+    text: Open
+    optional: true
+- extendedWaitUntil:
+    visible: Payout setup is not available yet.
+    timeout: 30000
+- assertVisible: Your payout details.
+- assertNotVisible: Continue with Stripe
+- takeScreenshot: native-payout-setup
