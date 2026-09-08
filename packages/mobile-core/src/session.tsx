@@ -1,3 +1,4 @@
+import { usePushNotifications } from './use-push-notifications';
 import {
   createContext,
   useCallback,
@@ -34,8 +35,10 @@ interface Config {
   scheme: string;
   role: 'rider' | 'driver';
   synthetic?: boolean;
+  pushProjectId?: string;
 }
 interface Session {
+  notifications: ReturnType<typeof usePushNotifications>;
   operations: Promise<OperationJournal> | null;
   ready: boolean;
   api: ApiClient;
@@ -138,6 +141,15 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
       ),
     [config.apiUrl, config.clientId, discovery, credentials],
   );
+  const notifications = usePushNotifications({
+    api,
+    apiUrl: config.apiUrl,
+    ...(config.pushProjectId ? { projectId: config.pushProjectId } : {}),
+    ...(profile ? { accountId: profile.id } : {}),
+    synthetic,
+    sessionEpoch: renderEpoch,
+    isCurrent: credentials.current,
+  });
   const loadProfile = useCallback(
     async (epoch: number, alive: () => boolean = () => true) => {
       if (!credentials.current(epoch) || !alive()) return;
@@ -261,6 +273,8 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
   }
   async function signOut() {
     if (!credentials.current(renderEpoch)) throw new Error('Your session changed. Please retry sign-out.');
+    await notifications.disable();
+    if (!credentials.current(renderEpoch)) throw new Error('Your session changed. Please retry sign-out.');
     const refreshToken = credentials.peek()?.refreshToken;
     const epoch = credentials.begin();
     // Clear UI and memory before awaiting keychain or provider operations.
@@ -340,6 +354,7 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
   return (
     <SessionContext.Provider
       value={{
+        notifications,
         operations,
         ready,
         api,

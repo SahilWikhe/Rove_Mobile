@@ -1,3 +1,4 @@
+import { NotificationControls } from '@rove/mobile-ui/notification-controls';
 import { useRef, useState } from 'react';
 import { Stack, router } from 'expo-router';
 import * as Crypto from 'expo-crypto';
@@ -8,7 +9,7 @@ import { Banner, Button, Card, Copy, Screen } from '@rove/mobile-ui';
 import { ProfileNameForm } from '@rove/mobile-ui/profile-name-form';
 
 export default function Account() {
-  const { profile, api, signOut, updateName, reloadName, cleanupRequired } = useSession();
+  const { profile, api, notifications, signOut, updateName, reloadName, cleanupRequired } = useSession();
   const pending = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,6 +75,7 @@ export default function Account() {
               onPress={() => router.push('/support')}
             />
           )}
+          {profile && <NotificationControls key={`notifications:${profile.id}`} settings={notifications} />}
           {error && <Banner error message={error} />}
           <Copy kind="muted">
             Signing out takes you offline and stops location sharing. Finish or resolve an active trip first.

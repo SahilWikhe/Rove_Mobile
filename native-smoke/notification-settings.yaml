@@ -1,0 +1,14 @@
+# Requires a signed-in synthetic app and its local API/Metro.
+appId: ${APP_ID}
+---
+- openLink: ${ACCOUNT_LINK}
+- tapOn:
+    text: Open
+    optional: true
+- scrollUntilVisible:
+    element: Trip notifications
+    direction: DOWN
+- assertVisible: Push notifications are not available in this build yet.
+- assertNotVisible: Enable notifications
+- assertNotVisible: 'Encountered two children.*'
+- takeScreenshot: native-notification-settings

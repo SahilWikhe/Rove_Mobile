@@ -17,6 +17,9 @@ export default function Layout() {
         audience: process.env.EXPO_PUBLIC_AUTH_AUDIENCE ?? '',
         scheme: 'rove-driver',
         role: 'driver',
+        ...(process.env.EXPO_PUBLIC_EAS_PROJECT_ID
+          ? { pushProjectId: process.env.EXPO_PUBLIC_EAS_PROJECT_ID }
+          : {}),
         synthetic: process.env.EXPO_PUBLIC_SYNTHETIC === 'true',
       }}
     >

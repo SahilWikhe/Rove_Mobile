@@ -1,10 +1,11 @@
+import { NotificationControls } from '@rove/mobile-ui/notification-controls';
 import { useRef, useState } from 'react';
 import { router, Stack } from 'expo-router';
 import { ProfileNameForm } from '@rove/mobile-ui/profile-name-form';
 import { useSession } from '@rove/mobile-core/session';
 import { Banner, Button, Card, Copy, Screen } from '@rove/mobile-ui';
 export default function Account() {
-  const { profile, api, signOut, updateName, reloadName, cleanupRequired } = useSession();
+  const { profile, api, notifications, signOut, updateName, reloadName, cleanupRequired } = useSession();
   const pending = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,6 +59,7 @@ export default function Account() {
           onPress={() => router.push('/support')}
         />
       )}
+      {profile && <NotificationControls key={`notifications:${profile.id}`} settings={notifications} />}
       {error && <Banner error message={error} />}
       <Button
         title={cleanupRequired ? 'Retry device sign-out' : 'Sign out'}

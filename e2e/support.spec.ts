@@ -8,10 +8,19 @@ for (const [app, port] of [
     page,
     request,
   }) => {
+    const keyWarnings: string[] = [];
+    page.on('console', (entry) => {
+      if (entry.type() === 'error' && entry.text().includes('same key')) keyWarnings.push(entry.text());
+    });
     const message = `Synthetic ${app} browser support question`;
     await page.goto(`http://localhost:${port}`);
     await page.getByRole('button', { name: 'Get started', exact: true }).click();
     await page.getByRole('button', { name: 'Account', exact: true }).click();
+    await expect(
+      page.getByText('Push notifications are not available in this build yet.', { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Enable notifications', exact: true })).toHaveCount(0);
+    expect(keyWarnings).toEqual([]);
     await page.getByRole('button', { name: 'Help & support', exact: true }).click();
     await page.getByRole('button', { name: 'Load / refresh my requests', exact: true }).click();
     await expect(page.getByText('No requests yet.', { exact: true })).toBeVisible();
@@ -23,6 +32,11 @@ for (const [app, port] of [
     await expect(page.getByText(message, { exact: true })).toBeVisible();
     // Simulate returning later through actual navigation, not a mocked response.
     await page.getByRole('link', { name: 'Go back', exact: true }).click();
+    await expect(
+      page.getByText('Push notifications are not available in this build yet.', { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Enable notifications', exact: true })).toHaveCount(0);
+    expect(keyWarnings).toEqual([]);
     await page.getByRole('button', { name: 'Help & support', exact: true }).click();
     await page.getByRole('button', { name: 'Load / refresh my requests', exact: true }).click();
     await expect(page.getByText(message, { exact: true })).toBeVisible();
