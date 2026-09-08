@@ -195,3 +195,44 @@ export const paymentWebhookEvents = pgTable(
   },
   (t) => [uniqueIndex('payment_webhook_source_event').on(t.source, t.eventId)],
 );
+
+export const paymentCustomers = pgTable(
+  'payment_customers',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    riderId: uuid()
+      .notNull()
+      .references(() => users.id),
+    source: text().notNull(),
+    customerId: text().notNull(),
+  },
+  (t) => [
+    uniqueIndex('payment_customer_rider_source').on(t.riderId, t.source),
+    uniqueIndex('payment_customer_provider_source').on(t.source, t.customerId),
+  ],
+);
+export const paymentAttempts = pgTable(
+  'payment_attempts',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    rideId: uuid()
+      .notNull()
+      .references(() => rides.id)
+      .unique(),
+    customerBindingId: uuid()
+      .notNull()
+      .references(() => paymentCustomers.id),
+    intentId: text().notNull(),
+    source: text().notNull(),
+    amountCents: integer().notNull(),
+    revision: integer().notNull().default(0),
+    providerStatus: text(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    reconciledAt: timestamp({ withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex('payment_attempt_provider_source').on(t.source, t.intentId),
+    check('valid_payment_attempt_amount', sql`${t.amountCents} >= 50 and ${t.amountCents} <= 99999999`),
+    check('valid_payment_attempt_revision', sql`${t.revision} >= 0`),
+  ],
+);

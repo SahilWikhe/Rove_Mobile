@@ -150,3 +150,17 @@ test('a committed booking replays after quote expiry while a new key is rejected
   });
   expect((await database.pool.query('SELECT count(*) FROM rides')).rows[0].count).toBe('1');
 });
+
+test('lost authorization blocks pickup progression but preserves cancellation', async () => {
+  const fixture = await offered();
+  await service.accept(fixture.driver, fixture.offerId, randomUUID());
+  await database.pool.query("UPDATE rides SET payment_state='review_required' WHERE id=$1", [
+    fixture.ride.id,
+  ]);
+  await expect(
+    service.transition(fixture.driver, fixture.ride.id, 'en_route', 2, randomUUID()),
+  ).rejects.toMatchObject({ code: 'PAYMENT_REQUIRED' });
+  expect((await service.transition(fixture.rider, fixture.ride.id, 'cancelled', 2, randomUUID())).state).toBe(
+    'cancelled',
+  );
+});

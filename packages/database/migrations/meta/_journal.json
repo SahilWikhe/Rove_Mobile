@@ -50,6 +50,13 @@
       "when": 1788844077627,
       "tag": "0006_whole_the_order",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788844406657,
+      "tag": "0007_brave_forge",
+      "breakpoints": true
     }
   ]
 }

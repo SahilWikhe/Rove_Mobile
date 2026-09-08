@@ -158,6 +158,12 @@ export class RideService {
         if (ride.version !== version)
           throw new DomainError('STALE_RIDE', 'Your trip has changed. Refresh to continue.');
         assertTransition(ride.state, to, actor.role);
+        if (['en_route', 'arrived', 'in_progress'].includes(to) && ride.payment_state !== 'authorized')
+          throw new DomainError(
+            'PAYMENT_REQUIRED',
+            'Payment must be confirmed before continuing pickup.',
+            409,
+          );
         const updated = (
           await client.query<RideRow>(
             'UPDATE rides SET state=$2,version=version+1,updated_at=now() WHERE id=$1 RETURNING *',
