@@ -1,6 +1,6 @@
 # CI/CD, environments, and release controls
 
-Status: deployment blueprint. No Vercel project, EAS project, GitHub workflow or production release is created by this documentation commit.
+Status: CI is implemented and verified on GitHub runners; see [current pipeline](21-ci-verification.md). The deployment, native validation and release workflows below remain a blueprint. No production release is implied.
 
 ## Environment topology
 
@@ -37,7 +37,7 @@ These are proposed names. Add required status checks only after actual jobs exis
 
 ## Required gate without skipped-check traps
 
-An always-running change-detection job computes the changed packages and transitive dependents from the true PR base/head with adequate Git history. Root lockfile, compiler, lint, build, test or workflow changes must invalidate all relevant consumers. If the base cannot be resolved, run the full suite.
+Future optimization: an always-running change-detection job computes the changed packages and transitive dependents from the true PR base/head with adequate Git history. Root lockfile, compiler, lint, build, test or workflow changes must invalidate all relevant consumers. If the base cannot be resolved, run the full suite.
 
 Conditional jobs may skip when irrelevant. An always-running `ci-gate` aggregates results, knows which jobs were required, and fails on failed, cancelled or unexpectedly skipped required work. Do not put the entire required workflow behind a path filter. Test the gate itself with documentation-only, mobile-only, shared-package, migration and root-lockfile changes.
 
