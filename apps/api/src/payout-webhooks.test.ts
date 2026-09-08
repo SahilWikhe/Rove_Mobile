@@ -74,7 +74,7 @@ afterAll(async () => {
   await db?.close();
 });
 beforeEach(async () => {
-  await db.pool.query('TRUNCATE payout_webhook_events,outbox');
+  await db.pool.query('TRUNCATE payout_webhook_events,outbox CASCADE');
 });
 test('signed thin events commit one minimal receipt and job despite concurrent retries', async () => {
   const body = event();

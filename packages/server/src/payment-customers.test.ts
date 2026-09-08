@@ -18,7 +18,7 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   await database.pool.query('TRUNCATE users CASCADE');
-  await database.pool.query('TRUNCATE outbox');
+  await database.pool.query('TRUNCATE outbox CASCADE');
   actor = { id: randomUUID(), role: 'rider' };
   now = new Date('2026-09-07T12:00:00Z');
   await database.pool.query(

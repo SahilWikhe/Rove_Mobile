@@ -1,5 +1,9 @@
 import { createDatabase } from '@rove/database';
 import {
+  PushDelivery,
+  ExpoPushProvider,
+  type PushProvider,
+  type JobHandler,
   PayoutReconciler,
   PayoutWebhookInbox,
   StripePayoutWebhookVerifier,
@@ -29,6 +33,7 @@ import { oidcIdentity, type VerifyIdentity } from './auth';
 import { readRuntimeConfig, type RuntimeConfig } from './runtime-config';
 
 interface Resources {
+  pushProvider?: PushProvider;
   database: ReturnType<typeof createDatabase>;
   maps: MapsProvider;
   payments: PaymentProvider & PaymentCustomerProvider & PaymentWebhookVerifier;
@@ -47,7 +52,11 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
   const payoutReconciliation = resources.driverPayoutProvider
     ? new PayoutReconciler(pool, resources.driverPayoutProvider, config.paymentSource)
     : undefined;
-  const worker = new OutboxWorker(pool, {
+  const pushDelivery =
+    resources.pushProvider && config.pushProjects
+      ? new PushDelivery(pool, resources.pushProvider, config.pushProjects)
+      : undefined;
+  const handlers: Record<string, JobHandler> = {
     ...reconciliation.handlers(),
     ...(payoutReconciliation ? { 'payout.reconcile': payoutReconciliation.handle } : {}),
     'ride.search_expire': async (job) => {
@@ -56,9 +65,8 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
     // Matching checks current funding; requests never authorize their own payment.
     'ride.requested': async (job) => matching.tick(job.aggregateId),
     'matching.tick': async (job) => matching.tick(job.aggregateId),
-    // Notification/review events remain durable dead letters until their real consumers are added.
-    // Never acknowledge these as delivered using an empty handler.
-  });
+  };
+  const worker = new OutboxWorker(pool, pushDelivery ? pushDelivery.handlers(handlers) : handlers);
   const app = createApp({
     pool,
     ...(resources.payoutWebhookVerifier
@@ -82,6 +90,7 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
     worker,
     drain: new OutboxDrain(pool, worker),
     searchExpiry,
+    ...(pushDelivery ? { pushDelivery } : {}),
     ...(payoutReconciliation ? { payoutReconciliation } : {}),
     close: database.close,
   };
@@ -100,6 +109,7 @@ export function createRuntime(env: Record<string, string | undefined>) {
   // pg emits idle-client errors outside queries. Keep the process alive; never log driver error details.
   database.pool.on('error', () => console.error('Database connection interrupted.'));
   return composeRuntime(config, {
+    ...(config.pushAccessToken ? { pushProvider: new ExpoPushProvider(config.pushAccessToken) } : {}),
     database,
     maps,
     payments,

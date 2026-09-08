@@ -162,6 +162,13 @@
       "when": 1788864766715,
       "tag": "0022_push_installations",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1788867048896,
+      "tag": "0023_push_deliveries",
+      "breakpoints": true
     }
   ]
 }

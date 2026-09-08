@@ -12,7 +12,7 @@ afterAll(async () => {
   await db?.close();
 });
 beforeEach(async () => {
-  await db.pool.query('TRUNCATE outbox');
+  await db.pool.query('TRUNCATE outbox CASCADE');
   now = new Date('2026-09-07T12:00:00Z');
 });
 async function job(delay = 0) {

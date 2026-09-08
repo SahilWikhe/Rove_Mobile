@@ -94,7 +94,7 @@ afterAll(async () => {
   await database?.close();
 });
 beforeEach(async () => {
-  await database.pool.query('TRUNCATE payment_webhook_events,outbox');
+  await database.pool.query('TRUNCATE payment_webhook_events,outbox CASCADE');
 });
 
 test('concurrent signed deliveries commit one minimal receipt and one reconciliation job', async () => {

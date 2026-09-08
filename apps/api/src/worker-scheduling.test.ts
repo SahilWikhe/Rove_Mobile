@@ -130,3 +130,27 @@ test('successful Connect notifications and onboarding mutations wake the worker,
   await Promise.all(work);
   expect(publish).toHaveBeenCalledTimes(2);
 });
+
+test('recovery repairs stalled push jobs before draining the queue', async () => {
+  const order: string[] = [];
+  const scheduler = new WorkerScheduling(
+    {
+      searchExpiry: { sweep: async () => 0 },
+      pushDelivery: {
+        sweep: async () => {
+          order.push('push');
+          return 1;
+        },
+      },
+      drain: {
+        run: async () => {
+          order.push('drain');
+          return { processed: 1, failed: 0, wakeAfterSeconds: null };
+        },
+      },
+    },
+    { publish: async () => {} },
+  );
+  await scheduler.recover();
+  expect(order).toEqual(['push', 'drain']);
+});

@@ -28,7 +28,7 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   await db.pool.query('TRUNCATE users CASCADE');
-  await db.pool.query('TRUNCATE outbox,audit');
+  await db.pool.query('TRUNCATE outbox,audit CASCADE');
   now = new Date('2026-09-08T12:00:00Z');
   driverId = randomUUID();
   bindingId = randomUUID();

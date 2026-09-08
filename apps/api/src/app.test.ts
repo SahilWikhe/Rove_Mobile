@@ -49,7 +49,7 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   await database.pool.query('TRUNCATE users CASCADE');
-  await database.pool.query('TRUNCATE outbox, rate_limit_buckets');
+  await database.pool.query('TRUNCATE outbox, rate_limit_buckets CASCADE');
   await database.db
     .insert(users)
     .values({ id: riderId, subject: 'rider', name: 'Test rider', role: 'rider' });

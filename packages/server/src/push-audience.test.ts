@@ -16,7 +16,7 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   await db.pool.query('TRUNCATE users CASCADE');
-  await db.pool.query('TRUNCATE outbox');
+  await db.pool.query('TRUNCATE outbox CASCADE');
   now = new Date();
   rider = randomUUID();
   driver = randomUUID();

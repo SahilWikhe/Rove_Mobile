@@ -11,7 +11,7 @@ afterAll(async () => {
   await database?.close();
 });
 beforeEach(async () => {
-  await database.pool.query('TRUNCATE outbox');
+  await database.pool.query('TRUNCATE outbox CASCADE');
   now = new Date();
 });
 async function enqueue(topic = 'test', availableAt = now) {

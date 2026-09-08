@@ -65,7 +65,22 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
       throw new ConfigurationError(['push.projects']);
     pushProjects = projects.data;
   }
+  let pushAccessToken: string | undefined;
+  if (
+    env.EXPO_PUSH_DELIVERY_ENABLED !== undefined &&
+    !['true', 'false'].includes(env.EXPO_PUSH_DELIVERY_ENABLED)
+  )
+    throw new ConfigurationError(['push.enabled']);
+  if (env.EXPO_PUSH_DELIVERY_ENABLED === 'true') {
+    const token = z
+      .string()
+      .regex(/^[\x21-\x7e]{1,4096}$/)
+      .safeParse(env.EXPO_PUSH_ACCESS_TOKEN);
+    if (!pushProjects || !token.success) throw new ConfigurationError(['push.delivery']);
+    pushAccessToken = token.data;
+  }
   return {
+    ...(pushAccessToken ? { pushAccessToken } : {}),
     ...(pushProjects ? { pushProjects } : {}),
     ...api,
     payments,

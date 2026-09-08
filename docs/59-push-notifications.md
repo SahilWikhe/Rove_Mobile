@@ -2,7 +2,7 @@
 
 ## Current checkpoint
 
-The server now has a typed `PushProvider` interface and an Expo HTTPS adapter for sending one hint and checking its receipt. Seven transport tests verify outbound content, expiry, errors, invalid devices and bounded responses. This is the transport foundation, not an enabled notification service. No real tokens, Expo credentials or external sends were used. Existing notification/review outbox events remain unhandled until their durable consumers are implemented; they are not acknowledged as delivered by this change.
+The Expo transport, registration API/native opt-in, authenticated tap routing, recipient resolver and durable delivery/receipt worker are implemented. Hosted delivery is explicitly disabled by default. No real Expo credentials, device tokens or external sends were used for this checkpoint. Configure and verify sandbox delivery before enabling it. Unrelated review/payment-notification event types still require their own consumers; the worker handles only the ride/offer topics listed below.
 
 ## Payload and transport
 
@@ -82,16 +82,41 @@ Six controller regression tests cover both roles, duplicate and malicious payloa
 
 A queued recipient reference contains only event ID, internal registration ID and revision. Before transport, `message` rechecks event age, current audience, registration ownership/revision and account availability, then constructs a strict generic hint. Changing account bindings, revoking a registration or disabling an account makes old references unusable. Offer messages also require pending status, authorized funding, open search deadline, online/approved driver, current payout/eligibility and a location heartbeat within sixty seconds. Their TTL ends at the earliest offer expiry, search deadline or event deadline.
 
-Delivery uses a five-minute maximum event age. Device registrations must have renewed within thirty days; native foreground registration refresh is already implemented. These are initial operational defaults, with no new paid service dependency. Expiry suppresses delivery without deleting the installation identity needed for secure recovery. This resolver is not yet connected to a worker, so it does not by itself send notifications or enforce cleanup of stored tokens. Data retention and account device-management remain separate unfinished work.
+Delivery uses a five-minute maximum event age. Device registrations must have renewed within thirty days; native foreground registration refresh is already implemented. These are initial operational defaults, with no new paid service dependency. Expiry suppresses delivery without deleting the installation identity needed for secure recovery. The delivery worker uses this resolver before transport. The resolver does not enforce deletion or retention cleanup of stored tokens. Data retention and account device-management remain separate unfinished work.
 
 Eight PostgreSQL behavior tests cover role/ownership boundaries, minimum queued data, revision/logout/account changes, project mismatch, historical events, independent registration lifetime and offer state/funding/eligibility/location deadlines. Selection is not a transaction with the external push gateway: a state change after the final read cannot recall a submitted message. Therefore messages remain generic hints and the mobile app performs a fresh authorized lookup on tap.
 
+## Durable delivery and receipts
+
+Migration `0023_push_deliveries.sql` adds delivery state and shared send-rate windows. It has only been applied to disposable local databases; normal application startup/builds do not migrate a production database. The worker stores one unique delivery per event/installation/revision and atomically enqueues its send job. Queued payloads contain no destination token or personal information. Foreign keys retain the original event and registration needed to audit the delivery.
+
+When enabled, `PushDelivery.handlers` composes with existing financial handlers for terminal ride events. It handles `offer.created`, `ride.matched`, `ride.en_route`, `ride.arrived`, `ride.in_progress`, `ride.completed`, `ride.cancelled`, `ride.no_driver_found`, `ride.no_show`, `ride.interrupted` and `ride.terminated`. It does not replace payment reconciliation, matching or polling. Unknown topics are not silently acknowledged as delivered.
+
+Each send acquires a sixty-second database lease before resolving the current recipient. Completion is conditional on that exact lease. Concurrent invocations cannot send through a live lease; an old invocation cannot overwrite a newer result. A shared PostgreSQL window permits at most one hundred sends per second per configured project in this database. Use separate EAS projects for isolated deployment environments; independent databases do not share rate windows. Rate-limit/transient/unconfirmed failures use the existing outbox backoff, bounded by the event/offer TTL.
+
+The provider ticket and first receipt job commit in one transaction. Accepted tickets enter `receipt`, not a delivered state. Receipt polling starts after fifteen minutes. Pending or temporarily unavailable receipts enqueue another fifteen-minute attempt, fenced by the receipt-attempt number so an old job cannot advance the state again. After twenty-three hours the result becomes `receipt_expired`; it is never assumed successful. Gateway acceptance is recorded as `accepted_by_gateway`, not confirmation that a phone displayed the notification.
+
+Invalid-token results atomically disable only the exact installation revision used by the delivery. A late receipt cannot revoke a newly registered token. Configuration/rejected results remain visible as terminal delivery states with fixed error codes. They need operational review before any deliberate replay; the code does not repeatedly send after a permanent provider rejection. Raw response bodies, credentials and push tokens are excluded from delivery error records.
+
+A recovery sweep, composed into the existing authenticated worker-recovery endpoint, schedules up to one hundred stale unfinished deliveries at a time. It uses a twenty-minute deduplication bucket and preserves receipt-attempt fencing. Expired send jobs resolve to suppressed work; recovery cannot resurrect an old offer. This covers lost wakeups or a delivery whose outbox job exhausted retries during a database outage.
+
+Exactly-once external delivery is not claimed. A gateway may accept a request before the response or database commit is lost. Retrying can send the same generic hint twice; resource collapse IDs and client event deduplication reduce visible duplicates. A state change after the final authorization query cannot recall an already submitted message. Addresses, identity and authoritative trip actions remain behind the authenticated API.
+
+### Enablement and verification
+
+1. Apply reviewed migrations to an isolated staging database through the migration workflow.
+2. Configure distinct rider/driver EAS projects, APNs/FCM credentials and native builds. Match each app's public EAS project UUID to its backend project configuration.
+3. Enable enhanced push security on those projects and store `EXPO_PUSH_ACCESS_TOKEN` only in backend/worker secrets. Do not use an `EXPO_PUBLIC_` variable for this credential.
+4. Keep `EXPO_PUSH_DELIVERY_ENABLED=false` until native registration and permissions are verified. The `true` value requires both configured projects and a valid nonempty server credential; incomplete configuration fails closed.
+5. In staging, enable delivery, verify queue wakeups/recovery, complete a synthetic ride and check the delivery/receipt records. Test both platforms, cold-start taps, foreground/background behavior, logout, token refresh and invalid-token receipts before production enablement.
+
+Fourteen real-PostgreSQL orchestration tests cover fan-out deduplication, existing-handler composition, queue timing, revoked registrations, uncertain sends, concurrent leases, stale completions, receipt revision/attempt fencing, terminal errors, recovery, atomic receipt scheduling and the shared send limit across concurrent invocations. API runtime integration runs the payment/cancellation pipeline with push off and on using a fake transport, while configuration and scheduling tests verify enablement and recovery. All 390 workspace tests and eight tooling checks pass. Typechecks, lint, formatting, documentation and import-boundary checks pass; the packaged backend builds and passes its runtime verification. This establishes local behavior, not actual APNs/FCM delivery.
+
 ## Remaining integration
 
-1. Verify the wired native registration with real app projects/credentials and add account device-management recovery and registration lifetime policy.
-2. Transactional event fan-out to authorized recipients, durable delivery attempts and receipt jobs. Recheck active ownership/offer expiry before send; never reserve a driver through push.
-3. Per-project throughput controls and operational visibility for failures/dead letters. Do not replay expired historical offers when enabling the consumer.
-4. Verify the wired notification-tap listener, cold-start consumption and OS permission/token/logout behavior on both platforms with real sandbox delivery.
-5. Synthetic integration tests across API, worker and mobile handlers, then real iOS/Android sandbox delivery and revoked-token verification.
+1. Verify real native registration, permission/token/logout behavior and delivery/taps on iOS and Android with isolated sandbox credentials.
+2. Add account device-management recovery, token/delivery retention cleanup and operational failure/dead-letter views. The internal dashboard remains in its separate repository.
+3. Exercise staging queue latency/load, particularly twenty-second driver offers, and alert on failures and expired/unconfirmed receipts. Polling remains necessary; push does not guarantee dispatch timing.
+4. Verify revoked-token behavior and native cold-start consumption with real provider receipts before enabling production delivery.
 
-These remain necessary for the full product. Foreground polling continues to provide current trip and offer data in the meantime. Push will supplement that path, not guarantee dispatch timing or availability.
+These remain necessary for the full product. No production push service was enabled by this change.

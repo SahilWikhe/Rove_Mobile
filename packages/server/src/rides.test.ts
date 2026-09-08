@@ -16,7 +16,7 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   await database.pool.query('TRUNCATE users CASCADE');
-  await database.pool.query('TRUNCATE outbox');
+  await database.pool.query('TRUNCATE outbox CASCADE');
 });
 async function setup() {
   const rider = { id: randomUUID(), role: 'rider' as const };

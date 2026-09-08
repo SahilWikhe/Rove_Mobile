@@ -58,7 +58,7 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   await database.pool.query('TRUNCATE users CASCADE');
-  await database.pool.query('TRUNCATE outbox,rate_limit_buckets');
+  await database.pool.query('TRUNCATE outbox,rate_limit_buckets CASCADE');
   rider = randomUUID();
   ride = randomUUID();
   now = new Date('2026-09-07T12:00:00Z');

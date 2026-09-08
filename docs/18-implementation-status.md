@@ -100,3 +100,7 @@ Both native apps now consume notification responses through a shared strict hint
 ## Push recipient authorization
 
 The shared server now resolves queued notification recipients from current database ownership, configured app projects, enabled accounts and exact registration revisions. It suppresses old registrations/events and invalid driver offers, with eight PostgreSQL behavior tests. This resolver is ready for the pending durable delivery/receipt worker; it is not yet wired into runtime sending. See [delivery recipient authorization](59-push-notifications.md#delivery-recipient-authorization).
+
+## Durable push delivery
+
+The opt-in hosted push worker now composes ride/offer fan-out with existing financial handlers, records send/receipt state, fences concurrent and delayed work, enforces a shared project send budget and recovers stalled jobs. Migration 0023 is tested locally. Fourteen PostgreSQL orchestration tests and runtime tests with delivery off/on cover this integration; real APNs/FCM delivery remains unverified and delivery defaults off. See [durable delivery and setup](59-push-notifications.md#durable-delivery-and-receipts).

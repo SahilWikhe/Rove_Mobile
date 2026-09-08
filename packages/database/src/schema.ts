@@ -451,3 +451,39 @@ export const pushInstallations = pgTable(
     check('push_installation_revision', sql`${t.revision}>0`),
   ],
 );
+
+export const pushDeliveries = pgTable(
+  'push_deliveries',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    eventId: uuid()
+      .notNull()
+      .references(() => outbox.id),
+    installationId: uuid()
+      .notNull()
+      .references(() => pushInstallations.id),
+    revision: integer().notNull(),
+    state: text().notNull().default('pending'),
+    receiptId: uuid(),
+    acceptedAt: timestamp({ withTimezone: true }),
+    leaseToken: uuid(),
+    lockedUntil: timestamp({ withTimezone: true }),
+    attempts: integer().notNull().default(0),
+    receiptAttempts: integer().notNull().default(0),
+    lastError: text(),
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('push_delivery_recipient').on(t.eventId, t.installationId, t.revision),
+    check('push_delivery_revision', sql`${t.revision}>0`),
+    check(
+      'push_delivery_state',
+      sql`${t.state} in ('pending','sending','receipt','accepted_by_gateway','suppressed','invalid_token','configuration','rejected','receipt_expired')`,
+    ),
+  ],
+);
+export const pushRateWindows = pgTable('push_rate_windows', {
+  projectId: uuid().primaryKey(),
+  windowAt: timestamp({ withTimezone: true }).notNull(),
+  count: integer().notNull(),
+});

@@ -31,7 +31,7 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   await database.pool.query('TRUNCATE users CASCADE');
-  await database.pool.query('TRUNCATE outbox,audit');
+  await database.pool.query('TRUNCATE outbox,audit CASCADE');
   now = new Date('2026-09-07T12:00:00Z');
   const rider = randomUUID();
   const quote = randomUUID();

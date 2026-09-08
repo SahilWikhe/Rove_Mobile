@@ -31,7 +31,7 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   await database.pool.query('TRUNCATE users CASCADE');
-  await database.pool.query('TRUNCATE outbox');
+  await database.pool.query('TRUNCATE outbox CASCADE');
   now = new Date('2026-09-07T12:00:00Z');
   matcher = new MatchingService(database.pool, maps, () => now);
   driverService = new DriverService(database.pool, () => now);

@@ -88,110 +88,138 @@ beforeAll(async () => {
 afterAll(async () => {
   await database?.close();
 });
-test('composed HTTP and worker use one customer, authorization and cancellation release pipeline', async () => {
-  const rider = randomUUID();
-  await database.pool.query("INSERT INTO users(id,subject,name,role) VALUES($1,'rider','Fixture','rider')", [
-    rider,
-  ]);
-  const place = {
-    id: 'place-fixture',
-    label: 'Fixture address',
-    area: 'Raleigh',
-    coordinate: { latitude: 35.78, longitude: -78.64 },
-  };
-  const maps: MapsProvider = {
-    search: async () => [place],
-    resolve: async () => place,
-    route: async () => ({ distanceMeters: 6500, durationSeconds: 720 }),
-  };
-  let payment: PaymentSnapshot;
-  const createCustomer = vi.fn(async () => 'cus_fixture');
-  const cancel = vi.fn(async () => (payment = { ...payment, status: 'canceled', capturableCents: 0 }));
-  const payments: PaymentProvider & PaymentCustomerProvider & PaymentWebhookVerifier = {
-    createCustomer,
-    create: async (reference) => ({
-      payment: (payment = {
-        ...reference,
-        intentId: 'pi_fixture',
-        status: 'requires_capture',
-        capturableCents: reference.amountCents,
-        receivedCents: 0,
+test.each([false, true])(
+  'composed HTTP and payment pipeline preserves cancellation with push enabled=%s',
+  async (pushEnabled) => {
+    await database.pool.query('TRUNCATE users CASCADE');
+    await database.pool.query('TRUNCATE outbox,payment_webhook_events CASCADE');
+    const rider = randomUUID();
+    await database.pool.query(
+      "INSERT INTO users(id,subject,name,role) VALUES($1,'rider','Fixture','rider')",
+      [rider],
+    );
+    const place = {
+      id: 'place-fixture',
+      label: 'Fixture address',
+      area: 'Raleigh',
+      coordinate: { latitude: 35.78, longitude: -78.64 },
+    };
+    const maps: MapsProvider = {
+      search: async () => [place],
+      resolve: async () => place,
+      route: async () => ({ distanceMeters: 6500, durationSeconds: 720 }),
+    };
+    let payment: PaymentSnapshot;
+    const createCustomer = vi.fn(async () => 'cus_fixture');
+    const cancel = vi.fn(async () => (payment = { ...payment, status: 'canceled', capturableCents: 0 }));
+    const payments: PaymentProvider & PaymentCustomerProvider & PaymentWebhookVerifier = {
+      createCustomer,
+      create: async (reference) => ({
+        payment: (payment = {
+          ...reference,
+          intentId: 'pi_fixture',
+          status: 'requires_capture',
+          capturableCents: reference.amountCents,
+          receivedCents: 0,
+        }),
+        clientSecret: 'pi_fixture_secret_private',
       }),
-      clientSecret: 'pi_fixture_secret_private',
-    }),
-    retrieve: async () => payment,
-    cancel,
-    capture: async () => {
-      throw new Error('unexpected capture');
-    },
-    refund: async () => {
-      throw new Error('unexpected refund');
-    },
-    session: async () => ({ payment, clientSecret: 'pi_fixture_secret_private' }),
-    verifyWebhook: () => ({
-      id: 'evt_fixture',
-      type: 'payment_intent.amount_capturable_updated',
-      created: Math.floor(Date.now() / 1000),
-      resourceId: 'pi_fixture',
-    }),
-  };
-  const runtime = composeRuntime(readRuntimeConfig(environment()), {
-    database,
-    maps,
-    payments,
-    verifyIdentity: async () => ({ subject: 'rider' }),
-  });
-  const post = (path: string, body: unknown) =>
-    runtime.app.request(path, {
-      method: 'POST',
-      headers: {
-        Authorization: 'Bearer fixture',
-        'Content-Type': 'application/json',
-        'Idempotency-Key': randomUUID(),
+      retrieve: async () => payment,
+      cancel,
+      capture: async () => {
+        throw new Error('unexpected capture');
       },
-      body: JSON.stringify(body),
+      refund: async () => {
+        throw new Error('unexpected refund');
+      },
+      session: async () => ({ payment, clientSecret: 'pi_fixture_secret_private' }),
+      verifyWebhook: () => ({
+        id: 'evt_fixture',
+        type: 'payment_intent.amount_capturable_updated',
+        created: Math.floor(Date.now() / 1000),
+        resourceId: 'pi_fixture',
+      }),
+    };
+    const riderProject = randomUUID();
+    const config = readRuntimeConfig({
+      ...environment(),
+      EXPO_RIDER_PROJECT_ID: riderProject,
+      EXPO_DRIVER_PROJECT_ID: randomUUID(),
     });
-  const quoteResponse = await post('/v1/quotes', { pickup: place, destination: place, service: 'standard' });
-  expect(quoteResponse.status).toBe(201);
-  const quote = await quoteResponse.json();
-  const rideResponse = await post('/v1/ride-requests', { quoteId: quote.id });
-  expect(rideResponse.status).toBe(201);
-  const ride = await rideResponse.json();
-  await runtime.worker.runOnce(10);
-  expect(
-    (await database.pool.query('SELECT payment_state FROM rides WHERE id=$1', [ride.id])).rows[0]
-      .payment_state,
-  ).toBe('pending');
-  const session = await post(`/v1/rides/${ride.id}/payment-session`, {});
-  expect(session.status).toBe(200);
-  expect(createCustomer).toHaveBeenCalledOnce();
-  const webhook = await runtime.app.request('/webhooks/stripe', {
-    method: 'POST',
-    headers: { 'stripe-signature': 'fixture' },
-    body: '{}',
-  });
-  expect(webhook.status).toBe(200);
-  await runtime.worker.runOnce(20);
-  const funded = (await database.pool.query('SELECT version,payment_state FROM rides WHERE id=$1', [ride.id]))
-    .rows[0];
-  expect(funded.payment_state).toBe('authorized');
-  const cancelled = await post(`/v1/rides/${ride.id}/transitions`, {
-    state: 'cancelled',
-    expectedVersion: funded.version,
-  });
-  expect(cancelled.status).toBe(200);
-  await runtime.worker.runOnce(20);
-  expect(cancel).toHaveBeenCalledOnce();
-  expect(
-    (await database.pool.query('SELECT payment_state FROM rides WHERE id=$1', [ride.id])).rows[0]
-      .payment_state,
-  ).toBe('released');
-  const unhandled = (
-    await database.pool.query("SELECT last_error_code FROM outbox WHERE topic='payment.updated'")
-  ).rows;
-  expect(unhandled.length).toBeGreaterThan(0);
-  expect(unhandled.every((row) => row.last_error_code === 'UNKNOWN_JOB_TYPE')).toBe(true);
-});
+    const pushSend = vi.fn(async () => ({ status: 'accepted' as const, receiptId: randomUUID() }));
+    await database.pool.query(
+      `INSERT INTO push_installations(project_id,installation_id,secret_hash,owner_id,token,platform)
+    VALUES($1,$2,'fixture',$3,'ExpoPushToken[fixture]','ios')`,
+      [riderProject, randomUUID(), rider],
+    );
+    const runtime = composeRuntime(config, {
+      ...(pushEnabled
+        ? { pushProvider: { send: pushSend, receipt: async () => ({ status: 'pending' as const }) } }
+        : {}),
+      database,
+      maps,
+      payments,
+      verifyIdentity: async () => ({ subject: 'rider' }),
+    });
+    const post = (path: string, body: unknown) =>
+      runtime.app.request(path, {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer fixture',
+          'Content-Type': 'application/json',
+          'Idempotency-Key': randomUUID(),
+        },
+        body: JSON.stringify(body),
+      });
+    const quoteResponse = await post('/v1/quotes', {
+      pickup: place,
+      destination: place,
+      service: 'standard',
+    });
+    expect(quoteResponse.status).toBe(201);
+    const quote = await quoteResponse.json();
+    const rideResponse = await post('/v1/ride-requests', { quoteId: quote.id });
+    expect(rideResponse.status).toBe(201);
+    const ride = await rideResponse.json();
+    await runtime.worker.runOnce(10);
+    expect(
+      (await database.pool.query('SELECT payment_state FROM rides WHERE id=$1', [ride.id])).rows[0]
+        .payment_state,
+    ).toBe('pending');
+    const session = await post(`/v1/rides/${ride.id}/payment-session`, {});
+    expect(session.status).toBe(200);
+    expect(createCustomer).toHaveBeenCalledOnce();
+    const webhook = await runtime.app.request('/webhooks/stripe', {
+      method: 'POST',
+      headers: { 'stripe-signature': 'fixture' },
+      body: '{}',
+    });
+    expect(webhook.status).toBe(200);
+    await runtime.worker.runOnce(20);
+    const funded = (
+      await database.pool.query('SELECT version,payment_state FROM rides WHERE id=$1', [ride.id])
+    ).rows[0];
+    expect(funded.payment_state).toBe('authorized');
+    const cancelled = await post(`/v1/rides/${ride.id}/transitions`, {
+      state: 'cancelled',
+      expectedVersion: funded.version,
+    });
+    expect(cancelled.status).toBe(200);
+    await runtime.worker.runOnce(20);
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(pushSend).toHaveBeenCalledTimes(pushEnabled ? 1 : 0);
+    expect(Boolean(runtime.pushDelivery)).toBe(pushEnabled);
+    expect(
+      (await database.pool.query('SELECT payment_state FROM rides WHERE id=$1', [ride.id])).rows[0]
+        .payment_state,
+    ).toBe('released');
+    const unhandled = (
+      await database.pool.query("SELECT last_error_code FROM outbox WHERE topic='payment.updated'")
+    ).rows;
+    expect(unhandled.length).toBeGreaterThan(0);
+    expect(unhandled.every((row) => row.last_error_code === 'UNKNOWN_JOB_TYPE')).toBe(true);
+  },
+);
 
 test('Connect onboarding defaults off and requires valid origin and live model acknowledgement', () => {
   expect(readRuntimeConfig(environment()).connect).toBeUndefined();
@@ -262,4 +290,36 @@ test('push registration is off by default and requires two distinct configured a
   expect(() =>
     readRuntimeConfig({ ...environment(), EXPO_RIDER_PROJECT_ID: rider, EXPO_DRIVER_PROJECT_ID: rider }),
   ).toThrow();
+});
+
+test('push delivery requires an explicit switch, server credential and separate app projects', () => {
+  const configured = {
+    ...environment(),
+    EXPO_RIDER_PROJECT_ID: '00000000-0000-4000-8000-000000000001',
+    EXPO_DRIVER_PROJECT_ID: '00000000-0000-4000-8000-000000000002',
+  };
+  expect(readRuntimeConfig(configured).pushAccessToken).toBeUndefined();
+  expect(() => readRuntimeConfig({ ...configured, EXPO_PUSH_DELIVERY_ENABLED: 'yes' })).toThrow();
+  expect(() => readRuntimeConfig({ ...configured, EXPO_PUSH_DELIVERY_ENABLED: 'true' })).toThrow();
+  expect(() =>
+    readRuntimeConfig({
+      ...environment(),
+      EXPO_PUSH_DELIVERY_ENABLED: 'true',
+      EXPO_PUSH_ACCESS_TOKEN: 'synthetic',
+    }),
+  ).toThrow();
+  expect(() =>
+    readRuntimeConfig({
+      ...configured,
+      EXPO_PUSH_DELIVERY_ENABLED: 'true',
+      EXPO_PUSH_ACCESS_TOKEN: 'bad\ntoken',
+    }),
+  ).toThrow();
+  expect(
+    readRuntimeConfig({
+      ...configured,
+      EXPO_PUSH_DELIVERY_ENABLED: 'true',
+      EXPO_PUSH_ACCESS_TOKEN: 'synthetic',
+    }).pushAccessToken,
+  ).toBe('synthetic');
 });
