@@ -24,6 +24,7 @@ export interface PaymentProvider {
     key: string,
   ): Promise<{ payment: PaymentSnapshot; clientSecret: string }>;
   retrieve(reference: PaymentReference): Promise<PaymentSnapshot>;
+  session(reference: PaymentReference): Promise<{ payment: PaymentSnapshot; clientSecret: string }>;
   capture(reference: PaymentReference, amountCents: number, key: string): Promise<PaymentSnapshot>;
   cancel(reference: PaymentReference, key: string): Promise<PaymentSnapshot>;
   refund(

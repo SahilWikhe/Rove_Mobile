@@ -1,0 +1,1 @@
+ALTER TABLE "payment_attempts" ALTER COLUMN "intent_id" DROP NOT NULL;

@@ -192,3 +192,11 @@ test('webhooks require the raw signed body, correct mode and a fresh timestamp',
   expect(() => provider.verifyWebhook(live, sign(live))).toThrow();
   expect(JSON.stringify(provider.verifyWebhook(body, sign(body)))).not.toContain('secret');
 });
+
+test('mapped sessions retrieve the existing intent and validate ownership before exposing its secret', async () => {
+  const { provider, paymentIntents } = fixture();
+  expect((await provider.session(reference)).clientSecret).toBe('pi_fixture_secret_private');
+  expect(paymentIntents.create).not.toHaveBeenCalled();
+  paymentIntents.retrieve.mockResolvedValue(intent({ customer: 'cus_other' }));
+  await expect(provider.session(reference)).rejects.toMatchObject({ code: 'PAYMENT_REFERENCE_MISMATCH' });
+});

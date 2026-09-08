@@ -222,7 +222,7 @@ export const paymentAttempts = pgTable(
     customerBindingId: uuid()
       .notNull()
       .references(() => paymentCustomers.id),
-    intentId: text().notNull(),
+    intentId: text(),
     source: text().notNull(),
     amountCents: integer().notNull(),
     revision: integer().notNull().default(0),

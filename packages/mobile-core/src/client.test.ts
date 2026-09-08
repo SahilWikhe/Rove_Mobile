@@ -76,3 +76,21 @@ test('live read methods forward cancellation to the underlying transport', async
     await assertion;
   }
 });
+
+test('payment sessions use authenticated requests and validate the sensitive response without retrying', async () => {
+  const rideId = '00000000-0000-4000-8000-000000000001';
+  const fetcher = vi.fn<Transport>(
+    async () => new Response(JSON.stringify({ rideId, clientSecret: 'pi_fixture_secret_private' })),
+  );
+  const api = new ApiClient('https://api.example', async () => 'token', fetcher);
+  expect(await api.paymentSession(rideId)).toEqual({ rideId, clientSecret: 'pi_fixture_secret_private' });
+  expect(fetcher.mock.calls[0]?.[0]).toBe(`https://api.example/v1/rides/${rideId}/payment-session`);
+  expect(fetcher.mock.calls[0]?.[1]).toMatchObject({
+    method: 'POST',
+    body: '{}',
+    headers: { Authorization: 'Bearer token' },
+  });
+  fetcher.mockResolvedValue(new Response(JSON.stringify({ rideId, clientSecret: 'invalid' })));
+  await expect(api.paymentSession(rideId)).rejects.toMatchObject({ code: 'INCOMPATIBLE_RESPONSE' });
+  expect(fetcher).toHaveBeenCalledTimes(2);
+});

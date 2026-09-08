@@ -7,6 +7,7 @@ export const requestLimits = {
   mutation: 120,
   places: 30,
   quotes: 10,
+  paymentSessions: 10,
   signup: 5,
   trackingGrant: 6,
   heartbeat: 60,

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   TrackingGrant,
+  PaymentSession,
   Profile,
   Quote,
   RideDetails,
@@ -108,6 +109,12 @@ export class ApiClient {
   }
   book(quoteId: string, key: string) {
     return this.request('/v1/ride-requests', RideSummary, { method: 'POST', body: { quoteId }, key });
+  }
+  paymentSession(rideId: string) {
+    return this.request(`/v1/rides/${encodeURIComponent(rideId)}/payment-session`, PaymentSession, {
+      method: 'POST',
+      body: {},
+    });
   }
   ride(id: string, signal?: AbortSignal) {
     return this.request(`/v1/rides/${encodeURIComponent(id)}`, RideDetails, signal ? { signal } : {});

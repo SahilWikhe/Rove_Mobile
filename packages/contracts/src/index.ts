@@ -131,3 +131,15 @@ export const TrackingGrant = z
 export const BackgroundLocation = Heartbeat.omit({ sequence: true });
 export type TrackingGrant = z.infer<typeof TrackingGrant>;
 export type BackgroundLocation = z.infer<typeof BackgroundLocation>;
+
+// Sensitive, short-lived response for the owning rider's native payment UI; never persist it.
+export const PaymentSession = z
+  .object({
+    rideId: z.uuid(),
+    clientSecret: z
+      .string()
+      .regex(/^pi_[a-zA-Z0-9]+_secret_[a-zA-Z0-9]+$/)
+      .max(512),
+  })
+  .strict();
+export type PaymentSession = z.infer<typeof PaymentSession>;

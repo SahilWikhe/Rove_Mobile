@@ -37,3 +37,5 @@ Edge/WAF limits for unauthenticated traffic, invalid-token floods, connection/bo
 ## Verification
 
 Real disposable PostgreSQL tests prove concurrent-instance enforcement, expiry reset, identity/policy separation, bounded counts and cleanup retention. API tests prove excess maps requests never invoke the provider, retry metadata is returned, unrelated reads remain available and forged tokens do not allocate counters. An injected database failure verifies a safe `503` without credential details.
+
+Payment-session requests now have a separate shared budget of ten per minute per authenticated subject. See [payment sessions](29-payment-session-creation.md) for ownership checks and provider-call protection.

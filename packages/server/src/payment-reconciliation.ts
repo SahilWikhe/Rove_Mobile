@@ -66,7 +66,7 @@ export class PaymentReconciler {
         [job.aggregateId, this.source],
       )
     ).rows[0];
-    if (!row)
+    if (!row?.intent_id)
       throw new DomainError('PAYMENT_REFERENCE_PENDING', 'Payment reference is not available yet.', 503);
     await this.reconcile(row.intent_id);
   };
@@ -105,7 +105,7 @@ export class PaymentReconciler {
       )
     ).rows[0];
     if (
-      !row ||
+      !row?.intent_id ||
       row.rider_id !== row.owner_id ||
       row.source !== row.customer_source ||
       row.fare_cents !== row.amount_cents

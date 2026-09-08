@@ -147,6 +147,14 @@ export class StripePaymentProvider implements PaymentProvider {
       reference,
     );
   }
+  async session(raw: PaymentReference) {
+    const reference = input(Reference, raw);
+    const result = await this.call(() => this.stripe.paymentIntents.retrieve(reference.intentId));
+    const payment = this.snapshot(result, reference);
+    if (!result.client_secret || !result.client_secret.startsWith(payment.intentId + '_secret_'))
+      throw mismatch();
+    return { payment, clientSecret: result.client_secret };
+  }
   async capture(raw: PaymentReference, amountCents: number, key: string) {
     const reference = input(Reference, raw);
     input(MinorAmount, amountCents);

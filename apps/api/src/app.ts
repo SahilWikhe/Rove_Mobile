@@ -31,6 +31,9 @@ interface Dependencies {
   maps: MapsProvider;
   flags: () => Promise<{ scheduling: boolean; weekly: boolean; monthly: boolean }>;
   allowedOrigins?: string[];
+  paymentSessions?: {
+    create(actor: Actor, rideId: string): Promise<{ rideId: string; clientSecret: string }>;
+  };
   paymentWebhooks?: { receive(body: Buffer, signature: string): Promise<void> };
 }
 const Id = z.uuid();
@@ -126,6 +129,8 @@ export function createApp(deps: Dependencies) {
     let policy: RequestLimit = c.req.method === 'GET' ? 'read' : 'mutation';
     if (c.req.path === '/v1/places') policy = 'places';
     else if (c.req.path === '/v1/quotes') policy = 'quotes';
+    else if (c.req.method === 'POST' && /^\/v1\/rides\/[^/]+\/payment-session$/.test(c.req.path))
+      policy = 'paymentSessions';
     else if (c.req.path === '/v1/me' && c.req.method === 'POST') policy = 'signup';
     else if (c.req.path === '/v1/drivers/me/tracking-session') policy = 'trackingGrant';
     else if (c.req.path === '/v1/drivers/me/heartbeat') policy = 'heartbeat';
@@ -227,6 +232,12 @@ export function createApp(deps: Dependencies) {
     return c.json(
       await deps.rides.accept(c.var.actor, id(c.req.param('id')), c.req.header('Idempotency-Key') ?? ''),
     );
+  });
+  app.post('/v1/rides/:id/payment-session', async (c) => {
+    await body(c, z.object({}).strict());
+    if (!deps.paymentSessions)
+      throw new DomainError('PAYMENTS_UNAVAILABLE', 'Payments are not configured.', 503);
+    return c.json(await deps.paymentSessions.create(c.var.actor, id(c.req.param('id'))));
   });
   app.post('/v1/rides/:id/transitions', async (c) => {
     const input = await body(
