@@ -25,7 +25,7 @@ Updated: September 8, 2026. This is an implementation ledger, not a production-r
 - Location-only expiring/rotating background credentials, hash-only storage, offline revocation and monotonic upload validation. Native Expo task/permissions, credential storage, reconnect and cleanup are wired; physical-device verification remains outstanding.
 - Disposable local integration server with clearly labeled synthetic maps, identities and payments.
 
-Executed checks: contracts 3 tests; database 5 tests; server 96 tests; API 54 tests; mobile client/tracking/polling/recovery/payment 34 tests; driver native lifecycle/sign-out 14 tests (206 total). All eight workspace typechecks pass. Both current Expo apps export iOS, Android and web bundles. Local browser verification exercised rider search/quote/request, driver online/offer/acceptance, arrival/start/completion, rider payment-state update, cancellation and expired-offer handling. Exact details disappeared from the driver view after completion. This used synthetic providers and real local PostgreSQL; it is not native-device or real-provider verification.
+Executed checks: contracts 3 tests; database 5 tests; server 96 tests; API 54 tests; mobile client/tracking/polling/recovery/payment/session 44 tests; driver native lifecycle/sign-out 14 tests (216 total). All eight workspace typechecks pass. Both current Expo apps export iOS, Android and web bundles. Local browser verification exercised rider search/quote/request, driver online/offer/acceptance, arrival/start/completion, rider payment-state update, cancellation and expired-offer handling. Exact details disappeared from the driver view after completion. This used synthetic providers and real local PostgreSQL; it is not native-device or real-provider verification.
 
 CI now has committed-source configuration for full-suite quality, tests, mobile exports, dependency/secret scanning, CodeQL and a fail-closed aggregate gate. Seven tooling regression tests supplement the application tests. See [CI verification](21-ci-verification.md) for dependencies, scope and remaining native verification. The initial pipeline passed all six jobs on [GitHub run 34187153892](https://github.com/SahilWikhe/Rove_Mobile/actions/runs/34187153892).
 
@@ -54,6 +54,8 @@ Both apps now support owned profile-name editing with conflict detection and sha
 The rider native Debug build now compiled successfully with Xcode for the local iPhone 17 Pro simulator (iOS 26.5). The installed `co.roveride.rider` app launched and its synthetic welcome screen was visually inspected. CocoaPods 1.17.0 was installed locally for this build. This proves native compilation/startup only: native sign-in, trip execution, PaymentSheet, physical-device background delivery and Android native builds remain unverified. The simulator and local preview servers were left running for the founder to explore.
 
 Driver Account now supports ordered offline confirmation, tracking cleanup and sign-out with failure recovery; see [driver sign-out](39-driver-sign-out.md). The driver Debug app also compiled and launched in the iOS simulator; its synthetic home screen was inspected. Physical-device and complete native ride/auth/payment verification remain outstanding.
+
+Session generation guards and serialized credential storage now prevent stale refresh/login/hydration results from restoring signed-out credentials; see [session lifecycle](41-session-lifecycle.md). Managed-provider and full native auth verification remain outstanding.
 
 ## Delivery instructions
 

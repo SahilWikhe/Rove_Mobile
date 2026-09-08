@@ -8,7 +8,7 @@ import { Banner, Button, Card, Copy, Screen } from '@rove/mobile-ui';
 import { ProfileNameForm } from '@rove/mobile-ui/profile-name-form';
 
 export default function Account() {
-  const { profile, api, signOut, updateName, reloadName } = useSession();
+  const { profile, api, signOut, updateName, reloadName, cleanupRequired } = useSession();
   const pending = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -18,12 +18,14 @@ export default function Account() {
     setBusy(true);
     setError(null);
     try {
-      await signOutDriver({
-        goOffline: () => api.availability(false, undefined, Crypto.randomUUID()),
-        profile: () => api.driverProfile(),
-        stopTracking: stopBackgroundTracking,
-        clearSession: signOut,
-      });
+      if (cleanupRequired) await signOut();
+      else
+        await signOutDriver({
+          goOffline: () => api.availability(false, undefined, Crypto.randomUUID()),
+          profile: () => api.driverProfile(),
+          stopTracking: stopBackgroundTracking,
+          clearSession: signOut,
+        });
       router.replace('/');
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'Sign-out could not finish. Please try again.');
@@ -64,7 +66,13 @@ export default function Account() {
           />
         </>
       ) : (
-        <Copy kind="muted">Sign in to view your profile.</Copy>
+        <>
+          <Copy kind="muted">Sign in to view your profile.</Copy>
+          {error && <Banner error message={error} />}
+          {cleanupRequired && (
+            <Button title="Retry device sign-out" loading={busy} onPress={() => void leave()} />
+          )}
+        </>
       )}
     </Screen>
   );

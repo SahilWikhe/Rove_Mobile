@@ -4,7 +4,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type PropsWithChildren,
 } from 'react';
@@ -15,6 +14,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { z } from 'zod';
 import type { Profile } from '@rove/contracts';
 import { ApiClient, ApiError } from './index';
+import { createSessionCredentials } from './session-credentials';
 import { operationJournal } from './operation-store';
 import type { OperationJournal } from './operations';
 
@@ -24,7 +24,6 @@ const StoredSession = z.object({
   refreshToken: z.string().optional(),
   expiresAt: z.number(),
 });
-type Tokens = z.infer<typeof StoredSession>;
 interface Config {
   apiUrl: string;
   issuer: string;
@@ -42,6 +41,7 @@ interface Session {
   loading: boolean;
   error: string | null;
   needsProfile: boolean;
+  cleanupRequired: boolean;
   configured: boolean;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -75,8 +75,6 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
     },
     discovery,
   );
-  const tokenRef = useRef<Tokens | null>(null);
-  const refreshRef = useRef<Promise<string | null> | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const operations = useMemo(
     () => (profile ? operationJournal(config.apiUrl, profile.id, synthetic) : null),
@@ -85,64 +83,71 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
   const [needsProfile, setNeedsProfile] = useState(false);
+  const [cleanupRequired, setCleanupRequired] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const storageKey = `rove.${config.role}.${synthetic ? 'synthetic' : 'oidc'}.session.v1`;
-  const save = useCallback(
-    async (tokens: Tokens | null) => {
-      tokenRef.current = tokens;
-      // Browser previews deliberately keep tokens only in memory.
-      if (Platform.OS !== 'web') {
+  const credentials = useMemo(
+    () =>
+      createSessionCredentials(async (tokens) => {
+        // Browser previews deliberately keep tokens only in memory.
+        if (Platform.OS === 'web') return;
         if (tokens)
           await SecureStore.setItemAsync(storageKey, JSON.stringify(tokens), {
             keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
           });
         else await SecureStore.deleteItemAsync(storageKey);
-      }
-    },
+      }),
     [storageKey],
   );
+  useEffect(
+    () => () => {
+      credentials.begin();
+    },
+    [credentials],
+  );
+  const renderEpoch = credentials.epoch();
   const api = useMemo(
     () =>
-      new ApiClient(config.apiUrl || 'https://unconfigured.invalid', async () => {
-        const tokens = tokenRef.current;
-        if (!tokens) return null;
-        if (tokens.expiresAt > Date.now() + 30_000) return tokens.accessToken;
-        if (!tokens.refreshToken || !discovery) return null;
-        if (!refreshRef.current) {
-          refreshRef.current = (async () => {
-            try {
-              const renewed = await AuthSession.refreshAsync(
-                { clientId: config.clientId, refreshToken: tokens.refreshToken! },
-                discovery,
-              );
-              await save({
-                accessToken: renewed.accessToken,
-                refreshToken: renewed.refreshToken ?? tokens.refreshToken!,
-                expiresAt: Date.now() + (renewed.expiresIn ?? 300) * 1000,
-              });
-              return renewed.accessToken;
-            } catch {
-              await save(null);
-              setProfile(null);
-              return null;
-            } finally {
-              refreshRef.current = null;
-            }
-          })();
-        }
-        return refreshRef.current;
-      }),
-    [config.apiUrl, config.clientId, discovery, save],
+      new ApiClient(config.apiUrl || 'https://unconfigured.invalid', () =>
+        credentials.token(
+          async (previous) => {
+            if (!discovery || !previous.refreshToken) return null;
+            const renewed = await AuthSession.refreshAsync(
+              { clientId: config.clientId, refreshToken: previous.refreshToken },
+              discovery,
+            );
+            return {
+              accessToken: renewed.accessToken,
+              refreshToken: renewed.refreshToken ?? previous.refreshToken,
+              expiresAt: Date.now() + (renewed.expiresIn ?? 300) * 1000,
+            };
+          },
+          () => {
+            setProfile(null);
+            setNeedsProfile(false);
+            setLoading(false);
+            setReady(true);
+          },
+        ),
+      ),
+    [config.apiUrl, config.clientId, discovery, credentials],
   );
-  const loadProfile = useCallback(async () => {
-    try {
-      setProfile(await api.me());
-      setNeedsProfile(false);
-    } catch (failure) {
-      if (failure instanceof ApiError && failure.code === 'PROFILE_REQUIRED') setNeedsProfile(true);
-      else throw failure;
-    }
-  }, [api]);
+  const loadProfile = useCallback(
+    async (epoch: number, alive: () => boolean = () => true) => {
+      if (!credentials.current(epoch) || !alive()) return;
+      try {
+        const updated = await api.me();
+        if (!credentials.current(epoch) || !alive()) return;
+        setProfile(updated);
+        setNeedsProfile(false);
+      } catch (failure) {
+        if (!credentials.current(epoch) || !alive()) return;
+        if (failure instanceof ApiError && failure.code === 'PROFILE_REQUIRED') setNeedsProfile(true);
+        else throw failure;
+      }
+    },
+    [api, credentials],
+  );
   useEffect(() => {
     if (!configured || Platform.OS === 'web') {
       setReady(true);
@@ -150,22 +155,27 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
     }
     if (!discovery) return;
     let alive = true;
+    const epoch = credentials.begin();
     void (async () => {
       setLoading(true);
       try {
-        const raw = await SecureStore.getItemAsync(storageKey);
-        if (!alive || !raw) return;
-        const tokens = StoredSession.safeParse(JSON.parse(raw));
-        if (!tokens.success) {
+        const restored = await credentials.restore(epoch, async () => {
+          const raw = await SecureStore.getItemAsync(storageKey);
+          if (!raw) return null;
+          try {
+            const parsed = StoredSession.safeParse(JSON.parse(raw));
+            if (parsed.success) return parsed.data;
+          } catch {
+            /* Invalid local state is removed, never used as credentials. */
+          }
           await SecureStore.deleteItemAsync(storageKey);
-          return;
-        }
-        tokenRef.current = tokens.data;
-        await loadProfile();
+          return null;
+        });
+        if (restored && alive) await loadProfile(epoch, () => alive);
       } catch {
-        if (alive) setError('Please sign in to continue.');
+        if (alive && credentials.current(epoch)) setError('Please sign in to continue.');
       } finally {
-        if (alive) {
+        if (alive && credentials.current(epoch)) {
           setLoading(false);
           setReady(true);
         }
@@ -174,61 +184,88 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
     return () => {
       alive = false;
     };
-  }, [loadProfile, configured, discovery, storageKey]);
+  }, [loadProfile, configured, discovery, storageKey, credentials]);
   async function signIn() {
-    if (synthetic && configured) {
-      setLoading(true);
-      setError(null);
-      try {
-        await save({ accessToken: `synthetic-${config.role}`, expiresAt: Date.now() + 86_400_000 });
-        await loadProfile();
-      } catch (failure) {
-        setError(failure instanceof ApiError ? failure.message : 'The local test server is unavailable.');
-      } finally {
-        setLoading(false);
-      }
-      return;
-    }
-    if (!configured || !request || !discovery) {
+    if (!configured || (!synthetic && (!request || !discovery))) {
       setError('Sign in is temporarily unavailable. Please try again later.');
       return;
     }
+    const epoch = credentials.begin();
+    setProfile(null);
+    setNeedsProfile(false);
     setLoading(true);
     setError(null);
     try {
-      const result = await promptAsync();
-      if (result.type !== 'success') {
-        if (result.type === 'error') setError('Sign in could not be completed. Please try again.');
-        return;
+      if (!(await credentials.save(epoch, null))) return;
+      setCleanupRequired(false);
+      if (synthetic) {
+        if (
+          !(await credentials.save(epoch, {
+            accessToken: `synthetic-${config.role}`,
+            expiresAt: Date.now() + 86_400_000,
+          }))
+        )
+          return;
+      } else {
+        const result = await promptAsync();
+        if (!credentials.current(epoch)) return;
+        if (result.type !== 'success') {
+          if (result.type === 'error') setError('Sign in could not be completed. Please try again.');
+          return;
+        }
+        if (!request?.codeVerifier || !result.params.code || !discovery)
+          throw new Error('Invalid sign-in response');
+        const tokens = await AuthSession.exchangeCodeAsync(
+          {
+            clientId: config.clientId,
+            code: result.params.code,
+            redirectUri,
+            extraParams: { code_verifier: request.codeVerifier },
+          },
+          discovery,
+        );
+        if (
+          !(await credentials.save(epoch, {
+            accessToken: tokens.accessToken,
+            ...(tokens.refreshToken ? { refreshToken: tokens.refreshToken } : {}),
+            expiresAt: Date.now() + (tokens.expiresIn ?? 300) * 1000,
+          }))
+        )
+          return;
       }
-      if (!request.codeVerifier || !result.params.code) throw new Error('Invalid sign-in response');
-      const tokens = await AuthSession.exchangeCodeAsync(
-        {
-          clientId: config.clientId,
-          code: result.params.code,
-          redirectUri,
-          extraParams: { code_verifier: request.codeVerifier },
-        },
-        discovery,
-      );
-      await save({
-        accessToken: tokens.accessToken,
-        ...(tokens.refreshToken ? { refreshToken: tokens.refreshToken } : {}),
-        expiresAt: Date.now() + (tokens.expiresIn ?? 300) * 1000,
-      });
-      await loadProfile();
-    } catch {
-      setError('Sign in could not be completed. Please try again.');
+      await loadProfile(epoch);
+    } catch (failure) {
+      if (credentials.current(epoch))
+        setError(
+          synthetic && failure instanceof ApiError
+            ? failure.message
+            : 'Sign in could not be completed. Please try again.',
+        );
     } finally {
-      setLoading(false);
+      if (credentials.current(epoch)) {
+        setLoading(false);
+        setReady(true);
+      }
     }
   }
   async function signOut() {
-    const refreshToken = tokenRef.current?.refreshToken;
-    await save(null);
+    if (!credentials.current(renderEpoch)) throw new Error('Your session changed. Please retry sign-out.');
+    const refreshToken = credentials.peek()?.refreshToken;
+    const epoch = credentials.begin();
+    // Clear UI and memory before awaiting keychain or provider operations.
     setProfile(null);
     setNeedsProfile(false);
+    setLoading(false);
+    setReady(true);
     setError(null);
+    try {
+      await credentials.save(epoch, null);
+      if (credentials.current(epoch)) setCleanupRequired(false);
+    } catch {
+      if (credentials.current(epoch)) setCleanupRequired(true);
+      if (credentials.current(epoch)) setError('Device sign-out could not be saved. Please retry sign-out.');
+      throw new Error('Device sign-out could not be saved. Please retry sign-out.');
+    }
     if (refreshToken && discovery?.revocationEndpoint) {
       try {
         await AuthSession.revokeAsync({ clientId: config.clientId, token: refreshToken }, discovery);
@@ -239,28 +276,36 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
   }
   async function updateName(name: string, expectedName: string) {
     if (!profile) throw new Error('Sign in to edit your profile.');
+    const epoch = credentials.epoch();
     const updated = await api.updateProfileName(profile.id, expectedName, name);
-    if (updated.id !== profile.id) throw new Error('Your signed-in account changed. Reopen your profile.');
+    if (!credentials.current(epoch) || updated.id !== profile.id)
+      throw new Error('Your signed-in account changed. Reopen your profile.');
     setProfile((current) => (current?.id === updated.id ? updated : current));
     return updated.name;
   }
   async function reloadName() {
     if (!profile) throw new Error('Sign in to view your profile.');
+    const epoch = credentials.epoch();
     const updated = await api.me();
-    if (updated.id !== profile.id) throw new Error('Your signed-in account changed. Reopen your profile.');
+    if (!credentials.current(epoch) || updated.id !== profile.id)
+      throw new Error('Your signed-in account changed. Reopen your profile.');
     setProfile((current) => (current?.id === updated.id ? updated : current));
     return updated.name;
   }
   async function register(name: string) {
+    const epoch = credentials.epoch();
     setLoading(true);
     setError(null);
     try {
-      setProfile(await api.register(name, config.role));
+      const updated = await api.register(name, config.role);
+      if (!credentials.current(epoch)) return;
+      setProfile(updated);
       setNeedsProfile(false);
     } catch (failure) {
-      setError(failure instanceof ApiError ? failure.message : 'Unable to save your profile.');
+      if (credentials.current(epoch))
+        setError(failure instanceof ApiError ? failure.message : 'Unable to save your profile.');
     } finally {
-      setLoading(false);
+      if (credentials.current(epoch)) setLoading(false);
     }
   }
   return (
@@ -273,6 +318,7 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
         loading,
         error,
         needsProfile,
+        cleanupRequired,
         configured,
         synthetic,
         signIn,
