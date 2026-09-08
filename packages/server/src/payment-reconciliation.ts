@@ -62,12 +62,15 @@ export class PaymentReconciler {
   };
   readonly rideChanged: JobHandler = async (job) => {
     const row = (
-      await this.pool.query<{ intent_id: string }>(
-        'SELECT intent_id FROM payment_attempts WHERE ride_id=$1 AND source=$2',
-        [job.aggregateId, this.source],
+      await this.pool.query<{ intent_id: string | null; source: string }>(
+        'SELECT intent_id,source FROM payment_attempts WHERE ride_id=$1',
+        [job.aggregateId],
       )
     ).rows[0];
-    if (!row?.intent_id)
+    // No attempt means no provider call was started; a later session cannot start on a terminal ride.
+    if (!row) return;
+    if (row.source !== this.source) throw problem();
+    if (!row.intent_id)
       throw new DomainError('PAYMENT_REFERENCE_PENDING', 'Payment reference is not available yet.', 503);
     await this.reconcile(row.intent_id);
   };

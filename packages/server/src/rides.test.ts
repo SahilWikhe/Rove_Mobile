@@ -72,7 +72,7 @@ async function offered() {
   });
   return { ...f, ride, offerId };
 }
-test('concurrent retry creates one ride, audit and outbox event', async () => {
+test('concurrent retry creates one ride and atomic requested/deadline jobs', async () => {
   const f = await setup();
   const key = randomUUID();
   const result = await Promise.all([
@@ -80,7 +80,10 @@ test('concurrent retry creates one ride, audit and outbox event', async () => {
     service.request(f.rider, f.quoteId, key),
   ]);
   expect(result[0]).toEqual(result[1]);
-  for (const table of ['rides', 'audit', 'outbox', 'commands']) {
+  const jobs = (await database.pool.query('SELECT topic,available_at FROM outbox ORDER BY topic')).rows;
+  expect(jobs.map((job) => job.topic)).toEqual(['ride.requested', 'ride.search_expire']);
+  expect(jobs[1].available_at).toEqual(new Date(now.getTime() + 180000));
+  for (const table of ['rides', 'audit', 'commands']) {
     expect((await database.pool.query(`SELECT count(*)::int AS count FROM ${table}`)).rows[0].count).toBe(1);
   }
   await expect(service.request(f.rider, randomUUID(), key)).rejects.toMatchObject({

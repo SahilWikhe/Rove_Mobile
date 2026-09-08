@@ -6,6 +6,7 @@ import { users, drivers } from '@rove/database';
 import {
   DomainError,
   MatchingService,
+  SearchExpiry,
   OutboxWorker,
   QuoteService,
   RideService,
@@ -61,7 +62,11 @@ for (const role of ['rider', 'driver'] as const) {
     });
 }
 const matching = new MatchingService(database.pool, maps);
+const searchExpiry = new SearchExpiry(database.pool);
 const worker = new OutboxWorker(database.pool, {
+  'ride.search_expire': async (job) => {
+    await searchExpiry.expire(job.aggregateId);
+  },
   'ride.requested': async (job) => {
     await database.pool.query(
       "UPDATE rides SET payment_state='authorized' WHERE id=$1 AND state='searching' AND payment_state='pending'",

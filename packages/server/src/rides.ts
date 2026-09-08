@@ -1,3 +1,4 @@
+import { scheduleSearchExpiry } from './search-expiry';
 import type { Pool, PoolClient } from 'pg';
 import { Quote, type RideState } from '@rove/contracts';
 import { DomainError } from './errors';
@@ -68,6 +69,7 @@ export class RideService {
       const ride = rows[0]!;
       // Matching is allowed only after the payment worker records authorization.
       await event(client, ride.id, 'ride.requested', actor.id, ride.version);
+      await scheduleSearchExpiry(client, ride.id, ride.search_deadline);
       return rideSummary(ride);
     });
   }

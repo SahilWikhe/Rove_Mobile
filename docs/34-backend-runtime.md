@@ -36,7 +36,7 @@ This configuration has not yet been built or deployed by Vercel. Local bundling 
 
 The exported worker must be driven by a reliable host with repeated delivery and delayed wakeups. It is intentionally not started as an untracked timer in the HTTP function. Vercel deployment alone does not run this worker. Durable wakeup/scheduling integration, worker monitoring, notification/review consumers and dead-letter recovery remain to be implemented before real bookings are enabled.
 
-Searches abandoned before payment also require an expiration/recovery sweep. Matching correctly ignores unfunded requests, so its current funded-search deadline processing does not by itself clear an abandoned unpaid request. This lifecycle gap must be closed before launch.
+Searches abandoned before payment now have durable expiration jobs and a bounded recovery sweep; see [search expiration](35-search-expiration.md). Reliable worker delivery and periodic sweep invocation must be configured before launch.
 
 Provider verification, native-device payment testing, driver payout integration, accounting corrections and the remaining product features are still outstanding. Do not present this checkpoint as a launch-ready backend.
 

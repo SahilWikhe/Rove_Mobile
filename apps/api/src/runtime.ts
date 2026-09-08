@@ -2,6 +2,7 @@ import { createDatabase } from '@rove/database';
 import {
   GoogleMapsProvider,
   MatchingService,
+  SearchExpiry,
   OutboxWorker,
   PaymentCustomers,
   PaymentReconciler,
@@ -32,8 +33,12 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
   const customers = new PaymentCustomers(pool, payments, config.paymentSource);
   const reconciliation = new PaymentReconciler(pool, payments, config.paymentSource);
   const matching = new MatchingService(pool, maps);
+  const searchExpiry = new SearchExpiry(pool);
   const worker = new OutboxWorker(pool, {
     ...reconciliation.handlers(),
+    'ride.search_expire': async (job) => {
+      await searchExpiry.expire(job.aggregateId);
+    },
     // Matching checks current funding; requests never authorize their own payment.
     'ride.requested': async (job) => matching.tick(job.aggregateId),
     'matching.tick': async (job) => matching.tick(job.aggregateId),
@@ -51,7 +56,7 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
     paymentSessions: new PaymentSessions(pool, payments, config.paymentSource, undefined, customers),
     paymentWebhooks: new PaymentWebhookInbox(pool, payments, config.paymentSource),
   });
-  return { app, worker, close: database.close };
+  return { app, worker, searchExpiry, close: database.close };
 }
 /** Only validated environment configuration can construct the real deployment resources. */
 export function createRuntime(env: Record<string, string | undefined>) {
