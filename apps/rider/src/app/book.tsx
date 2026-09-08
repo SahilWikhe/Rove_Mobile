@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createLatestRequest } from '@rove/mobile-core/latest-request';
 import { useOperations } from '@rove/mobile-core/use-operations';
 import { router, Stack } from 'expo-router';
+import { ServicePicker, serviceLabels } from '../booking/service-picker';
 import type { Place, Quote } from '@rove/contracts';
 import { useSession } from '@rove/mobile-core/session';
 import { Banner, Button, Card, Copy, Field, Money, RouteSummary, Screen } from '@rove/mobile-ui';
@@ -12,6 +13,7 @@ export default function Book() {
 function BookingForm() {
   const { api, profile, synthetic } = useSession();
   const { pending, restoring, recoveryError, execute } = useOperations();
+  const [service, setService] = useState<Quote['service']>('standard');
   const [pickup, setPickup] = useState<Place | null>(null);
   const [destination, setDestination] = useState<Place | null>(null);
   const [target, setTarget] = useState<'pickup' | 'destination'>('pickup');
@@ -126,12 +128,13 @@ function BookingForm() {
   return (
     <Screen>
       <Stack.Screen options={{ title: 'Book a ride' }} />
-      <Copy kind="title">Your route.</Copy>
+      <Copy kind="title">{quote ? 'Confirm your ride.' : 'Your route.'}</Copy>
       {error && <Banner error message={error} />}
       {quote ? (
         <>
           <RouteSummary pickup={quote.pickup.label} destination={quote.destination.label} />
           <Card>
+            <Copy kind="heading">{serviceLabels[quote.service]}</Copy>
             <Money cents={quote.fare.amount} label="YOUR FARE" />
             <Copy kind="muted">
               {Math.ceil(quote.durationSeconds / 60)} min · {(quote.distanceMeters / 1000).toFixed(1)} km
@@ -154,7 +157,7 @@ function BookingForm() {
             }
           />
           <Button
-            title="Change route"
+            title="Change route or service"
             variant="secondary"
             disabled={loading}
             onPress={() => setQuote(null)}
@@ -188,27 +191,31 @@ function BookingForm() {
               />
             </Card>
           )}
-          <Field
-            label={target === 'pickup' ? 'Pickup address' : 'Destination address'}
-            value={query}
-            onChangeText={(text) => edit(target, text)}
-            placeholder="Search an address or place"
-            autoCorrect={false}
-          />
-          <Button
-            title="Search places"
-            disabled={query.trim().length < 3}
-            loading={loading}
-            onPress={() =>
-              void read(
-                (signal) => api.places(query.trim(), signal),
-                (result) => {
-                  setPlaces(result.places);
-                  setSearched(true);
-                },
-              )
-            }
-          />
+          {(!pickup || !destination) && (
+            <>
+              <Field
+                label={target === 'pickup' ? 'Pickup address' : 'Destination address'}
+                value={query}
+                onChangeText={(text) => edit(target, text)}
+                placeholder="Search an address or place"
+                autoCorrect={false}
+              />
+              <Button
+                title="Search places"
+                disabled={query.trim().length < 3}
+                loading={loading}
+                onPress={() =>
+                  void read(
+                    (signal) => api.places(query.trim(), signal),
+                    (result) => {
+                      setPlaces(result.places);
+                      setSearched(true);
+                    },
+                  )
+                }
+              />
+            </>
+          )}
           {searched && !loading && places.length === 0 && (
             <Copy kind="muted">No places found. Try a different address.</Copy>
           )}
@@ -229,12 +236,20 @@ function BookingForm() {
             />
           ))}
           {pickup && destination && (
+            <ServicePicker
+              value={service}
+              onChange={(next) => {
+                cancelRead();
+                setQuote(null);
+                setService(next);
+              }}
+            />
+          )}
+          {pickup && destination && (
             <Button
               title="See your fare"
               loading={loading}
-              onPress={() =>
-                void read((signal) => api.quote(pickup, destination, 'standard', signal), setQuote)
-              }
+              onPress={() => void read((signal) => api.quote(pickup, destination, service, signal), setQuote)}
             />
           )}
         </>

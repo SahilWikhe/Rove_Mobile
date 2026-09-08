@@ -61,6 +61,8 @@ Rider and driver history now support older/newer page navigation with foreground
 
 Booking lookups now cancel obsolete search/quote responses, clear edited route selections and isolate account navigation; see [booking request lifecycle](43-booking-request-lifecycle.md).
 
+Rider booking now offers Standard and Accessible service selection with new-quote review and eligibility regression coverage; see [ride service selection](44-ride-service-selection.md).
+
 ## Delivery instructions
 
 The user authorized building and verifying the complete mobile product, deferring paid account setup and final business decisions to the handoff, and pushing the result to `main`. The current implementation is being committed as an intermediate checkpoint at the user’s explicit request. This push does not represent completion of the full product. No production deployment is included.

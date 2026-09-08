@@ -148,8 +148,9 @@ test('quote creation forwards cancellation without retrying or booking a ride', 
     area: 'Raleigh',
     coordinate: { latitude: 35.8, longitude: -78.6 },
   };
-  await api.quote(place, place, 'standard', controller.signal).catch(() => undefined);
+  await api.quote(place, place, 'accessible', controller.signal).catch(() => undefined);
   expect(forwarded?.aborted).toBe(true);
+  expect(JSON.parse(transport.mock.calls[0]![1].body as string).service).toBe('accessible');
   expect(transport).toHaveBeenCalledOnce();
   expect(transport.mock.calls[0]?.[0]).toBe('https://api.example/v1/quotes');
 });

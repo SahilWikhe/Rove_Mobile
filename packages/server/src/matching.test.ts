@@ -37,11 +37,12 @@ beforeEach(async () => {
   driverService = new DriverService(database.pool, () => now);
   rideService = new RideService(database.pool, () => now);
 });
-async function driver(eligible = true) {
+async function driver(eligible = true, service: 'standard' | 'accessible' = 'standard') {
   const id = randomUUID();
   await database.db.insert(users).values({ id, subject: id, name: 'Synthetic driver', role: 'driver' });
   await database.db.insert(drivers).values({
     id,
+    service,
     approved: eligible,
     payoutReady: eligible,
     eligibilityExpiresAt: new Date(now.getTime() + 86_400_000),
@@ -51,7 +52,7 @@ async function driver(eligible = true) {
   });
   return { id, role: 'driver' as const };
 }
-async function ride() {
+async function ride(service: 'standard' | 'accessible' = 'standard') {
   const riderId = randomUUID();
   const quoteId = randomUUID();
   await database.db
@@ -66,7 +67,7 @@ async function ride() {
       riderId,
       pickup: place,
       destination: place,
-      service: 'standard',
+      service,
       distanceMeters: 5000,
       durationSeconds: 600,
       fare: { amount: 1050, currency: 'USD' },
@@ -191,4 +192,60 @@ test('an assigned driver cannot go offline and cannot receive a second offer', a
   await authorize(next.id);
   await matcher.tick(next.id);
   expect((await driverService.offers(d)).offers).toHaveLength(0);
+});
+
+test('accessible requests only reach eligible accessible drivers', async () => {
+  const standard = await driver();
+  const accessible = await driver(true, 'accessible');
+  const request = await ride('accessible');
+  await authorize(request.id);
+  await matcher.tick(request.id);
+  expect((await driverService.offers(standard)).offers).toEqual([]);
+  const offers = (await driverService.offers(accessible)).offers;
+  expect(offers).toHaveLength(1);
+  expect(offers[0]?.service).toBe('accessible');
+  await rideService.accept(accessible, offers[0]!.id, randomUUID());
+  expect(
+    (await database.pool.query('SELECT driver_id FROM rides WHERE id=$1', [request.id])).rows[0].driver_id,
+  ).toBe(accessible.id);
+});
+test('accessible requests never fall back to a standard vehicle when none is eligible', async () => {
+  const standard = await driver();
+  const request = await ride('accessible');
+  await authorize(request.id);
+  await matcher.tick(request.id);
+  expect((await driverService.offers(standard)).offers).toEqual([]);
+  now = new Date(now.getTime() + 180_000);
+  await matcher.tick(request.id);
+  expect((await database.pool.query('SELECT state FROM rides WHERE id=$1', [request.id])).rows[0].state).toBe(
+    'no_driver_found',
+  );
+});
+test('losing accessible eligibility during directions prevents offer creation', async () => {
+  const candidate = await driver(true, 'accessible');
+  const request = await ride('accessible');
+  await authorize(request.id);
+  const changingMaps: MapsProvider = {
+    ...maps,
+    route: async () => {
+      await database.pool.query("UPDATE drivers SET service='standard' WHERE id=$1", [candidate.id]);
+      return { durationSeconds: 60, distanceMeters: 100 };
+    },
+  };
+  await new MatchingService(database.pool, changingMaps, () => now).tick(request.id);
+  expect((await database.pool.query('SELECT id FROM offers')).rowCount).toBe(0);
+});
+test('losing accessible eligibility after an offer prevents assignment', async () => {
+  const candidate = await driver(true, 'accessible');
+  const request = await ride('accessible');
+  await authorize(request.id);
+  await matcher.tick(request.id);
+  const offer = (await driverService.offers(candidate)).offers[0]!;
+  await database.pool.query("UPDATE drivers SET service='standard' WHERE id=$1", [candidate.id]);
+  await expect(rideService.accept(candidate, offer.id, randomUUID())).rejects.toMatchObject({
+    code: 'DRIVER_UNAVAILABLE',
+  });
+  const saved = (await database.pool.query('SELECT state,driver_id FROM rides WHERE id=$1', [request.id]))
+    .rows[0];
+  expect(saved).toMatchObject({ state: 'searching', driver_id: null });
 });
