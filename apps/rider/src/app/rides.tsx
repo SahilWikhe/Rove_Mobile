@@ -1,47 +1,74 @@
-import { useCallback, useEffect, useState } from 'react';
-import { router, Stack } from 'expo-router';
-import type { RideDetails } from '@rove/contracts';
+import { useState } from 'react';
+import { router, Stack, useFocusEffect } from 'expo-router';
 import { useSession } from '@rove/mobile-core/session';
+import { useRidePage } from '@rove/mobile-core/use-ride-page';
 import { Banner, Button, Copy, EmptyState, Screen } from '@rove/mobile-ui';
-export default function Rides() {
-  const { api } = useSession();
-  const [rides, setRides] = useState<RideDetails[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      setRides((await api.rides()).rides);
-    } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'Unable to load rides.');
-    } finally {
-      setLoading(false);
-    }
-  }, [api]);
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
+
+export default function History() {
+  const { profile } = useSession();
+  return <HistoryBrowser key={profile?.id ?? 'signed-out'} />;
+}
+function HistoryBrowser() {
+  const [cursors, setCursors] = useState<string[]>([]);
+  const before = cursors.at(-1);
+  return (
+    <HistoryPage
+      key={before ?? 'latest'}
+      before={before}
+      older={(cursor) => setCursors((current) => [...current, cursor])}
+      newer={before ? () => setCursors((current) => current.slice(0, -1)) : undefined}
+      latest={before ? () => setCursors([]) : undefined}
+    />
+  );
+}
+function HistoryPage({
+  before,
+  older,
+  newer,
+  latest,
+}: {
+  before: string | undefined;
+  older: (cursor: string) => void;
+  newer: (() => void) | undefined;
+  latest: (() => void) | undefined;
+}) {
+  const { api, profile } = useSession();
+  const { data, error, focus, refresh } = useRidePage(api, before, Boolean(profile));
+  useFocusEffect(focus);
   return (
     <Screen>
       <Stack.Screen options={{ title: 'My rides' }} />
       <Copy kind="title">Your journeys.</Copy>
+      {newer && <Button title="Newer trips" variant="secondary" onPress={newer} />}
+      {latest && <Button title="Back to latest trips" variant="secondary" onPress={latest} />}
       {error && <Banner error message={error} />}
-      <Button title="Refresh" variant="secondary" loading={loading} onPress={() => void refresh()} />
-      {!loading && !error && !rides.length && (
+      {profile && <Button title={error ? 'Retry' : 'Refresh'} variant="secondary" onPress={refresh} />}
+      {!profile ? (
+        <Copy kind="muted">Sign in to view your trips.</Copy>
+      ) : !data && !error ? (
+        <Copy kind="muted">Loading trips…</Copy>
+      ) : null}
+      {data?.rides.length === 0 && (
         <EmptyState
-          title="Your first ride is ahead."
-          message="Trips will appear here as soon as you request one."
+          title={before ? 'No earlier trips.' : 'Your history starts here.'}
+          message={
+            before
+              ? 'Return to the latest trips to refresh your history.'
+              : 'Your trips will appear here with their current status.'
+          }
         />
       )}
-      {rides.map((ride) => (
+      {data?.rides.map((ride) => (
         <Button
           key={ride.id}
           variant="secondary"
-          title={`${ride.destinationArea} · ${ride.state.replaceAll('_', ' ')}`}
+          title={`${ride.destinationArea} · ${ride.state.replaceAll('_', ' ')} · ${new Date(ride.createdAt).toLocaleDateString()}`}
           onPress={() => router.push({ pathname: '/ride', params: { id: ride.id } })}
         />
       ))}
+      {data?.nextCursor && (
+        <Button title="Older trips" variant="secondary" onPress={() => older(data.nextCursor!)} />
+      )}
     </Screen>
   );
 }

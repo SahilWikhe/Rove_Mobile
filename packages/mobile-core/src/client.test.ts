@@ -122,3 +122,13 @@ test('profile conflicts surface to the editor without replaying over newer data'
   ).rejects.toMatchObject({ code: 'PROFILE_CHANGED', status: 409 });
   expect(fetcher).toHaveBeenCalledOnce();
 });
+
+test('history pagination forwards an opaque cursor and keeps its continuation', async () => {
+  const fetcher = vi.fn<Transport>(
+    async () => new Response(JSON.stringify({ rides: [], nextCursor: 'next-page' })),
+  );
+  const api = new ApiClient('https://api.example', async () => 'fixture', fetcher);
+  expect(await api.rides('cursor?private&value')).toEqual({ rides: [], nextCursor: 'next-page' });
+  expect(fetcher.mock.calls[0]?.[0]).toBe('https://api.example/v1/rides?before=cursor%3Fprivate%26value');
+  expect(fetcher).toHaveBeenCalledOnce();
+});
