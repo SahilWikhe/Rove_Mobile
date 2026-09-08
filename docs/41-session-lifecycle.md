@@ -8,7 +8,7 @@ Previously, a refresh or authorization-code exchange could finish after sign-out
 
 `packages/mobile-core/src/session-credentials.ts` now coordinates tokens independently of React and the auth provider:
 
-- Every new login, sign-out, provider teardown and current refresh failure invalidates earlier work with a monotonically increasing generation.
+- Every new login, sign-out, provider teardown and terminal refresh failure invalidates earlier work with a monotonically increasing generation.
 - Token exchange, stored-session reads and refresh persistence verify their generation before applying results. Old results cannot overwrite a newer account or return a usable token to the waiting caller.
 - SecureStore operations are serialized. A sign-out delete waits behind an already-started write, so that write cannot finish after the delete and resurrect credentials. Queued obsolete writes are skipped.
 - Expired-token reads share one refresh per generation, including refresh-token rotation. An old refresh's finally block cannot clear a newer generation's pending refresh.
@@ -30,7 +30,7 @@ Browser verification with the synthetic local API exercised rider sign-in → au
 
 - Real managed-provider login, refresh rotation, revocation, cancellation and native deep-link callbacks on iOS/Android.
 - Device keychain failure/restart behavior and rendered provider-level race tests beyond the controller tests.
-- Provider-specific handling of transient refresh outages versus invalid/revoked grants. The existing failure-to-sign-out behavior remains; this change primarily prevents stale work from applying to another session.
+- Transient versus invalid-grant handling is now implemented; see [refresh recovery](46-auth-refresh-recovery.md). Actual provider behavior still needs native end-to-end verification.
 - Driver operational recovery when an account is disabled or credentials expire during active work; this must not silently abandon trips or leave availability misleading.
 - Provider-wide session revocation and cross-device logout policy. Local deletion does not prove a remote token was revoked; a refresh already accepted by the provider may need provider-specific cleanup.
 - Environment-scoped persistence identity review and the remaining authentication threat model.

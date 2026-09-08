@@ -1,3 +1,4 @@
+import { SessionRefreshUnavailable } from './auth-refresh';
 export interface SessionTokens {
   accessToken: string;
   refreshToken?: string | undefined;
@@ -58,8 +59,10 @@ export function createSessionCredentials(persist: (tokens: SessionTokens | null)
         if (!current(epoch) || !renewed) return null;
         if (!(await save(epoch, renewed))) return null;
         return current(epoch) ? renewed.accessToken : null;
-      } catch {
+      } catch (failure) {
         if (!current(epoch)) return null;
+        // Preserve saved credentials on an outage, but never return an expired access token.
+        if (failure instanceof SessionRefreshUnavailable) throw failure;
         // Expiration invalidates profile/registration work from this session too.
         const clearedEpoch = begin();
         onExpired();

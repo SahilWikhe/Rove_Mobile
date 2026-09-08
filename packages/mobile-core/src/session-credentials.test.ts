@@ -1,3 +1,5 @@
+import { SessionRefreshUnavailable, refreshWithRecovery } from './auth-refresh';
+import { ApiClient } from './index';
 import { expect, test, vi } from 'vitest';
 import { createSessionCredentials, type SessionTokens } from './session-credentials';
 function deferred<T>() {
@@ -168,4 +170,59 @@ test('failed sign-out deletion remains an explicit failure and can be retried', 
   expect(await session.token(vi.fn(), vi.fn(), 1)).toBeNull();
   await expect(session.save(session.begin(), null)).resolves.toBe(true);
   expect(persist.mock.calls).toEqual([[renewed], [null], [null]]);
+});
+
+test('temporary refresh failure keeps credentials and permits a later successful refresh', async () => {
+  const persist = vi.fn(async () => {});
+  const session = createSessionCredentials(persist);
+  await session.save(session.epoch(), expired);
+  const epoch = session.epoch();
+  const onExpired = vi.fn();
+  const failure = deferred<SessionTokens>();
+  const renew = vi.fn(() => refreshWithRecovery(() => failure.promise));
+  const first = session.token(renew, onExpired, 1);
+  const second = session.token(renew, onExpired, 1);
+  const results = Promise.allSettled([first, second]);
+  failure.reject(new Error('network down'));
+  expect((await results).map((result) => result.status)).toEqual(['rejected', 'rejected']);
+  expect(renew).toHaveBeenCalledOnce();
+  expect(session.peek()).toEqual(expired);
+  expect(session.current(epoch)).toBe(true);
+  expect(persist).toHaveBeenCalledTimes(1);
+  expect(onExpired).not.toHaveBeenCalled();
+  expect(await session.token(async () => renewed, onExpired, 1)).toBe('new');
+  expect(session.peek()).toEqual(renewed);
+});
+test('an unavailable refresh prevents the API request rather than sending expired credentials', async () => {
+  const session = createSessionCredentials(async () => {});
+  await session.save(session.epoch(), expired);
+  const transport = vi.fn();
+  const api = new ApiClient(
+    'https://api.example',
+    () =>
+      session.token(
+        async () => {
+          throw new SessionRefreshUnavailable();
+        },
+        vi.fn(),
+        1,
+      ),
+    transport,
+  );
+  await expect(api.me()).rejects.toBeInstanceOf(SessionRefreshUnavailable);
+  expect(transport).not.toHaveBeenCalled();
+});
+test('a refresh storage failure still invalidates credentials instead of reusing a rotated grant', async () => {
+  const persist = vi
+    .fn()
+    .mockResolvedValueOnce(undefined)
+    .mockRejectedValueOnce(new Error('keychain locked'))
+    .mockResolvedValue(undefined);
+  const session = createSessionCredentials(persist);
+  await session.save(session.epoch(), expired);
+  const onExpired = vi.fn();
+  expect(await session.token(async () => renewed, onExpired, 1)).toBeNull();
+  expect(session.peek()).toBeNull();
+  expect(onExpired).toHaveBeenCalledOnce();
+  expect(persist).toHaveBeenLastCalledWith(null);
 });

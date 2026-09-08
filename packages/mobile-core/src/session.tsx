@@ -14,6 +14,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { z } from 'zod';
 import type { Profile } from '@rove/contracts';
 import { ApiClient, ApiError } from './index';
+import { refreshWithRecovery, SessionRefreshUnavailable } from './auth-refresh';
 import { createSessionCredentials } from './session-credentials';
 import { operationJournal } from './operation-store';
 import type { OperationJournal } from './operations';
@@ -111,10 +112,11 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
       new ApiClient(config.apiUrl || 'https://unconfigured.invalid', () =>
         credentials.token(
           async (previous) => {
-            if (!discovery || !previous.refreshToken) return null;
-            const renewed = await AuthSession.refreshAsync(
-              { clientId: config.clientId, refreshToken: previous.refreshToken },
-              discovery,
+            if (!discovery) throw new SessionRefreshUnavailable();
+            if (!previous.refreshToken) return null;
+            const refreshToken = previous.refreshToken;
+            const renewed = await refreshWithRecovery(() =>
+              AuthSession.refreshAsync({ clientId: config.clientId, refreshToken }, discovery),
             );
             return {
               accessToken: renewed.accessToken,
