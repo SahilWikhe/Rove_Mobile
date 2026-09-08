@@ -1,7 +1,12 @@
 import Stripe from 'stripe';
 import { z } from 'zod';
 import { DomainError } from './errors';
-import type { PaymentProvider, PaymentReference, PaymentSnapshot } from './payment-provider';
+import type {
+  PaymentCustomerProvider,
+  PaymentProvider,
+  PaymentReference,
+  PaymentSnapshot,
+} from './payment-provider';
 
 const MinorAmount = z.number().int().min(1).max(99_999_999);
 const Amount = MinorAmount.min(50);
@@ -40,7 +45,7 @@ const Intent = z.object({
   amount_received: z.number().int().min(0),
   client_secret: z.string().nullable().optional(),
 });
-type StripeApi = Pick<Stripe, 'paymentIntents' | 'refunds' | 'webhooks'>;
+type StripeApi = Pick<Stripe, 'paymentIntents' | 'refunds' | 'webhooks' | 'customers'>;
 function input<T>(schema: z.ZodType<T>, value: unknown): T {
   const parsed = schema.safeParse(value);
   if (!parsed.success)
@@ -50,7 +55,7 @@ function input<T>(schema: z.ZodType<T>, value: unknown): T {
 const mismatch = () => new DomainError('PAYMENT_REFERENCE_MISMATCH', 'Payment could not be verified.', 503);
 
 /** Platform PaymentIntents adapter. Connect transfers/payouts require a separately approved charge model. */
-export class StripePaymentProvider implements PaymentProvider {
+export class StripePaymentProvider implements PaymentProvider, PaymentCustomerProvider {
   private stripe: StripeApi;
   constructor(
     private config: {
@@ -117,6 +122,34 @@ export class StripePaymentProvider implements PaymentProvider {
       capturableCents: value.amount_capturable,
       receivedCents: value.amount_received,
     };
+  }
+  async createCustomer(raw: { riderId: string; bindingId: string }, key: string) {
+    const reference = input(z.object({ riderId: z.uuid(), bindingId: z.uuid() }).strict(), raw);
+    input(Key, key);
+    const result = await this.call(() =>
+      this.stripe.customers.create(
+        {
+          metadata: { roveRiderId: reference.riderId, roveBindingId: reference.bindingId },
+        },
+        { idempotencyKey: key },
+      ),
+    );
+    const customer = z
+      .object({
+        id: Customer,
+        object: z.literal('customer'),
+        livemode: z.boolean(),
+        metadata: z.object({ roveRiderId: z.uuid(), roveBindingId: z.uuid() }),
+      })
+      .safeParse(result);
+    if (
+      !customer.success ||
+      customer.data.livemode !== this.config.live ||
+      customer.data.metadata.roveRiderId !== reference.riderId ||
+      customer.data.metadata.roveBindingId !== reference.bindingId
+    )
+      throw mismatch();
+    return customer.data.id;
   }
   async create(raw: Omit<PaymentReference, 'intentId'>, key: string) {
     const request = input(CreateInput, raw);

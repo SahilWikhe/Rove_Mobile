@@ -179,6 +179,7 @@ test('unmapped payment profiles and expired new requests never create payment at
   expect((await request()).status).toBe(409);
   expect(create).not.toHaveBeenCalled();
   expect((await database.pool.query('SELECT * FROM payment_attempts')).rows).toHaveLength(0);
+  now = new Date(now.getTime() - 180000);
   await database.pool.query('DELETE FROM payment_customers');
   const result = await request();
   expect((await result.json()).error.code).toBe('PAYMENT_PROFILE_REQUIRED');

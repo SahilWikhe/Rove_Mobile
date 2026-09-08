@@ -37,3 +37,7 @@ export interface PaymentProvider {
     amountCents: number;
   }>;
 }
+
+export interface PaymentCustomerProvider {
+  createCustomer(reference: { riderId: string; bindingId: string }, key: string): Promise<string>;
+}

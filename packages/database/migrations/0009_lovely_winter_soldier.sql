@@ -1,0 +1,2 @@
+ALTER TABLE "payment_customers" ALTER COLUMN "customer_id" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "payment_customers" ADD COLUMN "created_at" timestamp with time zone DEFAULT now() NOT NULL;

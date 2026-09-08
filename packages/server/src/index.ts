@@ -15,3 +15,4 @@ export * from './stripe-payments';
 export * from './payment-webhooks';
 export * from './payment-reconciliation';
 export * from './payment-sessions';
+export * from './payment-customers';

@@ -51,11 +51,12 @@ function fixture() {
     }),
   };
   const sdk = new Stripe(config.secretKey);
-  const client = { paymentIntents, refunds, webhooks: sdk.webhooks } as unknown as Pick<
+  const customers = { create: vi.fn() };
+  const client = { paymentIntents, refunds, customers, webhooks: sdk.webhooks } as unknown as Pick<
     Stripe,
-    'paymentIntents' | 'refunds' | 'webhooks'
+    'paymentIntents' | 'refunds' | 'webhooks' | 'customers'
   >;
-  return { paymentIntents, refunds, sdk, provider: new StripePaymentProvider(config, client) };
+  return { paymentIntents, refunds, customers, sdk, provider: new StripePaymentProvider(config, client) };
 }
 test('creates a configured manual-capture intent using server references and stable idempotency', async () => {
   const { provider, paymentIntents } = fixture();
@@ -199,4 +200,34 @@ test('mapped sessions retrieve the existing intent and validate ownership before
   expect(paymentIntents.create).not.toHaveBeenCalled();
   paymentIntents.retrieve.mockResolvedValue(intent({ customer: 'cus_other' }));
   await expect(provider.session(reference)).rejects.toMatchObject({ code: 'PAYMENT_REFERENCE_MISMATCH' });
+});
+
+test('customer provisioning sends reference metadata only and verifies provider mode and ownership', async () => {
+  const { provider, customers } = fixture();
+  const reference = {
+    riderId: '00000000-0000-4000-8000-000000000001',
+    bindingId: '00000000-0000-4000-8000-000000000002',
+  };
+  const customer = {
+    id: 'cus_fixture',
+    object: 'customer',
+    livemode: false,
+    metadata: { roveRiderId: reference.riderId, roveBindingId: reference.bindingId },
+  };
+  customers.create.mockResolvedValue(customer);
+  expect(await provider.createCustomer(reference, 'rove:fixture:customer')).toBe('cus_fixture');
+  expect(customers.create).toHaveBeenCalledWith(
+    { metadata: customer.metadata },
+    { idempotencyKey: 'rove:fixture:customer' },
+  );
+  for (const change of [
+    { livemode: true },
+    { metadata: { ...customer.metadata, roveRiderId: reference.bindingId } },
+    { id: 'wrong' },
+  ]) {
+    customers.create.mockResolvedValue({ ...customer, ...change });
+    await expect(provider.createCustomer(reference, 'rove:fixture:customer')).rejects.toMatchObject({
+      code: 'PAYMENT_REFERENCE_MISMATCH',
+    });
+  }
 });

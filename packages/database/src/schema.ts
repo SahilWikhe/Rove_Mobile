@@ -204,7 +204,8 @@ export const paymentCustomers = pgTable(
       .notNull()
       .references(() => users.id),
     source: text().notNull(),
-    customerId: text().notNull(),
+    customerId: text(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     uniqueIndex('payment_customer_rider_source').on(t.riderId, t.source),

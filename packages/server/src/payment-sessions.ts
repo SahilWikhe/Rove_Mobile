@@ -1,4 +1,5 @@
 import type { Pool } from 'pg';
+import type { PaymentCustomers } from './payment-customers';
 import type { Actor } from './rides';
 import type { PaymentProvider, PaymentReference } from './payment-provider';
 import { DomainError } from './errors';
@@ -21,55 +22,69 @@ export class PaymentSessions {
     private provider: PaymentProvider,
     private source: string,
     private now: () => Date = () => new Date(),
+    private customers?: Pick<PaymentCustomers, 'ensure'>,
   ) {
     if (!/^acct_[a-zA-Z0-9]{1,96}:(test|live)$/.test(source)) throw new Error('Invalid payment source.');
   }
   async create(actor: Actor, rideId: string) {
     if (actor.role !== 'rider') throw new DomainError('NOT_FOUND', 'Ride not found.', 404);
-    const prepared = await transaction(this.pool, async (client) => {
-      const ride = (
-        await client.query<{ state: string; search_deadline: Date; fare_cents: number; disabled: boolean }>(
-          `SELECT r.state,r.search_deadline,r.fare_cents,u.disabled FROM rides r JOIN users u ON u.id=r.rider_id
+    const prepare = () =>
+      transaction(this.pool, async (client) => {
+        const ride = (
+          await client.query<{ state: string; search_deadline: Date; fare_cents: number; disabled: boolean }>(
+            `SELECT r.state,r.search_deadline,r.fare_cents,u.disabled FROM rides r JOIN users u ON u.id=r.rider_id
          WHERE r.id=$1 AND r.rider_id=$2 FOR UPDATE OF r`,
-          [rideId, actor.id],
-        )
-      ).rows[0];
-      if (!ride) throw new DomainError('NOT_FOUND', 'Ride not found.', 404);
-      if (ride.disabled)
-        throw new DomainError('ACCOUNT_DISABLED', 'Contact support for help with your account.', 403);
-      const binding = (
-        await client.query<{ id: string; customer_id: string }>(
-          'SELECT id,customer_id FROM payment_customers WHERE rider_id=$1 AND source=$2',
-          [actor.id, this.source],
-        )
-      ).rows[0];
-      if (!binding)
-        throw new DomainError('PAYMENT_PROFILE_REQUIRED', 'Set up your payment profile first.', 409);
-      let attempt = (await client.query<Attempt>('SELECT * FROM payment_attempts WHERE ride_id=$1', [rideId]))
-        .rows[0];
-      if (!attempt) {
-        if (ride.state !== 'searching' || ride.search_deadline <= this.now()) throw unavailable();
-        attempt = (
-          await client.query<Attempt>(
-            'INSERT INTO payment_attempts(ride_id,customer_binding_id,source,amount_cents,created_at) VALUES ($1,$2,$3,$4,$5) RETURNING *',
-            [rideId, binding.id, this.source, ride.fare_cents, this.now()],
+            [rideId, actor.id],
           )
-        ).rows[0]!;
-      }
-      if (
-        attempt.source !== this.source ||
-        attempt.customer_binding_id !== binding.id ||
-        attempt.amount_cents !== ride.fare_cents
-      )
-        throw new DomainError('PAYMENT_REFERENCE_MISMATCH', 'Payment could not be verified.', 503);
-      if (!attempt.intent_id && this.now().getTime() - attempt.created_at.getTime() >= 23 * 60 * 60 * 1000)
-        throw new DomainError(
-          'PAYMENT_CREATION_REVIEW',
-          'An earlier payment attempt needs support review.',
-          409,
-        );
-      return { attempt, customerId: binding.customer_id };
-    });
+        ).rows[0];
+        if (!ride) throw new DomainError('NOT_FOUND', 'Ride not found.', 404);
+        if (ride.disabled)
+          throw new DomainError('ACCOUNT_DISABLED', 'Contact support for help with your account.', 403);
+        const binding = (
+          await client.query<{ id: string; customer_id: string }>(
+            'SELECT id,customer_id FROM payment_customers WHERE rider_id=$1 AND source=$2',
+            [actor.id, this.source],
+          )
+        ).rows[0];
+        if (!binding?.customer_id) {
+          if (ride.state !== 'searching' || ride.search_deadline <= this.now()) throw unavailable();
+          throw new DomainError('PAYMENT_PROFILE_REQUIRED', 'Set up your payment profile first.', 409);
+        }
+        let attempt = (
+          await client.query<Attempt>('SELECT * FROM payment_attempts WHERE ride_id=$1', [rideId])
+        ).rows[0];
+        if (!attempt) {
+          if (ride.state !== 'searching' || ride.search_deadline <= this.now()) throw unavailable();
+          attempt = (
+            await client.query<Attempt>(
+              'INSERT INTO payment_attempts(ride_id,customer_binding_id,source,amount_cents,created_at) VALUES ($1,$2,$3,$4,$5) RETURNING *',
+              [rideId, binding.id, this.source, ride.fare_cents, this.now()],
+            )
+          ).rows[0]!;
+        }
+        if (
+          attempt.source !== this.source ||
+          attempt.customer_binding_id !== binding.id ||
+          attempt.amount_cents !== ride.fare_cents
+        )
+          throw new DomainError('PAYMENT_REFERENCE_MISMATCH', 'Payment could not be verified.', 503);
+        if (!attempt.intent_id && this.now().getTime() - attempt.created_at.getTime() >= 23 * 60 * 60 * 1000)
+          throw new DomainError(
+            'PAYMENT_CREATION_REVIEW',
+            'An earlier payment attempt needs support review.',
+            409,
+          );
+        return { attempt, customerId: binding.customer_id };
+      });
+    let prepared: Awaited<ReturnType<typeof prepare>>;
+    try {
+      prepared = await prepare();
+    } catch (error) {
+      if (!(error instanceof DomainError) || error.code !== 'PAYMENT_PROFILE_REQUIRED' || !this.customers)
+        throw error;
+      await this.customers.ensure(actor);
+      prepared = await prepare(); // Recheck ownership, disablement and deadline after provisioning.
+    }
     const { attempt, customerId } = prepared;
     const reference = { rideId, attemptId: attempt.id, customerId, amountCents: attempt.amount_cents };
     // Persisted before network I/O. Unknown outcomes reuse this exact key and immutable payload.

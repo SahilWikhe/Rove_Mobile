@@ -64,6 +64,13 @@
       "when": 1788844965168,
       "tag": "0008_sudden_scalphunter",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788845379885,
+      "tag": "0009_lovely_winter_soldier",
+      "breakpoints": true
     }
   ]
 }
