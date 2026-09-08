@@ -19,6 +19,17 @@ const result = spawnSync(
     `
   import assert from 'node:assert/strict';
   import app from './dist/index.mjs';
+  import listener from './dist/http-function.mjs';
+  import consumer from './dist/queue-function.mjs';
+  import { createServer } from 'node:http';
+  assert.equal(typeof consumer, 'function');
+  const server = createServer(listener);
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const response = await fetch('http://127.0.0.1:' + server.address().port + '/health/live');
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { status: 'ok' });
+  } finally { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
   const health = await app.request('/health/live');
   assert.equal(health.status, 200);
   assert.deepEqual(await health.json(), { status: 'ok' });
@@ -33,6 +44,7 @@ const result = spawnSync(
     timeout: 15000,
     env: {
       NODE_ENV: 'production',
+      CRON_SECRET: 'build-fixture-not-a-real-secret-00000000',
       ROVE_ENVIRONMENT: 'staging',
       DATABASE_URL: 'postgresql://fixture:fixture@db.example.test/rove?sslmode=verify-full',
       OIDC_ISSUER: 'https://identity.example.test/',

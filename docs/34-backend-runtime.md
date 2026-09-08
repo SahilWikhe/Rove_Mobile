@@ -2,7 +2,7 @@
 
 ## Implemented composition
 
-`apps/api/index.ts` is the Hono HTTP entrypoint. It constructs one runtime per module instance and exports the application without listening on a port, starting polling timers, seeding fixtures or migrating the database. The runtime uses the existing Google Places/Routes adapter, signed OIDC verification, PostgreSQL pool and Stripe adapter. Rider payment sessions automatically provision the server-owned customer binding. Webhook ingress persists reconciliation work rather than trusting webhook payment state.
+`apps/api/index.ts` composes the Hono HTTP application; `apps/api/api/index.ts` adapts it to a Node serverless function. It constructs one runtime per module instance and exports the application without listening on a port, starting polling timers, seeding fixtures or migrating the database. The runtime uses the existing Google Places/Routes adapter, signed OIDC verification, PostgreSQL pool and Stripe adapter. Rider payment sessions automatically provision the server-owned customer binding. Webhook ingress persists reconciliation work rather than trusting webhook payment state.
 
 `src/runtime.ts` separates composition from resource creation. HTTP and worker hosts share the same domain services and configuration. `createRuntime` only constructs real adapters; synthetic identities/maps/payments are confined to `src/local.ts`. `composeRuntime` accepts explicit resources so integration tests can exercise the complete wiring against disposable PostgreSQL without reaching cloud accounts.
 
@@ -24,9 +24,9 @@ The payment source combines the account and mode. Mismatched key/mode or live/te
 
 ## Vercel project setup, when infrastructure is ready
 
-Use the existing `Rove_Mobile` repository and a dedicated API project. Set Root Directory to `apps/api`, use the Hono framework preset and Node 24, and permit access to workspace files outside the root directory. Use pnpm with the committed lockfile. The package's `build` command compiles the backend; keep the framework's output-directory setting rather than treating this as a static `dist` website. `vercel.json` declares the Hono preset.
+Use the existing `Rove_Mobile` repository and a dedicated API project. Set Root Directory to `apps/api`, use the Other framework preset and Node 24, and permit access to workspace files outside the root directory. Use pnpm with the committed lockfile. The package's `build` command compiles the backend; use the configured empty `public` output directory. `vercel.json` declares separate public HTTP and private queue functions; the server bundle is never exposed as static content.
 
-The root `index.ts` follows [Vercel's Hono entrypoint convention](https://vercel.com/docs/frameworks/backend/hono). Route `/webhooks/stripe` is the payment webhook endpoint. `/health/live` proves that the HTTP process is alive; it does not claim that database, credentials, migrations or workers are ready.
+The public function uses the Hono Node request adapter. The original single-function Hono preset was replaced to isolate the private queue consumer; see [worker hosting](36-worker-hosting.md). Route `/webhooks/stripe` is the payment webhook endpoint. `/health/live` proves that the HTTP process is alive; it does not claim that database, credentials, migrations or workers are ready.
 
 Keep preview/staging databases and test payment credentials separate from production. The existing Neon project can supply an isolated development branch. Apply reviewed migrations as a separate controlled operation, using migration credentials; the runtime must use a restricted database role. No migration belongs in Vercel build/startup.
 
@@ -34,7 +34,7 @@ This configuration has not yet been built or deployed by Vercel. Local bundling 
 
 ## Worker and launch gaps
 
-The exported worker must be driven by a reliable host with repeated delivery and delayed wakeups. It is intentionally not started as an untracked timer in the HTTP function. Vercel deployment alone does not run this worker. Durable wakeup/scheduling integration, worker monitoring, notification/review consumers and dead-letter recovery remain to be implemented before real bookings are enabled.
+The exported worker must be driven by a reliable host with repeated delivery and delayed wakeups. It is intentionally not started as an untracked timer in the HTTP function. Vercel deployment alone does not run this worker. Queue wakeup and protected recovery integration are now configured; deployment verification, worker monitoring, notification/review consumers and dead-letter recovery remain required before real bookings are enabled.
 
 Searches abandoned before payment now have durable expiration jobs and a bounded recovery sweep; see [search expiration](35-search-expiration.md). Reliable worker delivery and periodic sweep invocation must be configured before launch.
 
@@ -50,4 +50,4 @@ Four runtime tests cover required secret-safe configuration, environment separat
 
 The runtime now exposes `drain.run()`, which processes at most ten jobs and checks a twenty-second budget between jobs. In-flight provider requests retain their own timeouts; the budget is not a hard interruption deadline. Its result reports processed/failed counts and the next wakeup delay from persisted availability and lease expiry. Completed/dead-letter work is excluded. A future queue callback should publish that wakeup and propagate publishing failures; a periodic recovery trigger must cover a crash between database commit and publishing.
 
-Three real PostgreSQL tests cover bounded batches, delayed work, crashed-worker lease recovery, slow-job budgets and retry backoff. Vercel queue publishing/callbacks and periodic recovery are not connected yet.
+Three real PostgreSQL tests cover bounded batches, delayed work, crashed-worker lease recovery, slow-job budgets and retry backoff. Vercel queue publishing/callbacks and recovery cron are now wired in code; their cloud delivery verification is still outstanding.

@@ -18,7 +18,7 @@ A terminal ride with no payment attempt needs no processor release call. Payment
 
 `SearchExpiry.sweep(limit)` scans a bounded number of expired searches and rechecks each under lock. It recovers historical requests without deadline jobs or missing worker delivery. The runtime exposes this sweep and registers `ride.search_expire`; the local synthetic worker also handles the job.
 
-The deployed worker host must repeatedly drain delayed work and periodically invoke this recovery sweep. Those hosting/scheduling hooks remain outstanding. The class and durable jobs do not make an idle Vercel HTTP deployment execute background work on their own.
+The deployed worker host must repeatedly drain delayed work and periodically invoke this recovery sweep. The Vercel queue and authenticated recovery hooks are now wired in code; see docs/36-worker-hosting.md. Their cloud delivery is not verified yet. The class and durable jobs do not make an idle Vercel HTTP deployment execute background work on their own.
 
 ## Verification
 

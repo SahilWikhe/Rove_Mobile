@@ -1,8 +1,9 @@
 import { build } from 'esbuild';
 import { writeFile } from 'node:fs/promises';
 const result = await build({
-  entryPoints: ['index.ts'],
-  outfile: 'dist/index.mjs',
+  entryPoints: { index: 'index.ts', 'http-function': 'api/index.ts', 'queue-function': 'api/worker.ts' },
+  outdir: 'dist',
+  outExtension: { '.js': '.mjs' },
   bundle: true,
   platform: 'node',
   target: 'node24',

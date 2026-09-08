@@ -1,6 +1,5 @@
-import { Hono } from 'hono';
-import { createRuntime } from './src/runtime';
+import { waitUntil } from '@vercel/functions';
+import { createHostedApp } from './src/hosted-app';
+import { runtime, scheduler } from './src/deployment';
 
-// Vercel's Hono entrypoint. No migrations, fixture seeding, timers or listener at module load.
-const runtime = createRuntime(process.env);
-export default new Hono().route('/', runtime.app);
+export default createHostedApp(runtime.app, scheduler, process.env.CRON_SECRET ?? '', waitUntil);

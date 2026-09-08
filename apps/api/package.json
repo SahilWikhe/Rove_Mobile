@@ -15,6 +15,8 @@
     "@rove/contracts": "workspace:*",
     "@rove/database": "workspace:*",
     "@rove/server": "workspace:*",
+    "@vercel/functions": "3.9.5",
+    "@vercel/queue": "0.5.1",
     "hono": "4.13.7",
     "jose": "6.2.12",
     "pg": "8.23.0",
