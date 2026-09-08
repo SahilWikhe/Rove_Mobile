@@ -1,16 +1,11 @@
+import { PushHint } from '@rove/contracts';
+export { PushHint } from '@rove/contracts';
 import { z } from 'zod';
 
 export const PushToken = z
   .string()
   .max(256)
   .regex(/^(ExponentPushToken|ExpoPushToken)\[[A-Za-z0-9_-]+\]$/);
-export const PushHint = z
-  .object({
-    eventId: z.uuid(),
-    kind: z.enum(['ride_update', 'offer_available']),
-    referenceId: z.uuid(),
-  })
-  .strict();
 export const PushMessage = z
   .object({
     token: PushToken,

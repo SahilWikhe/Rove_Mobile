@@ -412,3 +412,11 @@ export const PushInstallationStatus = z
     enabled: z.boolean(),
   })
   .strict();
+
+export const PushHint = z
+  .object({
+    eventId: z.uuid(),
+    kind: z.enum(['ride_update', 'offer_available']),
+    referenceId: z.uuid(),
+  })
+  .strict();

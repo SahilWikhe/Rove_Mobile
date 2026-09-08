@@ -1,5 +1,5 @@
 import { DriverTrackingProvider } from '../tracking/provider';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { theme } from '@rove/mobile-ui';
@@ -17,6 +17,7 @@ export default function Layout() {
         audience: process.env.EXPO_PUBLIC_AUTH_AUDIENCE ?? '',
         scheme: 'rove-driver',
         role: 'driver',
+        onNotificationOpen: router.push,
         ...(process.env.EXPO_PUBLIC_EAS_PROJECT_ID
           ? { pushProjectId: process.env.EXPO_PUBLIC_EAS_PROJECT_ID }
           : {}),

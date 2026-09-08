@@ -92,3 +92,7 @@ An Expo push transport adapter now validates generic hints and handles tickets/r
 The user authorized building and verifying the complete mobile product, deferring paid account setup and final business decisions to the handoff, and pushing the result to `main`. The current implementation is being committed as an intermediate checkpoint at the user’s explicit request. This push does not represent completion of the full product. No production deployment is included.
 
 The local synthetic rates are fixtures, not approved customer pricing. Do not enable real bookings until provider setup, policies and launch checks are completed.
+
+## Notification tap routing
+
+Both native apps now consume notification responses through a shared strict hint contract and fresh account-authorized resource reads before opening fixed trip/offer screens. Signed-out taps are discarded; late account work, duplicates and expired offers cannot navigate. Six controller tests bring the workspace total to 365. See [notification implementation and limits](59-push-notifications.md#notification-taps). Real OS delivery/tap verification and the delivery worker remain incomplete.

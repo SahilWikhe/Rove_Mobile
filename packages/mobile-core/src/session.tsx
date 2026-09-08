@@ -1,3 +1,5 @@
+import { useNotificationTaps } from './use-notification-taps';
+import type { NotificationTarget } from './notification-taps';
 import { usePushNotifications } from './use-push-notifications';
 import {
   createContext,
@@ -36,6 +38,7 @@ interface Config {
   role: 'rider' | 'driver';
   synthetic?: boolean;
   pushProjectId?: string;
+  onNotificationOpen?: (target: NotificationTarget) => void;
 }
 interface Session {
   notifications: ReturnType<typeof usePushNotifications>;
@@ -149,6 +152,15 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
     synthetic,
     sessionEpoch: renderEpoch,
     isCurrent: credentials.current,
+  });
+  useNotificationTaps({
+    ready,
+    accountId: profile?.id,
+    role: config.role,
+    api,
+    epoch: renderEpoch,
+    isCurrent: credentials.current,
+    navigate: config.onNotificationOpen,
   });
   const loadProfile = useCallback(
     async (epoch: number, alive: () => boolean = () => true) => {

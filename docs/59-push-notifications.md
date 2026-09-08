@@ -66,12 +66,22 @@ Session generations reject late work after an account change. A previous account
 
 Verification adds nine controller tests for storage ordering/failure, exact retry recovery, delayed account work, stale revisions and response identity. All 359 workspace tests and eight tooling checks pass, as do type/lint/boundary checks and both apps' iOS/Android/web exports. Browser tests verify the unavailable account state in both apps while preserving support navigation. Real OS permission prompts, Expo token refresh, live authenticated registration/revocation and physical-device delivery have not been exercised. Both iOS Debug binaries were rebuilt and launched on the iPhone 17 Pro iOS 26.5 simulator. The reusable `native-smoke/notification-settings.yaml` passed for both synthetic account screens. Screenshot review caught a duplicate React key, which was corrected and rechecked. Final [rider](screenshots/rider-notification-settings.png) and [driver](screenshots/driver-notification-settings.png) screenshots were visually inspected without that warning. The dependency audit found no known vulnerabilities. Android interaction and real delivery remain unverified.
 
+## Notification taps
+
+Both native app roots now attach a response listener after session restoration, consume the saved cold-start response and remove the listener on session changes/unmount. Signed-out taps are consumed without retaining them for a later login. Only the default OS tap action is supported; arbitrary notification URLs and action commands are ignored. No permission prompt is introduced by listening.
+
+`PushHint` is a shared strict contract containing only an event UUID, resource UUID and known kind. The controller reads the current authorized ride or current driver offer feed before navigating to a fixed role-specific screen. Missing, unauthorized, mismatched or expired resources cannot open from the hint. A generic unavailable message directs the user to current trips/offers without reflecting payload data. Booking, acceptance and trip transitions still require explicit normal screen actions and server checks.
+
+Session-generation checks prevent late responses navigating after credentials change, even if a transport ignores cancellation. New valid taps supersede older pending reads; duplicate events are ignored within a bounded session cache. Resource screens perform their normal fresh reads after navigation. This is not a replacement for API authorization or a guarantee of notification delivery.
+
+Six controller regression tests cover both roles, duplicate and malicious payloads, missing/expired offers, denied or mismatched resources, signed-out behavior, account changes, superseding reads and unmount cancellation. All 365 workspace tests, typechecks, lint and import-boundary checks pass. Both apps export iOS, Android and web bundles, and their notification-settings iOS simulator smoke flows pass after listener integration. Native OS notification delivery/tapping and Android interaction still require device verification; controller tests alone do not establish that coverage.
+
 ## Remaining integration
 
 1. Verify the wired native registration with real app projects/credentials and add account device-management recovery and registration lifetime policy.
 2. Transactional event fan-out to authorized recipients, durable delivery attempts and receipt jobs. Recheck active ownership/offer expiry before send; never reserve a driver through push.
 3. Per-project throughput controls and operational visibility for failures/dead letters. Do not replay expired historical offers when enabling the consumer.
-4. Add authenticated notification-tap/deep-link handling and verify OS permission/token/logout behavior on both platforms. Fetch current resource data before showing details or offering actions.
+4. Verify the wired notification-tap listener, cold-start consumption and OS permission/token/logout behavior on both platforms with real sandbox delivery.
 5. Synthetic integration tests across API, worker and mobile handlers, then real iOS/Android sandbox delivery and revoked-token verification.
 
 These remain necessary for the full product. Foreground polling continues to provide current trip and offer data in the meantime. Push will supplement that path, not guarantee dispatch timing or availability.
