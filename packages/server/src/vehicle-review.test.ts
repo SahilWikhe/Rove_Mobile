@@ -95,7 +95,12 @@ test('competing reviewers cannot record two decisions for a revision', async () 
     review.decide(
       staff,
       driver.id,
-      { revision, decision: 'rejected', reason: 'Synthetic registration evidence missing' },
+      {
+        revision,
+        decision: 'rejected',
+        reason: 'Synthetic registration evidence missing',
+        corrections: ['registration_not_verified'],
+      },
       randomUUID(),
     ),
   ]);
@@ -132,4 +137,61 @@ test('permission does not bypass missing MFA, including a recorded decision repl
   await expect(review.decide({ ...staff, mfa: false }, driver.id, approve(), key)).rejects.toMatchObject({
     code: 'FORBIDDEN',
   });
+});
+
+test('drivers receive only correction categories for their current rejected revision', async () => {
+  await grant();
+  const corrections = ['vehicle_details_mismatch', 'registration_not_verified'];
+  await review.decide(
+    staff,
+    driver.id,
+    {
+      revision,
+      decision: 'rejected',
+      reason: 'Private synthetic investigation note',
+      corrections,
+    },
+    randomUUID(),
+  );
+  const visible = (await submissions.get(driver)).submission!;
+  expect(visible.status).toBe('rejected');
+  expect(visible.corrections).toEqual(corrections);
+  expect(JSON.stringify(visible)).not.toContain('Private synthetic');
+  expect(visible).not.toHaveProperty('reviewerId');
+  expect((await submissions.get({ id: randomUUID(), role: 'driver' })).submission).toBeNull();
+  const next = (
+    await submissions.submit(driver, {
+      vehicle: { ...vehicle, color: 'White' },
+      expectedRevision: revision,
+    })
+  ).submission!;
+  expect(next.status).toBe('pending');
+  expect(next.corrections).toEqual([]);
+  expect((await submissions.get(driver)).submission!.corrections).toEqual([]);
+  expect(
+    (await db.pool.query('SELECT corrections FROM vehicle_review_decisions WHERE revision=$1', [revision]))
+      .rows[0].corrections,
+  ).toEqual(corrections);
+});
+test('correction guidance is required for rejection and cannot be free-form or attached to approval', async () => {
+  await grant();
+  for (const change of [
+    { ...approve(), corrections: ['vehicle_not_eligible'] },
+    { revision, decision: 'rejected', reason: 'Synthetic rejection' },
+    {
+      revision,
+      decision: 'rejected',
+      reason: 'Synthetic rejection',
+      corrections: ['Private arbitrary text'],
+    },
+    {
+      revision,
+      decision: 'rejected',
+      reason: 'Synthetic rejection',
+      corrections: ['vehicle_not_eligible', 'vehicle_not_eligible'],
+    },
+  ]) {
+    await expect(review.decide(staff, driver.id, change, randomUUID())).rejects.toThrow();
+  }
+  expect((await db.pool.query('SELECT id FROM vehicle_review_decisions')).rowCount).toBe(0);
 });

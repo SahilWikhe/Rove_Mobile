@@ -353,6 +353,7 @@ export const vehicleReviewDecisions = pgTable(
     decision: text().notNull(),
     reason: text().notNull(),
     verifiedService: text(),
+    corrections: jsonb().notNull().default([]),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [check('vehicle_review_decision_value', sql`${table.decision} IN ('approved','rejected')`)],

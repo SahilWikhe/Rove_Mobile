@@ -1,0 +1,1 @@
+ALTER TABLE "vehicle_review_decisions" ADD COLUMN "corrections" jsonb DEFAULT '[]'::jsonb NOT NULL;

@@ -226,11 +226,23 @@ export type VehicleSubmission = z.infer<typeof VehicleSubmission>;
 export const VehicleSubmissionUpdate = z
   .object({ vehicle: VehicleSubmission, expectedRevision: z.uuid().nullable() })
   .strict();
+export const VehicleCorrection = z.enum([
+  'vehicle_details_mismatch',
+  'registration_not_verified',
+  'vehicle_not_eligible',
+  'accessibility_not_verified',
+]);
+export type VehicleCorrection = z.infer<typeof VehicleCorrection>;
+export const VehicleCorrections = z
+  .array(VehicleCorrection)
+  .max(4)
+  .refine((values) => new Set(values).size === values.length, 'Correction categories must be unique.');
 export const VehicleReview = z
   .object({
     revision: z.uuid(),
     vehicle: VehicleSubmission,
     status: z.enum(['pending', 'approved', 'rejected']),
+    corrections: VehicleCorrections.default([]),
     submittedAt: z.iso.datetime(),
   })
   .strict();
@@ -249,9 +261,16 @@ export const VehicleReviewDecision = z
       .max(1000)
       .regex(/^[^\p{Cc}]+$/u),
     verifiedService: Service.optional(),
+    corrections: VehicleCorrections.default([]),
   })
   .strict()
   .superRefine((value, ctx) => {
+    if ((value.decision === 'rejected') !== value.corrections.length > 0)
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Select correction categories for rejected submissions only.',
+        path: ['corrections'],
+      });
     if (value.decision === 'approved' && !value.verifiedService)
       ctx.addIssue({ code: 'custom', message: 'Select the verified service.', path: ['verifiedService'] });
     if (value.decision === 'rejected' && value.verifiedService)

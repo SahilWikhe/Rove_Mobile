@@ -76,8 +76,15 @@ export class VehicleReviewService {
         if (input.verifiedService === 'accessible' && vehicle.requestedService !== 'accessible')
           throw new DomainError('INVALID_SERVICE', 'Accessible service was not requested.', 422);
         await client.query(
-          'INSERT INTO vehicle_review_decisions(revision,reviewer_id,decision,reason,verified_service) VALUES($1,$2,$3,$4,$5)',
-          [input.revision, actor.id, input.decision, input.reason, input.verifiedService ?? null],
+          'INSERT INTO vehicle_review_decisions(revision,reviewer_id,decision,reason,verified_service,corrections) VALUES($1,$2,$3,$4,$5,$6)',
+          [
+            input.revision,
+            actor.id,
+            input.decision,
+            input.reason,
+            input.verifiedService ?? null,
+            JSON.stringify(input.corrections),
+          ],
         );
         await client.query('UPDATE driver_vehicle_submissions SET status=$2 WHERE driver_id=$1', [
           driverId,

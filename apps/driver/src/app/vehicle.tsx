@@ -3,6 +3,7 @@ import { Stack, router, useFocusEffect } from 'expo-router';
 import { VehicleSubmission, type VehicleReview } from '@rove/contracts';
 import { useSession } from '@rove/mobile-core/session';
 import { Banner, Button, Card, Copy, Field, Screen } from '@rove/mobile-ui';
+import { VehicleReviewStatus } from '../vehicle/review-status';
 import { stopBackgroundTracking } from '../tracking/background';
 type Draft = {
   make: string;
@@ -116,15 +117,7 @@ function VehicleForm() {
         </>
       ) : (
         <>
-          <Card>
-            <Copy kind="heading">
-              {submission ? `Review status: ${submission.status}` : 'No vehicle submitted'}
-            </Copy>
-            <Copy kind="muted">
-              Vehicle review, document checks and payout setup must be completed before you can drive.
-              Submitted details do not approve your vehicle.
-            </Copy>
-          </Card>
+          <VehicleReviewStatus submission={submission} />
           {online ? (
             <>
               <Banner message="Go offline before submitting vehicle changes." />

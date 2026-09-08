@@ -11,7 +11,7 @@ export class VehicleSubmissionService {
     driverOnly(actor);
     const row = (
       await this.pool.query(
-        'SELECT revision,vehicle,status,submitted_at FROM driver_vehicle_submissions WHERE driver_id=$1',
+        'SELECT s.revision,s.vehicle,s.status,s.submitted_at,d.corrections FROM driver_vehicle_submissions s LEFT JOIN vehicle_review_decisions d ON d.revision=s.revision WHERE s.driver_id=$1',
         [actor.id],
       )
     ).rows[0];
@@ -21,6 +21,7 @@ export class VehicleSubmissionService {
             revision: row.revision,
             vehicle: row.vehicle,
             status: row.status,
+            corrections: row.status === 'rejected' ? (row.corrections ?? []) : [],
             submittedAt: row.submitted_at.toISOString(),
           }
         : null,
