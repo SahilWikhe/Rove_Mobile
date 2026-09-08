@@ -1,8 +1,9 @@
-import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
+import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { testDatabase } from '@rove/database/testing';
 import { drivers, users } from '@rove/database';
 import { TrackingService } from './tracking';
+import { RequestLimiter } from './rate-limits';
 import { DriverService } from './drivers';
 
 let database: Awaited<ReturnType<typeof testDatabase>>;
@@ -19,6 +20,7 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   await database.pool.query('TRUNCATE users CASCADE');
+  await database.pool.query('TRUNCATE rate_limit_buckets');
   now = new Date('2026-09-07T12:00:00Z');
   tracking = new TrackingService(database.pool, () => now);
   await database.db
@@ -113,4 +115,106 @@ test('concurrent duplicate delivery commits only one update', async () => {
   expect((await database.pool.query('SELECT location_sequence FROM drivers')).rows[0].location_sequence).toBe(
     1,
   );
+});
+
+test('concurrent service instances share a driver upload budget, including duplicate deliveries', async () => {
+  const grant = await tracking.issue(actor);
+  const second = new TrackingService(database.pool, () => now);
+  const results = await Promise.allSettled(
+    Array.from({ length: 65 }, (_, index) => (index % 2 ? tracking : second).location(grant.token, sample())),
+  );
+  expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(60);
+  const failures = results.filter((result) => result.status === 'rejected');
+  expect(failures).toHaveLength(5);
+  for (const failure of failures)
+    expect(failure.reason).toMatchObject({
+      code: 'RATE_LIMITED',
+      status: 429,
+      retryAfterSeconds: expect.any(Number),
+    });
+  expect((await database.pool.query('SELECT location_sequence FROM drivers')).rows[0].location_sequence).toBe(
+    1,
+  );
+  expect((await database.pool.query('SELECT count FROM rate_limit_buckets')).rows[0].count).toBe(61);
+});
+test('rotation cannot reset the budget and revocation remains available when exhausted', async () => {
+  const first = await tracking.issue(actor);
+  await tracking.location(first.token, sample());
+  await database.pool.query('UPDATE rate_limit_buckets SET count=60');
+  const rotated = await tracking.issue(actor);
+  await expect(tracking.location(rotated.token, sample())).rejects.toMatchObject({ code: 'RATE_LIMITED' });
+  expect(await tracking.revoke(rotated.token)).toEqual({ revoked: true });
+  await expect(tracking.location(rotated.token, sample())).rejects.toMatchObject({
+    code: 'TRACKING_UNAUTHORIZED',
+  });
+});
+test('unauthorized grants allocate no buckets while invalid samples consume an authenticated budget', async () => {
+  await expect(tracking.location('rt_' + 'x'.repeat(43), sample())).rejects.toMatchObject({
+    code: 'TRACKING_UNAUTHORIZED',
+  });
+  const grant = await tracking.issue(actor);
+  await database.pool.query('UPDATE users SET disabled=true');
+  await expect(tracking.location(grant.token, sample())).rejects.toMatchObject({
+    code: 'TRACKING_UNAUTHORIZED',
+  });
+  expect((await database.pool.query('SELECT * FROM rate_limit_buckets')).rows).toHaveLength(0);
+  await database.pool.query('UPDATE users SET disabled=false');
+  await expect(tracking.location(grant.token, { ...sample(), accuracyMeters: 999 })).rejects.toMatchObject({
+    code: 'INVALID_LOCATION_SAMPLE',
+  });
+  expect((await database.pool.query('SELECT count FROM rate_limit_buckets')).rows[0].count).toBe(1);
+});
+test('another driver has an independent budget and the expired window permits fresh locations', async () => {
+  const grant = await tracking.issue(actor);
+  await tracking.location(grant.token, sample());
+  await database.pool.query('UPDATE rate_limit_buckets SET count=60');
+  const other = { id: randomUUID(), role: 'driver' as const };
+  await database.db
+    .insert(users)
+    .values({ id: other.id, subject: other.id, name: 'Another fixture', role: 'driver' });
+  await database.db.insert(drivers).values({ id: other.id, online: true });
+  const independent = await tracking.issue(other);
+  expect(await tracking.location(independent.token, sample())).toEqual({ accepted: true });
+  await database.pool.query("UPDATE rate_limit_buckets SET expires_at=now()-interval '1 second'");
+  now = new Date(now.getTime() + 1000);
+  expect(await tracking.location(grant.token, sample())).toEqual({ accepted: true });
+});
+
+test('revocation during budget consumption is rechecked before any location update', async () => {
+  const grant = await tracking.issue(actor);
+  const consume = RequestLimiter.prototype.consume;
+  const intercepted = vi
+    .spyOn(RequestLimiter.prototype, 'consume')
+    .mockImplementationOnce(async function (subject, policy) {
+      await consume.call(new RequestLimiter(database.pool), subject, policy);
+      await tracking.revoke(grant.token);
+    });
+  try {
+    await expect(tracking.location(grant.token, sample())).rejects.toMatchObject({
+      code: 'TRACKING_UNAUTHORIZED',
+    });
+    expect(
+      (await database.pool.query('SELECT location_sequence FROM drivers')).rows[0].location_sequence,
+    ).toBe(0);
+    expect((await database.pool.query('SELECT count FROM rate_limit_buckets')).rows[0].count).toBe(1);
+  } finally {
+    intercepted.mockRestore();
+  }
+});
+test('limiter storage failure stops location mutation with a safe unavailable error', async () => {
+  const grant = await tracking.issue(actor);
+  await database.pool.query('ALTER TABLE rate_limit_buckets RENAME TO unavailable_buckets');
+  try {
+    await expect(tracking.location(grant.token, sample())).rejects.toMatchObject({
+      code: 'RATE_LIMIT_UNAVAILABLE',
+      status: 503,
+      message: 'Please try again shortly.',
+    });
+    expect(
+      (await database.pool.query('SELECT location_sequence FROM drivers')).rows[0].location_sequence,
+    ).toBe(0);
+    expect(await tracking.revoke(grant.token)).toEqual({ revoked: true });
+  } finally {
+    await database.pool.query('ALTER TABLE unavailable_buckets RENAME TO rate_limit_buckets');
+  }
 });

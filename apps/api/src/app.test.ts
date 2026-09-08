@@ -182,3 +182,24 @@ test('unverified tokens cannot allocate rate-limit identities', async () => {
   expect((await request('/v1/me', undefined, 'forged')).status).toBe(401);
   expect((await database.pool.query('SELECT count(*) FROM rate_limit_buckets')).rows[0].count).toBe('0');
 });
+
+test('background upload throttling returns retry metadata without blocking grant revocation', async () => {
+  const driver = await (await request('/v1/me', { name: 'Driver fixture', role: 'driver' }, 'driver')).json();
+  await database.pool.query('UPDATE drivers SET online=true WHERE id=$1', [driver.id]);
+  const grant = await (await request('/v1/drivers/me/tracking-session', {}, 'driver')).json();
+  const location = { coordinate: place.coordinate, sampledAt: new Date().toISOString(), accuracyMeters: 5 };
+  expect((await request('/tracking/v1/location', location, grant.token)).status).toBe(200);
+  await database.pool.query('UPDATE rate_limit_buckets SET count=60');
+  const response = await request('/tracking/v1/location', location, grant.token);
+  expect(response.status).toBe(429);
+  expect(Number(response.headers.get('Retry-After'))).toBeGreaterThan(0);
+  expect(response.headers.get('cache-control')).toBe('no-store');
+  expect(await response.json()).toMatchObject({ error: { code: 'RATE_LIMITED' } });
+  expect((await request('/v1/me', undefined, 'driver')).status).toBe(200);
+  const revoked = await app.request('/tracking/v1/session', {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${grant.token}` },
+  });
+  expect(revoked.status).toBe(200);
+  expect((await request('/tracking/v1/location', location, grant.token)).status).toBe(401);
+});

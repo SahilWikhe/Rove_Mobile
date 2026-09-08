@@ -11,6 +11,7 @@ export const requestLimits = {
   signup: 5,
   trackingGrant: 6,
   heartbeat: 60,
+  backgroundLocation: 60,
 } as const;
 export type RequestLimit = keyof typeof requestLimits;
 export class RateLimitError extends DomainError {

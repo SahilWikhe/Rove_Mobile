@@ -1,4 +1,4 @@
-import { beforeEach, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { ApiClient } from '@rove/mobile-core';
 import type { TaskManagerTaskExecutor } from 'expo-task-manager';
 
@@ -186,4 +186,39 @@ test('does not accumulate callbacks behind a slow upload', async () => {
   expect(mocks.request).toHaveBeenCalledOnce();
   resolve({ accepted: true });
   await first;
+});
+
+afterEach(() => vi.restoreAllMocks());
+test('throttling persists a pause, keeps tracking access and sends only a fresh fix after retry time', async () => {
+  let time = Date.now();
+  vi.spyOn(Date, 'now').mockImplementation(() => time);
+  await synchronize();
+  mocks.request.mockRejectedValueOnce(new ApiError('RATE_LIMITED', 'Wait', 429, undefined, 30));
+  await deliver();
+  const stored = JSON.parse(mocks.store.get('rove.driver.location-grant.v1')!);
+  expect(stored.retryAt).toBe(time + 30_000);
+  expect(stored).not.toHaveProperty('coordinate');
+  expect(mocks.started).toBe(true);
+  time += 29_000;
+  await deliver();
+  expect(mocks.request).toHaveBeenCalledOnce();
+  time += 1000;
+  await deliver();
+  expect(mocks.request).toHaveBeenCalledTimes(2);
+  expect(mocks.request).toHaveBeenLastCalledWith(
+    '/tracking/v1/location',
+    expect.anything(),
+    expect.objectContaining({ body: expect.objectContaining({ sampledAt: new Date(time).toISOString() }) }),
+  );
+});
+test('a throttled session can still stop and revoke immediately', async () => {
+  await synchronize();
+  mocks.request.mockRejectedValueOnce(new ApiError('RATE_LIMITED', 'Wait', 429));
+  await deliver();
+  await stopBackgroundTracking();
+  expect(mocks.started).toBe(false);
+  expect(mocks.store.has('rove.driver.location-grant.v1')).toBe(false);
+  expect(mocks.request).toHaveBeenLastCalledWith('/tracking/v1/session', expect.anything(), {
+    method: 'DELETE',
+  });
 });

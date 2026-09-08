@@ -5,6 +5,7 @@ import { DomainError } from './errors';
 import { driverOnly } from './drivers';
 import type { Actor } from './rides';
 import { transaction } from './transactions';
+import { RequestLimiter } from './rate-limits';
 
 function digest(token: string) {
   if (!/^rt_[A-Za-z0-9_-]{43}$/.test(token))
@@ -51,8 +52,21 @@ export class TrackingService {
 
   async location(token: string, raw: unknown) {
     const hash = digest(token);
-    const parsed = BackgroundLocation.safeParse(raw);
     const now = this.now();
+    // Authenticate before allocating a counter. Use the stable driver ID, never the
+    // rotating grant, so renewal cannot reset the upload budget. The counter commits
+    // separately: invalid samples and rejected duplicates still consume the budget.
+    const authenticated = (
+      await this.pool.query<{ id: string }>(
+        `SELECT d.id FROM drivers d JOIN users u ON u.id=d.id
+         JOIN driver_tracking_sessions s ON s.driver_id=d.id
+         WHERE s.token_hash=$1 AND s.expires_at>$2 AND d.online AND NOT u.disabled`,
+        [hash, now],
+      )
+    ).rows[0];
+    if (!authenticated) throw unauthorized();
+    await new RequestLimiter(this.pool).consume(authenticated.id, 'backgroundLocation');
+    const parsed = BackgroundLocation.safeParse(raw);
     if (!parsed.success)
       throw new DomainError('INVALID_LOCATION_SAMPLE', 'A fresh, accurate location is required.', 422);
     const sample = parsed.data;
@@ -60,6 +74,7 @@ export class TrackingService {
     if (age < -5000 || age > 30_000)
       throw new DomainError('INVALID_LOCATION_SAMPLE', 'A fresh, accurate location is required.', 422);
     return transaction(this.pool, async (client) => {
+      // Recheck authorization after limiting: rotation/offline/revocation may race.
       // Lock order matches issue/availability: driver first, then tracking grant.
       const result = await client.query(
         `SELECT d.id,u.disabled,d.online FROM drivers d JOIN users u ON u.id=d.id

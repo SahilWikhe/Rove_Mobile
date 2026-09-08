@@ -11,7 +11,11 @@ const TASK = 'rove.driver.location.v1';
 const KEY = 'rove.driver.location-grant.v1';
 const BLOCKED = 'rove.driver.location-blocked.v1';
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? '';
-const StoredGrant = TrackingGrant.extend({ driverId: z.uuid(), apiUrl: z.string() });
+const StoredGrant = TrackingGrant.extend({
+  driverId: z.uuid(),
+  apiUrl: z.string(),
+  retryAt: z.number().int().nonnegative().optional(),
+});
 type StoredGrant = z.infer<typeof StoredGrant>;
 let queue: Promise<unknown> = Promise.resolve();
 let uploadPending = false;
@@ -61,7 +65,7 @@ if (Platform.OS !== 'web' && !TaskManager.isTaskDefined(TASK)) {
           await stop(grant, false);
           return;
         }
-        if (error || !data?.locations) return;
+        if (error || !data?.locations || (grant.retryAt ?? 0) > Date.now()) return;
         const sample = newestLocation(data.locations, Date.now());
         if (!sample) return;
         try {
@@ -70,6 +74,18 @@ if (Platform.OS !== 'web' && !TaskManager.isTaskDefined(TASK)) {
             body: sample,
           });
         } catch (failure) {
+          if (failure instanceof ApiError && failure.status === 429) {
+            // Persist only the pause deadline, never an old location. Native may
+            // launch a fresh JS process for the next headless callback.
+            const seconds = Math.min(60, Math.max(1, failure.retryAfterSeconds ?? 60));
+            await SecureStore.setItemAsync(
+              KEY,
+              JSON.stringify({ ...grant, retryAt: Date.now() + seconds * 1000 }),
+              {
+                keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
+              },
+            );
+          }
           if (failure instanceof ApiError && [401, 403].includes(failure.status)) {
             await SecureStore.setItemAsync(BLOCKED, 'true');
             await stop(grant, false);
