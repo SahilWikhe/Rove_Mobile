@@ -1,12 +1,12 @@
 # Optional B2B product and cross-repository contract
 
-Status: planned boundary; a B2B repository has not been created and its name is not decided. The existing website remains a third, separate repository.
+Status: planned boundary; a B2B repository has not been created and its name is not decided. The internal staff dashboard also has its own planned repository; the website is the fourth repository overall. See [repository boundaries](15-repository-boundaries.md).
 
 ## Product independence
 
 The main Rove service is consumer ride-hailing. The B2B dashboard is an additional sales/product surface for institutions to arrange or sponsor rides. It has its own backlog, UI, deployment, customer roles, onboarding, and pricing decisions. It can be delayed, disabled or temporarily unavailable without preventing ordinary riders and drivers from using the core platform.
 
-Keep a minimal Rove-only support/dispatch console with the core product. Institutional staff are customers of the service, not platform dispatch administrators. Separate hostnames/login audiences and permissions prevent accidental access to Rove's fleet, all rider records or finance functions.
+Build a minimal Rove-only support/dispatch console in the separate internal-dashboard repository, with staff policy and operational mutations in the core backend. Institutional staff are customers of the service, not platform dispatch administrators. Separate hostnames/login audiences and permissions prevent accidental access to Rove's fleet, all rider records or finance functions.
 
 ## Ownership
 
@@ -15,6 +15,8 @@ Keep a minimal Rove-only support/dispatch console with the core product. Institu
 | Identity mapping, global driver availability, offers and trips | Core backend in `Rove_Mobile` |
 | Pricing, consumer charges, driver payables and settlement | Core backend |
 | Core data schema and migrations | `Rove_Mobile` only |
+| Staff UI and staff session/API proxy | Separate internal-dashboard repository |
+| Staff authorization, operational mutations and audit records | Core backend in `Rove_Mobile` |
 | B2B UI, reporting presentation and organization onboarding experience | B2B repository |
 | Server enforcement of organization membership, sponsorship and ride visibility | Optional organization modules in core backend |
 | Customer web sessions and API forwarding | B2B thin web backend/proxy, if needed |
@@ -25,7 +27,7 @@ An institution dashboard may have its own web server; it must not independently 
 
 ## Versioned API integration
 
-The core repository owns OpenAPI and transport schemas. When B2B implementation begins, publish a versioned schema/client artifact through a chosen registry or release channel, and pin it in the B2B lockfile. Until that distribution mechanism exists, treat it as a milestone task, not a runnable workspace dependency. No cross-repository filesystem imports or unpinned Git dependencies.
+The core repository owns OpenAPI and transport schemas. Publish a versioned schema/client artifact through a chosen registry or release channel before the internal-dashboard integration. When B2B implementation begins, use that distribution mechanism and pin its supported version in the B2B lockfile. Until that distribution mechanism exists, treat it as a milestone task, not a runnable workspace dependency. No cross-repository filesystem imports or unpinned Git dependencies.
 
 Use additive API changes and a documented compatibility window. A core change publishes a candidate contract; B2B tests its supported contract against the candidate API in an isolated environment. Breaking changes require a staged version migration, not simultaneous merges across repositories. Organization API tests live with the backend even when dashboard tests live elsewhere.
 
@@ -41,7 +43,7 @@ Prepaid balance and invoicing are optional funding adapters. They use the same r
 
 Use per-organization quotas, paginated reports, bounded booking batches and background exports. An institution uploading a large batch must not exhaust matching/payment capacity for consumers. No bulk direct DB access from the dashboard. Export jobs and URLs require scoped permissions and bounded retention.
 
-If the B2B UI goes down, accepted sponsored trips continue through the core engine. If organization funding is unavailable, new sponsored bookings can fail or wait explicitly while consumer bookings continue. Consumer-only backend startup must not require sponsor configuration or health checks. A core API outage is still a shared dependency: two repositories do not create independent runtime availability.
+If the B2B UI goes down, accepted sponsored trips continue through the core engine. If organization funding is unavailable, new sponsored bookings can fail or wait explicitly while consumer bookings continue. Consumer-only backend startup must not require sponsor configuration or health checks. A core API outage is still a shared dependency: separate repositories do not create independent runtime availability.
 
 ## Independent CI and deployment
 

@@ -6,11 +6,11 @@ Status definitions: **Selected** is the current architecture baseline; **Provisi
 
 The initial `c52573c` documentation baseline focused on scheduled care rides, institutional funding, manual dispatch and one product monorepo containing the customer-facing dashboard. The user's subsequent clarification replaces that product direction with primary consumer ride-hailing and an optional B2B dashboard in a separate repository. The records below preserve that change explicitly.
 
-## ADR-001: Core monorepo and separate B2B repository
+## ADR-001: Three product repositories and separate marketing
 
-**Selected; revises original ADR-001.** `Rove_Mobile` owns rider/driver apps, shared API/domain/database and essential Rove internal ops. A separate repository, name TBD, owns the optional institutional dashboard. Marketing stays in `Rove`.
+**Selected; revised September 7, 2026.** `Rove_Mobile` owns rider/driver apps, shared API/domain/database, staff authorization and operational API use cases. A separate internal-dashboard repository owns Rove staff UI/sessions. A third product repository owns the optional institutional dashboard. Both dashboard repository names are TBD; neither is created by this documentation change. Marketing stays in `Rove`.
 
-Reason: the user wants independently scoped consumer and institutional products. Consequence: two product repositories plus marketing, versioned cross-repository contracts and independent releases. Alternatives were one product repo for both surfaces or separate backend/mobile repos. Keep the backend with core mobile for coordinated feature work; do not duplicate the ride engine in the dashboard repository.
+Reason: the user wants independent ownership and releases for mobile/backend, internal staff UI and institution UI. Consequence: three product repositories plus marketing (four total), versioned cross-repository contracts and independent CI/releases. This supersedes the `5140451` arrangement that placed internal `apps/ops` in the core repo. Alternatives were retaining internal tools in the core monorepo or splitting backend/mobile too. Keep the backend with core mobile for coordinated feature work; do not duplicate the ride engine in the dashboard repository.
 
 ## ADR-002: Two Expo applications
 
@@ -20,7 +20,7 @@ Reason: drivers need online availability, offer handling, background discovery/t
 
 ## ADR-003: One authoritative modular ride backend
 
-**Selected; clarifies original ADR-003.** Hono on Node.js/Vercel, plain TypeScript domain modules and Neon Postgres. Next.js `apps/ops` serves internal Rove staff. The separate B2B web app is an optional scoped API client; it may have a thin session proxy but no independent trip/payment mutations.
+**Selected; clarifies original ADR-003.** Hono on Node.js/Vercel, plain TypeScript domain modules and Neon Postgres. A Next.js app in the separate internal-dashboard repo serves Rove staff. It and the separate optional B2B web app are scoped API clients; either may have a thin session proxy, but neither owns trip/payment mutations or core database access.
 
 Reason: shared matching, availability and financial truth. Consequence: one backend outage is shared even with separate repositories. B2B batch/reporting work needs quotas/backpressure. Revisit service extraction for measured contention, security boundaries or ownership needs.
 
@@ -62,9 +62,9 @@ Consequence: server-owned fare snapshots, provider idempotency, financial reconc
 
 ## ADR-010: Independent releases and versioned contracts
 
-**Selected.** Each repository has its own CI/release controls. Core owns schema/API evolution and compatible migration; B2B pins a published contract/client. Mobile binaries, core API, ops and institution UI can release independently within compatibility windows.
+**Selected.** Each repository has its own CI/release controls. Core owns schema/API evolution and compatible migration; each dashboard pins a published contract/client. Mobile binaries, core API, ops and institution UI can release independently within compatibility windows.
 
-Consequence: no cross-repo workspace imports or reliance on simultaneous merges. Test supported B2B and older mobile contracts against candidate core APIs. Production promotion and mobile submission remain explicit release actions; configure Vercel defaults accordingly.
+Consequence: no cross-repo workspace imports or reliance on simultaneous merges. Test supported internal-dashboard, B2B and older mobile contracts against candidate core APIs. Production promotion and mobile submission remain explicit release actions; configure Vercel defaults accordingly.
 
 ## ADR-011: Modular reuse
 

@@ -15,9 +15,9 @@ A bug fix includes a regression test where repeatable. Tests must fail for the b
 | Static | TypeScript strict, ESLint, formatting, dependency graph check | Invalid types, unsafe patterns, forbidden imports |
 | Domain | Vitest | State transitions, recurrence, eligibility, money policies |
 | Native components | Jest with Expo-compatible preset + React Native Testing Library | Accessibility, forms, pending/error states, scoped context |
-| Web components | Vitest + React Testing Library | Operator interactions and accessibility |
+| Web components (dashboard repositories) | Vitest + React Testing Library | Operator interactions and accessibility |
 | Database/API | Vitest + disposable PostgreSQL | Real constraints, transactions, authorization, migrations |
-| Web end to end | Playwright | Dispatch/session/role flows in browser |
+| Web end to end (dashboard repositories) | Playwright | Dispatch/session/role flows in browser |
 | Mobile end to end | Maestro on iOS/Android builds | Rider and driver journey and deep links |
 | Device field tests | Physical iPhone + representative Android devices | GPS, battery, termination, permissions and navigation handoff |
 | Security | Secret scan, dependency audit/review, CodeQL where available | Leaked credentials and vulnerable/unsafe dependencies/code |
@@ -57,7 +57,7 @@ Core release gates cover on-demand consumer booking without organization rows, s
 | Compatibility | Supported prior client requests/responses and unknown display state | Contract fixtures |
 | Accessibility | Large text, screen reader labels, keyboard focus, reduced motion and contrast | Component + E2E + manual |
 | B2B boundary | Customer admin is not Rove staff; organization cannot see member's personal trips | API + separate dashboard E2E |
-| Cross-repo compatibility | Pinned B2B client against candidate core API; add-on outage during active ride | Contract + trusted integration |
+| Cross-repo compatibility | Pinned internal/B2B clients against candidate core API; dashboard outages during active ride | Contract + trusted integration |
 
 For race tests, coordinate two independent database connections with a barrier so they actually contend. Assert final rows, event counts and financial totals, not just HTTP response codes. Run these repeatedly in a dedicated lane if necessary to expose serialization errors, but do not hide flaky results with blanket retries.
 
@@ -82,7 +82,7 @@ Exclude generated clients, declarations and platform-generated code with documen
 - **Nightly:** full dependency graph, full API/database suite, scheduled security scans and device-emulator flows within budget.
 - **Release candidate:** both platform builds, complete quote -> automatic match -> trip -> payment loop, ownership/security regression, real-device online/trip tracking, matching timeout/worker recovery, migration/rollback and sandbox financial reconciliation. The core loop must pass with B2B disabled.
 
-The B2B repository owns dashboard component/E2E tests; this repository retains organization API/policy tests when implemented. Contract distribution/consumer checks cover separately released versions. A dashboard-only change need not build mobile binaries, but an incompatible shared API change cannot be waved through because its frontend is in another repository.
+Each dashboard repository owns its component/session/browser E2E tests. This repository retains staff authorization, driver approval, operational mutation/audit tests and optional organization API/policy tests. Test that a normal ride completes while either dashboard UI is unavailable, and that institution identities cannot invoke staff endpoints. Internal-dashboard releases require staff MFA, role revocation, CSRF/session, support and finance flow evidence against a compatible synthetic API. Contract distribution/consumer checks cover separately released versions. A dashboard-only change need not build mobile binaries, but an incompatible shared API change cannot be waved through because its frontend is in another repository.
 
 Native builds can be slower or paid. Optimize with path/dependency impact detection, but a change to Expo configuration, shared native code, authentication, location, native plugins or dependencies must get appropriate iOS and Android build evidence before release. Do not make pure Markdown edits wait for app-store builds.
 

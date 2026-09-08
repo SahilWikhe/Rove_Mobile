@@ -1,12 +1,12 @@
 # Rove product architecture
 
-Rove is a consumer ride-hailing product: a rider requests a ride, the platform finds an available driver, and the rider follows the trip through payment and completion. This repository is the **core product monorepo** for the rider app, driver app, shared ride-platform backend, and essential Rove staff tools. The optional institution-facing B2B dashboard belongs in a separate repository. The marketing website remains in [SahilWikhe/Rove](https://github.com/SahilWikhe/Rove).
+Rove is a consumer ride-hailing product: a rider requests a ride, the platform finds an available driver, and the rider follows the trip through payment and completion. This repository is the **core product monorepo** for the rider app, driver app, shared ride-platform backend, and database. The internal staff dashboard and optional institution-facing B2B dashboard each belong in their own separate repository. The marketing website remains in [SahilWikhe/Rove](https://github.com/SahilWikhe/Rove).
 
 ## Current status
 
 This repository currently contains architecture and implementation plans only. **No application, database schema, automated checks, or deployment has been implemented here.** A described control is a requirement to implement and verify, not a claim that it already exists. The consumer-first scope supersedes the original care-pilot-first architecture; see [the decision history](docs/12-decisions.md).
 
-The proposed technical baseline is React Native + Expo for mobile, a Hono/TypeScript API on Vercel, and Postgres on Neon. A small Next.js staff console supports Rove operations; a separately deployed B2B dashboard is an optional API client. Use a modular backend with one transactional ride database before considering separate services.
+The proposed technical baseline is React Native + Expo for mobile, a Hono/TypeScript API on Vercel, and Postgres on Neon. A small Next.js staff console in a separate repository supports Rove operations; a third product repository holds the optional B2B dashboard. Both dashboards consume the shared API. Use a modular backend with one transactional ride database before considering separate services.
 
 ## Reading order
 
@@ -25,6 +25,7 @@ The proposed technical baseline is React Native + Expo for mobile, a Hono/TypeSc
 | [Operations and costs](docs/11-operations-and-costs.md) | Reliability targets, incident procedures, recovery, and cost model |
 | [Architecture decisions](docs/12-decisions.md) | Decisions, tradeoffs, alternatives, and conditions for reconsideration |
 | [Sources and assumptions](docs/13-sources-and-assumptions.md) | Source provenance, verified platform references, and uncertain claims |
+| [Repository boundaries](docs/15-repository-boundaries.md) | Three product repos, ownership, staff dashboard and cross-repo delivery |
 | [B2B product boundary](docs/14-b2b-product-boundary.md) | Separate repository, shared API ownership, access, and independent releases |
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) before implementing a feature. Coding agents should also follow [AGENTS.md](AGENTS.md).
@@ -37,11 +38,12 @@ Using synthetic data on real iOS and Android devices: a rider gets a quote and r
 
 | Repository | Responsibility |
 | --- | --- |
-| `Rove_Mobile` (this repository) | Rider/driver apps, matching, ride execution, consumer payments, database/migrations and Rove internal support tools |
+| `Rove_Mobile` (this repository) | Rider/driver apps, matching, ride execution, consumer payments, database/migrations, staff authorization and operational API use cases |
+| Internal dashboard repository (name TBD; not created) | Rove staff UI for approvals, support, safety and finance; staff sessions/API proxy |
 | B2B repository (name TBD; not created) | Institution dashboard, organization administration, sponsored booking UI, reports and optional thin web session/API proxy |
 | `Rove` (existing) | Marketing website |
 
-There are two product repositories, plus the existing website repository. The B2B product uses versioned APIs; it does not get direct access to the core database or its own competing matching/payment engine.
+There are three product repositories, plus the existing website repository: four repositories total. Both dashboards use versioned APIs; neither gets direct core database access or its own competing matching/payment engine. See [repository boundaries](docs/15-repository-boundaries.md).
 
 ## Repository boundary
 

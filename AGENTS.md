@@ -4,7 +4,7 @@
 
 This is the Rove product monorepo. The marketing website lives in a different repository. Begin with [README.md](README.md) and the relevant documents in `docs/`. This initial revision contains plans only; do not report applications, checks or infrastructure as implemented until evidence exists.
 
-Current scope: Rove is consumer ride-hailing with automatic matching, online drivers and consumer payments. The institution-facing B2B dashboard is an optional separate-repository product, not the default operating model. `Rove_Mobile` owns both mobile apps, the shared ride backend/database and essential Rove internal ops. Do not reinstate the superseded care-first/manual-dispatch assumptions from historical research.
+Current scope: Rove is consumer ride-hailing with automatic matching, online drivers and consumer payments. The institution-facing B2B dashboard is an optional separate-repository product, not the default operating model. `Rove_Mobile` owns both mobile apps, the shared ride backend/database and server-side staff permissions/use cases. The internal staff dashboard lives in its own repository; the institutional dashboard lives in a third product repository. Neither dashboard source belongs here. Do not reinstate the superseded care-first/manual-dispatch assumptions from historical research.
 
 ## Working rules
 

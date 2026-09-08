@@ -1,6 +1,6 @@
 # System architecture
 
-Status: target design, not deployed infrastructure. Owner: engineering lead. Consumer on-demand rides are the core; institution workflows are optional extensions with a separate frontend repository.
+Status: target design, not deployed infrastructure. Owner: engineering lead. Consumer on-demand rides are the core; internal staff and optional institution dashboards each have a separate frontend repository.
 
 ## Baseline choices
 
@@ -8,7 +8,7 @@ Status: target design, not deployed infrastructure. Owner: engineering lead. Con
 | --- | --- | --- |
 | Monorepo | pnpm workspaces + Turborepo | One lockfile, explicit dependencies, affected builds/tests |
 | Mobile | React Native + Expo + Expo Router | Two native applications sharing suitable code across iOS/Android |
-| Internal operations web | Next.js + TypeScript in `apps/ops` | Essential Rove staff support/safety UI, distinct from the B2B customer product |
+| Internal operations web | Next.js + TypeScript in separate internal-dashboard repository | Essential Rove staff support/safety UI, distinct from the B2B customer product |
 | HTTP API | Hono on Node.js, deployed on Vercel | Small transport layer, independently deployable API |
 | Domain | Plain TypeScript modules on the server | Rules can be tested without React, HTTP, or vendor SDKs |
 | Database | Neon Postgres + Drizzle | Relational constraints, migrations, transactions, portable SQL |
@@ -26,7 +26,7 @@ These are architecture choices, not instructions to install every latest package
 flowchart TB
     Rider["Consumer rider app"] --> API["Core Hono API on Vercel"]
     Driver["Driver app"] --> API
-    Browser["Rove staff browser"] --> Ops["Internal ops / session boundary"]
+    Browser["Rove staff browser"] --> Ops["Internal ops - separate repo / session boundary"]
     Ops --> API
     B2B["Optional institution dashboard - separate repo"] -->|"Versioned scoped API"| API
     API --> Auth["Managed identity provider"]
@@ -50,7 +50,6 @@ The backend is a **modular monolith**: one application with enforceable internal
 apps/
   rider/                     # Expo consumer quote, request, trip and payment features
   driver/                    # Expo routes and driver features
-  ops/                       # Minimal internal Rove staff UI and session/API proxy
   api/                       # Hono routes, bootstrapping, job entrypoints
 packages/
   contracts/                 # Public DTO schemas, API errors, OpenAPI generation
@@ -66,7 +65,7 @@ docs/
 
 Do not create empty abstraction packages solely to match the diagram. Add a package when its boundary or reuse has a concrete purpose. Do not try to share DOM components with native screens. Share tokens, validation, and native components where behavior matches.
 
-The B2B dashboard is outside this tree in a repository whose name is still TBD. It imports a pinned released API client/schema, not local workspace files, and never imports `server` or `database`. Core API/domain/database ownership remains here. See [B2B product boundary](14-b2b-product-boundary.md).
+Both dashboards are outside this tree, each in its own repository with name TBD. Each imports a pinned released API client/schema, not local workspace files, and never imports `server` or `database`. Publish the contract/client for the internal dashboard before its first integration; B2B later uses the same distribution approach. See [repository boundaries](15-repository-boundaries.md). Core API/domain/database ownership remains here. See [B2B product boundary](14-b2b-product-boundary.md).
 
 ## Dependency rules
 
@@ -74,7 +73,7 @@ The B2B dashboard is outside this tree in a repository whose name is still TBD. 
 - Mobile and browser code may import `contracts`, `api-client`, and suitable UI packages. They must not import `server`, `database`, payment-secret SDKs, or environment loaders containing secrets.
 - `api` composes `server`, `database`, and provider adapters. `database` implements repository ports defined by the relevant server module; type-only port imports must not create runtime cycles.
 - `server` owns domain invariants and repository/provider interfaces. Its pure domain layer cannot import Hono, React, Drizzle, or a provider SDK. Concrete adapters live in explicitly named infrastructure directories.
-- `ops` server code verifies Rove staff sessions and forwards scoped requests to `api`; it does not run its own ride mutations or access the database directly. The separate B2B web proxy follows the same rule with institution-scoped capabilities and cannot use staff credentials.
+- The separate internal-dashboard server code verifies Rove staff sessions and forwards scoped requests to `api`; it does not run its own ride mutations or access the database directly. The separate B2B web proxy follows the same rule with institution-scoped capabilities and cannot use staff credentials.
 - Packages never import from an `apps/` directory. Cross-module backend calls use a documented public interface, never another module's private tables or internal implementation files.
 
 Enforce these with package exports, TypeScript project configuration, lint import restrictions and an architecture dependency check. A README alone is not enforcement. Avoid circular barrel exports; choose explicit public entrypoints.

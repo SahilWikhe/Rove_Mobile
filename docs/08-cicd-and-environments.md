@@ -17,7 +17,7 @@ Existing setup fact: Neon was linked in the local research folder, with `defineC
 
 ## Vercel and Expo projects
 
-Plan Vercel projects `rove-api` rooted at `apps/api` and `rove-ops` rooted at `apps/ops` for Rove staff. The institutional dashboard uses another project connected to its separate repository (name TBD), only when that add-on is built. Configure workspace access/build commands after source exists. Match the Ohio backend/database region unless an ADR changes it. Marketing retains its own repository/project. References to admin below mean the internal staff surface unless explicitly labeled B2B.
+Plan Vercel project `rove-api` rooted at `apps/api` in `Rove_Mobile`. The proposed `rove-ops` Vercel project connects to the separate internal-dashboard repository (name and root path TBD), not a workspace in this repository. The institutional dashboard uses another project connected to its separate repository (name TBD), only when that add-on is built. Configure workspace access/build commands after source exists. Match the Ohio backend/database region unless an ADR changes it. Marketing retains its own repository/project. References to admin below mean the internal staff surface unless explicitly labeled B2B.
 
 Create separate Expo projects for rider and driver. Each has development, preview/staging and production build profiles, app identifiers, update channels and signing credentials. API base URLs are explicit per build environment. Store releases are independent from API deployment; a GitHub merge does not automatically install a new mobile binary on users' devices. [Expo monorepo builds](https://docs.expo.dev/build-reference/build-with-monorepos/)
 
@@ -29,7 +29,7 @@ Create separate Expo projects for rider and driver. Each has development, previe
 | `security` | PR and schedule | Secrets, dependencies, code scanning as supported |
 | `preview-smoke` | Trusted preview ready | Authenticate preview, verify API/admin critical routes and isolation |
 | `native-validation` | Relevant PR/manual run | iOS/Android build and selected mobile E2E |
-| `release` | Explicit authorized dispatch/tag | Pin tested SHA, migrate, release backend/admin and smoke |
+| `release` | Explicit authorized dispatch/tag | Pin tested SHA, release and smoke the owning service; only core release migrates |
 | `mobile-release` | Explicit authorized dispatch | Store/internal builds and submission as separately configured |
 | `maintenance` | Schedule/manual | Full suite, disposable resource cleanup, dependency updates |
 
@@ -53,7 +53,7 @@ Allow fork PRs to run safe tests using local Postgres and mocks. Preview code wi
 
 ## Branch policy
 
-Core and B2B repositories each own their workflows, protections and release authorization. No B2B CI job receives core database migration credentials. Publish a versioned OpenAPI/client artifact from the core repository and pin its version in B2B; workspace change detection does not cross repository boundaries. Trusted compatibility runs pair a candidate API with supported released client versions and synthetic data. See [B2B boundary](14-b2b-product-boundary.md).
+All three product repositories own their workflows, protections and release authorization. Neither dashboard CI receives core database or migration credentials. Publish a versioned OpenAPI/client artifact from the core repository and pin its version in each dashboard; workspace change detection does not cross repository boundaries. Trusted compatibility runs pair a candidate API with supported released client versions and synthetic data. See [B2B boundary](14-b2b-product-boundary.md).
 
 After the initial documentation bootstrap, develop on short-lived feature branches and use PRs into `main`. Protect `main` against deletion and force pushes, require PRs and the real `ci-gate`, and require current-base validation (or a correctly configured merge queue). Require review when another qualified reviewer is available; do not set an impossible self-approval requirement for a sole maintainer.
 
@@ -70,13 +70,13 @@ For the product, prefer explicit production promotion from a tested commit. Conf
 3. Review and apply compatible expansion migrations with a dedicated migration role.
 4. Deploy the API artifact with the recorded schema compatibility range.
 5. Smoke-test readiness, authenticated synthetic canary operations and critical safe reads without altering real rides.
-6. Deploy the internal ops interface when its required API is available. The optional B2B frontend follows its own release process against a compatible API and is not required for a core release.
+6. Deploy the internal ops interface through its own repository’s release workflow when its required API is available; an API release need not redeploy it if the existing version stays compatible. The optional B2B frontend follows its own release process against a compatible API and is not required for a core release.
 7. Observe errors, latency, jobs and database health; then authorize any staged feature exposure.
 8. Apply destructive contract migrations only in a later release after compatibility windows close.
 
 Never migrate from a Vercel build hook. Builds can happen concurrently for multiple projects and previews. Roll back code only to a version compatible with the current schema. For data faults, stop affected operations and use a reviewed forward repair or controlled restore runbook.
 
-Core release smoke covers a synthetic consumer quote, online driver, timed offer, acceptance, trip and sandbox payment with organization features disabled. When B2B ships, separately test accepted sponsored-trip continuation during a dashboard outage and isolation of bulk reporting/booking load. Neither the B2B repository nor its web proxy applies core schema migrations.
+Core release smoke covers a synthetic consumer quote, online driver, timed offer, acceptance, trip and sandbox payment with organization features disabled. When B2B ships, separately test accepted sponsored-trip continuation during a dashboard outage and isolation of bulk reporting/booking load. Neither dashboard repository nor its web proxy applies core schema migrations. Verify the supported internal-dashboard client against the candidate API and prove normal rides continue during a staff UI outage. Staff tools remain a pilot-readiness requirement, with an outage escalation procedure.
 
 ## Mobile releases
 
@@ -86,6 +86,6 @@ Keep signing keys in the build platform's protected credentials management. Publ
 
 ## Future script contract
 
-Foundation will implement `pnpm lint`, `pnpm typecheck`, `pnpm test:unit`, `pnpm test:integration`, `pnpm test:contracts`, `pnpm test:e2e:web`, `pnpm test:e2e:mobile`, `pnpm check:boundaries`, `pnpm docs:check` and workspace-specific build/migration commands. Commands must fail when an expected suite/configuration is missing. Mobile E2E commands may require a prepared build/device and must explain that prerequisite clearly.
+Foundation will implement `pnpm lint`, `pnpm typecheck`, `pnpm test:unit`, `pnpm test:integration`, `pnpm test:contracts`, `pnpm test:e2e:mobile`, `pnpm check:boundaries`, `pnpm docs:check` and workspace-specific build/migration commands. Each dashboard repository supplies its own web component/build checks and `pnpm test:e2e:web`; core CI retains backend policy and contract tests. Commands must fail when an expected suite/configuration is missing. Mobile E2E commands may require a prepared build/device and must explain that prerequisite clearly.
 
 Do not use these as working commands until the scaffold supplies them. [Vercel monorepo configuration](https://vercel.com/docs/monorepos)

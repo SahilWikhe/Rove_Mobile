@@ -6,7 +6,7 @@ Status: ordered implementation plan reflecting the user's revised direction. No 
 
 The founder owns service area/hours, pricing, driver model, payment responsibilities and operating decisions. Engineering owns implementation, tests, supported platform choices and measured reliability. Core consumer rides do not depend on signing an institutional customer. A separate B2B product can later serve institutions through the same backend.
 
-Two product repositories plus the existing website are planned. Only `Rove_Mobile` is currently created for the product. Do not invent/create a B2B repository during documentation work. Internal Rove support and dispatch are required for consumer operations and can live in `apps/ops` here.
+Three product repositories plus the existing website are planned: four total. Only `Rove_Mobile` is currently created for the product. Internal staff dashboard and institutional dashboard each get a separate repository, names TBD; this documentation change does not create them. Build mobile/backend first, essential internal tools for pilot readiness, and B2B after core reliability. Internal support API/policy stays here; staff UI belongs in its own repo. See [repository boundaries](15-repository-boundaries.md).
 
 ## M0: Revised architecture and product baseline
 
@@ -16,9 +16,9 @@ Exit: the plan explicitly supports a consumer with no institution account; the f
 
 ## M1: Core repository foundation
 
-Create pnpm/Turborepo, pinned compatible Node/TypeScript/Expo baselines, rider/driver shells, API health route and minimal Rove staff shell. Add boundary enforcement, safe example environment files, synthetic fixtures and executable docs/static/test CI. Link the correct isolated Neon environment from this checkout deliberately; do not copy research-folder credentials into Git.
+Create pnpm/Turborepo, pinned compatible Node/TypeScript/Expo baselines, rider/driver shells, API health route and initial versioned API contract tooling. Add boundary enforcement, safe example environment files, synthetic fixtures and executable docs/static/test CI. Link the correct isolated Neon environment from this checkout deliberately; do not copy research-folder credentials into Git.
 
-Exit: clean install, local API/ops startup, development mobile builds on both platforms, real failing/passing checks and synthetic DB workflow. No B2B configuration is needed to start/test the core. Provision Vercel/EAS only when source is deployable and release authorization exists.
+Exit: clean install, local API startup, development mobile builds on both platforms, real failing/passing checks and synthetic DB workflow. No B2B configuration is needed to start/test the core. Provision Vercel/EAS only when source is deployable and release authorization exists.
 
 ## M2: Identity, driver availability and platform feasibility
 
@@ -36,9 +36,9 @@ Exit: a consumer requests a quoted ride and an online driver accepts through the
 
 ## M4: Complete trip, payment and internal support
 
-Implement navigation handoff, arrival/pickup/completion, rider tracking, cancellation/rematch policy, receipts, consumer capture/refund/reconciliation and driver payable/earnings view. Complete durable outbox/retry repair and safe provider callbacks. Add staff eligibility review, ride lookup, audited intervention, incident support and finance reconciliation.
+Implement navigation handoff, arrival/pickup/completion, rider tracking, cancellation/rematch policy, receipts, consumer capture/refund/reconciliation and driver payable/earnings view. Complete durable outbox/retry repair and safe provider callbacks. Add staff eligibility review, ride lookup, audited intervention, incident support and finance reconciliation API use cases here. Confirm the internal-dashboard repository name and create it when authorized; implement its minimal Next.js staff UI, MFA/session boundary, independent CI and deployment configuration there. Publish and pin a versioned API client before connecting the dashboard.
 
-Exit: synthetic end-to-end quote -> match -> pickup -> completion -> payment/receipt/earnings works on both platforms. Lost connectivity shows pending state; a repeated callback cannot move money twice; rematching revokes old driver access. Staff handle exceptions but are not required to approve every normal request.
+Exit: synthetic end-to-end quote -> match -> pickup -> completion -> payment/receipt/earnings works on both platforms. Lost connectivity shows pending state; a repeated callback cannot move money twice; rematching revokes old driver access. Staff handle exceptions through the separate dashboard but are not required to approve every normal request. Its critical browser flows and supported-client contract pass against the core API; staff UI outage does not stop automated rides. Essential internal support must be ready before the real-user pilot, not deferred with B2B.
 
 ## M5: Consumer pilot readiness
 
@@ -75,7 +75,7 @@ Exit: customer acceptance, cross-organization isolation, safe funding, contract 
 ## First implementation PRs
 
 1. Workspace/tooling and executable docs/static CI.
-2. Core API/ops/mobile shells and synthetic database setup.
+2. Core API/mobile shells and synthetic database setup.
 3. Auth provider proof and platform ownership/permissions.
 4. Driver availability/background tracking and timed-offer feasibility report.
 5. Quotes/payment sandbox, match/offer schema and transaction tests.

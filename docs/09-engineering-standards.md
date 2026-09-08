@@ -2,7 +2,7 @@
 
 These standards apply when implementation begins. Prefer explicit, testable modules over maximum abstraction. Modularity means a change has a clear owner and limited consequences, not that every function needs an interface and separate package.
 
-The core consumer product lives in `Rove_Mobile`; the optional institution dashboard is a separate repository using versioned contracts. Core matching, trips, payments, permissions and database migrations have one owner here. Internal Rove staff tooling is separate from institution customer tooling. Consumer use cases must run with the B2B module disabled and without fabricated organization records.
+The core consumer product lives in `Rove_Mobile`; the optional institution dashboard is a separate repository using versioned contracts. Core matching, trips, payments, permissions and database migrations have one owner here. Internal Rove staff UI lives in its own third product repository, separate from both this repository and institution customer tooling. Staff policy, mutations and audit persistence stay in the shared backend here. Consumer use cases must run with the B2B module disabled and without fabricated organization records.
 
 ## TypeScript and boundaries
 
@@ -52,7 +52,7 @@ Group routine upgrades, review majors separately, and fix actionable security is
 
 Each behavior change includes the right test layer described in [testing](07-testing-strategy.md). Verify unhappy paths and authorization, not just the happy path. Prefer semantic assertions over implementation details; test fakes must preserve the provider boundary contract.
 
-Cross-repository reuse uses a pinned published schema/client version, never filesystem imports or copied business logic. Contract changes document supported mobile and B2B consumers. Do not require simultaneous releases to make an API change safe. Apply organization checks to institutional operations without accidentally applying them to unrelated personal rides.
+Cross-repository reuse uses a pinned published schema/client version, never filesystem imports or copied business logic. Contract changes document supported mobile, internal-dashboard and B2B consumers. Do not require simultaneous releases to make an API change safe. Apply organization checks to institutional operations without accidentally applying them to unrelated personal rides.
 
 PR descriptions state the problem, resulting behavior, validation and material limitations. Mention schema/API changes, privacy implications and migration/release ordering when relevant. Update architecture decisions when boundaries or providers change. Do not claim a test passed unless it was actually executed successfully.
 

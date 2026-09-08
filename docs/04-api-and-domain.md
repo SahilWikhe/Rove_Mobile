@@ -42,7 +42,7 @@ For example, an assignment conflict returns `{"error":{"code":"RIDE_VERSION_CONF
 | `GET /health/live` | Health probe | Process health only; safe response |
 | `GET /health/ready` | Controlled probe | Bounded database/schema readiness check |
 
-Avoid a universal `PATCH /rides/:id` that lets clients assign themselves, set fares, or overwrite state. Each use case owns an allowlist of writable fields. An admin proxy cannot bypass API authorization using a blanket service token.
+Avoid a universal `PATCH /rides/:id` that lets clients assign themselves, set fares, or overwrite state. Each use case owns an allowlist of writable fields. An admin proxy cannot bypass API authorization using a blanket service token. The separate internal-dashboard repository consumes versioned staff endpoints; authorization, operational mutations and audit writes remain here in the core API. Both dashboard clients pin released contracts; see [repository boundaries](15-repository-boundaries.md).
 
 Caregiver invitations/grants, schedules and return-ready endpoints above are optional extensions, implemented after the core loop. B2B endpoints use explicit organization scope such as `/v1/organizations/:id/ride-requests`, validate membership/program/payer, then call the same booking/matching use cases. They cannot supply a privileged fare or bypass driver acceptance. Version their contracts for the separate dashboard repository; see [B2B boundary](14-b2b-product-boundary.md).
 

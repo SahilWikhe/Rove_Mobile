@@ -12,11 +12,12 @@ An institution-facing dashboard is a separate optional B2B product. It may let e
 
 | Product | Repository | Owns |
 | --- | --- | --- |
-| Core Rove platform | `Rove_Mobile` | Rider and driver apps; identity mapping; matching; ride lifecycle; payments; shared API; core database/migrations; essential Rove staff tools |
+| Core Rove platform | `Rove_Mobile` | Rider and driver apps; identity mapping; matching; ride lifecycle; payments; shared API; core database/migrations; staff authorization and operational API use cases |
+| Internal Rove dashboard | Separate repository, name TBD | Staff UI for approvals, support, safety and finance; staff session/API proxy |
 | Institutional add-on | Separate repository, name TBD | Customer dashboard, organization-facing workflows, reports and a thin session/API proxy if needed |
 | Marketing website | Existing `Rove` repository | Public marketing website |
 
-Keep one authoritative backend for rides, driver availability, settlement and permissions. Splitting the B2B frontend into another repository is useful for independent ownership and releases; duplicating the ride engine or database would create conflicting truth. See [B2B boundary](14-b2b-product-boundary.md).
+Keep one authoritative backend for rides, driver availability, settlement and permissions. Splitting each dashboard into its own repository is useful for independent ownership and releases; duplicating the ride engine or database would create conflicting truth. See [B2B boundary](14-b2b-product-boundary.md).
 
 ## Actors
 
@@ -31,7 +32,7 @@ Keep one authoritative backend for rides, driver availability, settlement and pe
 | Institution administrator (add-on) | Manage members, budgets and organization roles | Cannot become Rove staff or browse consumer trips |
 | Caregiver/delegate (optional extension) | Help a rider under an explicit grant | Relationship-specific permissions, independent of organization membership |
 
-Rove internal operations are required to run a transport service. They are not the optional B2B dashboard. We may implement a minimal `apps/ops` staff console in this repository; it must remain available when the institutional product is disabled.
+Rove internal operations are required to run a transport service. They are not the optional B2B dashboard. Build a minimal staff console in the separate internal-dashboard repository. Its permissions, operational mutations and audit records remain in this repository’s backend. Internal tools must remain available when the institutional product is disabled. This is three product repos plus the website; see [repository boundaries](15-repository-boundaries.md).
 
 ## Initial consumer journey
 
@@ -46,7 +47,8 @@ There must be visible states for no driver found, declined/expired offers, quote
 
 ## MVP and later scope
 
-| Required for initial ride-hailing release | Optional follow-up | Institutional add-on |
+| Required for initial ride-hailing release | Optional follow-up | Internal Rove dashboard | Separate repository, name TBD | Staff UI for approvals, support, safety and finance; staff session/API proxy |
+| Institutional add-on |
 | --- | --- | --- |
 | Rider/driver authentication and profiles | Scheduled rides | Organization onboarding/roles |
 | Driver approval, online availability and vehicle capability | Recurring rides | Sponsor budgets and policy controls |

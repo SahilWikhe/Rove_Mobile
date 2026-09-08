@@ -76,3 +76,7 @@ Vercel plan suitability, Neon recovery/compliance features and paid provider agr
 The B2B dashboard has its own hosting/build costs and optional reporting/funding workloads. Give those quotas and backpressure so a large institutional batch does not degrade consumer matching. Dashboard downtime must not stop consumer rides or accepted sponsored trips, but core API downtime is shared: repository separation alone is not infrastructure isolation.
 
 Measure queue lag, database contention, connection use, tracking cost and deployment coupling. Optimize queries, indexes, retention and batching first. Extract tracking or a specialized optimization worker when sustained measurements or isolation requirements justify it. Keep Postgres as ride/financial source of truth. AWS or another host is an option at that point, not a mandatory migration at a particular arbitrary user count.
+
+## Internal dashboard operations
+
+The separate internal-dashboard repository has its own hosting, build, session and monitoring costs. Assign an owner for staff UI incidents and track the deployed client/API compatibility pair. Automated rides must not depend on its web server, but loss of support/safety tools needs an escalation procedure and a decision on pausing new bookings if safe support cannot be maintained. Staff mutations and durable audit records remain in the core API/database; UI rollback never rolls back core data. See [repository boundaries](15-repository-boundaries.md).

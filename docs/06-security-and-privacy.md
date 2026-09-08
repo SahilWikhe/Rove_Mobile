@@ -39,6 +39,8 @@ If RLS is added, use a non-owner/non-bypass runtime role and transaction-local t
 
 ## Sessions and administrator access
 
+The internal dashboard and institution dashboard each live in their own repository with separately scoped secrets and deployments. Neither receives core database or migration credentials. Both use the shared API, which enforces current actor permissions; repository separation and a successful dashboard login do not confer staff authority. Staff policy and audit persistence remain in `Rove_Mobile`.
+
 Use managed authentication, verified token issuer/audience/signature/expiry, key rotation handling and bounded clock skew. Never merely decode a JWT. Require MFA for privileged staff before pilot. Define account recovery and role changes with audit; disable inactive/compromised accounts centrally.
 
 For admin browser sessions, use secure, HttpOnly cookies with an appropriate SameSite policy. Protect cookie-authenticated mutations against CSRF and validate origins. Keep bearer tokens off URLs and logs. CORS uses an explicit environment-aware allowlist; CORS is not authorization and native clients are not secured by it.

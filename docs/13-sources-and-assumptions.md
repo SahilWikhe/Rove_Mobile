@@ -49,7 +49,7 @@ Some documentation endpoints returned fetch errors during review. Do not infer a
 ## Explicit planning assumptions
 
 - Core product: self-service consumer ride-hailing with automated driver matching; a small controlled market can limit rollout without replacing the on-demand flow.
-- Two product repositories: `Rove_Mobile` owns mobile/platform/internal ops; a separate not-yet-created repository owns optional institutional UI. Existing marketing repository remains separate.
+- Three product repositories: `Rove_Mobile` owns mobile/backend/database and operational API policy; separate not-yet-created repositories own internal staff UI and optional institutional UI. Their names are TBD. The existing marketing repository is the fourth repository overall. This supersedes the prior internal `apps/ops` placement.
 - Platform rider/driver identity, global market-scoped availability and trip ownership; institutions are optional associations, not mandatory account tenants.
 - Consumer rider app and separate driver app, both iOS and Android; caregiver, recurrence and care workflows are extensions.
 - A single transaction-capable backend/database is adequate until measurements show otherwise.
