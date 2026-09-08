@@ -73,3 +73,7 @@ Choose an available simulator name from `xcrun simctl list devices available`. E
 The first build generates the native project, installs CocoaPods/dependencies and compiles the native modules; subsequent launches reuse build caches. `apps/*/ios` and `apps/*/android` are generated Expo prebuild output, excluded from Git and JS source checks. Native configuration belongs in the committed app config/plugins; do not place permanent hand edits only in generated directories. Schema migrations remain separate from native builds.
 
 Simulator previews use synthetic identities/maps/funding and the disposable local database. Keep Metro and the API running while exploring. This setup does not test real GPS, lock-screen delivery, real OAuth accounts or Stripe payment authorization, and does not install the app on a physical phone.
+
+## Optional Neon integration testing
+
+Local development remains disposable and requires no cloud credentials. See [Neon staging](60-neon-staging.md) for explicit migration, restricted-role setup and backend smoke commands against the isolated synthetic cloud database. These commands do not switch the phone previews to Neon or deploy an API.

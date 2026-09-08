@@ -108,3 +108,7 @@ The opt-in hosted push worker now composes ride/offer fan-out with existing fina
 ## Notification device management
 
 Rider and driver accounts can list and turn off owned notification devices with explicit confirmation and server revision checks. Passive refresh respects revocation until explicit opt-in. All 397 workspace tests and both new browser flows pass; both iOS simulator flows passed against synthetic local registrations, with screenshots in [notification device management](59-push-notifications.md#account-device-management). This controls notifications only, not authentication sessions. Real provider/Android verification and retention cleanup remain unfinished.
+
+## Neon staging database — September 8, 2026
+
+Created an isolated schema-only `rove-staging` branch in the existing Rove Neon project and applied all 24 migrations through `0023_push_deliveries`. Added explicit migration, restricted application-role provisioning and synthetic backend smoke commands. Verified TLS, pooled role restrictions, booking retry, matching, full trip completion, synthetic capture/receipt, ownership rejection, cancellation/hold release and persisted reads. See [Neon staging](60-neon-staging.md) for configuration and limits. No production migrations, real provider calls, public API deployment or mobile endpoint changes are implied.

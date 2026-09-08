@@ -49,7 +49,7 @@ There are three product repositories, plus the existing website repository: four
 
 ## Repository boundary
 
-The initial Neon setup was performed in a separate local research directory named `Rove`. Its `.env.local`, `.neon`, installed packages, and credentials do not belong in this documentation commit. Provisioning a Neon project does not imply that this repository is connected or production-ready. See the [environment plan](docs/08-cicd-and-environments.md) before linking application environments.
+The initial Neon setup was performed in a separate local research directory named `Rove`. Its `.env.local`, `.neon`, installed packages, and credentials do not belong in this documentation commit. The product now has an isolated synthetic Neon staging branch with applied migrations and a verified backend smoke flow; see [Neon staging](docs/60-neon-staging.md). Local previews remain on disposable PostgreSQL, and this is not a deployed production backend. See the [environment plan](docs/08-cicd-and-environments.md) before linking application environments.
 
 The architecture documents include future components. The root `pnpm test`, `pnpm typecheck` and `pnpm docs:check` commands are implemented; production deployment is not yet configured.
 

@@ -18,7 +18,10 @@
     "tooling:test": "node --test scripts/*.test.mjs",
     "security:audit": "pnpm audit --audit-level=moderate",
     "build:mobile": "pnpm --filter @rove/rider build && pnpm --filter @rove/driver build",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "db:staging:migrate": "node --env-file=.env.neon.staging --import tsx packages/database/src/staging-migrate.ts",
+    "db:staging:role": "node --env-file=.env.neon.staging --import tsx packages/database/src/staging-role.ts",
+    "db:staging:smoke": "node --env-file=.env.neon.staging --import tsx apps/api/src/staging-smoke.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
