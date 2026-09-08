@@ -4,4 +4,5 @@ export interface TripMapProps {
   androidEnabled?: boolean;
   iosEnabled?: boolean;
   synthetic?: boolean;
+  driver?: { coordinate: { latitude: number; longitude: number }; sampledAt: string };
 }

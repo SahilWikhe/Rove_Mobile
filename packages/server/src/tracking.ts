@@ -77,7 +77,7 @@ export class TrackingService {
       // Recheck authorization after limiting: rotation/offline/revocation may race.
       // Lock order matches issue/availability: driver first, then tracking grant.
       const result = await client.query(
-        `SELECT d.id,u.disabled,d.online FROM drivers d JOIN users u ON u.id=d.id
+        `SELECT d.id,u.disabled,d.online,d.location_sampled_at FROM drivers d JOIN users u ON u.id=d.id
         JOIN driver_tracking_sessions s ON s.driver_id=d.id WHERE s.token_hash=$1 FOR UPDATE OF d`,
         [hash],
       );
@@ -92,14 +92,18 @@ export class TrackingService {
       if (!grant || grant.expires_at <= now) throw unauthorized();
       const sampledAt = new Date(sample.sampledAt);
       // Duplicate/out-of-order delivery is harmless and does not refresh matching eligibility.
-      if (grant.sampled_at && grant.sampled_at >= sampledAt) return { accepted: false };
+      if (
+        (grant.sampled_at && grant.sampled_at >= sampledAt) ||
+        (driver.location_sampled_at && driver.location_sampled_at >= sampledAt)
+      )
+        return { accepted: false };
       await client.query('UPDATE driver_tracking_sessions SET sampled_at=$2 WHERE driver_id=$1', [
         driver.id,
         sampledAt,
       ]);
       await client.query(
-        'UPDATE drivers SET location=$2,location_at=$3,location_sequence=location_sequence+1 WHERE id=$1',
-        [driver.id, JSON.stringify(sample.coordinate), now],
+        'UPDATE drivers SET location=$2,location_at=$3,location_sampled_at=$4,location_sequence=location_sequence+1 WHERE id=$1',
+        [driver.id, JSON.stringify(sample.coordinate), now, sampledAt],
       );
       return { accepted: true };
     });

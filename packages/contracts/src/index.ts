@@ -114,6 +114,22 @@ export const RideDetails = RideSummary.extend({
 export type Profile = z.infer<typeof Profile>;
 export type RideSummary = z.infer<typeof RideSummary>;
 export type RideDetails = z.infer<typeof RideDetails>;
+export const RideDriverLocation = z
+  .object({
+    rideId: z.uuid(),
+    location: z
+      .object({
+        coordinate: Coordinate,
+        sampledAt: z.iso.datetime(),
+        expiresAt: z.iso.datetime(),
+        validForMs: z.number().int().positive().max(60000),
+      })
+      .strict()
+      .nullable(),
+  })
+  .strict();
+export type RideDriverLocation = z.infer<typeof RideDriverLocation>;
+
 export const DriverProfile = z.object({
   approved: z.boolean(),
   online: z.boolean(),

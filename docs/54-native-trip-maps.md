@@ -2,7 +2,7 @@
 
 Rider ride details and driver accepted-trip details now share an endpoint map. It renders only when the authorized ride response contains both precise endpoints. The driver offer screen has no map import or exact endpoint markers; after the assignment ends, the driver's response omits those endpoints and the map is removed.
 
-The native implementation uses the Expo SDK's compatible `react-native-maps` version, 1.27.2. It shows labeled pickup/destination markers, retains the map provider's attribution and provides the existing textual route below. It does not request another location permission, draw a guessed route polyline, fabricate a driver marker or imply an ETA. Actual rider-visible driver tracking still requires an assignment-authorized read API and freshness handling.
+The native implementation uses the Expo SDK's compatible `react-native-maps` version, 1.27.2. It shows labeled pickup/destination markers, retains the map provider's attribution and provides the existing textual route below. It does not request another location permission, draw a guessed route polyline, fabricate a driver marker or imply an ETA. Rider-visible location now uses the assignment-authorized API and freshness handling described in [live driver location](55-live-driver-location.md).
 
 ## Providers and configuration
 
@@ -19,7 +19,7 @@ Without the required platform key, the map view is replaced with a clear configu
 
 ## Verification boundaries
 
-Type checking, native/web exports and the browser trip journey verify package boundaries and web fallback behavior. Simulator native compilation verifies linking of the added module. Physical Android/iOS checks, configured production Google Maps rendering, accessibility and gesture checks, offline map behavior, complete Figma tracking composition, route geometry and live location remain release work. A map with endpoint pins is not a completed navigation or tracking feature.
+Type checking, native/web exports and the browser trip journey verify package boundaries and web fallback behavior. Simulator native compilation verifies linking of the added module. Physical Android/iOS checks, configured production Google Maps rendering, accessibility and gesture checks, offline map behavior, complete Figma tracking composition, route geometry and physical-device live location remain release work. A map with endpoint pins is not a completed navigation or tracking feature.
 
 ## Local native smoke test
 

@@ -73,7 +73,7 @@ export class DriverService {
         if (!online && active.rowCount)
           throw new DomainError('ACTIVE_TRIP', 'Finish or resolve your active trip before going offline.');
         await client.query(
-          'UPDATE drivers SET online=$2,location=CASE WHEN $2 THEN $3::jsonb ELSE NULL END,location_at=CASE WHEN $2 THEN $4::timestamptz ELSE NULL END,location_sequence=location_sequence+1 WHERE id=$1',
+          'UPDATE drivers SET online=$2,location=CASE WHEN $2 THEN $3::jsonb ELSE NULL END,location_at=CASE WHEN $2 THEN $4::timestamptz ELSE NULL END,location_sampled_at=NULL,location_sequence=location_sequence+1 WHERE id=$1',
           [actor.id, online, JSON.stringify(coordinate ?? null), this.now()],
         );
         // Offline revokes background upload access even if a device retains its credential.
@@ -105,8 +105,8 @@ export class DriverService {
       throw new DomainError('INVALID_LOCATION_SAMPLE', 'A fresh, accurate location is required.', 422);
     }
     const updated = await this.pool.query(
-      'UPDATE drivers SET location=$2,location_at=$3,location_sequence=$4 WHERE id=$1 AND online=true AND location_sequence<$4 RETURNING id',
-      [actor.id, JSON.stringify(input.coordinate), this.now(), input.sequence],
+      'UPDATE drivers SET location=$2,location_at=$3,location_sequence=$4,location_sampled_at=$5 WHERE id=$1 AND online=true AND location_sequence<$4 AND (location_sampled_at IS NULL OR location_sampled_at<$5) RETURNING id',
+      [actor.id, JSON.stringify(input.coordinate), this.now(), input.sequence, new Date(input.sampledAt)],
     );
     if (!updated.rowCount)
       throw new DomainError('STALE_LOCATION_SAMPLE', 'Refresh your driver session before sending location.');

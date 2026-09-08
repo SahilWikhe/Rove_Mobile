@@ -1,0 +1,1 @@
+ALTER TABLE "drivers" ADD COLUMN "location_sampled_at" timestamp with time zone;

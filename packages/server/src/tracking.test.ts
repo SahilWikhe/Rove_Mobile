@@ -218,3 +218,25 @@ test('limiter storage failure stops location mutation with a safe unavailable er
     await database.pool.query('ALTER TABLE unavailable_buckets RENAME TO rate_limit_buckets');
   }
 });
+
+test('foreground and background updates preserve sample time and reject cross-channel regression', async () => {
+  const driverService = new DriverService(database.pool, () => now);
+  const earlier = new Date(now.getTime() - 10000).toISOString();
+  await driverService.heartbeat(actor, { ...sample(), sampledAt: earlier, sequence: 1 });
+  let stored = (await database.pool.query('SELECT location_at,location_sampled_at FROM drivers')).rows[0];
+  expect(stored.location_at.toISOString()).toBe(now.toISOString());
+  expect(stored.location_sampled_at.toISOString()).toBe(earlier);
+  const grant = await tracking.issue(actor);
+  expect(
+    await tracking.location(grant.token, {
+      ...sample(),
+      sampledAt: new Date(now.getTime() - 15000).toISOString(),
+    }),
+  ).toEqual({ accepted: false });
+  expect(await tracking.location(grant.token, sample())).toEqual({ accepted: true });
+  await expect(
+    driverService.heartbeat(actor, { ...sample(), sampledAt: earlier, sequence: 3 }),
+  ).rejects.toMatchObject({ code: 'STALE_LOCATION_SAMPLE' });
+  stored = (await database.pool.query('SELECT location_sampled_at FROM drivers')).rows[0];
+  expect(stored.location_sampled_at.toISOString()).toBe(now.toISOString());
+});

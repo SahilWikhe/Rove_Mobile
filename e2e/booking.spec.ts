@@ -89,6 +89,27 @@ test('rider request reaches the driver and both apps follow a completed syntheti
     await expect(driver.getByText('TRIP MAP', { exact: true })).toHaveCount(0);
     await driver.getByRole('button', { name: 'Accept ride', exact: true }).click();
     await expect(driver.getByText('TRIP MAP', { exact: true })).toBeVisible();
+    const locationUrl = 'http://localhost:4085/v1/rides/' + id + '/driver-location';
+    await expect
+      .poll(async () => {
+        const response = await request.get(locationUrl, {
+          headers: { Authorization: 'Bearer synthetic-rider' },
+        });
+        return (await response.json()).location !== null;
+      })
+      .toBe(true);
+    await page.bringToFront();
+    await expect(page.getByText(/Driver location last reported at/)).toBeVisible();
+    // A location read failure must remove the previously visible report.
+    await page.route(locationUrl, (route) => route.abort('failed'));
+    await expect(
+      page.getByText('Driver location is unavailable. Check your trip status or contact support.', {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(page.getByText(/Driver location last reported at/)).toHaveCount(0);
+    await page.unroute(locationUrl);
+    await driver.bringToFront();
     for (const action of ['Head to pickup', 'I’ve arrived', 'Start trip', 'Complete trip']) {
       await driver.getByRole('button', { name: action, exact: true }).click();
       await driver.getByRole('button', { name: 'Confirm: ' + action, exact: true }).click();
@@ -101,6 +122,9 @@ test('rider request reaches the driver and both apps follow a completed syntheti
       headers: { Authorization: 'Bearer synthetic-rider' },
     });
     expect((await saved.json()).state).toBe('completed');
+    const revoked = await request.get(locationUrl, { headers: { Authorization: 'Bearer synthetic-rider' } });
+    expect(revoked.status()).toBe(404);
+    await expect(page.getByText(/Driver location last reported at/)).toHaveCount(0);
     await expect
       .poll(async () => {
         const receipt = await request.get('http://localhost:4085/v1/rides/' + id + '/receipt', {

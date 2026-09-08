@@ -1,3 +1,4 @@
+import { getDriverLocation } from './driver-location-queries';
 import { getEarnings, getTripEarnings } from './earnings-queries';
 import { randomUUID } from 'node:crypto';
 import { Hono, type Context } from 'hono';
@@ -334,6 +335,9 @@ export function createApp(deps: Dependencies) {
   );
   app.get('/v1/drivers/me/earnings/:id', async (c) =>
     c.json(await getTripEarnings(deps.pool, c.var.actor, id(c.req.param('id')))),
+  );
+  app.get('/v1/rides/:id/driver-location', async (c) =>
+    c.json(await getDriverLocation(deps.pool, c.var.actor, id(c.req.param('id')))),
   );
   app.get('/v1/rides/:id/receipt', async (c) =>
     c.json(await getReceipt(deps.pool, c.var.actor, id(c.req.param('id')))),

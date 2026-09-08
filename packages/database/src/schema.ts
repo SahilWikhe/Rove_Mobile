@@ -50,6 +50,7 @@ export const drivers = pgTable('drivers', {
   locationSequence: integer().notNull().default(0),
   location: jsonb(),
   locationAt: timestamp({ withTimezone: true }),
+  locationSampledAt: timestamp({ withTimezone: true }),
   vehicle: jsonb(),
 });
 export const quotes = pgTable('quotes', {

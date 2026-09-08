@@ -14,6 +14,7 @@ import {
   ProfileNameUpdate,
   PaymentSession,
   RideReceipt,
+  RideDriverLocation,
   DriverEarnings,
   DriverTripEarnings,
   Profile,
@@ -184,6 +185,13 @@ export class ApiClient {
     return this.request(
       `/v1/drivers/me/earnings/${encodeURIComponent(rideId)}`,
       DriverTripEarnings,
+      signal ? { signal } : {},
+    );
+  }
+  driverLocation(rideId: string, signal?: AbortSignal) {
+    return this.request(
+      `/v1/rides/${encodeURIComponent(rideId)}/driver-location`,
+      RideDriverLocation,
       signal ? { signal } : {},
     );
   }

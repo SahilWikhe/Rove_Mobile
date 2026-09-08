@@ -2,7 +2,14 @@ import { Platform, StyleSheet, View } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Card, Copy } from './index';
 import type { TripMapProps } from './trip-map-types';
-export function TripMap({ pickup, destination, androidEnabled, iosEnabled, synthetic }: TripMapProps) {
+export function TripMap({
+  pickup,
+  destination,
+  androidEnabled,
+  iosEnabled,
+  synthetic,
+  driver,
+}: TripMapProps) {
   const applePreview = Platform.OS === 'ios' && !!synthetic;
   const configured = Platform.OS === 'ios' ? iosEnabled : androidEnabled;
   if (!applePreview && !configured)
@@ -34,10 +41,15 @@ export function TripMap({ pickup, destination, androidEnabled, iosEnabled, synth
       >
         <Marker coordinate={pickup} title="Pickup" pinColor="#D6B26D" />
         <Marker coordinate={destination} title="Destination" pinColor="#F4F0E8" />
+        {driver && (
+          <Marker coordinate={driver.coordinate} title="Driver last reported location" pinColor="#68B5FA" />
+        )}
       </MapView>
       <Copy kind="muted">
-        {synthetic ? 'Synthetic route endpoints. ' : ''}Pickup and destination only; live driver tracking is
-        not available yet.
+        {synthetic ? 'Synthetic route endpoints. ' : ''}
+        {driver
+          ? `Driver location last reported at ${new Date(driver.sampledAt).toLocaleTimeString()}.`
+          : 'Pickup and destination markers.'}
       </Copy>
     </View>
   );

@@ -1,4 +1,4 @@
-import { TripMap } from '@rove/mobile-ui/trip-map';
+import { RiderTripMap } from '../tracking/trip-map';
 import { ApiError } from '@rove/mobile-core';
 import { useOperations } from '@rove/mobile-core/use-operations';
 import { pollWhileForeground } from '@rove/mobile-core/foreground-polling';
@@ -106,16 +106,7 @@ export default function Ride() {
               ? 'Confirm your payment.'
               : titles[ride.state]}
           </Copy>
-          {ride.pickup && ride.destination && (
-            <TripMap
-              key={ride.id}
-              pickup={ride.pickup.coordinate}
-              destination={ride.destination.coordinate}
-              synthetic={synthetic}
-              androidEnabled={!!process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY}
-              iosEnabled={!!process.env.EXPO_PUBLIC_GOOGLE_MAPS_IOS_KEY}
-            />
-          )}
+          <RiderTripMap key={ride.id} ride={ride} />
           <RouteSummary
             pickup={ride.pickup?.label ?? ride.pickupArea}
             destination={ride.destination?.label ?? ride.destinationArea}

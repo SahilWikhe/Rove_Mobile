@@ -8,5 +8,5 @@ appId: ${APP_ID}
 - extendedWaitUntil:
     visible: ${EXPECTED_TITLE}
     timeout: 30000
-- assertVisible: '.*Pickup and destination only.*'
+- assertVisible: '.*(Pickup and destination markers|Driver location last reported).*'
 - takeScreenshot: native-trip-map
