@@ -27,6 +27,8 @@ Updated: September 7, 2026. This is an implementation ledger, not a production-r
 
 Executed checks: contracts 3 tests; database 4 tests; server 31 tests; API 9 tests; mobile client/tracking 9 tests; driver native lifecycle 7 tests (63 total). All eight workspace typechecks pass. Both current Expo apps export iOS, Android and web bundles. Local browser verification exercised rider search/quote/request, driver online/offer/acceptance, arrival/start/completion, rider payment-state update, cancellation and expired-offer handling. Exact details disappeared from the driver view after completion. This used synthetic providers and real local PostgreSQL; it is not native-device or real-provider verification.
 
+CI now has committed-source configuration for full-suite quality, tests, mobile exports, dependency/secret scanning, CodeQL and a fail-closed aggregate gate. Seven tooling regression tests supplement the 63 application tests. See [CI verification](21-ci-verification.md) for dependencies, scope and remaining native verification. GitHub execution is checked after pushing.
+
 ## Remaining implementation
 
 - Deployable API composition/environment parsing, production provider wiring, rate limiting and expanded authorization coverage.
@@ -36,7 +38,7 @@ Executed checks: contracts 3 tests; database 4 tests; server 31 tests; API 9 tes
 - Driver earnings/account/onboarding, remaining rider account/help/payment screens, native maps and physical-device background location verification.
 - Scheduling module behind default-off flags and provider integration.
 - Staff backend permissions and audited use cases; dashboard UI remains a separate repository.
-- CI, security checks, provider integration tests, API tests and native end-to-end verification.
+- Verify the new CI workflow on GitHub runners; extend provider integration/API tests and add native end-to-end verification.
 - Environment samples, operational setup and paid-provider/business-decision handoff.
 
 ## Known intermediate gaps

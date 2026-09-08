@@ -13,11 +13,7 @@
     "android": {
       "package": "co.roveride.rider"
     },
-    "plugins": [
-      "expo-router",
-      "expo-secure-store",
-      "expo-web-browser"
-    ],
+    "plugins": ["expo-router", "expo-secure-store", "expo-web-browser"],
     "web": {
       "bundler": "metro"
     }

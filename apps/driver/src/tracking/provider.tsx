@@ -19,8 +19,11 @@ export async function currentPosition(synthetic: boolean): Promise<LocationSampl
   const permission = await Location.getForegroundPermissionsAsync();
   if (permission.status !== 'granted') throw new Error('Location permission is required.');
   const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-  if (location.coords.accuracy === null || location.coords.accuracy > 100 ||
-      Date.now() - location.timestamp > 30_000) {
+  if (
+    location.coords.accuracy === null ||
+    location.coords.accuracy > 100 ||
+    Date.now() - location.timestamp > 30_000
+  ) {
     throw new Error('Waiting for an accurate location. Try again outside or near a window.');
   }
   return {
@@ -39,7 +42,9 @@ export function DriverTrackingProvider({ children }: PropsWithChildren) {
     setError(null);
     if (!ready) return;
     if (!driverId) {
-      void stopBackgroundTracking().catch(() => setError('Location tracking could not be stopped. Restart the app.'));
+      void stopBackgroundTracking().catch(() =>
+        setError('Location tracking could not be stopped. Restart the app.'),
+      );
       return;
     }
     if (!synthetic) {
@@ -48,11 +53,17 @@ export function DriverTrackingProvider({ children }: PropsWithChildren) {
       const update = () => {
         if (AppState.currentState !== 'active' || stopped || pending) return;
         pending = true;
-        void synchronizeBackgroundTracking(api, driverId).then(() => {
-          if (!stopped) setError(null);
-        }).catch(failure => {
-          if (!stopped) setError(failure instanceof Error ? failure.message : 'Location tracking is unavailable.');
-        }).finally(() => { pending = false; });
+        void synchronizeBackgroundTracking(api, driverId)
+          .then(() => {
+            if (!stopped) setError(null);
+          })
+          .catch((failure) => {
+            if (!stopped)
+              setError(failure instanceof Error ? failure.message : 'Location tracking is unavailable.');
+          })
+          .finally(() => {
+            pending = false;
+          });
       };
       update();
       const subscription = AppState.addEventListener('change', update);
@@ -65,7 +76,7 @@ export function DriverTrackingProvider({ children }: PropsWithChildren) {
       };
     }
     const tracking = new DriverTracking({
-      profile: signal => api.driverProfile(signal),
+      profile: (signal) => api.driverProfile(signal),
       position: () => currentPosition(synthetic),
       heartbeat: (sample, signal) => api.heartbeat(sample, signal),
       report: setError,

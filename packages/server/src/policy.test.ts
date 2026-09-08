@@ -18,21 +18,32 @@ describe('trip state and expiry', () => {
   });
   it('uses a strict server-clock deadline, including equality and malformed input', () => {
     const now = new Date('2026-09-07T12:00:00Z');
-    for (const value of ['bad', '2026-09-07T11:59:59Z', now.toISOString()]) expect(() => assertNotExpired(value, now)).toThrow();
+    for (const value of ['bad', '2026-09-07T11:59:59Z', now.toISOString()])
+      expect(() => assertNotExpired(value, now)).toThrow();
     assertNotExpired('2026-09-07T12:00:01Z', now);
   });
 });
 it('enforces all scheduling flag prerequisites', () => {
-  for (const scheduling of [false, true]) for (const weekly of [false, true]) for (const monthly of [false, true]) {
-    const result = capabilities({ scheduling, weekly, monthly }, new Date('2026-09-07T12:00:00Z'));
-    expect(result.scheduleWeekly).toBe(scheduling && weekly);
-    expect(result.scheduleMonthly).toBe(scheduling && monthly);
-    expect(Date.parse(result.expiresAt) - Date.parse(result.evaluatedAt)).toBe(60_000);
-  }
+  for (const scheduling of [false, true])
+    for (const weekly of [false, true])
+      for (const monthly of [false, true]) {
+        const result = capabilities({ scheduling, weekly, monthly }, new Date('2026-09-07T12:00:00Z'));
+        expect(result.scheduleWeekly).toBe(scheduling && weekly);
+        expect(result.scheduleMonthly).toBe(scheduling && monthly);
+        expect(Date.parse(result.expiresAt) - Date.parse(result.evaluatedAt)).toBe(60_000);
+      }
 });
 it('prices with minimums and independent driver compensation', () => {
-  expect(priceRoute(0, 0, developmentRates)).toEqual({ fare: 700, driverEarnings: 550, rateVersion: 'synthetic-v1' });
-  expect(priceRoute(5000, 720, developmentRates)).toEqual({ fare: 1050, driverEarnings: 790, rateVersion: 'synthetic-v1' });
+  expect(priceRoute(0, 0, developmentRates)).toEqual({
+    fare: 700,
+    driverEarnings: 550,
+    rateVersion: 'synthetic-v1',
+  });
+  expect(priceRoute(5000, 720, developmentRates)).toEqual({
+    fare: 1050,
+    driverEarnings: 790,
+    rateVersion: 'synthetic-v1',
+  });
   expect(() => priceRoute(-1, 60, developmentRates)).toThrow();
   expect(() => priceRoute(1000, 60, { ...developmentRates, baseCents: NaN })).toThrow();
 });

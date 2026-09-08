@@ -1,0 +1,34 @@
+# Continuous integration and dependency safety
+
+## Current pipeline
+
+`.github/workflows/ci.yml` runs on pull requests, pushes to main, merge queues, manual dispatch and a weekly schedule. All suites run for every change while this repository is small. This deliberately avoids path filters silently skipping shared-contract or workflow regressions.
+
+- `quality`: frozen dependency install, peer compatibility, formatting, ESLint/React hooks, package import boundaries, tooling regression tests, all workspace types, Markdown and migration snapshot drift.
+- `tests`: behavior and concurrency suites against disposable local PostgreSQL, without cloud credentials or production data.
+- `mobile`: Expo dependency alignment and rider/driver exports for iOS, Android and web.
+- `security`: moderate-or-higher dependency audit and a redacted full-history secret scan.
+- `codeql`: JavaScript/TypeScript and Actions security analysis. The local SARIF gate rejects security findings with severity at least 4 and error-level findings.
+- `ci-gate`: requires every preceding job to succeed. Missing, skipped, cancelled or failed jobs fail the gate.
+
+After the workflow has reported successfully, repository administrators can require `ci-gate` in the main-branch ruleset. Adding a workflow alone does not configure branch protection. The workflow does not deploy, migrate a cloud database, sign native apps or use provider credentials.
+
+## Toolchain and supply chain
+
+Node and pnpm versions are pinned. TypeScript 6.0.3 is intentionally used because the selected typescript-eslint parser supports versions below 6.1; adopting TypeScript 7 requires a compatible parser first. Actions are pinned to immutable commit SHAs. The Gitleaks installer verifies the release binary checksum before execution. Workflow tokens default to read-only contents; only CodeQL receives security-event upload permission.
+
+Scoped transitive overrides address these advisories without changing the Expo SDK:
+
+- `@esbuild-kit/core-utils > esbuild` 0.25.12: [GHSA-67mh-4wv8-2f99](https://github.com/advisories/GHSA-67mh-4wv8-2f99).
+- `xcode > uuid` 11.1.1: [GHSA-w5hq-g745-h8pq](https://github.com/advisories/GHSA-w5hq-g745-h8pq).
+- `query-string > decode-uri-component` 0.5.0: [GHSA-vcc3-ghjq-m6fr](https://github.com/advisories/GHSA-vcc3-ghjq-m6fr).
+
+The committed pnpm patch makes query-string 7 consume the decoder's ESM default export. Regression tests cover normal Unicode, malformed inputs with a subprocess timeout, and the Xcode UUID API. Remove overrides and the patch when upstream dependencies incorporate compatible fixes; do not remove them solely to quiet install output.
+
+Dependabot groups routine minor/patch JavaScript updates and Actions updates weekly, with small open-PR limits. Native framework and TypeScript major/minor upgrades require coordinated review. Security updates are not disabled and no automatic merge is configured.
+
+## Evidence and limits
+
+Local verification covers 63 application tests plus seven tooling tests, all workspace types, lint, import boundaries, Expo dependency checks and both apps' platform exports. An export compiles JavaScript/Hermes assets; it does not prove native compilation, permissions, background execution or store acceptance. Real-device and provider integration tests remain required before launch. A clean vulnerability scan means no known findings in that scan, not a guarantee against attacks.
+
+GitHub runner execution must also be inspected after each pipeline change. Native end-to-end testing and production-provider smoke tests remain separate unfinished delivery work; see [implementation status](18-implementation-status.md).

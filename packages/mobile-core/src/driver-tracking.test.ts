@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import { DriverTracking } from './driver-tracking';
 
-const sample = { coordinate: { latitude: 35.78, longitude: -78.64 }, sampledAt: '2026-09-07T12:00:00.000Z', accuracyMeters: 5 };
+const sample = {
+  coordinate: { latitude: 35.78, longitude: -78.64 },
+  sampledAt: '2026-09-07T12:00:00.000Z',
+  accuracyMeters: 5,
+};
 function setup() {
   const dependencies = {
     profile: vi.fn(async (_signal: AbortSignal) => ({ online: true, locationSequence: 42 })),
@@ -26,7 +30,12 @@ describe('app-owned driver tracking', () => {
   it('does not send a late GPS sample after backgrounding or sign-out', async () => {
     const t = setup();
     let resolve!: (value: typeof sample) => void;
-    t.position.mockImplementationOnce(() => new Promise(done => { resolve = done; }));
+    t.position.mockImplementationOnce(
+      () =>
+        new Promise((done) => {
+          resolve = done;
+        }),
+    );
     const pending = t.tracking.tick();
     await vi.waitFor(() => expect(t.position).toHaveBeenCalledOnce());
     t.tracking.setActive(false);
@@ -40,7 +49,12 @@ describe('app-owned driver tracking', () => {
   it('aborts pending requests and prevents overlapping update cycles', async () => {
     const t = setup();
     let resolve!: (value: { online: boolean; locationSequence: number }) => void;
-    t.profile.mockImplementationOnce(() => new Promise(done => { resolve = done; }));
+    t.profile.mockImplementationOnce(
+      () =>
+        new Promise((done) => {
+          resolve = done;
+        }),
+    );
     const pending = t.tracking.tick();
     await t.tracking.tick();
     expect(t.profile).toHaveBeenCalledOnce();

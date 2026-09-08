@@ -10,14 +10,27 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "dev:api": "pnpm --filter @rove/api dev",
-    "docs:check": "markdownlint-cli2 'docs/**/*.md' '*.md'"
+    "docs:check": "markdownlint-cli2 'docs/**/*.md' '*.md'",
+    "lint": "eslint . --max-warnings=0",
+    "format": "prettier --write \"**/*.{ts,tsx,mjs,json,yaml,yml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,mjs,json,yaml,yml}\"",
+    "boundaries:check": "node scripts/boundaries.mjs",
+    "tooling:test": "node --test scripts/*.test.mjs",
+    "security:audit": "pnpm audit --audit-level=moderate",
+    "build:mobile": "pnpm --filter @rove/rider build && pnpm --filter @rove/driver build"
   },
   "devDependencies": {
+    "@eslint/js": "10.0.1",
     "@types/node": "24.13.3",
+    "eslint": "10.10.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.12.0",
     "markdownlint-cli2": "0.23.2",
+    "prettier": "3.9.6",
     "tsx": "4.23.13",
     "turbo": "2.10.12",
-    "typescript": "7.0.2",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.70.0",
     "vitest": "5.0.0"
   }
 }

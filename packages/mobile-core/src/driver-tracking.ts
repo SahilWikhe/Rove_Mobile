@@ -48,10 +48,16 @@ export class DriverTracking {
       }
       const sample = await this.dependencies.position();
       if (!current()) return;
-      await this.dependencies.heartbeat({ ...sample, sequence: profile.locationSequence + 1 }, request.signal);
+      await this.dependencies.heartbeat(
+        { ...sample, sequence: profile.locationSequence + 1 },
+        request.signal,
+      );
       if (current()) this.dependencies.report(null);
     } catch {
-      if (current()) this.dependencies.report('Location could not be updated. Check your connection and location permission.');
+      if (current())
+        this.dependencies.report(
+          'Location could not be updated. Check your connection and location permission.',
+        );
     } finally {
       if (this.request === request) this.request = null;
       this.running = false;
