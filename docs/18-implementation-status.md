@@ -2,6 +2,29 @@
 
 Updated: September 8, 2026. This is an implementation ledger, not a production-readiness claim.
 
+## Current checkpoint — staging infrastructure
+
+This section is the current summary; dated entries below are historical implementation evidence, not a list of work still missing today.
+
+- **Product:** rider and driver apps plus shared backend are implemented in part. Synthetic local journeys work; this is not a launch-ready service. Both apps still use the local preview backend.
+- **Database:** isolated Neon `rove-staging` exists with all 24 migrations and a restricted runtime role. The synthetic backend smoke passed over verified TLS. Production data/schema were not changed. See [Neon setup](60-neon-staging.md).
+- **Vercel:** direct API access to `team-7536` was verified. Created `rove-api-staging` (`prj_rLOcpNrXI7eftPgzzRebQbgfCkMC`) and independently read back all intended build settings. Confirmed zero deployments, no Git connection and no environment variables. The marketing project remains separate.
+- **Configuration:** an ignored local partial staging environment file is prepared. It is not complete deployable configuration and contains no database URL or real auth/maps/payment API credentials.
+- **Current scope:** prepare `rove-api-staging` under that team. No deployment or paid-plan upgrade at this checkpoint. Broad mobile feature work remains paused while staging infrastructure is prepared.
+- **Verification baseline:** the prior notification checkpoint passed 397 workspace tests. The later Neon change passed seven database tests, relevant typechecks/lint/docs/boundary/build checks and the Neon smoke. The entire workspace suite was not rerun for that later checkpoint.
+
+Checkpoint verification: project settings readback and empty deployment/environment lists passed. Documentation lint and `git diff --check` passed for this documentation-only repository change; application tests were not rerun because runtime code did not change.
+
+### Next steps in order
+
+1. Completed: create and verify the undeployed Vercel staging project with backend monorepo settings. Keep automatic Git deployment disconnected until configuration is complete.
+2. Prepare a clean database branch for real provider integration; do not point live Stripe sandbox workers at retained synthetic payment/outbox artifacts.
+3. Complete managed OIDC, Google Maps and Stripe sandbox configuration, then configure scoped environment variables and webhook destinations. Never use placeholder secrets to claim readiness.
+4. When authorized and the required hosting plan is available, deploy staging, verify HTTP/auth/database/queue/recovery/webhook flows, then point test mobile builds at it.
+5. Resume mobile implementation and Figma alignment, native iOS/Android journeys, onboarding and remaining payment/operational work. Keep scheduling and unverified optional integrations disabled.
+
+The configured once-per-minute recovery cron requires a hosting plan that supports that schedule. The user intends to upgrade later. Creating a project does not resolve provider configuration or verify a deployment. See [Vercel staging preparation](61-vercel-staging.md).
+
 ## Verified foundation
 
 - pnpm workspace with shared contracts, server domain, database and API package boundaries.

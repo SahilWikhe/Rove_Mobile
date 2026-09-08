@@ -22,6 +22,10 @@ Current scope: Rove is consumer ride-hailing with automatic matching, online dri
 - Consumer signup/booking/matching/payment must work without organization membership or a B2B deployment. Keep institution access scoped to explicitly associated rides, never a member's full personal history.
 - Share versioned API contracts across product repositories; do not share database credentials, duplicate ride/payment mutations or create cross-repository filesystem imports.
 
+## Status updates before commits and pushes
+
+For every commit or push, update `docs/18-implementation-status.md` with the current checkpoint, work completed, verification actually executed, outstanding blockers and the next concrete step. Update affected setup/runbook documents in the same commit. Distinguish local implementation, cloud resource creation and verified deployment; never imply one proves another. Record push confirmation in the user-facing result after verifying the remote commit; do not claim a pending push succeeded in committed documentation.
+
 ## Completion evidence
 
 Describe the outcome, affected behavior, executed verification and material limitations. Link the commit/PR or artifact when created. An architecture document is not proof of deployed security or production readiness.
