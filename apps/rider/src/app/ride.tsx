@@ -126,6 +126,28 @@ export default function Ride() {
               onPress={() => router.push({ pathname: '/receipt', params: { id: ride.id } })}
             />
           )}
+          {ride.state === 'no_driver_found' && (
+            <Card>
+              <Copy>
+                No driver was matched to this request. You can review the route and try a new search.
+              </Copy>
+              <Copy kind="muted">
+                Any payment hold is handled separately. Your bank may take time to show a released hold.
+              </Copy>
+              <Button
+                title="Try a new search"
+                disabled={!!pending || restoring || !!recoveryError}
+                onPress={() => router.push({ pathname: '/book', params: { fromRide: ride.id } })}
+              />
+              <Button
+                title="Change route"
+                variant="secondary"
+                disabled={!!pending || restoring || !!recoveryError}
+                onPress={() => router.push('/book')}
+              />
+              <Button title="Back home" variant="secondary" onPress={() => router.replace('/')} />
+            </Card>
+          )}
           {!synthetic &&
             ride.state === 'searching' &&
             ['pending', 'action_required'].includes(ride.paymentState) && (

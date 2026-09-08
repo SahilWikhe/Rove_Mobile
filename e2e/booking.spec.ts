@@ -187,3 +187,37 @@ async function cancelWithReconfirmation(page: Page) {
   }
   await expect(cancelled).toBeVisible();
 }
+
+test('an unmatched search expires and retry requires a fresh quote and confirmation', async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(260000);
+  await routeAndQuote(page);
+  await page.getByRole('button', { name: 'Request ride', exact: true }).click();
+  await expect(page.getByText('Finding your ride.', { exact: true })).toBeVisible();
+  const previousId = new URL(page.url()).searchParams.get('id');
+  await expect(page.getByText('No drivers available right now.', { exact: true })).toBeVisible({
+    timeout: 210000,
+  });
+  const headers = { Authorization: 'Bearer synthetic-rider' };
+  const previous = await request.get('http://localhost:4085/v1/rides/' + previousId, { headers });
+  expect((await previous.json()).state).toBe('no_driver_found');
+  let bookingPosts = 0;
+  page.on('request', (sent) => {
+    if (sent.method() === 'POST' && sent.url().endsWith('/v1/ride-requests')) bookingPosts++;
+  });
+  await page.getByRole('button', { name: 'Try a new search', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Change pickup', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Change destination', exact: true })).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'Standard', exact: true })).toBeChecked();
+  expect(bookingPosts).toBe(0);
+  await page.getByRole('button', { name: 'See your fare', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Request ride', exact: true })).toBeVisible();
+  expect(bookingPosts).toBe(0);
+  await page.getByRole('button', { name: 'Request ride', exact: true }).click();
+  await expect(page.getByText('Finding your ride.', { exact: true })).toBeVisible();
+  expect(new URL(page.url()).searchParams.get('id')).not.toBe(previousId);
+  expect(bookingPosts).toBe(1);
+  await cancelWithReconfirmation(page);
+});

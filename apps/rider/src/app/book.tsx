@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createLatestRequest } from '@rove/mobile-core/latest-request';
 import { useOperations } from '@rove/mobile-core/use-operations';
-import { router, Stack } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { SavedPlaceControls } from '../booking/saved-places';
 import { QuoteConfirmation } from '../booking/quote-confirmation';
 import { ServicePicker } from '../booking/service-picker';
@@ -10,9 +10,10 @@ import { useSession } from '@rove/mobile-core/session';
 import { Banner, Button, Card, Copy, Field, Screen } from '@rove/mobile-ui';
 export default function Book() {
   const { profile } = useSession();
-  return <BookingForm key={profile?.id ?? 'signed-out'} />;
+  const { fromRide } = useLocalSearchParams<{ fromRide?: string }>();
+  return <BookingForm key={`${profile?.id ?? 'signed-out'}:${fromRide ?? 'new'}`} fromRide={fromRide} />;
 }
-function BookingForm() {
+function BookingForm({ fromRide }: { fromRide?: string }) {
   const { api, profile, synthetic } = useSession();
   const { pending, restoring, recoveryError, execute } = useOperations();
   const [service, setService] = useState<Quote['service']>('standard');
@@ -36,6 +37,39 @@ function BookingForm() {
   const [quote, setQuote] = useState<Quote | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [copyingRoute, setCopyingRoute] = useState(!!fromRide);
+  const profileId = profile?.id;
+  useEffect(() => {
+    if (!fromRide || !profileId) return;
+    const controller = new AbortController();
+    let current = true;
+    void api
+      .ride(fromRide, controller.signal)
+      .then((previous) => {
+        if (!current) return;
+        if (
+          !['no_driver_found', 'cancelled', 'completed'].includes(previous.state) ||
+          !previous.pickup ||
+          !previous.destination
+        ) {
+          throw new Error('This trip cannot be used for a new search. Check your current ride.');
+        }
+        setPickup(previous.pickup);
+        setDestination(previous.destination);
+        setTarget('destination');
+      })
+      .catch((failure: unknown) => {
+        if (current)
+          setError(failure instanceof Error ? failure.message : 'Previous route could not be loaded.');
+      })
+      .finally(() => {
+        if (current) setCopyingRoute(false);
+      });
+    return () => {
+      current = false;
+      controller.abort();
+    };
+  }, [api, fromRide, profileId]);
   async function submit(quoteId: string) {
     const ride = await execute({ kind: 'book', quoteId });
     if (!mounted.current) return;
@@ -127,10 +161,19 @@ function BookingForm() {
         )}
       </Screen>
     );
+  if (copyingRoute)
+    return (
+      <Screen>
+        <Copy>Loading your previous route…</Copy>
+      </Screen>
+    );
   return (
     <Screen contentStyle={quote ? { paddingHorizontal: 20, paddingTop: 22, gap: 16 } : undefined}>
       <Stack.Screen options={{ title: 'Book a ride', headerShown: !quote }} />
       {!quote && <Copy kind="title">Your route.</Copy>}
+      {fromRide && !quote && (
+        <Banner message="Review your route and choose your ride type. You’ll see a new fare before requesting another ride." />
+      )}
       {error && <Banner error message={error} />}
       {quote ? (
         <QuoteConfirmation
