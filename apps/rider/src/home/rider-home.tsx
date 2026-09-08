@@ -1,3 +1,4 @@
+import { SavedShortcuts } from './saved-shortcuts';
 import { useCallback, useState } from 'react';
 import { Image, Platform, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
@@ -101,6 +102,7 @@ export function RiderHome({ name }: { name: string }) {
         <Image source={assets.search} style={{ width: 19, height: 19 }} accessible={false} />
         <Copy style={styles.searchText}>Where are you going?</Copy>
       </Pressable>
+      <SavedShortcuts />
       {synthetic && <Copy style={styles.testLabel}>TEST MODE · NO REAL RIDES OR PAYMENTS</Copy>}
       <Copy style={styles.sectionTitle}>The latest for you</Copy>
       {error && <Banner error message={error} />}

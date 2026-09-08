@@ -1,0 +1,18 @@
+# Requires a signed-in synthetic rider, local API/Metro and saved synthetic Work slot.
+appId: co.roveride.rider
+---
+- openLink: rove-rider://
+- tapOn:
+    text: Open
+    optional: true
+- extendedWaitUntil:
+    visible: Go to Work
+    timeout: 30000
+- takeScreenshot: native-home-saved-shortcuts
+- tapOn: Go to Work
+- extendedWaitUntil:
+    visible: Work · synthetic destination
+    timeout: 30000
+- assertVisible: Pickup address
+- assertNotVisible: Request ride
+- takeScreenshot: native-saved-destination

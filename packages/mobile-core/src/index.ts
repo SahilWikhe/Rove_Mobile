@@ -62,8 +62,8 @@ export class ApiClient {
       body: VehicleSubmissionUpdate.parse({ vehicle, expectedRevision }),
     });
   }
-  savedPlaces() {
-    return this.request('/v1/saved-places', SavedPlaces);
+  savedPlaces(signal?: AbortSignal) {
+    return this.request('/v1/saved-places', SavedPlaces, { ...(signal ? { signal } : {}) });
   }
   savedPlace(kind: SavedPlaceKind, signal?: AbortSignal) {
     return this.request(`/v1/saved-places/${SavedPlaceKind.parse(kind)}`, Place, {

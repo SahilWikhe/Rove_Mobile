@@ -5,15 +5,22 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { SavedPlaceControls } from '../booking/saved-places';
 import { QuoteConfirmation } from '../booking/quote-confirmation';
 import { ServicePicker } from '../booking/service-picker';
-import type { Place, Quote } from '@rove/contracts';
+import type { Place, Quote, SavedPlaceKind } from '@rove/contracts';
 import { useSession } from '@rove/mobile-core/session';
 import { Banner, Button, Card, Copy, Field, Screen } from '@rove/mobile-ui';
 export default function Book() {
   const { profile } = useSession();
-  const { fromRide } = useLocalSearchParams<{ fromRide?: string }>();
-  return <BookingForm key={`${profile?.id ?? 'signed-out'}:${fromRide ?? 'new'}`} fromRide={fromRide} />;
+  const { fromRide, savedKind } = useLocalSearchParams<{ fromRide?: string; savedKind?: string }>();
+  const saved = savedKind === 'home' || savedKind === 'work' ? savedKind : undefined;
+  return (
+    <BookingForm
+      key={`${profile?.id ?? 'signed-out'}:${fromRide ?? 'new'}:${saved ?? ''}`}
+      fromRide={fromRide}
+      savedKind={saved}
+    />
+  );
 }
-function BookingForm({ fromRide }: { fromRide?: string }) {
+function BookingForm({ fromRide, savedKind }: { fromRide?: string; savedKind?: SavedPlaceKind }) {
   const { api, profile, synthetic } = useSession();
   const { pending, restoring, recoveryError, execute } = useOperations();
   const [service, setService] = useState<Quote['service']>('standard');
@@ -37,7 +44,7 @@ function BookingForm({ fromRide }: { fromRide?: string }) {
   const [quote, setQuote] = useState<Quote | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [copyingRoute, setCopyingRoute] = useState(!!fromRide);
+  const [copyingRoute, setCopyingRoute] = useState(!!fromRide || !!savedKind);
   const profileId = profile?.id;
   useEffect(() => {
     if (!fromRide || !profileId) return;
@@ -70,6 +77,32 @@ function BookingForm({ fromRide }: { fromRide?: string }) {
       controller.abort();
     };
   }, [api, fromRide, profileId]);
+  useEffect(() => {
+    if (fromRide || !savedKind || !profileId) return;
+    const controller = new AbortController();
+    let current = true;
+    void api
+      .savedPlace(savedKind, controller.signal)
+      .then((place) => {
+        if (current) {
+          setDestination(place);
+          setTarget('pickup');
+        }
+      })
+      .catch(() => {
+        if (current)
+          setError(
+            'Your saved destination could not be loaded. Search for it again or manage Home & Work below.',
+          );
+      })
+      .finally(() => {
+        if (current) setCopyingRoute(false);
+      });
+    return () => {
+      current = false;
+      controller.abort();
+    };
+  }, [api, fromRide, savedKind, profileId]);
   async function submit(quoteId: string) {
     const ride = await execute({ kind: 'book', quoteId });
     if (!mounted.current) return;
@@ -164,7 +197,9 @@ function BookingForm({ fromRide }: { fromRide?: string }) {
   if (copyingRoute)
     return (
       <Screen>
-        <Copy>Loading your previous route…</Copy>
+        <Copy>
+          {savedKind && !fromRide ? 'Loading your saved destination…' : 'Loading your previous route…'}
+        </Copy>
       </Screen>
     );
   return (

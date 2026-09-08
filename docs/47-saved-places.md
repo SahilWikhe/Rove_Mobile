@@ -1,6 +1,6 @@
 # Saved places
 
-Backend, mobile client and booking controls implemented September 8, 2026. Native-device verification and Home-screen shortcuts remain pending.
+Backend, mobile client, booking controls and Home-screen shortcuts implemented September 8, 2026. The shortcut flow is verified in a synthetic browser and iOS simulator; full native management and real-provider verification remain pending.
 
 ## Storage and API
 
@@ -35,6 +35,12 @@ Saved-place resolution runs through the route editor's existing latest-request g
 
 The running synthetic browser completed save Home, use Home as pickup, save Work, replace/remove Home, use Work as destination and request a fresh quote. The API confirmed the replacement IDs. No ride or payment was requested. The shared test suites, type checks and rider platform exports were rerun.
 
-## Next integration
+## Home integration
 
-Add compact Home-screen shortcuts and refine management presentation using the existing Figma theme. Selection must resolve current details, then let the rider review the route and obtain a fresh quote. Handle loading, empty slots, conflicts, deleted slots, provider failures and account changes. Verify the complete save/use/replace/delete flow on iOS and Android before marking this feature complete.
+Compact Home and Work cards sit below the Home search field using existing charcoal surfaces, gold labels and Manrope typography. The account-keyed Home loads only owned slot kinds/IDs, refreshes on foreground/focus and clears slot state on failure. An unresolved list disables the shortcuts without blocking ordinary destination search. Empty slots lead to booking where the existing Home & Work panel can save a selected place.
+
+A saved shortcut passes only `home` or `work` to booking, never address data or a fare. Account-and-route-keyed booking resolves the current owned slot, fills the destination and asks for pickup. Edits remain available after loading. Missing/deleted slots and provider errors leave the destination empty with search/management guidance. Obsolete reads cannot update a remounted account/route. Invalid slot parameters are ignored, and an explicit previous-ride route takes precedence over a simultaneous slot parameter. No shortcut requests a quote, books or charges automatically.
+
+Verification: the added browser journey covers owned Work selection, pickup entry, fresh quote review without booking, deletion behind an already-rendered shortcut, error recovery and empty-slot refresh. Shared mobile-core tests pass (64), including saved-list cancellation propagation. Rider iOS/Android/web exports, workspace types/lint and import boundaries pass.
+
+The reusable `native-smoke/saved-shortcuts.yaml` passed on the iPhone 17 Pro iOS 26.5 simulator with synthetic data: Home shortcut → resolved Work destination → pickup entry, with no Request ride action yet. The [Home screenshot](screenshots/rider-home-saved-shortcuts.png) and [destination screenshot](screenshots/rider-saved-destination.png) were visually inspected. No real ride/payment or production migration occurred. Android interaction, full native save/replace/delete management, physical devices and real-provider resolution remain release checks.

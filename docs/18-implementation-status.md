@@ -67,7 +67,7 @@ The quote confirmation now follows the supplied Figma route-card, typography and
 
 Temporary auth refresh failures now preserve saved sessions while preventing expired-token API requests; see [auth refresh recovery](46-auth-refresh-recovery.md).
 
-An owned Home/Work saved-place API, migration, mobile client and booking controls are implemented; Home-screen shortcuts, native verification and hosted-environment migration remain pending. See [saved places](47-saved-places.md).
+An owned Home/Work saved-place API, migration, mobile client, booking controls and Home shortcuts are implemented; the shortcut flow passes browser and iOS simulator checks. Full native management, Android interaction and hosted-environment migration remain pending. See [saved places](47-saved-places.md).
 
 A driver-owned vehicle-submission API and client now separate pending vehicle details from effective approval; a driver vehicle form and staff review API are implemented, while document upload and full eligibility activation remain pending. See [vehicle submissions](48-driver-vehicle-submission.md).
 

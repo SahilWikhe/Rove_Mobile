@@ -185,6 +185,18 @@ test('saved place resolution forwards the route editor cancellation signal', asy
   expect(transport).toHaveBeenCalledOnce();
 });
 
+test('Home saved slots forwards cancellation to its authenticated request', async () => {
+  const controller = new AbortController();
+  const transport = vi.fn<Transport>(async (_url, options) => {
+    controller.abort();
+    expect(options.signal?.aborted).toBe(true);
+    return new Response(JSON.stringify({ places: [] }));
+  });
+  const api = new ApiClient('https://api.example', async () => 'fixture', transport);
+  expect(await api.savedPlaces(controller.signal)).toEqual({ places: [] });
+  expect(transport.mock.calls[0]?.[0]).toBe('https://api.example/v1/saved-places');
+});
+
 test('support requests validate input and keep the caller retry key', async () => {
   const input = { category: 'account' as const, message: 'Synthetic support question' };
   const saved = {
