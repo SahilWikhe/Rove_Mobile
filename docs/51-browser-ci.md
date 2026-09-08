@@ -17,10 +17,20 @@ The synthetic API recognizes `ROVE_E2E=1` only in its local entrypoint, which al
 
 Both app tests navigate through sign-in and Account to Help & support, load an empty history, verify a short/empty request cannot be submitted, save a synthetic request, navigate away and back, and resubmit identical content. A real authenticated API read then proves only one open request exists for that app's account. No API response mocks are used.
 
-These tests run at 390×844 using the shared web implementation. They do not prove native iOS/Android behavior, physical-device location, provider sign-in, Stripe payments, push delivery or the complete ride lifecycle. Existing unit/API/database tests and native export checks remain separate requirements. Extend this suite with booking, driver acceptance and trip recovery flows; do not treat two support journeys as full product acceptance.
+These tests run at 390×844 using the shared web implementation. They do not prove native iOS/Android behavior, physical-device location, provider sign-in, Stripe payments or push delivery. Existing unit/API/database tests and native export checks remain separate requirements. The booking cases below extend coverage; this suite is still not full product acceptance.
 
 Playwright retains local failure traces/screenshots in ignored test output directories. Only synthetic data belongs in this suite. The test/config files are included in the root typecheck; CI gate regression tests include the browser job automatically. Linux CI installs Chromium system dependencies before running tests. Workflow logs report test failures; no automatic upload of traces or credentials is configured.
 
 The runner uses Playwright's [managed web-server lifecycle](https://playwright.dev/docs/test-webserver). The first local run found a database shutdown race; after adding explicit teardown, both journeys passed with clean database shutdown.
 
 The preceding queue commit's secret scan flagged ordinary documentation prose. The wording was changed and an exact historical fingerprint was recorded in `.gitleaksignore`; no path or detection rule was disabled. The full-history scanner was rerun after this correction.
+
+## Booking and trip coverage
+
+The suite also exercises:
+
+- Manual pickup/destination search, Standard selection and quote review, followed by a rider request. Cancelling first exposes a confirmation; keeping the ride preserves it, and confirming cancellation persists the cancelled state.
+- Two separate app sessions: the driver goes online, the rider requests, the driver receives an offer, accepts, confirms heading to pickup/arrival/start/completion, and the rider sees the completed trip. Before acceptance the UI must not show the exact pickup or rider name. The driver goes offline after completion.
+- A lost booking response: Playwright forwards the POST to the real API, waits for its successful commit, then aborts delivery to the browser. The rider's recovery UI checks the original request. API history proves that exactly one new ride exists and its ID matches the original commit. The test then cancels it.
+
+All five journeys run serially against fresh synthetic data without automatic retries. The only injected network failure is the deliberate lost-response case; it does not replace the backend's booking logic. Polling and normal UI confirmation controls drive trip progress. Payment authorization/completion in this local environment remain simulated by the synthetic worker; no Stripe capture or ledger-backed receipt is proven by these browser tests.
