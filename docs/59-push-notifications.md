@@ -76,6 +76,16 @@ Session-generation checks prevent late responses navigating after credentials ch
 
 Six controller regression tests cover both roles, duplicate and malicious payloads, missing/expired offers, denied or mismatched resources, signed-out behavior, account changes, superseding reads and unmount cancellation. All 365 workspace tests, typechecks, lint and import-boundary checks pass. Both apps export iOS, Android and web bundles, and their notification-settings iOS simulator smoke flows pass after listener integration. Native OS notification delivery/tapping and Android interaction still require device verification; controller tests alone do not establish that coverage.
 
+## Delivery recipient authorization
+
+`PushAudience` provides the database-backed recipient resolver for the pending delivery worker. It reloads the original outbox event rather than accepting a recipient or message from job input. Known ride events select the current rider and assigned driver; offer events must match the persisted offer ID, ride and driver. Staff accounts and unrelated riders are excluded. Tokens are resolved only for enabled accounts, the role's configured EAS project and the current enabled installation revision.
+
+A queued recipient reference contains only event ID, internal registration ID and revision. Before transport, `message` rechecks event age, current audience, registration ownership/revision and account availability, then constructs a strict generic hint. Changing account bindings, revoking a registration or disabling an account makes old references unusable. Offer messages also require pending status, authorized funding, open search deadline, online/approved driver, current payout/eligibility and a location heartbeat within sixty seconds. Their TTL ends at the earliest offer expiry, search deadline or event deadline.
+
+Delivery uses a five-minute maximum event age. Device registrations must have renewed within thirty days; native foreground registration refresh is already implemented. These are initial operational defaults, with no new paid service dependency. Expiry suppresses delivery without deleting the installation identity needed for secure recovery. This resolver is not yet connected to a worker, so it does not by itself send notifications or enforce cleanup of stored tokens. Data retention and account device-management remain separate unfinished work.
+
+Eight PostgreSQL behavior tests cover role/ownership boundaries, minimum queued data, revision/logout/account changes, project mismatch, historical events, independent registration lifetime and offer state/funding/eligibility/location deadlines. Selection is not a transaction with the external push gateway: a state change after the final read cannot recall a submitted message. Therefore messages remain generic hints and the mobile app performs a fresh authorized lookup on tap.
+
 ## Remaining integration
 
 1. Verify the wired native registration with real app projects/credentials and add account device-management recovery and registration lifetime policy.

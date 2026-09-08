@@ -35,3 +35,4 @@ export * from './payout-reconciliation';
 export * from './push-provider';
 export * from './expo-push';
 export * from './push-installations';
+export * from './push-audience';

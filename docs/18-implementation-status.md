@@ -96,3 +96,7 @@ The local synthetic rates are fixtures, not approved customer pricing. Do not en
 ## Notification tap routing
 
 Both native apps now consume notification responses through a shared strict hint contract and fresh account-authorized resource reads before opening fixed trip/offer screens. Signed-out taps are discarded; late account work, duplicates and expired offers cannot navigate. Six controller tests bring the workspace total to 365. See [notification implementation and limits](59-push-notifications.md#notification-taps). Real OS delivery/tap verification and the delivery worker remain incomplete.
+
+## Push recipient authorization
+
+The shared server now resolves queued notification recipients from current database ownership, configured app projects, enabled accounts and exact registration revisions. It suppresses old registrations/events and invalid driver offers, with eight PostgreSQL behavior tests. This resolver is ready for the pending durable delivery/receipt worker; it is not yet wired into runtime sending. See [delivery recipient authorization](59-push-notifications.md#delivery-recipient-authorization).
