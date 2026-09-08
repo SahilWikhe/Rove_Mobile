@@ -3,12 +3,32 @@ import { Stack, useFocusEffect } from 'expo-router';
 import type { DriverEarnings } from '@rove/contracts';
 import { useSession } from '@rove/mobile-core/session';
 import { pollWhileForeground } from '@rove/mobile-core/foreground-polling';
-import { Banner, Card, Copy, Money, Screen } from '@rove/mobile-ui';
+import { Banner, Button, Card, Copy, Money, Screen } from '@rove/mobile-ui';
 export default function Earnings() {
   const { profile } = useSession();
-  return <EarningsContent key={profile?.id ?? 'signed-out'} />;
+  return <EarningsBrowser key={profile?.id ?? 'signed-out'} />;
 }
-function EarningsContent() {
+function EarningsBrowser() {
+  const [cursors, setCursors] = useState<string[]>([]);
+  const before = cursors.at(-1);
+  return (
+    <EarningsContent
+      key={before ?? 'latest'}
+      before={before}
+      older={(cursor) => setCursors((previous) => [...previous, cursor])}
+      newer={before ? () => setCursors((previous) => previous.slice(0, -1)) : undefined}
+    />
+  );
+}
+function EarningsContent({
+  before,
+  older,
+  newer,
+}: {
+  before: string | undefined;
+  older: (cursor: string) => void;
+  newer: (() => void) | undefined;
+}) {
   const { api, profile } = useSession();
   const [data, setData] = useState<DriverEarnings | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -16,7 +36,7 @@ function EarningsContent() {
     useCallback(() => {
       if (!profile) return;
       return pollWhileForeground({
-        load: (signal) => api.earnings(signal),
+        load: (signal) => api.earnings(signal, before),
         onData: (value) => {
           setData(value);
           setError(null);
@@ -27,12 +47,13 @@ function EarningsContent() {
         },
         intervalMs: 15000,
       });
-    }, [api, profile]),
+    }, [api, profile, before]),
   );
   return (
     <Screen>
       <Stack.Screen options={{ title: 'Earnings' }} />
       <Copy kind="title">Your work. Recorded.</Copy>
+      {newer && <Button title="Newer earnings" variant="secondary" onPress={newer} />}
       {error && <Banner error message={error} />}
       {data ? (
         <>
@@ -43,7 +64,7 @@ function EarningsContent() {
             </Copy>
           </Card>
           <Banner message="Payouts are not connected yet. This amount is not an available bank withdrawal." />
-          <Copy kind="heading">Recent earnings</Copy>
+          <Copy kind="heading">{before ? 'Earlier earnings' : 'Recent earnings'}</Copy>
           {data.entries.length === 0 && (
             <Copy kind="muted">
               Your earnings appear once a completed trip’s payment is captured and allocated.
@@ -56,10 +77,8 @@ function EarningsContent() {
               <Copy kind="muted">Trip reference {entry.rideId}</Copy>
             </Card>
           ))}
-          {data.hasMore && (
-            <Copy kind="muted">
-              Showing your latest 50 records. The total includes all recorded earnings.
-            </Copy>
+          {data.nextCursor && (
+            <Button title="Older earnings" variant="secondary" onPress={() => older(data.nextCursor!)} />
           )}
         </>
       ) : (

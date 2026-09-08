@@ -14,6 +14,8 @@ Payout status is explicitly `not_configured`: this is a recorded allocation tota
 
 ## Verification and remaining work
 
-Five PostgreSQL tests cover estimated-versus-recorded earnings, ownership and serialization, rejected roles, a bounded recent list with a complete total, and excluded non-allocation journal kinds. Driver native/web exports and shared type checks verify compilation; physical-device appearance and real payout reconciliation remain outstanding.
+Six PostgreSQL tests cover estimated-versus-recorded earnings, ownership and serialization, rejected roles, a bounded recent list with a complete total, excluded non-allocation journal kinds, and rejected malformed/foreign cursors. Pagination also verifies identical timestamps without duplicated records. Driver native/web exports and shared type checks verify compilation; physical-device appearance and real payout reconciliation remain outstanding.
 
-The current list shows the latest 50 records. Full history pagination, date filters, adjustments, refunds/disputes, tips, payout setup/history and actual cash-out policy remain to be implemented. The consumer/internal-dashboard/optional-institution scope remains unchanged.
+The list now supports Older/Newer navigation in pages of 50. Cursor IDs must belong to the driver; boundaries use the original database timestamp and ID, preserving precision and deterministic ordering. Totals remain lifetime recorded allocations, independent of the selected page. Account/page changes remount the view to discard stale results. New allocations can change the total between requests; return to the newest page to see recent additions.
+
+Date filters, adjustments, refunds/disputes, tips, payout setup/history and actual cash-out policy remain to be implemented. The consumer/internal-dashboard/optional-institution scope remains unchanged.

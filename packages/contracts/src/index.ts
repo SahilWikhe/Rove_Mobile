@@ -171,6 +171,7 @@ export const DriverEarnings = z
       )
       .max(50),
     hasMore: z.boolean(),
+    nextCursor: z.uuid().nullable(),
     payoutStatus: z.literal('not_configured'),
   })
   .strict();

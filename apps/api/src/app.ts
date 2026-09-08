@@ -235,7 +235,9 @@ export function createApp(deps: Dependencies) {
       await deps.rides.accept(c.var.actor, id(c.req.param('id')), c.req.header('Idempotency-Key') ?? ''),
     );
   });
-  app.get('/v1/drivers/me/earnings', async (c) => c.json(await getEarnings(deps.pool, c.var.actor)));
+  app.get('/v1/drivers/me/earnings', async (c) =>
+    c.json(await getEarnings(deps.pool, c.var.actor, c.req.query('before'))),
+  );
   app.get('/v1/rides/:id/receipt', async (c) =>
     c.json(await getReceipt(deps.pool, c.var.actor, id(c.req.param('id')))),
   );

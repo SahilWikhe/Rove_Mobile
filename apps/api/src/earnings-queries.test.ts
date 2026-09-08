@@ -56,7 +56,7 @@ async function entry(owner = driver, amount = 790, kind: string | null = 'alloca
     await transaction(db.pool, async (client) => {
       const id = randomUUID();
       await client.query(
-        "INSERT INTO ledger_journals(id,key,fingerprint,attempt_id,ride_id,kind) VALUES($1::uuid,$1::text,'fixture',$2,$3,$4)",
+        "INSERT INTO ledger_journals(id,key,fingerprint,attempt_id,ride_id,kind,created_at) VALUES($1::uuid,$1::text,'fixture',$2,$3,$4,'2026-09-07T12:00:00Z')",
         [id, attempt, ride, kind],
       );
       await client.query(
@@ -73,6 +73,7 @@ test('completed trip estimates without allocations do not count as earnings', as
     recordedTotal: { amount: 0, currency: 'USD' },
     entries: [],
     hasMore: false,
+    nextCursor: null,
     payoutStatus: 'not_configured',
   });
 });
@@ -100,8 +101,24 @@ test('the recent list is bounded while the total includes older allocations', as
   expect(result.entries).toHaveLength(50);
   expect(result.recordedTotal.amount).toBe(520);
   expect(result.hasMore).toBe(true);
+  const older = await getEarnings(db.pool, { id: driver, role: 'driver' }, result.nextCursor!);
+  expect(older.entries).toHaveLength(2);
+  expect(older.recordedTotal.amount).toBe(520);
+  expect(older.nextCursor).toBeNull();
+  expect(new Set([...result.entries, ...older.entries].map((entry) => entry.id)).size).toBe(52);
 });
 test('non-allocation journal kinds are excluded', async () => {
   await entry(driver, 790, 'capture');
   expect((await read()).recordedTotal.amount).toBe(0);
+});
+
+test('malformed, unknown and foreign-owner cursors are rejected', async () => {
+  await entry(other);
+  const foreign = await getEarnings(db.pool, { id: other, role: 'driver' });
+  for (const before of ['not-a-cursor', randomUUID(), foreign.entries[0]!.id]) {
+    await expect(getEarnings(db.pool, { id: driver, role: 'driver' }, before)).rejects.toMatchObject({
+      code: 'INVALID_CURSOR',
+      status: 400,
+    });
+  }
 });

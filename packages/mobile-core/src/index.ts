@@ -112,8 +112,12 @@ export class ApiClient {
   book(quoteId: string, key: string) {
     return this.request('/v1/ride-requests', RideSummary, { method: 'POST', body: { quoteId }, key });
   }
-  earnings(signal?: AbortSignal) {
-    return this.request('/v1/drivers/me/earnings', DriverEarnings, signal ? { signal } : {});
+  earnings(signal?: AbortSignal, before?: string) {
+    return this.request(
+      `/v1/drivers/me/earnings${before ? `?before=${encodeURIComponent(before)}` : ''}`,
+      DriverEarnings,
+      signal ? { signal } : {},
+    );
   }
   receipt(rideId: string, signal?: AbortSignal) {
     return this.request(
