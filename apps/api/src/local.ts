@@ -101,6 +101,11 @@ const worker = new OutboxWorker(database.pool, {
   'payment.updated': async () => {},
 });
 const app = createApp({
+  // Synthetic registration records only: local workers have no Expo transport.
+  pushProjects: {
+    rider: '00000000-0000-4000-8000-000000000001',
+    driver: '00000000-0000-4000-8000-000000000002',
+  },
   pool: database.pool,
   maps,
   quotes: new QuoteService(database.pool, maps, developmentRates, {

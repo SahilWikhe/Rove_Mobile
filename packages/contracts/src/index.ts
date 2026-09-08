@@ -420,3 +420,26 @@ export const PushHint = z
     referenceId: z.uuid(),
   })
   .strict();
+
+export const NotificationDevice = z
+  .object({
+    id: z.uuid(),
+    revision: z.number().int().positive(),
+    platform: z.enum(['ios', 'android']),
+    registeredAt: z.iso.datetime(),
+  })
+  .strict();
+export const NotificationDeviceList = z.object({ devices: z.array(NotificationDevice).max(10) }).strict();
+export const NotificationDeviceRevoke = z
+  .object({
+    expectedRevision: z.number().int().positive(),
+    mutationId: z.uuid(),
+  })
+  .strict();
+export const NotificationDeviceRevoked = z
+  .object({
+    id: z.uuid(),
+    revision: z.number().int().positive(),
+    enabled: z.literal(false),
+  })
+  .strict();

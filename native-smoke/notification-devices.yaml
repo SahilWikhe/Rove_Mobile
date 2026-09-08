@@ -1,0 +1,27 @@
+# Seed one synthetic registration for this account before running. No Expo delivery required.
+appId: ${APP_ID}
+---
+- openLink: ${DEVICES_LINK}
+- tapOn:
+    text: Open
+    optional: true
+- assertVisible: Your notification devices
+- scrollUntilVisible:
+    element: 'Turn off ${DEVICE_LABEL}'
+    direction: DOWN
+- waitForAnimationToEnd
+- takeScreenshot: native-notification-devices
+- tapOn: 'Turn off ${DEVICE_LABEL}'
+- scrollUntilVisible:
+    element: Confirm turn off
+    direction: DOWN
+- tapOn: Keep notifications
+- tapOn: 'Turn off ${DEVICE_LABEL}'
+- scrollUntilVisible:
+    element: Confirm turn off
+    direction: DOWN
+- tapOn: Confirm turn off
+- assertVisible: 'Notifications turned off for ${DEVICE_LABEL}.'
+- assertNotVisible: 'Turn off ${DEVICE_LABEL}'
+- waitForAnimationToEnd
+- takeScreenshot: native-notification-device-revoked

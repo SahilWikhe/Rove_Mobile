@@ -60,6 +60,13 @@ export default function Account() {
         />
       )}
       {profile && <NotificationControls key={`notifications:${profile.id}`} settings={notifications} />}
+      {profile && (
+        <Button
+          title="Manage notification devices"
+          variant="secondary"
+          onPress={() => router.push('/notification-devices')}
+        />
+      )}
       {error && <Banner error message={error} />}
       <Button
         title={cleanupRequired ? 'Retry device sign-out' : 'Sign out'}

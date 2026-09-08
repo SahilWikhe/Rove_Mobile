@@ -86,6 +86,18 @@ Delivery uses a five-minute maximum event age. Device registrations must have re
 
 Eight PostgreSQL behavior tests cover role/ownership boundaries, minimum queued data, revision/logout/account changes, project mismatch, historical events, independent registration lifetime and offer state/funding/eligibility/location deadlines. Selection is not a transaction with the external push gateway: a state change after the final read cannot recall a submitted message. Therefore messages remain generic hints and the mobile app performs a fresh authorized lookup on tap.
 
+## Account device management
+
+Both apps expose **Account → Manage notification devices**. The shared screen lists enabled registrations for the signed-in account's app project, with platform, a short reference and last-registration time. It never displays a token, installation secret, account identifier or hardware identifier. The short reference distinguishes records without implying a verified model or device name. Revoked registrations disappear from the list; expiring a delivery lease does not erase the record needed for recovery.
+
+`GET /v1/me/notification-devices` returns the minimal list. `DELETE /v1/me/notification-devices/:id` requires a captured revision and mutation UUID. The backend locks the enabled account and owned registration, rejects cross-account/project access and stale revisions, and atomically disables/increments the registration. Exact retries return the original result. Refreshing or transferring that registration prevents an old confirmation from disabling its new state. Turning off an old installation can also free its token for a fresh installation when the previous device proof was lost.
+
+The UI requires explicit confirmation, offers a cancel path, retains the same request key for a retry on that screen and directs stale attempts to refresh. Account-keyed mounts and cancelled list reads prevent old device lists lingering across sign-in changes. The API still enforces ownership independently of UI state. This operation turns off notifications only; it does not revoke the phone's authentication session or remotely erase its data.
+
+Passive foreground/token refresh now respects server revocation. If an existing registration is off, the journal clears its local opt-in intent instead of silently re-enabling it. Registration races are checked again after the mutation: a concurrent revocation cannot produce a confirmed enabled state. Explicit opt-in from that phone is required to register again. After a management action, the current phone refreshes its local notification setting without treating a failed refresh as a failed already-confirmed revocation.
+
+Three new PostgreSQL tests cover minimal owned lists, revision-aware/idempotent revocation, disabled accounts and ownership transfer. Two journal tests cover passive refresh and revocation races, while API/client tests cover authentication, strict fields and request contracts. All 397 workspace tests pass. Browser flows for both apps verify confirmation cancellation, concurrent registration refresh, stale rejection and successful removal after reloading. Both iOS simulator flows pass using synthetic registrations and the local API; the rider initially required a relaunch to load its newly added route. [Rider](screenshots/rider-notification-devices.png) and [driver](screenshots/driver-notification-devices.png) screenshots were visually inspected. Real push/token behavior and Android interaction remain unverified.
+
 ## Durable delivery and receipts
 
 Migration `0023_push_deliveries.sql` adds delivery state and shared send-rate windows. It has only been applied to disposable local databases; normal application startup/builds do not migrate a production database. The worker stores one unique delivery per event/installation/revision and atomically enqueues its send job. Queued payloads contain no destination token or personal information. Foreign keys retain the original event and registration needed to audit the delivery.
@@ -115,7 +127,7 @@ Fourteen real-PostgreSQL orchestration tests cover fan-out deduplication, existi
 ## Remaining integration
 
 1. Verify real native registration, permission/token/logout behavior and delivery/taps on iOS and Android with isolated sandbox credentials.
-2. Add account device-management recovery, token/delivery retention cleanup and operational failure/dead-letter views. The internal dashboard remains in its separate repository.
+2. Add local corrupted-storage recovery, token/delivery retention cleanup and operational failure/dead-letter views. The internal dashboard remains in its separate repository.
 3. Exercise staging queue latency/load, particularly twenty-second driver offers, and alert on failures and expired/unconfirmed receipts. Polling remains necessary; push does not guarantee dispatch timing.
 4. Verify revoked-token behavior and native cold-start consumption with real provider receipts before enabling production delivery.
 

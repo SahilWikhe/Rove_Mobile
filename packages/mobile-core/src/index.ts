@@ -1,5 +1,8 @@
 import { z } from 'zod';
 import {
+  NotificationDeviceList,
+  NotificationDeviceRevoke,
+  NotificationDeviceRevoked,
   PushInstallationProof,
   PushInstallationUpdate,
   PushInstallationDelete,
@@ -64,6 +67,18 @@ export class ApiClient {
     return this.request('/v1/drivers/me/vehicle-submission', VehicleReviewResponse, {
       method: 'PUT',
       body: VehicleSubmissionUpdate.parse({ vehicle, expectedRevision }),
+    });
+  }
+  notificationDevices(signal?: AbortSignal) {
+    return this.request('/v1/me/notification-devices', NotificationDeviceList, {
+      ...(signal ? { signal } : {}),
+    });
+  }
+  revokeNotificationDevice(id: string, input: z.infer<typeof NotificationDeviceRevoke>) {
+    z.uuid().parse(id);
+    return this.request(`/v1/me/notification-devices/${id}`, NotificationDeviceRevoked, {
+      method: 'DELETE',
+      body: NotificationDeviceRevoke.parse(input),
     });
   }
   pushInstallationStatus(input: z.infer<typeof PushInstallationProof>, signal?: AbortSignal) {

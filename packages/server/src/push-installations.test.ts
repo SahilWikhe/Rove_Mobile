@@ -133,3 +133,42 @@ test('disabled and forged roles cannot mutate; projects are configured server-si
     () => new PushInstallations(database.pool, { rider: projects.rider, driver: projects.rider }),
   ).toThrow('must differ');
 });
+
+test('device listing contains only current owned registrations and excludes credentials', async () => {
+  await service.register(a, input());
+  await service.register(b, input());
+  const list = await service.devices(a);
+  expect(list.devices).toHaveLength(1);
+  expect(Object.keys(list.devices[0]!).sort()).toEqual(['id', 'platform', 'registeredAt', 'revision']);
+  expect(JSON.stringify(list)).not.toMatch(/ExpoPushToken|secret_hash|owner_id/);
+  await database.pool.query('UPDATE push_installations SET enabled=false WHERE owner_id=$1', [a.id]);
+  expect(await service.devices(a)).toEqual({ devices: [] });
+});
+test('remote revocation requires ownership and revision, supports exact retries and removes the device from the list', async () => {
+  const update = input();
+  await service.register(a, update);
+  const device = (await service.devices(a)).devices[0]!;
+  const revoke = { expectedRevision: device.revision, mutationId: randomUUID() };
+  await expect(service.revokeDevice(b, device.id, revoke)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  const first = await service.revokeDevice(a, device.id, revoke);
+  expect(first).toEqual({ id: device.id, revision: 2, enabled: false });
+  expect(await service.revokeDevice(a, device.id, revoke)).toEqual(first);
+  expect(await service.devices(a)).toEqual({ devices: [] });
+  await service.register(a, { ...update, expectedRevision: 2, mutationId: randomUUID() });
+  await expect(service.revokeDevice(a, device.id, revoke)).rejects.toMatchObject({
+    code: 'PUSH_REGISTRATION_CHANGED',
+  });
+  expect((await service.devices(a)).devices[0]?.revision).toBe(3);
+});
+test('disabled users and account transfers fence old remote revocations', async () => {
+  const update = input();
+  await service.register(a, update);
+  const device = (await service.devices(a)).devices[0]!;
+  const revoke = { expectedRevision: 1, mutationId: randomUUID() };
+  await database.pool.query('UPDATE users SET disabled=true WHERE id=$1', [a.id]);
+  await expect(service.revokeDevice(a, device.id, revoke)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  await database.pool.query('UPDATE users SET disabled=false WHERE id=$1', [a.id]);
+  await service.register(b, { ...update, expectedRevision: 1, mutationId: randomUUID() });
+  await expect(service.revokeDevice(a, device.id, revoke)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  expect((await service.devices(b)).devices).toHaveLength(1);
+});

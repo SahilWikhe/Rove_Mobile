@@ -455,3 +455,67 @@ test('notification registration requires authentication and device proof, with s
   const removed = await send('DELETE', { ...proof, mutationId: randomUUID(), expectedRevision: 1 });
   expect(await removed.json()).toEqual({ installationId: input.installationId, revision: 2, enabled: false });
 });
+
+test('notification-device management is authenticated, owner scoped and rejects stale revocations', async () => {
+  await database.db
+    .insert(users)
+    .values({ id: randomUUID(), subject: 'driver', name: 'Synthetic driver', role: 'driver' });
+  const input = {
+    installationId: randomUUID(),
+    secret: 's'.repeat(43),
+    mutationId: randomUUID(),
+    expectedRevision: null,
+    token: 'ExpoPushToken[device_list]',
+    platform: 'ios',
+  };
+  const headers = { Authorization: 'Bearer rider', 'Content-Type': 'application/json' };
+  expect(
+    (await app.request('/v1/push-installations', { method: 'PUT', headers, body: JSON.stringify(input) }))
+      .status,
+  ).toBe(200);
+  expect((await app.request('/v1/me/notification-devices')).status).toBe(401);
+  const listed = await app.request('/v1/me/notification-devices', { headers });
+  expect(listed.headers.get('cache-control')).toContain('no-store');
+  const data = await listed.json();
+  expect(data.devices).toHaveLength(1);
+  expect(JSON.stringify(data)).not.toContain(input.token);
+  expect(JSON.stringify(data)).not.toContain(input.secret);
+  const device = data.devices[0];
+  const path = `/v1/me/notification-devices/${device.id}`;
+  const body = JSON.stringify({ expectedRevision: device.revision, mutationId: randomUUID() });
+  expect(
+    (
+      await app.request(path, {
+        method: 'DELETE',
+        headers: { ...headers, Authorization: 'Bearer driver' },
+        body,
+      })
+    ).status,
+  ).toBe(404);
+  expect(
+    (
+      await app.request(path, {
+        method: 'DELETE',
+        headers,
+        body: JSON.stringify({
+          expectedRevision: device.revision,
+          mutationId: randomUUID(),
+          ownerId: riderId,
+        }),
+      })
+    ).status,
+  ).toBe(400);
+  const removed = await app.request(path, { method: 'DELETE', headers, body });
+  expect(removed.status).toBe(200);
+  expect(await removed.json()).toEqual({ id: device.id, revision: 2, enabled: false });
+  expect((await app.request(path, { method: 'DELETE', headers, body })).status).toBe(200);
+  expect(
+    (
+      await app.request(path, {
+        method: 'DELETE',
+        headers,
+        body: JSON.stringify({ expectedRevision: 1, mutationId: randomUUID() }),
+      })
+    ).status,
+  ).toBe(409);
+});

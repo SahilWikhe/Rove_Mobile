@@ -83,8 +83,15 @@ export function usePushNotifications(options: {
         }
         const token = await notifications.getExpoPushTokenAsync({ projectId: projectId! });
         if (!current()) return;
-        await store.enable(accountId, token.data, Platform.OS === 'ios' ? 'ios' : 'android', api, current);
-        if (current()) setState((value) => ({ ...value, epoch: sessionEpoch, enabled: true }));
+        const registered = await store.enable(
+          accountId,
+          token.data,
+          Platform.OS === 'ios' ? 'ios' : 'android',
+          api,
+          current,
+          mode === 'enable',
+        );
+        if (current()) setState((value) => ({ ...value, epoch: sessionEpoch, enabled: registered }));
       } catch (failure) {
         if (current()) {
           setState((value) => ({ ...value, epoch: sessionEpoch, enabled: false }));
@@ -137,6 +144,7 @@ export function usePushNotifications(options: {
     enabled: !!accountId && enabled,
     busy,
     error,
+    refresh: () => run('refresh'),
     enable: () => run('enable'),
     disable: () => run('disable'),
   };

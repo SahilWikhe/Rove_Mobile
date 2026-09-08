@@ -110,11 +110,19 @@ export class PushRegistration {
   wantsEnabled() {
     return this.serial(async () => (await this.load(false))?.wanted ?? false);
   }
-  enable(accountId: string, token: string, platform: 'ios' | 'android', api: Api, current: () => boolean) {
+  enable(
+    accountId: string,
+    token: string,
+    platform: 'ios' | 'android',
+    api: Api,
+    current: () => boolean,
+    explicit = true,
+  ) {
     return this.serial(async () => {
       this.check(current);
       let state = (await this.load(true))!;
       this.check(current);
+      if (!explicit && !state.wanted) return false;
       state = { ...state, wanted: true };
       await this.save(state);
       this.check(current);
@@ -125,6 +133,10 @@ export class PushRegistration {
       this.check(current);
       if (status.installationId !== state.installationId)
         throw new Error('Notification registration could not be verified.');
+      if (!explicit && !status.enabled && status.revision !== null) {
+        await this.save({ ...state, revision: status.revision, wanted: false, pending: null });
+        return false;
+      }
       const input = PushInstallationUpdate.parse({
         installationId: state.installationId,
         secret: state.secret,
@@ -136,7 +148,15 @@ export class PushRegistration {
       state = { ...state, revision: status.revision, pending: { kind: 'register', accountId, input } };
       await this.save(state);
       this.check(current);
-      await this.replay(state, accountId, api, current);
+      const saved = await this.replay(state, accountId, api, current);
+      const confirmed = PushInstallationStatus.parse(
+        await api.pushInstallationStatus({ installationId: saved.installationId, secret: saved.secret }),
+      );
+      this.check(current);
+      if (confirmed.installationId !== saved.installationId)
+        throw new Error('Notification registration could not be verified.');
+      await this.save({ ...saved, revision: confirmed.revision, wanted: confirmed.enabled });
+      return confirmed.enabled;
     });
   }
   disable(accountId: string, api: Api, current: () => boolean) {

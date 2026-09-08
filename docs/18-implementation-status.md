@@ -104,3 +104,7 @@ The shared server now resolves queued notification recipients from current datab
 ## Durable push delivery
 
 The opt-in hosted push worker now composes ride/offer fan-out with existing financial handlers, records send/receipt state, fences concurrent and delayed work, enforces a shared project send budget and recovers stalled jobs. Migration 0023 is tested locally. Fourteen PostgreSQL orchestration tests and runtime tests with delivery off/on cover this integration; real APNs/FCM delivery remains unverified and delivery defaults off. See [durable delivery and setup](59-push-notifications.md#durable-delivery-and-receipts).
+
+## Notification device management
+
+Rider and driver accounts can list and turn off owned notification devices with explicit confirmation and server revision checks. Passive refresh respects revocation until explicit opt-in. All 397 workspace tests and both new browser flows pass; both iOS simulator flows passed against synthetic local registrations, with screenshots in [notification device management](59-push-notifications.md#account-device-management). This controls notifications only, not authentication sessions. Real provider/Android verification and retention cleanup remain unfinished.

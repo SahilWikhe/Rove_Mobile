@@ -7,6 +7,7 @@ import { secureHeaders } from 'hono/secure-headers';
 import { cors } from 'hono/cors';
 import { z } from 'zod';
 import {
+  NotificationDeviceRevoke,
   PushInstallationProof,
   PushInstallationUpdate,
   PushInstallationDelete,
@@ -239,6 +240,16 @@ export function createApp(deps: Dependencies) {
     if (!parsed.success) throw new DomainError('INVALID_ID', 'Choose Home or Work.', 400);
     return parsed.data;
   }
+  app.get('/v1/me/notification-devices', async (c) => c.json(await pushInstallations.devices(c.var.actor)));
+  app.delete('/v1/me/notification-devices/:id', async (c) =>
+    c.json(
+      await pushInstallations.revokeDevice(
+        c.var.actor,
+        c.req.param('id'),
+        await body(c, NotificationDeviceRevoke),
+      ),
+    ),
+  );
   app.post('/v1/push-installations/status', async (c) =>
     c.json(await pushInstallations.status(c.var.actor, await body(c, PushInstallationProof))),
   );

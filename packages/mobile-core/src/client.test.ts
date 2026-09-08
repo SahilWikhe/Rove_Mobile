@@ -268,3 +268,26 @@ test('push installation methods send proof in authenticated bodies and retain ca
     { url: 'https://api.example/v1/push-installations', method: 'DELETE', body: removal },
   ]);
 });
+
+test('notification device calls preserve cancellation, validate data and send only the captured revocation revision', async () => {
+  const id = '00000000-0000-4000-8000-000000000001';
+  const mutationId = '00000000-0000-4000-8000-000000000002';
+  const fetcher = vi
+    .fn<Transport>()
+    .mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          devices: [{ id, revision: 1, platform: 'ios', registeredAt: new Date().toISOString() }],
+        }),
+      ),
+    )
+    .mockResolvedValueOnce(new Response(JSON.stringify({ id, revision: 2, enabled: false })));
+  const api = new ApiClient('https://api.example', async () => 'fixture', fetcher);
+  const abort = new AbortController();
+  expect((await api.notificationDevices(abort.signal)).devices).toHaveLength(1);
+  expect(fetcher.mock.calls[0]?.[1]?.signal).toBeDefined();
+  await api.revokeNotificationDevice(id, { expectedRevision: 1, mutationId });
+  expect(fetcher.mock.calls[1]?.[0]).toBe(`https://api.example/v1/me/notification-devices/${id}`);
+  expect(JSON.parse(String(fetcher.mock.calls[1]?.[1]?.body))).toEqual({ expectedRevision: 1, mutationId });
+  expect(() => api.revokeNotificationDevice('../me', { expectedRevision: 1, mutationId })).toThrow();
+});

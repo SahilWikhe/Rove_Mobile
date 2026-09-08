@@ -146,3 +146,40 @@ test('wrong-installation response fails without accepting it into storage', asyn
   );
   expect(JSON.parse(s.stored()!).pending).not.toBeNull();
 });
+
+test('passive refresh respects remote revocation until explicit opt-in', async () => {
+  const s = setup();
+  await s.controller.enable(a, 'ExpoPushToken[first]', 'ios', s.api, () => true);
+  s.api.pushInstallationStatus.mockResolvedValue({
+    installationId: s.identity.installationId,
+    revision: 2,
+    enabled: false,
+  });
+  s.api.registerPushInstallation.mockClear();
+  expect(await s.controller.enable(a, 'ExpoPushToken[new]', 'ios', s.api, () => true, false)).toBe(false);
+  expect(s.api.registerPushInstallation).not.toHaveBeenCalled();
+  expect(await s.controller.wantsEnabled()).toBe(false);
+  s.api.registerPushInstallation.mockResolvedValue({
+    installationId: s.identity.installationId,
+    revision: 3,
+    enabled: true,
+  });
+  s.api.pushInstallationStatus
+    .mockResolvedValueOnce({ installationId: s.identity.installationId, revision: 2, enabled: false })
+    .mockResolvedValueOnce({ installationId: s.identity.installationId, revision: 3, enabled: true });
+  expect(await s.controller.enable(a, 'ExpoPushToken[new]', 'ios', s.api, () => true, true)).toBe(true);
+  expect(s.api.registerPushInstallation).toHaveBeenCalledOnce();
+});
+test('revocation that races token refresh cannot report enabled or silently retry against the new revision', async () => {
+  const s = setup();
+  await s.controller.enable(a, 'ExpoPushToken[first]', 'ios', s.api, () => true);
+  s.api.registerPushInstallation
+    .mockClear()
+    .mockRejectedValueOnce(new ApiError('PUSH_REGISTRATION_CHANGED', 'Changed', 409));
+  s.api.pushInstallationStatus
+    .mockResolvedValueOnce({ installationId: s.identity.installationId, revision: 1, enabled: true })
+    .mockResolvedValue({ installationId: s.identity.installationId, revision: 2, enabled: false });
+  expect(await s.controller.enable(a, 'ExpoPushToken[new]', 'ios', s.api, () => true, false)).toBe(false);
+  expect(s.api.registerPushInstallation).toHaveBeenCalledOnce();
+  expect(await s.controller.wantsEnabled()).toBe(false);
+});

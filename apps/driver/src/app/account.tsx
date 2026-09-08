@@ -76,6 +76,13 @@ export default function Account() {
             />
           )}
           {profile && <NotificationControls key={`notifications:${profile.id}`} settings={notifications} />}
+          {profile && (
+            <Button
+              title="Manage notification devices"
+              variant="secondary"
+              onPress={() => router.push('/notification-devices')}
+            />
+          )}
           {error && <Banner error message={error} />}
           <Copy kind="muted">
             Signing out takes you offline and stops location sharing. Finish or resolve an active trip first.

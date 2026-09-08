@@ -1,6 +1,11 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
-import { PushInstallationProof, PushInstallationUpdate, PushInstallationDelete } from '@rove/contracts';
+import {
+  NotificationDeviceRevoke,
+  PushInstallationProof,
+  PushInstallationUpdate,
+  PushInstallationDelete,
+} from '@rove/contracts';
 import type { Pool } from 'pg';
 import { transaction } from './transactions';
 import { DomainError } from './errors';
@@ -67,6 +72,56 @@ export class PushInstallations {
       revision: row?.revision ?? null,
       enabled: !!row && row.owner_id === actor.id && row.enabled,
     };
+  }
+  async devices(actor: Actor) {
+    const project = this.project(actor);
+    const rows = (
+      await this.pool.query<{ id: string; revision: number; platform: 'ios' | 'android'; updated_at: Date }>(
+        `SELECT p.id,p.revision,p.platform,p.updated_at FROM push_installations p JOIN users u ON u.id=p.owner_id
+       WHERE p.owner_id=$1 AND p.project_id=$2 AND p.enabled=true AND u.disabled=false AND u.role=$3
+       ORDER BY p.updated_at DESC,p.id LIMIT 10`,
+        [actor.id, project, actor.role],
+      )
+    ).rows;
+    return {
+      devices: rows.map((row) => ({
+        id: row.id,
+        revision: row.revision,
+        platform: row.platform,
+        registeredAt: row.updated_at.toISOString(),
+      })),
+    };
+  }
+  async revokeDevice(actor: Actor, id: string, raw: z.infer<typeof NotificationDeviceRevoke>) {
+    z.uuid().parse(id);
+    const input = NotificationDeviceRevoke.parse(raw);
+    const project = this.project(actor);
+    const fingerprint = hash(JSON.stringify({ action: 'remote-revoke', actorId: actor.id, id, input }));
+    return transaction(this.pool, async (client) => {
+      const owner = await client.query(
+        'SELECT id FROM users WHERE id=$1 AND role=$2 AND disabled=false FOR UPDATE',
+        [actor.id, actor.role],
+      );
+      if (!owner.rowCount) throw new DomainError('FORBIDDEN', 'Account is unavailable.', 403);
+      const row = (
+        await client.query<Row>(
+          'SELECT * FROM push_installations WHERE id=$1 AND owner_id=$2 AND project_id=$3 FOR UPDATE',
+          [id, actor.id, project],
+        )
+      ).rows[0];
+      if (!row) throw new DomainError('NOT_FOUND', 'Notification device was not found.', 404);
+      if (row.mutation_id === input.mutationId) {
+        if (row.mutation_hash !== fingerprint) throw changed();
+        return { id, revision: row.revision, enabled: false as const };
+      }
+      if (row.revision !== input.expectedRevision) throw changed();
+      await client.query(
+        `UPDATE push_installations SET enabled=false,revision=revision+1,mutation_id=$2,
+        mutation_hash=$3,updated_at=now() WHERE id=$1`,
+        [id, input.mutationId, fingerprint],
+      );
+      return { id, revision: row.revision + 1, enabled: false as const };
+    });
   }
   register(actor: Actor, raw: Update) {
     return this.change(actor, PushInstallationUpdate.parse(raw), true);

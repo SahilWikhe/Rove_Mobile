@@ -8,7 +8,8 @@
     "./profile-name-form": "./src/profile-name-form.tsx",
     "./support-form": "./src/support-form.tsx",
     "./trip-map": "./src/trip-map.tsx",
-    "./notification-controls": "./src/notification-controls.tsx"
+    "./notification-controls": "./src/notification-controls.tsx",
+    "./notification-devices": "./src/notification-devices.tsx"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
