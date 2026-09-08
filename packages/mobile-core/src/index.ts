@@ -44,11 +44,11 @@ export class ApiClient {
   transition(id: string, state: RideSummary['state'], expectedVersion: number, key: string) {
     return this.request(`/v1/rides/${encodeURIComponent(id)}/transitions`, RideSummary, { method: 'POST', body: { state, expectedVersion }, key });
   }
-  driverProfile() { return this.request('/v1/drivers/me', DriverProfile); }
+  driverProfile(signal?: AbortSignal) { return this.request('/v1/drivers/me', DriverProfile, signal ? { signal } : {}); }
   availability(online: boolean, coordinate: Coordinate | undefined, key: string) {
     return this.request('/v1/drivers/me/availability', z.object({ online: z.boolean() }), { method: 'PUT', body: { online, coordinate }, key });
   }
-  heartbeat(input: z.infer<typeof Heartbeat>) { return this.request('/v1/drivers/me/heartbeat', z.object({ accepted: z.boolean() }), { method: 'POST', body: input }); }
+  heartbeat(input: z.infer<typeof Heartbeat>, signal?: AbortSignal) { return this.request('/v1/drivers/me/heartbeat', z.object({ accepted: z.boolean() }), { method: 'POST', body: input, ...(signal ? { signal } : {}) }); }
   offers() { return this.request('/v1/drivers/me/offers', z.object({ offers: z.array(DriverOffer) })); }
   accept(offerId: string, key: string) { return this.request(`/v1/offers/${encodeURIComponent(offerId)}/accept`, RideSummary, { method: 'POST', body: {}, key }); }
   decline(offerId: string, key: string) { return this.request(`/v1/offers/${encodeURIComponent(offerId)}/decline`, z.object({ declined: z.boolean() }), { method: 'POST', body: {}, key }); }

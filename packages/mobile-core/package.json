@@ -4,7 +4,8 @@
   "private": true,
   "exports": {
     ".": "./src/index.ts",
-    "./session": "./src/session.tsx"
+    "./session": "./src/session.tsx",
+    "./driver-tracking": "./src/driver-tracking.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
