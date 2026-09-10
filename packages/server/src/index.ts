@@ -50,3 +50,6 @@ export * from './document-scanning';
 export * from './guardduty-document-scanner';
 
 export * from './document-review';
+
+export { DocumentAccessService, type DocumentDownloads } from './document-access';
+export { S3DocumentDownloads } from './s3-document-download';

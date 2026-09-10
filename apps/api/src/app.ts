@@ -32,6 +32,8 @@ import {
 import {
   DriverDocumentService,
   DocumentReviewService,
+  DocumentAccessService,
+  type DocumentDownloads,
   type DriverDocumentTransfers,
   PushInstallations,
   DriverPayouts,
@@ -61,6 +63,7 @@ type Environment = { Variables: { actor: Actor; subject: string; requestId: stri
 interface Dependencies {
   pool: Pool;
   documentTransfers?: DriverDocumentTransfers;
+  documentDownloads?: DocumentDownloads;
   verifyIdentity: VerifyIdentity;
   rides: RideService;
   quotes: QuoteService;
@@ -98,6 +101,7 @@ export function createApp(deps: Dependencies) {
   const documents = new DriverDocumentService(deps.pool, deps.documentTransfers);
   const vehicleSubmissions = new VehicleSubmissionService(deps.pool);
   const documentReviews = new DocumentReviewService(deps.pool);
+  const documentAccess = new DocumentAccessService(deps.pool, deps.documentDownloads);
   const vehicleReviews = new VehicleReviewService(deps.pool);
   const drivers = new DriverService(deps.pool);
   const savedPlaces = new SavedPlaceService(deps.pool, deps.maps);
@@ -357,6 +361,9 @@ export function createApp(deps: Dependencies) {
   app.get('/v1/staff/support-requests', async (c) => c.json(await support.queue(c.var.actor, c.req.query())));
   app.get('/v1/staff/support-requests/:id', async (c) =>
     c.json(await support.inspect(c.var.actor, id(c.req.param('id')))),
+  );
+  app.post('/v1/staff/documents/:id/download', async (c) =>
+    c.json(await documentAccess.download(c.var.actor, id(c.req.param('id')))),
   );
   app.get('/v1/staff/drivers/:id/documents', async (c) =>
     c.json(await documentReviews.list(c.var.actor, id(c.req.param('id')))),

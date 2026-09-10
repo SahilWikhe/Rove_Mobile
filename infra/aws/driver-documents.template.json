@@ -370,6 +370,30 @@
           ]
         }
       }
+    },
+    "DocumentReviewerPolicy": {
+      "Type": "AWS::IAM::ManagedPolicy",
+      "Condition": "ScanningEnabled",
+      "Properties": {
+        "Description": "Backend-only access to clean scanned quarantine versions for audited staff downloads.",
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": "s3:GetObjectVersion",
+              "Resource": {
+                "Fn::Sub": "${DocumentBucket.Arn}/driver-documents/quarantine/*"
+              },
+              "Condition": {
+                "StringEquals": {
+                  "s3:ExistingObjectTag/GuardDutyMalwareScanStatus": "NO_THREATS_FOUND"
+                }
+              }
+            }
+          ]
+        }
+      }
     }
   },
   "Outputs": {
@@ -416,6 +440,13 @@
       "Description": "Verify ACTIVE and test synthetic clean/infected results before enabling the application worker.",
       "Value": {
         "Fn::GetAtt": ["DocumentMalwareProtection", "MalwareProtectionPlanId"]
+      }
+    },
+    "DocumentReviewerPolicyArn": {
+      "Condition": "ScanningEnabled",
+      "Description": "Attach only to the backend identity issuing staff download links; never grant to mobile clients.",
+      "Value": {
+        "Ref": "DocumentReviewerPolicy"
       }
     }
   },

@@ -197,3 +197,52 @@ test('invalid decisions and disabled owners cannot acquire a review', async () =
   });
   expect((await db.pool.query('SELECT 1 FROM driver_document_reviews')).rowCount).toBe(0);
 });
+
+test('document access requires MFA and permission before touching storage, and records a safe audit', async () => {
+  const { DocumentAccessService } = await import('./document-access');
+  const targets: unknown[] = [];
+  const access = new DocumentAccessService(db.pool, {
+    issue: async (target) => {
+      targets.push(target);
+      return {
+        url: 'https://synthetic.example/private-link',
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      };
+    },
+  });
+  await expect(access.download(driver, id)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  await expect(access.download({ ...staff, mfa: false }, id)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  await expect(access.download(staff, id)).rejects.toMatchObject({ code: 'DOCUMENT_NOT_REVIEWABLE' });
+  expect(targets).toHaveLength(0);
+  await scan();
+  expect(await access.download(staff, id)).toHaveProperty('url');
+  expect(targets).toEqual([expect.objectContaining({ documentId: id, version: 'synthetic-version' })]);
+  const audit = (
+    await db.pool.query("SELECT metadata FROM audit WHERE action='staff.document_access_issued'")
+  ).rows;
+  expect(audit).toEqual([{ metadata: {} }]);
+  await db.pool.query('DELETE FROM staff_permissions WHERE staff_id=$1', [staff.id]);
+  await expect(access.download(staff, id)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  expect(targets).toHaveLength(1);
+});
+test('document downloads reject stale scan evidence and sanitize storage errors', async () => {
+  const { DocumentAccessService } = await import('./document-access');
+  await scan();
+  await expect(new DocumentAccessService(db.pool).download(staff, id)).rejects.toMatchObject({
+    code: 'DOCUMENT_STORAGE_UNAVAILABLE',
+  });
+  const access = new DocumentAccessService(db.pool, {
+    issue: async () => {
+      throw new Error('private-provider-secret');
+    },
+  });
+  await expect(access.download(staff, id)).rejects.toMatchObject({
+    code: 'DOCUMENT_STORAGE_UNAVAILABLE',
+    message: 'Document viewing is temporarily unavailable.',
+  });
+  expect(
+    (await db.pool.query("SELECT 1 FROM audit WHERE action='staff.document_access_issued'")).rowCount,
+  ).toBe(0);
+  await db.pool.query("UPDATE driver_documents SET object_version='changed' WHERE id=$1", [id]);
+  await expect(access.download(staff, id)).rejects.toMatchObject({ code: 'DOCUMENT_NOT_REVIEWABLE' });
+});

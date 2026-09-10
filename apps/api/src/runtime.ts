@@ -5,6 +5,8 @@ import {
   GuardDutyDocumentScanner,
   type DocumentScanner,
   S3DocumentStore,
+  S3DocumentDownloads,
+  type DocumentDownloads,
   S3DocumentUploadForms,
   S3DocumentInbox,
   type DriverDocumentTransfers,
@@ -42,6 +44,7 @@ import { readRuntimeConfig, type RuntimeConfig } from './runtime-config';
 interface Resources {
   documentScanner?: DocumentScanner;
   documentTransfers?: DriverDocumentTransfers;
+  documentDownloads?: DocumentDownloads;
   pushProvider?: PushProvider;
   database: ReturnType<typeof createDatabase>;
   maps: MapsProvider;
@@ -78,6 +81,7 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
   const worker = new OutboxWorker(pool, pushDelivery ? pushDelivery.handlers(handlers) : handlers);
   const app = createApp({
     pool,
+    ...(resources.documentDownloads ? { documentDownloads: resources.documentDownloads } : {}),
     ...(resources.documentTransfers ? { documentTransfers: resources.documentTransfers } : {}),
     ...(resources.payoutWebhookVerifier
       ? {
@@ -110,6 +114,7 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
         await database.close();
       } finally {
         resources.documentScanner?.close?.();
+        resources.documentDownloads?.close?.();
       }
     },
   };
@@ -129,7 +134,14 @@ export function createRuntime(env: Record<string, string | undefined>) {
   database.pool.on('error', () => console.error('Database connection interrupted.'));
   return composeRuntime(config, {
     ...(config.documentScanning
-      ? { documentScanner: new GuardDutyDocumentScanner(config.documentScanning) }
+      ? {
+          documentScanner: new GuardDutyDocumentScanner(config.documentScanning),
+          documentDownloads: new S3DocumentDownloads({
+            bucket: config.documentScanning.bucket,
+            region: config.documentScanning.region,
+            ownerAccountId: config.documentScanning.ownerAccountId,
+          }),
+        }
       : {}),
     ...(config.documentStorage
       ? {

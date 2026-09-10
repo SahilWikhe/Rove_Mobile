@@ -43,6 +43,12 @@ beforeAll(async () => {
   app = createApp({
     pool: database.pool,
     documentTransfers,
+    documentDownloads: {
+      issue: async () => ({
+        url: 'https://synthetic.example/download',
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      }),
+    },
     pushProjects: {
       rider: '00000000-0000-4000-8000-000000000001',
       driver: '00000000-0000-4000-8000-000000000002',
@@ -641,4 +647,50 @@ test('another driver cannot sign or complete an existing reservation', async () 
   ).toBe(404);
   expect(documentTransfers.forms.issue).not.toHaveBeenCalled();
   expect(documentTransfers.inbox.read).not.toHaveBeenCalled();
+});
+
+test('staff download HTTP boundary enforces MFA, clean scan and no-store responses', async () => {
+  const { DriverDocumentService, DocumentScanWorker } = await import('@rove/server');
+  const staffId = randomUUID(),
+    driverId = randomUUID(),
+    documentId = randomUUID();
+  await database.db.insert(users).values([
+    { id: staffId, subject: 'staff', name: 'Synthetic staff', role: 'staff' },
+    { id: driverId, subject: 'driver', name: 'Synthetic driver', role: 'driver' },
+  ]);
+  await database.pool.query('INSERT INTO drivers(id) VALUES($1)', [driverId]);
+  const route = `/v1/staff/documents/${documentId}/download`;
+  expect((await request(route, {}, 'staff')).status).toBe(403);
+  await database.pool.query(
+    "INSERT INTO staff_permissions(staff_id,permission) VALUES($1,'driver.document.review')",
+    [staffId],
+  );
+  expect((await request(route, {}, 'staff-no-mfa')).status).toBe(403);
+  expect((await request(route, {}, 'rider')).status).toBe(403);
+  expect((await request(route, {}, 'staff')).status).toBe(409);
+  const service = new DriverDocumentService(database.pool);
+  const actor = { id: driverId, role: 'driver' as const };
+  const metadata = {
+    kind: 'driver_license',
+    contentType: 'application/pdf',
+    sha256: 'a'.repeat(64),
+    bytes: 40,
+  };
+  await service.reserve(actor, { ...metadata, id: documentId });
+  await service.recordQuarantine(actor, {
+    ...metadata,
+    documentId,
+    driverId,
+    state: 'quarantined',
+    key: `driver-documents/quarantine/${documentId}/${randomUUID()}`,
+    version: 'synthetic-version',
+  });
+  await database.pool.query("UPDATE driver_document_scans SET available_at=now()-interval '1 second'");
+  await new DocumentScanWorker(database.pool, {
+    scan: async (target) => ({ ...target, verdict: 'clean' }),
+  }).runOnce();
+  const response = await request(route, {}, 'staff');
+  expect(response.status).toBe(200);
+  expect(response.headers.get('cache-control')).toBe('no-store');
+  expect(await response.json()).toMatchObject({ url: 'https://synthetic.example/download' });
 });
