@@ -1,0 +1,27 @@
+# Start on Home after real provider login with a synthetic account.
+# APP_ID, HOME_MARKER and SIGN_OUT_LABEL select the rider or driver app.
+# Keep the local API and Metro reachable throughout the run; never pass credentials here.
+appId: ${APP_ID}
+---
+- assertVisible: ${HOME_MARKER}
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible: ${HOME_MARKER}
+    timeout: 30000
+- takeScreenshot: restored-session
+- tapOn: Account
+- scrollUntilVisible:
+    element: ${SIGN_OUT_LABEL}
+    direction: DOWN
+- tapOn: ${SIGN_OUT_LABEL}
+- extendedWaitUntil:
+    visible: Get started
+    timeout: 30000
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible: Get started
+    timeout: 30000
+- assertNotVisible: ${HOME_MARKER}
+- takeScreenshot: signed-out-after-restart
