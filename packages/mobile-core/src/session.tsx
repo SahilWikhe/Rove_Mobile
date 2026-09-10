@@ -82,6 +82,9 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
       redirectUri,
       responseType: AuthSession.ResponseType.Code,
       usePKCE: true,
+      // Explicit sign-in must offer account entry even when the browser retains Auth0 SSO.
+      // This is a login UX hint, not proof of recent authentication for sensitive actions.
+      prompt: AuthSession.Prompt.Login,
       scopes: ['openid', 'profile', 'offline_access'],
       extraParams: { audience: config.audience },
     },
