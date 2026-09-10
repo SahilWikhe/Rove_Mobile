@@ -18,7 +18,7 @@ test('driver setup shows authoritative statuses and leads to vehicle and payout 
   await expect(page.getByText('Your vehicle.', { exact: true })).toBeVisible();
 });
 
-test('setup clears previous eligibility while a refresh fails and recovers on retry', async ({
+test('setup keeps independent checks and actions available when vehicle review fails', async ({
   page,
 }, testInfo) => {
   await page.goto('http://localhost:8092');
@@ -30,9 +30,12 @@ test('setup clears previous eligibility while a refresh fails and recovers on re
   await page.route(endpoint, (route) => route.abort());
   await page.getByRole('button', { name: 'Refresh setup status', exact: true }).click();
   await expect(
-    page.getByText('Unable to check your setup. Retry to see the latest status.', { exact: true }),
+    page.getByText('Some setup checks could not load. Refresh to try them again.', { exact: true }),
   ).toBeVisible();
-  await expect(page.getByText('Driving eligibility', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Driving eligibility', { exact: true })).toBeVisible();
+  await expect(page.getByText('Unable to check vehicle review right now.', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'View driving documents', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Review vehicle details', exact: true })).toBeVisible();
   await page.unroute(endpoint);
   await page.getByRole('button', { name: 'Refresh setup status', exact: true }).click();
   await expect(page.getByText('Driving eligibility', { exact: true })).toBeVisible();
@@ -71,4 +74,21 @@ test('setup distinguishes expired approval from payout requirements and offers t
   await page.screenshot({ path: testInfo.outputPath('expired-eligibility.png'), fullPage: true });
   await page.getByRole('button', { name: 'Get help with eligibility', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Help & support', exact: true })).toBeVisible();
+});
+
+test('failed eligibility refresh clears stale approval but preserves payout navigation', async ({ page }) => {
+  await page.goto('http://localhost:8092');
+  await page.getByRole('button', { name: 'Get started', exact: true }).click();
+  await page.getByRole('button', { name: 'Account', exact: true }).click();
+  await page.getByRole('button', { name: 'Driver setup', exact: true }).click();
+  await expect(page.getByText('Driving eligibility', { exact: true })).toBeVisible();
+  await page.route('**/v1/drivers/me', (route) => route.abort());
+  await page.getByRole('button', { name: 'Refresh setup status', exact: true }).click();
+  await expect(
+    page.getByText('Unable to check driving eligibility right now.', { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText('Your account is currently eligible.', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Back to Drive', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'View payout setup', exact: true }).click();
+  await expect(page.getByText('Your payout details.', { exact: true })).toBeVisible();
 });

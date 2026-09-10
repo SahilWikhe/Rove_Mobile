@@ -11,7 +11,12 @@ const eligibilityCopy = {
   payout_required: 'Your driving review is complete. Finish or refresh your payout setup to go online.',
   eligible: 'Your account is currently eligible.',
 };
-type Status = { driver: DriverProfile; vehicle: VehicleReview | null; payout: DriverPayoutStatus['status'] };
+type Status = {
+  driver: DriverProfile | null;
+  vehicle: VehicleReview | null;
+  vehicleUnavailable: boolean;
+  payout: DriverPayoutStatus['status'] | null;
+};
 export default function Setup() {
   const { profile } = useSession();
   return <SetupStatus key={profile?.id ?? 'signed-out'} />;
@@ -30,19 +35,21 @@ function SetupStatus() {
       setStatus(null);
       setError(null);
       if (profile)
-        void Promise.all([
+        void Promise.allSettled([
           api.driverProfile(abort.signal),
           api.vehicleSubmission(),
           api.driverPayoutStatus(abort.signal),
-        ])
-          .then(([driver, vehicle, payout]) => {
-            if (epoch.current === generation)
-              setStatus({ driver, vehicle: vehicle.submission, payout: payout.status });
-          })
-          .catch(() => {
-            if (epoch.current === generation)
-              setError('Unable to check your setup. Retry to see the latest status.');
+        ]).then(([driver, vehicle, payout]) => {
+          if (epoch.current !== generation) return;
+          setStatus({
+            driver: driver.status === 'fulfilled' ? driver.value : null,
+            vehicle: vehicle.status === 'fulfilled' ? vehicle.value.submission : null,
+            vehicleUnavailable: vehicle.status === 'rejected',
+            payout: payout.status === 'fulfilled' ? payout.value.status : null,
           });
+          if ([driver, vehicle, payout].some((result) => result.status === 'rejected'))
+            setError('Some setup checks could not load. Refresh to try them again.');
+        });
       return () => {
         epoch.current++;
         abort.abort();
@@ -70,62 +77,84 @@ function SetupStatus() {
             <>
               <Card>
                 <Copy kind="heading">Driving eligibility</Copy>
-                <Copy>
-                  {status.driver.eligibilityStatus
-                    ? eligibilityCopy[status.driver.eligibilityStatus]
-                    : status.driver.eligible
-                      ? 'Your account is currently eligible.'
-                      : status.driver.approved
-                        ? 'Your account needs an eligibility check.'
-                        : 'Your account review is not complete.'}
-                </Copy>
-                <Copy kind="muted">
-                  Vehicle review and payout setup are separate checks. Location permission is requested when
-                  you go online.
-                </Copy>
-                <Button
-                  title={
-                    status.driver.eligible
-                      ? 'Back to Drive'
-                      : status.driver.eligibilityStatus === 'payout_required'
-                        ? 'Continue payout setup'
-                        : 'Get help with eligibility'
-                  }
-                  variant="secondary"
-                  onPress={() =>
-                    router.push(
-                      status.driver.eligible
-                        ? '/drive'
-                        : status.driver.eligibilityStatus === 'payout_required'
-                          ? '/payouts'
-                          : '/support',
-                    )
-                  }
-                />
+                {!status.driver ? (
+                  <>
+                    <Copy>Unable to check driving eligibility right now.</Copy>
+                    <Button
+                      title="Get help with eligibility"
+                      variant="secondary"
+                      onPress={() => router.push('/support')}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <Copy>
+                      {status.driver?.eligibilityStatus
+                        ? eligibilityCopy[status.driver?.eligibilityStatus]
+                        : status.driver?.eligible
+                          ? 'Your account is currently eligible.'
+                          : status.driver.approved
+                            ? 'Your account needs an eligibility check.'
+                            : 'Your account review is not complete.'}
+                    </Copy>
+                    <Copy kind="muted">
+                      Vehicle review and payout setup are separate checks. Location permission is requested
+                      when you go online.
+                    </Copy>
+                    <Button
+                      title={
+                        status.driver?.eligible
+                          ? 'Back to Drive'
+                          : status.driver?.eligibilityStatus === 'payout_required'
+                            ? 'Continue payout setup'
+                            : 'Get help with eligibility'
+                      }
+                      variant="secondary"
+                      onPress={() =>
+                        router.push(
+                          status.driver?.eligible
+                            ? '/drive'
+                            : status.driver?.eligibilityStatus === 'payout_required'
+                              ? '/payouts'
+                              : '/support',
+                        )
+                      }
+                    />
+                  </>
+                )}
               </Card>
               <Button
                 title="View driving documents"
                 variant="secondary"
                 onPress={() => router.push('/documents')}
               />
-              <VehicleReviewStatus submission={status.vehicle} />
+              {status.vehicleUnavailable ? (
+                <Card>
+                  <Copy kind="heading">Vehicle review</Copy>
+                  <Copy>Unable to check vehicle review right now.</Copy>
+                </Card>
+              ) : (
+                <VehicleReviewStatus submission={status.vehicle} />
+              )}
               <Button
-                title={status.vehicle ? 'Review vehicle details' : 'Add your vehicle'}
+                title={
+                  status.vehicleUnavailable || status.vehicle ? 'Review vehicle details' : 'Add your vehicle'
+                }
                 variant="secondary"
                 onPress={() => router.push('/vehicle')}
               />
               <Card>
                 <Copy kind="heading">Payout details</Copy>
                 <Copy>
-                  {
-                    {
-                      unavailable: 'Payout setup is not available yet.',
-                      not_started: 'Add your payout details.',
-                      pending: 'Stripe is reviewing your details.',
-                      needs_information: 'Stripe needs more information.',
-                      ready: 'Stripe details are ready.',
-                    }[status.payout]
-                  }
+                  {status.payout === null
+                    ? 'Unable to check payout setup right now.'
+                    : {
+                        unavailable: 'Payout setup is not available yet.',
+                        not_started: 'Add your payout details.',
+                        pending: 'Stripe is reviewing your details.',
+                        needs_information: 'Stripe needs more information.',
+                        ready: 'Stripe details are ready.',
+                      }[status.payout]}
                 </Copy>
                 <Copy kind="muted">
                   A ready Stripe account does not by itself confirm driving approval or that a payout has been
