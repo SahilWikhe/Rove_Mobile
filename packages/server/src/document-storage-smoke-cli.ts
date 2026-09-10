@@ -4,6 +4,7 @@ import { S3DocumentConfig } from './s3-document-config';
 import { S3DocumentUploadForms } from './s3-document-upload';
 import { S3DocumentInbox } from './s3-document-inbox';
 import { S3DocumentStore } from './s3-document-store';
+import { verifyUploaderRestrictions } from './document-storage-permissions-check';
 import { documentStorageSmoke } from './document-storage-smoke';
 
 try {
@@ -12,6 +13,7 @@ try {
       bucket: { type: 'string' },
       region: { type: 'string' },
       owner: { type: 'string' },
+      'verify-uploader-permissions': { type: 'boolean', default: false },
       'confirm-synthetic-write': { type: 'boolean', default: false },
     },
     strict: true,
@@ -41,6 +43,12 @@ try {
       read: (input) => inbox.read(input),
       quarantine: new S3DocumentStore(config),
       fetch,
+      ...(values['verify-uploader-permissions']
+        ? {
+            verifyUploaderRestrictions: (input: { key: string; version: string }) =>
+              verifyUploaderRestrictions(client, config, input),
+          }
+        : {}),
     });
     console.log(JSON.stringify(result));
     console.log(

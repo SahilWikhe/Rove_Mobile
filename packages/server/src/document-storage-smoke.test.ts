@@ -99,3 +99,14 @@ test('does not report success if the object is anonymously readable', async () =
     init?.method === 'POST' ? transport(url, init) : Promise.resolve(new Response('public', { status: 200 }));
   await expect(documentStorageSmoke(config, f.ports)).rejects.toThrow('Anonymous access');
 });
+
+test('optional uploader checks must pass before reporting restricted verification', async () => {
+  const f = fixture();
+  const verifyUploaderRestrictions = vi.fn().mockRejectedValue(new Error('unexpected access'));
+  await expect(documentStorageSmoke(config, { ...f.ports, verifyUploaderRestrictions })).rejects.toThrow(
+    'unexpected access',
+  );
+  expect(verifyUploaderRestrictions).toHaveBeenCalledWith(
+    expect.objectContaining({ version: 'synthetic-version' }),
+  );
+});

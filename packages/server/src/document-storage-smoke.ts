@@ -10,6 +10,7 @@ export interface DocumentSmokePorts {
   read(input: unknown): Promise<Uint8Array>;
   quarantine: DocumentQuarantineStore;
   fetch: typeof fetch;
+  verifyUploaderRestrictions?(input: { key: string; version: string }): Promise<void>;
 }
 /** Operator-only synthetic storage check. Never accepts user files or connects to the ride database. */
 export async function documentStorageSmoke(raw: unknown, ports: DocumentSmokePorts) {
@@ -82,7 +83,9 @@ export async function documentStorageSmoke(raw: unknown, ports: DocumentSmokePor
     await anonymous.body?.cancel();
     if (anonymous.status !== 403) throw new Error('Anonymous access was not explicitly denied.');
   }
+  await ports.verifyUploaderRestrictions?.({ key: receipt.key, version: receipt.version });
   return {
+    ...(ports.verifyUploaderRestrictions ? { uploaderRestrictions: 'verified' as const } : {}),
     status: 'verified' as const,
     documentId: reservation.id,
     bytes: bytes.length,
