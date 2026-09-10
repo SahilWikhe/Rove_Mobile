@@ -16,6 +16,12 @@ This section is the current summary; dated entries below are historical implemen
 
 Checkpoint verification: project settings readback and empty deployment/environment lists passed at project creation. Added `pnpm staging:preflight` to validate one explicit environment file with runtime validators and shared recovery-secret validation. It does not use ambient credentials or perform network calls. Twelve targeted preflight/worker tests passed, plus API typecheck, changed-source lint, boundaries, API build and packaged smoke verification. The actual local partial file correctly failed for missing database/maps/OIDC fields. Documentation lint and diff whitespace checks passed. The subsequent database provisioning checkpoint verified 24 migration journal entries, 26 empty application tables, restricted role privileges, pooled TLS and ignored credentials storage. No runtime code changed in that provisioning checkpoint, so application tests were not rerun. Documentation lint and whitespace checks passed. No cloud API deployment was performed.
 
+### Repeatable Auth0 verification checkpoint — September 9
+
+Added `pnpm auth:staging:check` with explicit staging tenant/resource selection, client-secret-free reads, paginated connection checks, pinned HTTPS discovery/JWKS requests and sanitized diagnostics. Eleven regression tests cover policy drift and run in the existing credential-free CI tooling step. The live command remains an explicit authenticated operator check.
+
+Verification: all 11 new tests, changed-script lint, documentation lint and whitespace checks passed; the live read-only command passed against Auth0 staging. This does not perform user login, token exchange, refresh/revocation or native callback verification. No provider settings or deployment changed. Next: complete real native authentication verification and missing Maps/Stripe staging configuration; the full mobile product remains incomplete.
+
 ### Explicit sign-in checkpoint — September 9
 
 Added `prompt=login` to the shared explicit authorization request to avoid automatically reusing the previous Auth0 browser account after local sign-out. Session restoration and refresh remain unchanged; this UX hint is not an MFA or recent-authentication guarantee. Documented browser SSO/sign-out limits in the provider handoff.
