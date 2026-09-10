@@ -43,7 +43,7 @@ TanStack Query owns fetched state. Local React state owns transient form/UI stat
 
 ## Authentication decision and device storage
 
-Evaluate managed authentication with an Expo development build before accepting a provider. Candidate evaluation includes Neon Auth and a managed OIDC provider with documented Expo support. Verify OAuth PKCE, callback allowlists, session refresh/revocation, account recovery, staff MFA, account deletion, operational cost, and applicable data agreements. Record the decision in an ADR.
+Auth0 is selected for direct setup under ADR-005. Use separate public Native clients for rider and driver in the same staging tenant, with a shared API audience. Retain the existing Expo AuthSession PKCE integration pending verification in development builds. Verify OAuth PKCE, callback allowlists, session refresh/revocation, account recovery, staff MFA, account deletion, operational cost, and applicable data agreements. Record verification evidence against ADR-005.
 
 Use OS secure storage for session material supported by the provider, never AsyncStorage or public environment variables for secrets. No mobile bundle contains a database connection string or privileged provider key. Device storage can be lost or persist differently across reinstall; the server remains the authority for account/session state. [Expo authentication](https://docs.expo.dev/guides/authentication/)
 

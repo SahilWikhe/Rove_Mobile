@@ -32,7 +32,9 @@ Reason: consumer-only operation must work with no institution present. Consequen
 
 ## ADR-005: Managed authentication
 
-**Open; gate M2.** Evaluate Neon Auth and a managed OIDC provider with supported Expo flows. Choose one initial identity authority, with Rove-owned consumer/driver/staff authorization. Institution roles later remain distinct from staff capabilities.
+**Selected September 9, 2026; integration verification still gates M2.** Use Auth0, configured directly through its dashboard or authenticated CLI. Create an isolated staging tenant with two public Native clients (rider and driver) and one shared API audience/user directory. Production will use a separate tenant. Rove retains consumer/driver/staff authorization in its backend; institution roles remain distinct from staff capabilities.
+
+Reason: the existing Expo AuthSession PKCE flow and Hono OIDC validation fit direct native-client/API configuration. Vercel continues hosting the backend and Neon remains the application database. Marketplace provisioning is unnecessary for this setup. Neon Auth is not the selected identity authority. Provider selection does not prove native integration, authorize a paid plan or activate production.
 
 Acceptance: native callbacks/PKCE, refresh/revocation, recovery, staff MFA, account lifecycle, test isolation, cost and relevant agreements. Provider membership features must not force institutions into consumer account creation.
 

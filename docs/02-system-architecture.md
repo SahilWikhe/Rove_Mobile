@@ -29,7 +29,7 @@ flowchart TB
     Browser["Rove staff browser"] --> Ops["Internal ops - separate repo / session boundary"]
     Ops --> API
     B2B["Optional institution dashboard - separate repo"] -->|"Versioned scoped API"| API
-    API --> Auth["Managed identity provider"]
+    API --> Auth["Auth0 managed identity provider"]
     API --> Domain["Domain and application modules"]
     Domain --> DB[("Neon Postgres")]
     DB --> Outbox["Outbox dispatcher"]

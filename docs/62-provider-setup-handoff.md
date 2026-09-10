@@ -4,9 +4,9 @@ Updated: September 9, 2026. This is an account-setup handoff, not evidence of ac
 
 ## Authentication decision and account setup
 
-ADR-005 remains open. Auth0 is a candidate that matches the current Expo AuthSession authorization-code/PKCE flow, explicit API audience and refresh-token handling. This is an implementation-fit assessment, not a selected vendor or a verified native integration. Neon Auth remains an alternative requiring equivalent native-flow evidence before adoption.
+ADR-005 selects Auth0 with direct dashboard/CLI configuration, as accepted by the owner on September 9. The existing Expo AuthSession authorization-code/PKCE flow, explicit API audience and refresh-token handling remain the implementation baseline. Native provider integration is still unverified. Use one staging identity directory for both apps and a separate production tenant later.
 
-If Auth0 is selected:
+Setup sequence:
 
 1. Create an isolated development tenant and a custom API identifier for Rove staging. Record the identifier exactly; both apps and the backend must agree on it.
 2. Create two public Native applications: Rove Rider Staging and Rove Driver Staging. Each receives its own client ID. Do not put a client secret in either app.
@@ -29,9 +29,9 @@ Each app sets `EXPO_PUBLIC_AUTH_ISSUER`, `EXPO_PUBLIC_AUTH_AUDIENCE` and its own
 
 Auth0 is available as a [Vercel Native integration](https://vercel.com/marketplace/auth0). Its documented provisioning creates a new Auth0 tenant/application and populates Vercel configuration. The automatic application setup targets Next.js and the Auth0 Next.js SDK; Rove uses Expo native clients and a Hono API, so installing the integration alone does not configure our login flow. See [Auth0 integration instructions](https://auth0.com/docs/customize/integrations/integrate-with-vercel).
 
-If the owner chooses this setup route, associate it only with the intended staging project and inspect the provisioned tenant/application and selected environment scopes. Then create/configure the two Native clients and custom API described above and explicitly map their issuer, API audience and discovery JWKS URL to Rove's existing variables. Do not copy a provisioned web application's client secret into either mobile app or replace the Hono authentication layer with Next.js middleware.
+Our selected route is direct Auth0 configuration. No Marketplace installation is needed. Keep the two Native clients and shared API described above; never put a web client secret into a mobile app or replace Hono validation with Next.js middleware.
 
-The documented native integration creates a new tenant; an existing Auth0 account uses manual application integration according to Auth0's instructions. Avoid creating a second tenant without checking which account is intended. Marketplace installation, tenant choice, provider billing and native compatibility remain unverified; the user's question about availability is not a vendor-selection or provisioning instruction.
+The Auth0 plugin 2.1.1 is present locally and supplies setup skills. No Auth0 MCP tools are exposed in the current session. Plugin installation does not itself authenticate tenant management; CLI or dashboard login remains necessary.
 
 ## Google Maps setup
 
@@ -81,7 +81,7 @@ Before uploading configuration, inspect current Vercel state again. The last con
 
 Owner decisions/setup still needed:
 
-1. Choose the initial managed identity provider and provide access to its isolated development tenant.
+1. Authenticate Auth0 tenant management and identify or create the isolated development tenant. The provider choice is settled.
 2. Authorize Google Cloud billing/key setup when ready, with quota and egress decisions.
 3. Make sandbox runtime Stripe credentials available through ignored local storage or the Vercel secret UI, and confirm the payment-method configuration.
 4. Upgrade hosting when ready and approve the first staging deployment after configuration review.
