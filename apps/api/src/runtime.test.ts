@@ -373,3 +373,24 @@ test('document uploads default off and require complete explicit storage setting
     readRuntimeConfig({ ...environment(), ...storage, DOCUMENT_UPLOADS_ENABLED: 'false' }).documentStorage,
   ).toBeUndefined();
 });
+
+test('GuardDuty scanning is explicit and can continue while new uploads are disabled', () => {
+  expect(readRuntimeConfig(environment()).documentScanning).toBeUndefined();
+  const settings = {
+    ...environment(),
+    DOCUMENT_SCANNING_ENABLED: 'true',
+    DOCUMENT_UPLOADS_ENABLED: 'false',
+    DOCUMENT_S3_BUCKET: 'rove-private-fixture',
+    DOCUMENT_S3_REGION: 'us-east-2',
+    DOCUMENT_S3_OWNER_ACCOUNT_ID: '111122223333',
+    DOCUMENT_GUARDDUTY_ROLE_ARN: 'arn:aws:iam::111122223333:role/scanner',
+  };
+  expect(readRuntimeConfig(settings).documentScanning?.bucket).toBe('rove-private-fixture');
+  expect(readRuntimeConfig(settings).documentStorage).toBeUndefined();
+  for (const change of [
+    { DOCUMENT_SCANNING_ENABLED: 'yes' },
+    { DOCUMENT_GUARDDUTY_ROLE_ARN: '' },
+    { DOCUMENT_GUARDDUTY_ROLE_ARN: 'arn:aws:iam::999999999999:role/scanner' },
+  ])
+    expect(() => readRuntimeConfig({ ...settings, ...change })).toThrow('documents.scanning');
+});

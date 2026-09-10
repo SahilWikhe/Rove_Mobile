@@ -268,3 +268,23 @@ test('exhausted scanning reports a support path instead of pretending verificati
       ?.verification,
   ).toBe('delayed');
 });
+
+test('scan wakeup follows pending work and recovers crashed leases without hot polling', async () => {
+  const now = new Date();
+  const worker = new DocumentScanWorker(
+    db.pool,
+    { scan: async (value) => ({ ...value, verdict: 'clean' }) },
+    () => now,
+  );
+  expect(await worker.nextWakeAfterSeconds()).toBe(1);
+  await db.pool.query(
+    'UPDATE driver_document_scans SET lease_token=$1,locked_until=$2 WHERE document_id=$3',
+    [randomUUID(), new Date(now.getTime() + 60_000), documentId],
+  );
+  expect(await worker.nextWakeAfterSeconds()).toBe(60);
+  await db.pool.query(
+    "UPDATE driver_document_scans SET state='failed',lease_token=NULL,locked_until=NULL WHERE document_id=$1",
+    [documentId],
+  );
+  expect(await worker.nextWakeAfterSeconds()).toBeNull();
+});

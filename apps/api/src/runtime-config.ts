@@ -1,4 +1,4 @@
-import { S3DocumentConfig } from '@rove/server';
+import { S3DocumentConfig, GuardDutyScanConfig } from '@rove/server';
 import { z } from 'zod';
 import { ConfigurationError, readApiConfig } from './config';
 
@@ -93,7 +93,24 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
     if (!storage.success) throw new ConfigurationError(['documents.storage']);
     documentStorage = storage.data;
   }
+  let documentScanning: z.infer<typeof GuardDutyScanConfig> | undefined;
+  if (
+    env.DOCUMENT_SCANNING_ENABLED !== undefined &&
+    !['true', 'false'].includes(env.DOCUMENT_SCANNING_ENABLED)
+  )
+    throw new ConfigurationError(['documents.scanning']);
+  if (env.DOCUMENT_SCANNING_ENABLED === 'true') {
+    const scanning = GuardDutyScanConfig.safeParse({
+      bucket: env.DOCUMENT_S3_BUCKET,
+      region: env.DOCUMENT_S3_REGION,
+      ownerAccountId: env.DOCUMENT_S3_OWNER_ACCOUNT_ID,
+      scannerRoleArn: env.DOCUMENT_GUARDDUTY_ROLE_ARN,
+    });
+    if (!scanning.success) throw new ConfigurationError(['documents.scanning']);
+    documentScanning = scanning.data;
+  }
   return {
+    ...(documentScanning ? { documentScanning } : {}),
     ...(documentStorage ? { documentStorage } : {}),
     ...(pushAccessToken ? { pushAccessToken } : {}),
     ...(pushProjects ? { pushProjects } : {}),

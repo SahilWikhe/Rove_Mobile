@@ -1,6 +1,9 @@
 import { createDatabase } from '@rove/database';
 import {
   PushDelivery,
+  DocumentScanWorker,
+  GuardDutyDocumentScanner,
+  type DocumentScanner,
   S3DocumentStore,
   S3DocumentUploadForms,
   S3DocumentInbox,
@@ -37,6 +40,7 @@ import { oidcIdentity, type VerifyIdentity } from './auth';
 import { readRuntimeConfig, type RuntimeConfig } from './runtime-config';
 
 interface Resources {
+  documentScanner?: DocumentScanner;
   documentTransfers?: DriverDocumentTransfers;
   pushProvider?: PushProvider;
   database: ReturnType<typeof createDatabase>;
@@ -95,10 +99,19 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
     app,
     worker,
     drain: new OutboxDrain(pool, worker),
+    ...(resources.documentScanner
+      ? { documentScans: new DocumentScanWorker(pool, resources.documentScanner) }
+      : {}),
     searchExpiry,
     ...(pushDelivery ? { pushDelivery } : {}),
     ...(payoutReconciliation ? { payoutReconciliation } : {}),
-    close: database.close,
+    close: async () => {
+      try {
+        await database.close();
+      } finally {
+        resources.documentScanner?.close?.();
+      }
+    },
   };
 }
 /** Only validated environment configuration can construct the real deployment resources. */
@@ -115,6 +128,9 @@ export function createRuntime(env: Record<string, string | undefined>) {
   // pg emits idle-client errors outside queries. Keep the process alive; never log driver error details.
   database.pool.on('error', () => console.error('Database connection interrupted.'));
   return composeRuntime(config, {
+    ...(config.documentScanning
+      ? { documentScanner: new GuardDutyDocumentScanner(config.documentScanning) }
+      : {}),
     ...(config.documentStorage
       ? {
           documentTransfers: {

@@ -11,6 +11,7 @@ export interface ScanTarget {
 }
 /** Trusted server adapter only. Scan the exact immutable version; unsupported files must fail closed. */
 export interface DocumentScanner {
+  close?(): void;
   scan(target: ScanTarget, signal: AbortSignal): Promise<ScanTarget & { verdict: 'clean' | 'infected' }>;
 }
 const Result = z
@@ -38,6 +39,19 @@ export class DocumentScanWorker {
     private scanner: DocumentScanner,
     private now: () => Date = () => new Date(),
   ) {}
+
+  async nextWakeAfterSeconds(): Promise<number | null> {
+    const row = (
+      await this.pool.query<{ due: Date | null }>(
+        `SELECT min(GREATEST(s.available_at,COALESCE(s.locked_until,s.available_at))) AS due
+       FROM driver_document_scans s JOIN driver_documents d ON d.id=s.document_id
+       WHERE s.state='pending' AND d.state='quarantined'`,
+      )
+    ).rows[0];
+    return row?.due
+      ? Math.max(1, Math.min(3600, Math.ceil((row.due.getTime() - this.now().getTime()) / 1000)))
+      : null;
+  }
 
   async runOnce(): Promise<'idle' | 'clean' | 'infected' | 'retry' | 'failed' | 'stale'> {
     const token = randomUUID();

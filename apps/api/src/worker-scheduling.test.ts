@@ -154,3 +154,52 @@ test('recovery repairs stalled push jobs before draining the queue', async () =>
   await scheduler.recover();
   expect(order).toEqual(['push', 'drain']);
 });
+
+test('document scans continue independently when the ride outbox is empty', async () => {
+  const runOnce = vi.fn(async () => 'retry');
+  const nextWakeAfterSeconds = vi.fn(async () => 7 as number | null);
+  const publish = vi.fn(async (_delay: number) => {});
+  const scheduler = new WorkerScheduling(
+    {
+      drain: { run: async () => ({ processed: 0, failed: 0, wakeAfterSeconds: null }) },
+      searchExpiry: { sweep: async () => 0 },
+      documentScans: { runOnce, nextWakeAfterSeconds },
+    },
+    { publish },
+  );
+  expect((await scheduler.consume({ version: 1 })).wakeAfterSeconds).toBe(7);
+  expect(runOnce).toHaveBeenCalledOnce();
+  expect(publish).toHaveBeenCalledWith(7);
+  nextWakeAfterSeconds.mockResolvedValue(null);
+  expect((await scheduler.consume({ version: 1 })).wakeAfterSeconds).toBeNull();
+  expect(publish).toHaveBeenCalledTimes(1);
+});
+test('scan continuation never delays earlier ride work', async () => {
+  const publish = vi.fn(async (_delay: number) => {});
+  const scheduler = new WorkerScheduling(
+    {
+      drain: { run: async () => ({ processed: 1, failed: 0, wakeAfterSeconds: 2 }) },
+      searchExpiry: { sweep: async () => 0 },
+      documentScans: { runOnce: async () => 'retry', nextWakeAfterSeconds: async () => 30 },
+    },
+    { publish },
+  );
+  await scheduler.consume({ version: 1 });
+  expect(publish).toHaveBeenCalledWith(2);
+});
+test('only successful document completion wakes scanning, not reservations or failed uploads', async () => {
+  const { scheduler, publish } = setup();
+  const background: Promise<unknown>[] = [];
+  const api = new Hono()
+    .post('/v1/drivers/me/documents/:id/complete', (c) =>
+      c.json({}, c.req.param('id') === 'good' ? 200 : 503),
+    )
+    .post('/v1/drivers/me/documents', (c) => c.json({}, 201));
+  const hosted = createHostedApp(api, scheduler, secret, (work) => background.push(work));
+  await hosted.request('/v1/drivers/me/documents', { method: 'POST' });
+  await hosted.request('/v1/drivers/me/documents/bad/complete', { method: 'POST' });
+  expect(publish).not.toHaveBeenCalled();
+  await hosted.request('/v1/drivers/me/documents/good/complete', { method: 'POST' });
+  await Promise.all(background);
+  expect(publish).toHaveBeenCalledOnce();
+});

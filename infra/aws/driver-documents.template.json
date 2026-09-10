@@ -1,12 +1,18 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "Rove private driver document quarantine storage. Deploy separately for each environment. No runtime credentials or scanner are provisioned.",
+  "Description": "Rove private driver document storage with optional GuardDuty malware protection. Scanning defaults off; enabling it incurs AWS usage charges. Runtime identities are configured separately.",
   "Parameters": {
     "Environment": {
       "Type": "String",
       "AllowedValues": ["staging", "production"],
       "Default": "staging",
       "Description": "Isolated environment for this bucket."
+    },
+    "EnableMalwareScanning": {
+      "Type": "String",
+      "AllowedValues": ["true", "false"],
+      "Default": "false",
+      "Description": "Enable paid GuardDuty scanning of quarantine objects with protected result tags."
     }
   },
   "Resources": {
@@ -106,6 +112,62 @@
                   "aws:PrincipalIsAWSService": "false"
                 }
               }
+            },
+            {
+              "Fn::If": [
+                "ScanningEnabled",
+                {
+                  "Sid": "ProtectGuardDutyScanTags",
+                  "Effect": "Deny",
+                  "Principal": "*",
+                  "Action": [
+                    "s3:PutObjectTagging",
+                    "s3:PutObjectVersionTagging",
+                    "s3:DeleteObjectTagging",
+                    "s3:DeleteObjectVersionTagging"
+                  ],
+                  "Resource": {
+                    "Fn::Sub": "${DocumentBucket.Arn}/driver-documents/quarantine/*"
+                  },
+                  "Condition": {
+                    "ArnNotEquals": {
+                      "aws:PrincipalArn": {
+                        "Fn::GetAtt": ["DocumentScannerRole", "Arn"]
+                      }
+                    }
+                  }
+                },
+                {
+                  "Ref": "AWS::NoValue"
+                }
+              ]
+            },
+            {
+              "Fn::If": [
+                "ScanningEnabled",
+                {
+                  "Sid": "NoQuarantineReadBeforeCleanScan",
+                  "Effect": "Deny",
+                  "Principal": "*",
+                  "Action": ["s3:GetObject", "s3:GetObjectVersion"],
+                  "Resource": {
+                    "Fn::Sub": "${DocumentBucket.Arn}/driver-documents/quarantine/*"
+                  },
+                  "Condition": {
+                    "ArnNotEquals": {
+                      "aws:PrincipalArn": {
+                        "Fn::GetAtt": ["DocumentScannerRole", "Arn"]
+                      }
+                    },
+                    "StringNotEquals": {
+                      "s3:ExistingObjectTag/GuardDutyMalwareScanStatus": "NO_THREATS_FOUND"
+                    }
+                  }
+                },
+                {
+                  "Ref": "AWS::NoValue"
+                }
+              ]
             }
           ]
         }
@@ -155,6 +217,159 @@
           ]
         }
       }
+    },
+    "DocumentScannerRole": {
+      "Type": "AWS::IAM::Role",
+      "Condition": "ScanningEnabled",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "malware-protection-plan.guardduty.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "ScanQuarantinedDocuments",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "events:PutRule",
+                    "events:DeleteRule",
+                    "events:PutTargets",
+                    "events:RemoveTargets"
+                  ],
+                  "Resource": {
+                    "Fn::Sub": "arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/DO-NOT-DELETE-AmazonGuardDutyMalwareProtectionS3*"
+                  },
+                  "Condition": {
+                    "StringLike": {
+                      "events:ManagedBy": "malware-protection-plan.guardduty.amazonaws.com"
+                    }
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": ["events:DescribeRule", "events:ListTargetsByRule"],
+                  "Resource": {
+                    "Fn::Sub": "arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/DO-NOT-DELETE-AmazonGuardDutyMalwareProtectionS3*"
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:PutObjectTagging",
+                    "s3:GetObjectTagging",
+                    "s3:PutObjectVersionTagging",
+                    "s3:GetObjectVersionTagging",
+                    "s3:GetObject",
+                    "s3:GetObjectVersion"
+                  ],
+                  "Resource": {
+                    "Fn::Sub": "${DocumentBucket.Arn}/driver-documents/quarantine/*"
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": ["s3:PutBucketNotification", "s3:GetBucketNotification", "s3:ListBucket"],
+                  "Resource": {
+                    "Fn::GetAtt": ["DocumentBucket", "Arn"]
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "s3:PutObject",
+                  "Resource": {
+                    "Fn::Sub": "${DocumentBucket.Arn}/malware-protection-resource-validation-object"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Application",
+            "Value": "Rove"
+          },
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "Environment"
+            }
+          }
+        ]
+      }
+    },
+    "DocumentMalwareProtection": {
+      "Type": "AWS::GuardDuty::MalwareProtectionPlan",
+      "Condition": "ScanningEnabled",
+      "DependsOn": ["DocumentBucketPolicy"],
+      "Properties": {
+        "Role": {
+          "Fn::GetAtt": ["DocumentScannerRole", "Arn"]
+        },
+        "ProtectedResource": {
+          "S3Bucket": {
+            "BucketName": {
+              "Ref": "DocumentBucket"
+            },
+            "ObjectPrefixes": ["driver-documents/quarantine/"]
+          }
+        },
+        "Actions": {
+          "Tagging": {
+            "Status": "ENABLED"
+          }
+        },
+        "Tags": [
+          {
+            "Key": "Application",
+            "Value": "Rove"
+          },
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "Environment"
+            }
+          }
+        ]
+      }
+    },
+    "DocumentScanReaderPolicy": {
+      "Type": "AWS::IAM::ManagedPolicy",
+      "Condition": "ScanningEnabled",
+      "Properties": {
+        "Description": "Read protected scan tags and bucket policy only; does not grant document content reads or tag writes.",
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": "s3:GetBucketPolicy",
+              "Resource": {
+                "Fn::GetAtt": ["DocumentBucket", "Arn"]
+              }
+            },
+            {
+              "Effect": "Allow",
+              "Action": "s3:GetObjectVersionTagging",
+              "Resource": {
+                "Fn::Sub": "${DocumentBucket.Arn}/driver-documents/quarantine/*"
+              }
+            }
+          ]
+        }
+      }
     }
   },
   "Outputs": {
@@ -181,6 +396,37 @@
       "Value": {
         "Ref": "DocumentUploaderPolicy"
       }
+    },
+    "DocumentScannerRoleArn": {
+      "Condition": "ScanningEnabled",
+      "Description": "Trusted GuardDuty role ARN for the server scanner adapter.",
+      "Value": {
+        "Fn::GetAtt": ["DocumentScannerRole", "Arn"]
+      }
+    },
+    "DocumentScanReaderPolicyArn": {
+      "Condition": "ScanningEnabled",
+      "Description": "Attach to the scan worker identity, not mobile clients.",
+      "Value": {
+        "Ref": "DocumentScanReaderPolicy"
+      }
+    },
+    "DocumentMalwareProtectionPlanId": {
+      "Condition": "ScanningEnabled",
+      "Description": "Verify ACTIVE and test synthetic clean/infected results before enabling the application worker.",
+      "Value": {
+        "Fn::GetAtt": ["DocumentMalwareProtection", "MalwareProtectionPlanId"]
+      }
+    }
+  },
+  "Conditions": {
+    "ScanningEnabled": {
+      "Fn::Equals": [
+        {
+          "Ref": "EnableMalwareScanning"
+        },
+        "true"
+      ]
     }
   }
 }
