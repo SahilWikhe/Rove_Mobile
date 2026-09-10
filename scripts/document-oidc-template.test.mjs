@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { documentOidcTemplate } from './document-oidc-template.mjs';
 const input = {
+  issuerMode: 'team',
   team: 'fixture-team',
   project: 'rove-api-staging',
   environment: 'production',
@@ -40,4 +41,41 @@ test('reuses an exact team issuer without creating a duplicate provider', () => 
     arn,
   );
   assert.throws(() => documentOidcTemplate({ ...input, existingProviderArn: arn + '-other' }));
+});
+
+test('global issuer still restricts audience and subject to the exact project and environment', () => {
+  const t = documentOidcTemplate({ ...input, issuerMode: 'global' });
+  assert.deepEqual(t.Resources.VercelProvider.Properties, {
+    Url: 'https://oidc.vercel.com',
+    ClientIdList: ['https://vercel.com/fixture-team'],
+  });
+  assert.deepEqual(
+    t.Resources.DocumentRuntimeRole.Properties.AssumeRolePolicyDocument.Statement[0].Condition,
+    {
+      StringEquals: {
+        'oidc.vercel.com:aud': 'https://vercel.com/fixture-team',
+        'oidc.vercel.com:sub': 'owner:fixture-team:project:rove-api-staging:environment:production',
+      },
+    },
+  );
+  assert.equal(JSON.stringify(t).includes('*'), false);
+});
+test('requires an explicit issuer mode and rejects provider reuse across modes', () => {
+  for (const issuerMode of [undefined, null, '', 'GLOBAL', '*'])
+    assert.throws(() => documentOidcTemplate({ ...input, issuerMode }));
+  const globalArn = 'arn:aws:iam::123456789012:oidc-provider/oidc.vercel.com';
+  assert.throws(() => documentOidcTemplate({ ...input, existingProviderArn: globalArn }));
+  assert.throws(() =>
+    documentOidcTemplate({
+      ...input,
+      issuerMode: 'global',
+      existingProviderArn: globalArn + '/fixture-team',
+    }),
+  );
+  const t = documentOidcTemplate({ ...input, issuerMode: 'global', existingProviderArn: globalArn });
+  assert.equal(t.Resources.VercelProvider, undefined);
+  assert.equal(
+    t.Resources.DocumentRuntimeRole.Properties.AssumeRolePolicyDocument.Statement[0].Principal.Federated,
+    globalArn,
+  );
 });

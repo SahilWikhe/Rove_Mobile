@@ -3,9 +3,10 @@ import { pathToFileURL } from 'node:url';
 
 /** Generate a single-project, single-environment trust policy; never use wildcard subjects. */
 export function documentOidcTemplate(input) {
-  const { team, project, environment, account, uploaderPolicyArn, existingProviderArn } = input;
+  const { team, project, environment, account, uploaderPolicyArn, existingProviderArn, issuerMode } = input;
   const label = /^[a-z0-9][a-z0-9-]{0,99}$/;
   if (
+    !['team', 'global'].includes(issuerMode) ||
     !label.test(team ?? '') ||
     !label.test(project ?? '') ||
     !['production', 'preview', 'development'].includes(environment) ||
@@ -14,13 +15,13 @@ export function documentOidcTemplate(input) {
     throw new Error('Invalid identity scope.');
   if (!new RegExp(`^arn:aws:iam::${account}:policy/[A-Za-z0-9+=,.@_/-]+$`).test(uploaderPolicyArn ?? ''))
     throw new Error('Uploader policy must belong to the selected AWS account.');
-  const issuer = `oidc.vercel.com/${team}`;
+  const issuer = issuerMode === 'team' ? `oidc.vercel.com/${team}` : 'oidc.vercel.com';
   const providerArn = `arn:aws:iam::${account}:oidc-provider/${issuer}`;
   if (existingProviderArn !== undefined && existingProviderArn !== providerArn)
-    throw new Error('Existing provider does not match the exact team issuer.');
+    throw new Error('Existing provider does not match the selected issuer.');
   return {
     AWSTemplateFormatVersion: '2010-09-09',
-    Description: 'Rove document uploader identity for one Vercel project/environment using the team issuer.',
+    Description: `Rove document uploader identity for one Vercel project/environment using the ${issuerMode} issuer.`,
     Resources: {
       ...(!existingProviderArn
         ? {
@@ -70,7 +71,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     );
   } catch {
     console.error(
-      'Supply one JSON file with team, project, environment, account, uploaderPolicyArn and optional existingProviderArn. Verify the Vercel team issuer before deployment.',
+      'Supply one JSON file with issuerMode (team or global), team, project, environment, account, uploaderPolicyArn and optional existingProviderArn. Verify the Vercel issuer mode before deployment.',
     );
     process.exitCode = 1;
   }
