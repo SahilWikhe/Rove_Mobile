@@ -372,6 +372,9 @@ importers:
       '@aws-sdk/client-s3':
         specifier: 3.1128.0
         version: 3.1128.0
+      '@aws-sdk/s3-presigned-post':
+        specifier: 3.1128.0
+        version: 3.1128.0
       '@rove/contracts':
         specifier: workspace:*
         version: link:../contracts
@@ -447,6 +450,10 @@ packages:
 
   '@aws-sdk/nested-clients@3.997.44':
     resolution: {integrity: sha512-NhEgryjlBF9w38ZXqGymQV28IhkYa1mKhlbYnqIis57AYwWGVYfUPgg/qC2rLRqOUfblxx++irvju10kVTa8Vw==}
+    engines: {node: '>=20.0.0'}
+
+  '@aws-sdk/s3-presigned-post@3.1128.0':
+    resolution: {integrity: sha512-etckkNEmc2d6d5232MA203nAgCAS2zsKU9bCcztnOhRdFiZeaUSN+A8Mbi2Ej75v2PSYPRmCwE2gFdReQDGfJQ==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/signature-v4-multi-region@3.996.46':
@@ -4981,6 +4988,16 @@ snapshots:
       '@smithy/core': 3.33.3
       '@smithy/fetch-http-handler': 5.8.0
       '@smithy/node-http-handler': 4.12.1
+      '@smithy/types': 4.18.0
+      tslib: 2.8.1
+
+  '@aws-sdk/s3-presigned-post@3.1128.0':
+    dependencies:
+      '@aws-sdk/client-s3': 3.1128.0
+      '@aws-sdk/core': 3.977.9
+      '@aws-sdk/types': 3.974.5
+      '@smithy/core': 3.33.3
+      '@smithy/signature-v4': 5.7.3
       '@smithy/types': 4.18.0
       tslib: 2.8.1
 

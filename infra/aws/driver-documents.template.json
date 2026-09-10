@@ -48,6 +48,15 @@
               "AbortIncompleteMultipartUpload": {
                 "DaysAfterInitiation": 1
               }
+            },
+            {
+              "Id": "ExpireUntrustedUploadInbox",
+              "Status": "Enabled",
+              "Prefix": "driver-documents/inbox/",
+              "ExpirationInDays": 1,
+              "NoncurrentVersionExpiration": {
+                "NoncurrentDays": 1
+              }
             }
           ]
         },
@@ -118,12 +127,17 @@
               }
             },
             {
-              "Sid": "WriteQuarantineObjects",
+              "Sid": "WriteDocumentUploadObjects",
               "Effect": "Allow",
               "Action": ["s3:PutObject"],
-              "Resource": {
-                "Fn::Sub": "${DocumentBucket.Arn}/driver-documents/quarantine/*"
-              },
+              "Resource": [
+                {
+                  "Fn::Sub": "${DocumentBucket.Arn}/driver-documents/quarantine/*"
+                },
+                {
+                  "Fn::Sub": "${DocumentBucket.Arn}/driver-documents/inbox/*"
+                }
+              ],
               "Condition": {
                 "StringEquals": {
                   "s3:x-amz-server-side-encryption": "AES256"
