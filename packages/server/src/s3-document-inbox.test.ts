@@ -71,3 +71,47 @@ test.each(['oversized', 'truncated', 'corrupt'])(
     await expect(f.reader.read(f.input)).rejects.toMatchObject({ code: 'DOCUMENT_UPLOAD_UNVERIFIED' });
   },
 );
+
+test.each(['SlowDown', 'AccessDenied', 'TimeoutError', 'AbortError', 'ECONNRESET'])(
+  'preserves verification retry on provider failure %s without leaking diagnostics',
+  async (name) => {
+    const f = fixture();
+    f.send.mockRejectedValue(Object.assign(new Error('private bucket and credential details'), { name }));
+    await expect(f.reader.read(f.input)).rejects.toMatchObject({
+      code: 'DOCUMENT_STORAGE_UNAVAILABLE',
+      status: 503,
+      message: 'Document verification is temporarily unavailable. Retry verification shortly.',
+    });
+    f.send.mockResolvedValue(f.response as never);
+    expect(await f.reader.read(f.input)).toEqual(f.body);
+  },
+);
+test('a missing inbox object requires another transfer', async () => {
+  const f = fixture();
+  f.send.mockRejectedValue(Object.assign(new Error('private object path'), { name: 'NoSuchKey' }));
+  await expect(f.reader.read(f.input)).rejects.toMatchObject({
+    code: 'DOCUMENT_UPLOAD_UNVERIFIED',
+    status: 422,
+  });
+});
+test('destroys a rejected response body before it can occupy a pooled connection', async () => {
+  const f = fixture();
+  f.send.mockResolvedValue({ ...f.response, ContentType: 'text/html' } as never);
+  await expect(f.reader.read(f.input)).rejects.toMatchObject({ code: 'DOCUMENT_UPLOAD_UNVERIFIED' });
+  expect(f.response.Body.destroyed).toBe(true);
+});
+test('an interrupted download is retryable and does not return partial document bytes', async () => {
+  const f = fixture();
+  const interrupted = Readable.from(
+    (async function* () {
+      yield f.body.slice(0, 5);
+      throw new Error('private provider details');
+    })(),
+  );
+  f.send.mockResolvedValue({ ...f.response, Body: interrupted } as never);
+  await expect(f.reader.read(f.input)).rejects.toMatchObject({
+    code: 'DOCUMENT_STORAGE_UNAVAILABLE',
+    status: 503,
+  });
+  expect(interrupted.destroyed).toBe(true);
+});
