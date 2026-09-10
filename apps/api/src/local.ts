@@ -24,7 +24,15 @@ if (process.env.NODE_ENV === 'production' || process.env.VERCEL)
   throw new Error('The synthetic server cannot run in a deployment.');
 const authConfig = localAuthConfig(process.env);
 const e2e = process.env.ROVE_E2E === '1';
-const port = authConfig ? 4086 : e2e ? 4085 : 4080;
+const port =
+  process.env.ROVE_LOCAL_PORT === undefined
+    ? authConfig
+      ? 4086
+      : e2e
+        ? 4085
+        : 4080
+    : Number(process.env.ROVE_LOCAL_PORT);
+if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error('Invalid local API port.');
 const database = await testDatabase();
 const places = [
   {
@@ -136,7 +144,11 @@ if (e2e)
     await drain();
     return c.json({ stopped: true });
   });
-const server = serve({ fetch: app.fetch, port, hostname: '127.0.0.1' });
+const server = serve({ fetch: app.fetch, port, hostname: '127.0.0.1' }, (address) => {
+  console.log(
+    `Local Rove API: http://localhost:${address.port}. ${authConfig ? 'Real staging Auth0 identity' : 'Synthetic identity'}; disposable data, simulated maps/payments, no notifications.`,
+  );
+});
 let stopped = false;
 let timer: ReturnType<typeof setTimeout>;
 let inFlight: Promise<void>;
@@ -154,9 +166,6 @@ async function processJobs() {
   }
 }
 startJobs();
-console.log(
-  `Local Rove API: http://localhost:${port}. ${authConfig ? 'Real staging Auth0 identity' : 'Synthetic identity'}; disposable data, simulated maps/payments, no notifications.`,
-);
 function drain() {
   if (!draining) {
     stopped = true;
@@ -168,10 +177,27 @@ function drain() {
   }
   return draining;
 }
-async function stop() {
-  server.close();
-  await drain();
-  process.exit(0);
+let shutdown: Promise<void> | undefined;
+function stop() {
+  return (shutdown ??= (async () => {
+    stopped = true;
+    clearTimeout(timer);
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+    await drain();
+    process.exit(0);
+  })());
 }
+// The supervised Auth0 launcher uses IPC to avoid embedded-postgres's competing signal hook.
+process.on('message', (message: unknown) => {
+  if (
+    typeof message === 'object' &&
+    message !== null &&
+    'type' in message &&
+    message.type === 'rove:shutdown'
+  )
+    void stop();
+});
 process.once('SIGINT', () => void stop());
 process.once('SIGTERM', () => void stop());
