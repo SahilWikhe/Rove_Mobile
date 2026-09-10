@@ -32,6 +32,8 @@ import {
 import {
   DriverDocumentService,
   DocumentReviewService,
+  DriverEligibilityService,
+  EligibilityDecision,
   DocumentAccessService,
   type DocumentDownloads,
   type DriverDocumentTransfers,
@@ -101,6 +103,7 @@ export function createApp(deps: Dependencies) {
   const documents = new DriverDocumentService(deps.pool, deps.documentTransfers);
   const vehicleSubmissions = new VehicleSubmissionService(deps.pool);
   const documentReviews = new DocumentReviewService(deps.pool);
+  const eligibility = new DriverEligibilityService(deps.pool);
   const documentAccess = new DocumentAccessService(deps.pool, deps.documentDownloads);
   const vehicleReviews = new VehicleReviewService(deps.pool);
   const drivers = new DriverService(deps.pool);
@@ -361,6 +364,16 @@ export function createApp(deps: Dependencies) {
   app.get('/v1/staff/support-requests', async (c) => c.json(await support.queue(c.var.actor, c.req.query())));
   app.get('/v1/staff/support-requests/:id', async (c) =>
     c.json(await support.inspect(c.var.actor, id(c.req.param('id')))),
+  );
+  app.post('/v1/staff/drivers/:id/eligibility', async (c) =>
+    c.json(
+      await eligibility.decide(
+        c.var.actor,
+        id(c.req.param('id')),
+        await body(c, EligibilityDecision),
+        c.req.header('Idempotency-Key') ?? '',
+      ),
+    ),
   );
   app.post('/v1/staff/documents/:id/download', async (c) =>
     c.json(await documentAccess.download(c.var.actor, id(c.req.param('id')))),
