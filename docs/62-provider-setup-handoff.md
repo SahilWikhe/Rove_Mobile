@@ -31,7 +31,7 @@ Auth0 is available as a [Vercel Native integration](https://vercel.com/marketpla
 
 Our selected route is direct Auth0 configuration. No Marketplace installation is needed. Keep the two Native clients and shared API described above; never put a web client secret into a mobile app or replace Hono validation with Next.js middleware.
 
-The Auth0 plugin 2.1.1 is present locally and supplies setup skills. No Auth0 MCP tools are exposed in the current session. Plugin installation does not itself authenticate tenant management; CLI or dashboard login remains necessary.
+The Auth0 plugin 2.1.1 is present locally and supplies setup skills. No Auth0 MCP tools are exposed in the current session. Plugin installation does not itself authenticate tenant management; CLI authorization succeeded on September 9; the staging resources below were created and read back.
 
 ## Google Maps setup
 
@@ -81,7 +81,7 @@ Before uploading configuration, inspect current Vercel state again. The last con
 
 Owner decisions/setup still needed:
 
-1. Authenticate Auth0 tenant management and identify or create the isolated development tenant. The provider choice is settled.
+1. Complete real native Auth0 login/refresh/revocation and recovery verification; tenant/API/client setup is complete.
 2. Authorize Google Cloud billing/key setup when ready, with quota and egress decisions.
 3. Make sandbox runtime Stripe credentials available through ignored local storage or the Vercel secret UI, and confirm the payment-method configuration.
 4. Upgrade hosting when ready and approve the first staging deployment after configuration review.
@@ -119,3 +119,24 @@ Tests exercise read/write/delete separation across each configuration dimension,
 ## Expired sessions without refresh grants
 
 When an access token reaches the client's expiry safety window and no refresh token exists, the credential controller now invalidates pending account work, clears stored credentials and notifies the session UI to return to sign-in. An explicit null renewal result follows the same path. Transient refresh failures still preserve credentials and produce a retryable error; late results still cannot affect a newer session. This matters when offline access is disabled, declined or not issued by the chosen provider.
+
+## Auth0 staging resources — September 9
+
+CLI device authorization succeeded against `dev-1x3fgtb2cj2nfbj1.us.auth0.com`. Reused this development tenant after inspecting existing applications/APIs; created only the Rove resources below. Existing default applications were preserved.
+
+| Configuration | Verified value |
+| --- | --- |
+| Issuer | `https://dev-1x3fgtb2cj2nfbj1.us.auth0.com/` |
+| API audience | `https://api.staging.roveride.co` |
+| JWKS | `https://dev-1x3fgtb2cj2nfbj1.us.auth0.com/.well-known/jwks.json` |
+| API resource ID | `6aa251cb0da48534342814a9` |
+| Rider client ID | `TEp7gmPu56D1JUC92H0K0gmhRBfFiewe` |
+| Driver client ID | `uz2y8UTB4WajTN5VhNCgQVEJkvIZxqju` |
+
+The audience is an identifier, not evidence of a deployed URL or DNS record. The API uses RS256 with 900-second access tokens and offline access enabled. Both clients are first-party public Native applications, use no token-endpoint client authentication, and allow only authorization-code and refresh-token grants. Existing Expo code sends PKCE; native verification remains required. Registered callback/logout allowlists contain only each app's `rove-rider://auth/callback` or `rove-driver://auth/callback` respectively; no browser callback or wildcard was added.
+
+Refresh tokens rotate with a 30-day maximum, seven-day idle expiration and three-second reuse overlap. Enabled the existing `Username-Password-Authentication` connection for both clients using additive connection-client updates. Existing connection clients were preserved. No users were created and no credentials or tokens were committed.
+
+Independent reads confirmed client types, grants, refresh rotation, API settings and database-connection membership; HTTPS OIDC discovery returned the exact issuer and its JWKS endpoint served RSA keys. Updated only the three OIDC fields in the ignored partial backend environment file. Mobile preview configuration remains unchanged. This is tenant configuration evidence, not successful native login, token refresh, account recovery, MFA or hosted API verification. Keep staff access gated until its separate MFA checks pass.
+
+Next: use these public values in isolated native development builds, verify the two login flows against the clean provider backend, then finish Maps/Stripe configuration and the authorized staging deployment. Retain the existing Expo AuthSession adapter for this verification; installing the plugin's example SDK is not required for this setup checkpoint.
