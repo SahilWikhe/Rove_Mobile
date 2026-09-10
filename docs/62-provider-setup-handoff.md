@@ -25,6 +25,14 @@ Source: [Auth0 PKCE flow](https://auth0.com/docs/get-started/authentication-and-
 
 Each app sets `EXPO_PUBLIC_AUTH_ISSUER`, `EXPO_PUBLIC_AUTH_AUDIENCE` and its own `EXPO_PUBLIC_AUTH_CLIENT_ID`. `EXPO_PUBLIC_API_URL` is the verified staging API origin when deployment is approved; `EXPO_PUBLIC_SYNTHETIC` must not be `true`. Public identity configuration is not a database credential. API roles and driver approval remain owned by Rove's database, not client-supplied claims or organization membership.
 
+### Auth0 through Vercel Marketplace
+
+Auth0 is available as a [Vercel Native integration](https://vercel.com/marketplace/auth0). Its documented provisioning creates a new Auth0 tenant/application and populates Vercel configuration. The automatic application setup targets Next.js and the Auth0 Next.js SDK; Rove uses Expo native clients and a Hono API, so installing the integration alone does not configure our login flow. See [Auth0 integration instructions](https://auth0.com/docs/customize/integrations/integrate-with-vercel).
+
+If the owner chooses this setup route, associate it only with the intended staging project and inspect the provisioned tenant/application and selected environment scopes. Then create/configure the two Native clients and custom API described above and explicitly map their issuer, API audience and discovery JWKS URL to Rove's existing variables. Do not copy a provisioned web application's client secret into either mobile app or replace the Hono authentication layer with Next.js middleware.
+
+The documented native integration creates a new tenant; an existing Auth0 account uses manual application integration according to Auth0's instructions. Avoid creating a second tenant without checking which account is intended. Marketplace installation, tenant choice, provider billing and native compatibility remain unverified; the user's question about availability is not a vendor-selection or provisioning instruction.
+
 ## Google Maps setup
 
 The server adapter calls Places API (New) Text Search/Place Details and Routes API. The mobile maps use native SDK configuration. Prepare a Google Cloud project with billing only when the owner authorizes that account setup; no calls or spending are needed for this handoff.

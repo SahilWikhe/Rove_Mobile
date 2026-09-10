@@ -47,6 +47,12 @@ Fixed expired sessions without refresh tokens retaining account state after auth
 
 GitHub's dependency-repair run `34444646599` passed quality, tests, mobile, security and CodeQL; its browser job was cancelled after a later push, so it is not a fully green CI baseline. Local browser verification on that dependency checkpoint passed all ten journeys. Subsequent commits require their own completed remote CI evidence.
 
+### Remote verification and Marketplace handoff
+
+[GitHub CI run 34444997448](https://github.com/SahilWikhe/Rove_Mobile/actions/runs/34444997448) completed successfully for implementation commit `66f59d9`: quality, tests, browser, mobile, security, CodeQL and the aggregate gate all passed. This supersedes the earlier cancelled dependency-repair run as the verified implementation baseline. It does not establish hosted provider or physical-device readiness.
+
+Documented Auth0's Vercel Native integration and its Next.js-oriented automatic setup versus Rove's required Expo Native clients/Hono API configuration. Official Marketplace/Auth0 documentation was checked; no integration was installed, tenant selected or cloud settings changed. Documentation lint and whitespace checks passed for this documentation-only checkpoint; application tests were not rerun. Next: the owner chooses the auth setup route and supplies missing provider access/configuration before staging deployment is authorized.
+
 ### Next steps in order
 
 1. Completed: create and verify the undeployed Vercel staging project with backend monorepo settings. Keep automatic Git deployment disconnected until configuration is complete.
