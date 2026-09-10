@@ -1,5 +1,10 @@
 import { z } from 'zod';
 import {
+  DriverDocumentReservation,
+  DriverDocumentSummary,
+  DriverDocumentList,
+  DriverDocumentUploadTarget,
+  DriverDocumentUploadCompletion,
   NotificationDeviceList,
   NotificationDeviceRevoke,
   NotificationDeviceRevoked,
@@ -50,6 +55,32 @@ export class ApiError extends Error {
 }
 export type Transport = (url: string, options: RequestInit) => Promise<Response>;
 export class ApiClient {
+  driverDocuments(signal?: AbortSignal) {
+    return this.request('/v1/drivers/me/documents', DriverDocumentList, { ...(signal ? { signal } : {}) });
+  }
+  reserveDriverDocument(input: z.infer<typeof DriverDocumentReservation>, signal?: AbortSignal) {
+    return this.request('/v1/drivers/me/documents', DriverDocumentSummary, {
+      method: 'POST',
+      body: DriverDocumentReservation.parse(input),
+      ...(signal ? { signal } : {}),
+    });
+  }
+  driverDocumentUploadTarget(id: string, signal?: AbortSignal) {
+    z.uuid().parse(id);
+    return this.request(`/v1/drivers/me/documents/${id}/upload`, DriverDocumentUploadTarget, {
+      method: 'POST',
+      body: {},
+      ...(signal ? { signal } : {}),
+    });
+  }
+  completeDriverDocument(id: string, key: string, signal?: AbortSignal) {
+    z.uuid().parse(id);
+    return this.request(`/v1/drivers/me/documents/${id}/complete`, DriverDocumentSummary, {
+      method: 'POST',
+      body: DriverDocumentUploadCompletion.parse({ key }),
+      ...(signal ? { signal } : {}),
+    });
+  }
   supportRequests() {
     return this.request('/v1/support-requests', SupportRequests);
   }

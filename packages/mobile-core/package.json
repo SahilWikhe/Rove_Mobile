@@ -15,7 +15,8 @@
     "./use-ride-page": "./src/use-ride-page.ts",
     "./latest-request": "./src/latest-request.ts",
     "./location-freshness": "./src/location-freshness.ts",
-    "./native-auth-intent": "./src/native-auth-intent.ts"
+    "./native-auth-intent": "./src/native-auth-intent.ts",
+    "./document-upload": "./src/document-upload.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
