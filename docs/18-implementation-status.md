@@ -31,6 +31,10 @@ Added `pnpm db:staging:check /path/to/ignored-staging.env`. It reads only the ex
 
 Verification: all eight database tests passed, including real disposable PostgreSQL permission regressions. Database typecheck, changed-source lint, import boundaries, documentation lint and whitespace checks passed. The clean `rove-provider-staging` endpoint passed verified client TLS and restricted grants for 26 application tables. No rows, schema, roles or provider settings were changed by the hosted check. This command does not prove migration completeness, row-level authorization, provider integration or deployment readiness. Next: obtain the managed-auth decision and missing Maps/Stripe runtime configuration; staging deployment remains gated on authorization and hosting support.
 
+### CI dependency repair checkpoint
+
+Inspected actual GitHub CI results and found two dependency failures predating the database checker: a vulnerable TOML parser in documentation tooling and stale Expo patch versions. Updated both apps/shared mobile-core to Expo 57.0.21 and the routers to 57.0.20; constrained the linter's parser to patched 1.7.1. See [CI repair](21-ci-verification.md#september-9-dependency-gate-repair). All workspace tests/typechecks, both Expo compatibility checks, both apps' iOS/Android/web exports, audit, peers and formatting passed locally. All ten browser journeys also passed, including completed trips and the real no-driver search deadline. Frozen-lockfile installation and documentation checks passed. This is a dependency repair, not a deployment or new product feature. Auth/provider setup and staging deployment gates remain unchanged.
+
 ### Next steps in order
 
 1. Completed: create and verify the undeployed Vercel staging project with backend monorepo settings. Keep automatic Git deployment disconnected until configuration is complete.

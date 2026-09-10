@@ -32,3 +32,11 @@ Dependabot groups routine minor/patch JavaScript updates and Actions updates wee
 Local verification covers 63 application tests plus seven tooling tests, all workspace types, lint, import boundaries, Expo dependency checks and both apps' platform exports. An export compiles JavaScript/Hermes assets; it does not prove native compilation, permissions, background execution or store acceptance. Real-device and provider integration tests remain required before launch. A clean vulnerability scan means no known findings in that scan, not a guarantee against attacks.
 
 GitHub runner execution must also be inspected after each pipeline change. Native end-to-end testing and production-provider smoke tests remain separate unfinished delivery work; see [implementation status](18-implementation-status.md).
+
+## September 9 dependency gate repair
+
+CI run `34443714671` failed in `security` and `mobile`: the documentation linter pinned vulnerable `smol-toml@1.7.0`, and Expo's compatibility metadata required newer SDK 57 patches. Tests, browser, quality and CodeQL passed on that run; the aggregate gate correctly failed.
+
+Both apps and shared mobile-core now require Expo `~57.0.21`, with app routers at `~57.0.20`. The lockfile records the matching patch dependencies. A narrowly scoped `markdownlint-cli2>smol-toml: 1.7.1` override fixes [GHSA-7w5x-hrqm-74c2](https://github.com/advisories/GHSA-7w5x-hrqm-74c2) while preserving the current linter. Remove the override once a deliberately upgraded linter depends on a patched parser itself. No advisory exclusions, severity reductions or compatibility-check bypasses were added.
+
+Local verification passed: workspace typechecks and tests, both Expo compatibility checks, both apps' iOS/Android/web exports, dependency audit, peer validation and formatting. All ten browser journeys and frozen-lockfile installation also passed. Native exports are compilation evidence, not physical-device tests. Deployment remains separately gated.
