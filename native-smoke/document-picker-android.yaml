@@ -1,0 +1,24 @@
+# Requires a signed-in synthetic driver, Android native build with document-picker,
+# and the local API/Metro. Exercises native picker cancellation, not S3 upload.
+appId: co.roveride.driver
+---
+- openLink: rove-driver://documents
+- extendedWaitUntil:
+    visible: Ready for review.
+    timeout: 30000
+- tapOn: Choose driver’s license
+- extendedWaitUntil:
+    visible: Recent
+    timeout: 10000
+- takeScreenshot: native-document-picker-android
+- back
+- assertVisible: Ready for review.
+- assertVisible: Choose driver’s license
+- assertNotVisible: Retry upload verification
+- tapOn: Choose driver’s license
+- extendedWaitUntil:
+    visible: Recent
+    timeout: 10000
+- back
+- assertVisible: Ready for review.
+- takeScreenshot: native-document-picker-android-cancelled
