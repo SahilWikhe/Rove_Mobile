@@ -76,6 +76,9 @@ importers:
       '@vercel/functions':
         specifier: 3.9.5
         version: 3.9.5(@aws-sdk/credential-provider-web-identity@3.972.76)(ws@8.21.3)
+      '@vercel/oidc-aws-credentials-provider':
+        specifier: 3.3.7
+        version: 3.3.7
       '@vercel/queue':
         specifier: 0.5.1
         version: 0.5.1
@@ -2166,6 +2169,9 @@ packages:
   '@vercel/cli-config@0.2.4':
     resolution: {integrity: sha512-kZ5SojbrV06GHoU6QIWGwDXLov+s9rWZ7QqdqKfJfBGCNUieGfgaCjeeenNy8Y+QC0bwC0dZ2B4l5Hvdmrgpdw==}
 
+  '@vercel/cli-config@0.2.6':
+    resolution: {integrity: sha512-2AsKCf6gE/Eniq09ARm1RK9rQMV5pcAHU7BFcR9MISO+4/RsjjkaYbQN6G85/xi9pYZ5CJNXvYn4TI6p1jKBcg==}
+
   '@vercel/cli-exec@1.0.1':
     resolution: {integrity: sha512-g9XerViJ/paZujufXYcu5XYI2vU2rtB4sgdpjUHde5RnOkdmpu0ngH46LCFGHoPXO/C+qDPSczIHIRN+8Q2YKQ==}
     engines: {node: '>= 18'}
@@ -2182,8 +2188,16 @@ packages:
       ws:
         optional: true
 
+  '@vercel/oidc-aws-credentials-provider@3.3.7':
+    resolution: {integrity: sha512-tI28FeGtG3rqSuvdFYmgi6uldoFnYLjJAq/ot5WU4BdPa0G2PCGXBIGSfW+OHCwr2IMOwaWjbrEG11+nfKliaQ==}
+    engines: {node: '>= 20'}
+
   '@vercel/oidc@3.8.5':
     resolution: {integrity: sha512-RwXYtnt6za+5UO4IaLywN/6B95AlLqynPRUWRJxeJ/qufwkcLUbZNUxYtzT0uMpuraWhlNcGqPNGkTnZr4BGBw==}
+    engines: {node: '>= 20'}
+
+  '@vercel/oidc@3.8.7':
+    resolution: {integrity: sha512-fRu59npOu+1vsV570tiLKskfuRyOJ1MqceAkXbTIfWPnM+c9ve1tSK81oj4umKKirymlGUss3V60Lm5I38rKDw==}
     engines: {node: '>= 20'}
 
   '@vercel/queue@0.5.1':
@@ -6846,6 +6860,11 @@ snapshots:
       xdg-app-paths: 5.5.1
       zod: 4.1.11
 
+  '@vercel/cli-config@0.2.6':
+    dependencies:
+      xdg-app-paths: 5.5.1
+      zod: 4.1.11
+
   '@vercel/cli-exec@1.0.1':
     dependencies:
       execa: 5.1.1
@@ -6857,9 +6876,20 @@ snapshots:
       '@aws-sdk/credential-provider-web-identity': 3.972.76
       ws: 8.21.3
 
+  '@vercel/oidc-aws-credentials-provider@3.3.7':
+    dependencies:
+      '@aws-sdk/credential-provider-web-identity': 3.972.76
+      '@vercel/oidc': 3.8.7
+
   '@vercel/oidc@3.8.5':
     dependencies:
       '@vercel/cli-config': 0.2.4
+      '@vercel/cli-exec': 1.0.1
+      jose: 5.10.0
+
+  '@vercel/oidc@3.8.7':
+    dependencies:
+      '@vercel/cli-config': 0.2.6
       '@vercel/cli-exec': 1.0.1
       jose: 5.10.0
 

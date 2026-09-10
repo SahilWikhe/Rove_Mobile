@@ -1,3 +1,4 @@
+import type { S3ClientConfig } from '@aws-sdk/client-s3';
 import { z } from 'zod';
 import {
   S3Client,
@@ -58,11 +59,16 @@ export class GuardDutyDocumentScanner implements DocumentScanner {
   private config: z.infer<typeof GuardDutyScanConfig>;
   private operations: ScanOperations;
   private client: S3Client | undefined;
-  constructor(config: z.infer<typeof GuardDutyScanConfig>, operations?: ScanOperations) {
+  constructor(
+    config: z.infer<typeof GuardDutyScanConfig>,
+    operations?: ScanOperations,
+    credentials?: S3ClientConfig['credentials'],
+  ) {
     this.config = GuardDutyScanConfig.parse(config);
     this.client = operations
       ? undefined
       : new S3Client({
+          ...(credentials ? { credentials } : {}),
           region: config.region,
           maxAttempts: 2,
           ignoreConfiguredEndpointUrls: true,

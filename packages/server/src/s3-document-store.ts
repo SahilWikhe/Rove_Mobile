@@ -1,3 +1,4 @@
+import type { S3ClientConfig } from '@aws-sdk/client-s3';
 import { S3DocumentConfig as Config } from './s3-document-config';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
@@ -27,11 +28,20 @@ export interface S3DocumentOperations {
 export class S3DocumentStore implements DocumentQuarantineStore {
   private config: z.infer<typeof Config>;
   private operations: S3DocumentOperations;
-  constructor(config: z.infer<typeof Config>, operations?: S3DocumentOperations) {
+  constructor(
+    config: z.infer<typeof Config>,
+    operations?: S3DocumentOperations,
+    credentials?: S3ClientConfig['credentials'],
+  ) {
     this.config = Config.parse(config);
     const client = operations
       ? null
-      : new S3Client({ region: config.region, maxAttempts: 2, ignoreConfiguredEndpointUrls: true });
+      : new S3Client({
+          ...(credentials ? { credentials } : {}),
+          region: config.region,
+          maxAttempts: 2,
+          ignoreConfiguredEndpointUrls: true,
+        });
     const target = { Bucket: config.bucket, ExpectedBucketOwner: config.ownerAccountId };
     this.operations = operations ?? {
       versioning: (signal) => client!.send(new GetBucketVersioningCommand(target), { abortSignal: signal }),

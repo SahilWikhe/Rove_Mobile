@@ -1,3 +1,4 @@
+import type { S3ClientConfig } from '@aws-sdk/client-s3';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { z } from 'zod';
@@ -23,10 +24,17 @@ export class S3DocumentDownloads implements DocumentDownloads {
     config: z.infer<typeof S3DocumentConfig>,
     client?: S3Client,
     private now = () => new Date(),
+    credentials?: S3ClientConfig['credentials'],
   ) {
     this.config = S3DocumentConfig.parse(config);
     this.client =
-      client ?? new S3Client({ region: config.region, maxAttempts: 2, ignoreConfiguredEndpointUrls: true });
+      client ??
+      new S3Client({
+        ...(credentials ? { credentials } : {}),
+        region: config.region,
+        maxAttempts: 2,
+        ignoreConfiguredEndpointUrls: true,
+      });
   }
   close() {
     this.client.destroy();

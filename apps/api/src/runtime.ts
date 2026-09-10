@@ -1,3 +1,4 @@
+import { awsCredentialsProvider } from '@vercel/oidc-aws-credentials-provider';
 import { createDatabase } from '@rove/database';
 import {
   PushDelivery,
@@ -122,6 +123,16 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
 /** Only validated environment configuration can construct the real deployment resources. */
 export function createRuntime(env: Record<string, string | undefined>) {
   const config = readRuntimeConfig(env);
+  const documentCredentials = config.documentAwsRoleArn
+    ? awsCredentialsProvider({
+        roleArn: config.documentAwsRoleArn,
+        clientConfig: {
+          region: (config.documentStorage ?? config.documentScanning)!.region,
+          maxAttempts: 2,
+          ignoreConfiguredEndpointUrls: true,
+        },
+      })
+    : undefined;
   const payments = new StripePaymentProvider({ ...config.payments, live: config.payments.mode === 'live' });
   const maps = new GoogleMapsProvider(config.googleMapsApiKey, config.serviceArea);
   const verifyIdentity = oidcIdentity({
@@ -135,20 +146,29 @@ export function createRuntime(env: Record<string, string | undefined>) {
   return composeRuntime(config, {
     ...(config.documentScanning
       ? {
-          documentScanner: new GuardDutyDocumentScanner(config.documentScanning),
-          documentDownloads: new S3DocumentDownloads({
-            bucket: config.documentScanning.bucket,
-            region: config.documentScanning.region,
-            ownerAccountId: config.documentScanning.ownerAccountId,
-          }),
+          documentScanner: new GuardDutyDocumentScanner(
+            config.documentScanning,
+            undefined,
+            documentCredentials,
+          ),
+          documentDownloads: new S3DocumentDownloads(
+            {
+              bucket: config.documentScanning.bucket,
+              region: config.documentScanning.region,
+              ownerAccountId: config.documentScanning.ownerAccountId,
+            },
+            undefined,
+            undefined,
+            documentCredentials,
+          ),
         }
       : {}),
     ...(config.documentStorage
       ? {
           documentTransfers: {
-            forms: new S3DocumentUploadForms(config.documentStorage),
-            inbox: new S3DocumentInbox(config.documentStorage),
-            quarantine: new S3DocumentStore(config.documentStorage),
+            forms: new S3DocumentUploadForms(config.documentStorage, undefined, documentCredentials),
+            inbox: new S3DocumentInbox(config.documentStorage, undefined, documentCredentials),
+            quarantine: new S3DocumentStore(config.documentStorage, undefined, documentCredentials),
           },
         }
       : {}),

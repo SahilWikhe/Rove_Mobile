@@ -56,3 +56,26 @@ test('cannot sign inbox files, arbitrary paths, mismatched ids or unversioned co
     downloads.close();
   }
 });
+
+test('host-provided temporary credentials are used for signing without exposing their secret', async () => {
+  const documentId = randomUUID();
+  const downloads = new S3DocumentDownloads(config, undefined, undefined, async () => ({
+    accessKeyId: 'SYNTHETICTEMPORARYKEY',
+    secretAccessKey: 'synthetic-secret-value',
+    sessionToken: 'synthetic-session',
+  }));
+  try {
+    const result = await downloads.issue({
+      documentId,
+      key: `driver-documents/quarantine/${documentId}/${randomUUID()}`,
+      version: 'fixture',
+      contentType: 'application/pdf',
+    });
+    const url = new URL(result.url);
+    expect(url.searchParams.get('X-Amz-Credential')).toContain('SYNTHETICTEMPORARYKEY/');
+    expect(url.searchParams.get('X-Amz-Security-Token')).toBe('synthetic-session');
+    expect(result.url).not.toContain('synthetic-secret-value');
+  } finally {
+    downloads.close();
+  }
+});

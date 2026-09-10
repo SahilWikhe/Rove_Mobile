@@ -122,6 +122,17 @@ function readDocumentScanning(env: Record<string, string | undefined>) {
   }
   return documentScanning;
 }
+function readDocumentRole(env: Record<string, string | undefined>) {
+  if (env.DOCUMENT_UPLOADS_ENABLED !== 'true' && env.DOCUMENT_SCANNING_ENABLED !== 'true') return undefined;
+  if (!env.DOCUMENT_AWS_ROLE_ARN && env.VERCEL !== '1') return undefined;
+  const role = z
+    .string()
+    .regex(/^arn:aws:iam::\d{12}:role\/[A-Za-z0-9+=,.@_/-]+$/)
+    .safeParse(env.DOCUMENT_AWS_ROLE_ARN);
+  if (!role.success || role.data.split(':')[4] !== env.DOCUMENT_S3_OWNER_ACCOUNT_ID)
+    throw new ConfigurationError(['documents.awsRole']);
+  return role.data;
+}
 /** Evaluate independent integrations even when another configuration section is invalid. */
 export function readRuntimeConfig(env: Record<string, string | undefined>) {
   const problems: string[] = [];
@@ -138,11 +149,13 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
   const payments = capture(() => readPaymentConfig(env));
   const connect = capture(() => readConnectConfig(env));
   const push = capture(() => readPushConfig(env));
+  const documentAwsRoleArn = capture(() => readDocumentRole(env));
   const documentStorage = capture(() => readDocumentStorage(env));
   const documentScanning = capture(() => readDocumentScanning(env));
   if (problems.length || !api || !payments) throw new ConfigurationError([...new Set(problems)]);
   return {
     ...api,
+    ...(documentAwsRoleArn ? { documentAwsRoleArn } : {}),
     ...push,
     payments,
     ...(documentScanning ? { documentScanning } : {}),

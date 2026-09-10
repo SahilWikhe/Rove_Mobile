@@ -1,3 +1,4 @@
+import type { S3ClientConfig } from '@aws-sdk/client-s3';
 import { S3DocumentConfig as Config } from './s3-document-config';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
@@ -17,10 +18,20 @@ const Request = DriverDocumentReservation.extend({ key: z.string().max(300) });
 export class S3DocumentInbox {
   private config: z.infer<typeof Config>;
   private client: S3Client;
-  constructor(config: z.infer<typeof Config>, client?: S3Client) {
+  constructor(
+    config: z.infer<typeof Config>,
+    client?: S3Client,
+    credentials?: S3ClientConfig['credentials'],
+  ) {
     this.config = Config.parse(config);
     this.client =
-      client ?? new S3Client({ region: config.region, maxAttempts: 2, ignoreConfiguredEndpointUrls: true });
+      client ??
+      new S3Client({
+        ...(credentials ? { credentials } : {}),
+        region: config.region,
+        maxAttempts: 2,
+        ignoreConfiguredEndpointUrls: true,
+      });
   }
   async read(raw: unknown): Promise<Uint8Array> {
     const input = Request.parse(raw);

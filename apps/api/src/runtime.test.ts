@@ -394,3 +394,25 @@ test('GuardDuty scanning is explicit and can continue while new uploads are disa
   ])
     expect(() => readRuntimeConfig({ ...settings, ...change })).toThrow('documents.scanning');
 });
+
+test('Vercel document storage requires a role in the bucket account; local CLI credentials remain supported', () => {
+  const storage = {
+    ...environment(),
+    DOCUMENT_UPLOADS_ENABLED: 'true',
+    DOCUMENT_S3_BUCKET: 'rove-staging-fixture',
+    DOCUMENT_S3_REGION: 'us-east-2',
+    DOCUMENT_S3_OWNER_ACCOUNT_ID: '123456789012',
+  };
+  expect(readRuntimeConfig(storage).documentAwsRoleArn).toBeUndefined();
+  expect(() => readRuntimeConfig({ ...storage, VERCEL: '1' })).toThrow('documents.awsRole');
+  for (const role of ['invalid-private-value', 'arn:aws:iam::999999999999:role/storage']) {
+    expect(() => readRuntimeConfig({ ...storage, VERCEL: '1', DOCUMENT_AWS_ROLE_ARN: role })).toThrow(
+      'documents.awsRole',
+    );
+  }
+  const role = 'arn:aws:iam::123456789012:role/rove-staging-storage';
+  expect(readRuntimeConfig({ ...storage, VERCEL: '1', DOCUMENT_AWS_ROLE_ARN: role }).documentAwsRoleArn).toBe(
+    role,
+  );
+  expect(readRuntimeConfig({ ...environment(), VERCEL: '1' }).documentAwsRoleArn).toBeUndefined();
+});
