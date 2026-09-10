@@ -105,12 +105,12 @@ test('mismatched provider references prevent capture before any financial mutati
     expect(paymentIntents.capture).not.toHaveBeenCalled();
   }
 });
-test('capture uses the persisted amount/key and recognizes an already captured retry', async () => {
+test('single capture omits multicapture options and recognizes an already captured retry', async () => {
   const { provider, paymentIntents } = fixture();
   expect((await provider.capture(reference, 1050, 'rove:fixture:capture')).status).toBe('succeeded');
   expect(paymentIntents.capture).toHaveBeenCalledWith(
     'pi_fixture',
-    { amount_to_capture: 1050, final_capture: true },
+    { amount_to_capture: 1050 },
     { idempotencyKey: 'rove:fixture:capture' },
   );
   paymentIntents.retrieve.mockResolvedValue(

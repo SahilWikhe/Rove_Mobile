@@ -202,7 +202,8 @@ export class StripePaymentProvider implements PaymentProvider, PaymentCustomerPr
       await this.call(() =>
         this.stripe.paymentIntents.capture(
           reference.intentId,
-          { amount_to_capture: amountCents, final_capture: true },
+          // Ordinary ride payments use one capture; Stripe rejects multicapture-only options.
+          { amount_to_capture: amountCents },
           { idempotencyKey: key },
         ),
       ),
