@@ -1,6 +1,9 @@
 import { createDatabase } from '@rove/database';
 import {
   PushDelivery,
+  S3DocumentStore,
+  S3DocumentUploadForms,
+  S3DocumentInbox,
   type DriverDocumentTransfers,
   ExpoPushProvider,
   type PushProvider,
@@ -112,6 +115,15 @@ export function createRuntime(env: Record<string, string | undefined>) {
   // pg emits idle-client errors outside queries. Keep the process alive; never log driver error details.
   database.pool.on('error', () => console.error('Database connection interrupted.'));
   return composeRuntime(config, {
+    ...(config.documentStorage
+      ? {
+          documentTransfers: {
+            forms: new S3DocumentUploadForms(config.documentStorage),
+            inbox: new S3DocumentInbox(config.documentStorage),
+            quarantine: new S3DocumentStore(config.documentStorage),
+          },
+        }
+      : {}),
     ...(config.pushAccessToken ? { pushProvider: new ExpoPushProvider(config.pushAccessToken) } : {}),
     database,
     maps,

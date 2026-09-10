@@ -1,15 +1,10 @@
+import { S3DocumentConfig as Config } from './s3-document-config';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { DriverDocumentReservation } from '@rove/contracts';
 import { DomainError } from './errors';
-const Config = z
-  .object({
-    bucket: z.string().regex(/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/),
-    region: z.string().regex(/^[a-z]{2}-[a-z]+-\d$/),
-    ownerAccountId: z.string().regex(/^\d{12}$/),
-  })
-  .strict();
+
 const Request = DriverDocumentReservation.extend({ key: z.string().max(300) });
 /** Server-only inbox reader. Authorize the reservation before calling; never accept a client URL. */
 export class S3DocumentInbox {

@@ -1,3 +1,4 @@
+import { S3DocumentConfig } from '@rove/server';
 import { z } from 'zod';
 import { ConfigurationError, readApiConfig } from './config';
 
@@ -79,7 +80,21 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
     if (!pushProjects || !token.success) throw new ConfigurationError(['push.delivery']);
     pushAccessToken = token.data;
   }
+  let documentStorage: z.infer<typeof S3DocumentConfig> | undefined;
+  const documentEnabled = env.DOCUMENT_UPLOADS_ENABLED;
+  if (documentEnabled !== undefined && !['true', 'false'].includes(documentEnabled))
+    throw new ConfigurationError(['documents.enabled']);
+  if (documentEnabled === 'true') {
+    const storage = S3DocumentConfig.safeParse({
+      bucket: env.DOCUMENT_S3_BUCKET,
+      region: env.DOCUMENT_S3_REGION,
+      ownerAccountId: env.DOCUMENT_S3_OWNER_ACCOUNT_ID,
+    });
+    if (!storage.success) throw new ConfigurationError(['documents.storage']);
+    documentStorage = storage.data;
+  }
   return {
+    ...(documentStorage ? { documentStorage } : {}),
     ...(pushAccessToken ? { pushAccessToken } : {}),
     ...(pushProjects ? { pushProjects } : {}),
     ...api,

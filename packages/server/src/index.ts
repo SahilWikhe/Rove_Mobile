@@ -39,3 +39,8 @@ export * from './push-audience';
 export * from './push-delivery';
 
 export * from './driver-documents';
+
+export { S3DocumentConfig } from './s3-document-config';
+export { S3DocumentStore } from './s3-document-store';
+export { S3DocumentUploadForms } from './s3-document-upload';
+export { S3DocumentInbox } from './s3-document-inbox';

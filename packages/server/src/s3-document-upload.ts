@@ -1,3 +1,4 @@
+import { S3DocumentConfig as Config } from './s3-document-config';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { S3Client, GetBucketVersioningCommand, GetPublicAccessBlockCommand } from '@aws-sdk/client-s3';
@@ -5,13 +6,6 @@ import { createPresignedPost } from '@aws-sdk/s3-presigned-post';
 import { DriverDocumentReservation } from '@rove/contracts';
 import { DomainError } from './errors';
 
-const Config = z
-  .object({
-    bucket: z.string().regex(/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/),
-    region: z.string().regex(/^[a-z]{2}-[a-z]+-\d$/),
-    ownerAccountId: z.string().regex(/^\d{12}$/),
-  })
-  .strict();
 const Upload = DriverDocumentReservation.extend({ expiresAt: z.iso.datetime() });
 
 /** Issue only from server-owned, authorized reservation metadata. Never log returned bearer fields. */

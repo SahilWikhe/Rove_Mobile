@@ -1,3 +1,4 @@
+import { S3DocumentConfig as Config } from './s3-document-config';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import {
@@ -17,13 +18,6 @@ import {
   type DocumentQuarantineStore,
 } from './document-intake';
 
-const Config = z
-  .object({
-    bucket: z.string().regex(/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/),
-    region: z.string().regex(/^[a-z]{2}-[a-z]+-\d$/),
-    ownerAccountId: z.string().regex(/^\d{12}$/),
-  })
-  .strict();
 export interface S3DocumentOperations {
   versioning(signal: AbortSignal): Promise<GetBucketVersioningCommandOutput>;
   publicAccess(signal: AbortSignal): Promise<GetPublicAccessBlockCommandOutput>;

@@ -323,3 +323,31 @@ test('push delivery requires an explicit switch, server credential and separate 
     }).pushAccessToken,
   ).toBe('synthetic');
 });
+
+test('document uploads default off and require complete explicit storage settings when enabled', () => {
+  expect(readRuntimeConfig(environment()).documentStorage).toBeUndefined();
+  const storage = {
+    DOCUMENT_UPLOADS_ENABLED: 'true',
+    DOCUMENT_S3_BUCKET: 'rove-staging-documents',
+    DOCUMENT_S3_REGION: 'us-east-2',
+    DOCUMENT_S3_OWNER_ACCOUNT_ID: '123456789012',
+  };
+  expect(readRuntimeConfig({ ...environment(), ...storage }).documentStorage).toEqual({
+    bucket: storage.DOCUMENT_S3_BUCKET,
+    region: storage.DOCUMENT_S3_REGION,
+    ownerAccountId: storage.DOCUMENT_S3_OWNER_ACCOUNT_ID,
+  });
+  for (const name of ['DOCUMENT_S3_BUCKET', 'DOCUMENT_S3_REGION', 'DOCUMENT_S3_OWNER_ACCOUNT_ID'])
+    expect(() => readRuntimeConfig({ ...environment(), ...storage, [name]: '' })).toThrow(
+      'documents.storage',
+    );
+  expect(() => readRuntimeConfig({ ...environment(), DOCUMENT_UPLOADS_ENABLED: 'yes' })).toThrow(
+    'documents.enabled',
+  );
+  expect(() =>
+    readRuntimeConfig({ ...environment(), ...storage, DOCUMENT_S3_BUCKET: 'https://untrusted.example/' }),
+  ).toThrow('documents.storage');
+  expect(
+    readRuntimeConfig({ ...environment(), ...storage, DOCUMENT_UPLOADS_ENABLED: 'false' }).documentStorage,
+  ).toBeUndefined();
+});
