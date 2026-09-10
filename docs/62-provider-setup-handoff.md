@@ -168,3 +168,22 @@ Both clients passed:
 The synthetic account was then blocked, with the blocked state independently read back. Private temporary credential/token files were removed. The blocked fixture remains in the development tenant for audit; no production identity or database record was created or modified. Revocation invalidates the refresh grant; this check does not claim immediate invalidation of already-issued access tokens.
 
 This used an HTTP harness and the real backend verifier, not the native app runtime or a hosted Rove API. It does not prove iOS/Android URL dispatch, SecureStore behavior, the Expo refresh adapter against Auth0, existing-session account switching, staff MFA, account recovery, or full app-to-API authorization. Those remain acceptance tasks. No paid services or deployment were activated.
+
+## Isolated local API for native auth acceptance
+
+Run `pnpm dev:api:auth0` to start a separate loopback API on port 4086. It creates a disposable local database and pins the staging Auth0 issuer/audience/JWKS. It accepts actual staging JWTs, never synthetic tokens, and does not pre-seed approved synthetic drivers. Maps/payment adapters remain simulated, notification delivery is absent, and no Neon data is used. This is an auth integration harness, not hosted staging or a real ride service. `ROVE_LOCAL_AUTH=auth0` cannot be combined with the browser E2E mode and is rejected in deployment contexts.
+
+For an iOS simulator, run a separate Metro session from the intended app directory with these explicit overrides (replace the client ID with the appropriate public ID above):
+
+```sh
+EXPO_PUBLIC_API_URL=http://127.0.0.1:4086 \
+EXPO_PUBLIC_AUTH_ISSUER=https://dev-1x3fgtb2cj2nfbj1.us.auth0.com/ \
+EXPO_PUBLIC_AUTH_AUDIENCE=https://api.staging.roveride.co \
+EXPO_PUBLIC_AUTH_CLIENT_ID=CLIENT_ID_FROM_TABLE \
+EXPO_PUBLIC_SYNTHETIC=false \
+pnpm exec expo start --port 8087
+```
+
+Use port 8088 for a concurrent driver Metro session. These command-scoped overrides preserve saved preview environment files. The installed native app must match the checked-out dependencies and registered scheme; rebuild with the project's native commands if necessary. This repository uses Expo AuthSession, not the Auth0 SDK callback format. A physical phone cannot reach the computer through `127.0.0.1`; an authenticated reachable staging API is still required for that test setup.
+
+Local verification: the auth-mode API health endpoint passed; synthetic rider, synthetic driver and malformed bearer tokens each returned 401. All 101 API tests, typecheck, changed-source lint and boundary checks passed. The iOS simulator is available, but no native login was executed in this checkpoint. Interrupting the local smoke process group also stopped its embedded PostgreSQL child and emitted a pool shutdown error; graceful shutdown handling remains to be resolved. This does not affect the deployed entrypoint, which never imports the local harness.

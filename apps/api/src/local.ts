@@ -1,4 +1,6 @@
 /** Disposable local integration environment. Never imported by the production entrypoint. */
+import { localAuthConfig } from './local-auth';
+import { oidcIdentity } from './auth';
 import { LocalPayments } from './local-payments';
 import { randomUUID } from 'node:crypto';
 import { serve } from '@hono/node-server';
@@ -20,8 +22,9 @@ import {
 import { createApp } from './app';
 if (process.env.NODE_ENV === 'production' || process.env.VERCEL)
   throw new Error('The synthetic server cannot run in a deployment.');
+const authConfig = localAuthConfig(process.env);
 const e2e = process.env.ROVE_E2E === '1';
-const port = e2e ? 4085 : 4080;
+const port = authConfig ? 4086 : e2e ? 4085 : 4080;
 const database = await testDatabase();
 const places = [
   {
@@ -50,7 +53,7 @@ const maps: MapsProvider = {
     distanceMeters: pickup.id.startsWith('driver:') ? 1200 : 6500,
   }),
 };
-for (const role of ['rider', 'driver'] as const) {
+for (const role of (authConfig ? [] : ['rider', 'driver']) as ('rider' | 'driver')[]) {
   const id = randomUUID();
   await database.db.insert(users).values({
     id,
@@ -116,11 +119,13 @@ const app = createApp({
   }),
   rides: new RideService(database.pool),
   flags: async () => ({ scheduling: false, weekly: false, monthly: false }),
-  verifyIdentity: async (token) => {
-    if (!['synthetic-rider', 'synthetic-driver'].includes(token))
-      throw new DomainError('UNAUTHENTICATED', 'Invalid local test identity.', 401);
-    return { subject: token };
-  },
+  verifyIdentity: authConfig
+    ? oidcIdentity(authConfig)
+    : async (token) => {
+        if (!['synthetic-rider', 'synthetic-driver'].includes(token))
+          throw new DomainError('UNAUTHENTICATED', 'Invalid local test identity.', 401);
+        return { subject: token };
+      },
   allowedOrigins: e2e
     ? ['http://localhost:8091', 'http://localhost:8092']
     : ['http://localhost:8081', 'http://localhost:8082', 'http://localhost:8083'],
@@ -150,7 +155,7 @@ async function processJobs() {
 }
 startJobs();
 console.log(
-  `Synthetic Rove API: http://localhost:${port}. Disposable data; no real payments or notifications.`,
+  `Local Rove API: http://localhost:${port}. ${authConfig ? 'Real staging Auth0 identity' : 'Synthetic identity'}; disposable data, simulated maps/payments, no notifications.`,
 );
 function drain() {
   if (!draining) {

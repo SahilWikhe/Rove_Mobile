@@ -24,7 +24,8 @@
     "db:staging:smoke": "node --env-file=.env.neon.staging --import tsx apps/api/src/staging-smoke.ts",
     "staging:preflight": "node --import tsx apps/api/src/staging-preflight-cli.ts",
     "db:staging:check": "node --import tsx packages/database/src/staging-readiness-cli.ts",
-    "auth:staging:check": "node scripts/auth0-staging-check.mjs"
+    "auth:staging:check": "node scripts/auth0-staging-check.mjs",
+    "dev:api:auth0": "ROVE_LOCAL_AUTH=auth0 pnpm --filter @rove/api dev"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
