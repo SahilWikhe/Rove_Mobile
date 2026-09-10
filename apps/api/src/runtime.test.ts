@@ -195,7 +195,17 @@ test.each([false, true])(
       body: '{}',
     });
     expect(webhook.status).toBe(200);
-    await runtime.worker.runOnce(20);
+    // Outbox timestamps have database precision; newly queued work may become due on the next tick.
+    await expect
+      .poll(
+        async () => {
+          await runtime.worker.runOnce(20);
+          return (await database.pool.query('SELECT payment_state FROM rides WHERE id=$1', [ride.id])).rows[0]
+            .payment_state;
+        },
+        { interval: 20, timeout: 2000 },
+      )
+      .toBe('authorized');
     const funded = (
       await database.pool.query('SELECT version,payment_state FROM rides WHERE id=$1', [ride.id])
     ).rows[0];
@@ -205,7 +215,19 @@ test.each([false, true])(
       expectedVersion: funded.version,
     });
     expect(cancelled.status).toBe(200);
-    await runtime.worker.runOnce(20);
+    await expect
+      .poll(
+        async () => {
+          await runtime.worker.runOnce(20);
+          return {
+            payment: (await database.pool.query('SELECT payment_state FROM rides WHERE id=$1', [ride.id]))
+              .rows[0].payment_state,
+            pushes: pushSend.mock.calls.length,
+          };
+        },
+        { interval: 20, timeout: 2000 },
+      )
+      .toEqual({ payment: 'released', pushes: pushEnabled ? 1 : 0 });
     expect(cancel).toHaveBeenCalledOnce();
     expect(pushSend).toHaveBeenCalledTimes(pushEnabled ? 1 : 0);
     expect(Boolean(runtime.pushDelivery)).toBe(pushEnabled);

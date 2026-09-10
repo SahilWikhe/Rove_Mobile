@@ -88,4 +88,5 @@ test('CLI validates only the explicit file and signals failure with no secret ou
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
-});
+  // Four independently bounded (10s) CLI invocations can exceed Vitest's default 5s on CI.
+}, 45_000);

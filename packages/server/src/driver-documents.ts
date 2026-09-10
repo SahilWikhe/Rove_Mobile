@@ -251,6 +251,7 @@ export class DriverDocumentService {
           [receipt.documentId, receipt.key, receipt.version],
         )
       ).rows[0];
+      await client.query('INSERT INTO driver_document_scans(document_id) VALUES($1)', [receipt.documentId]);
       await client.query(
         "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'driver.document_quarantined',$2,$3)",
         [actor.id, receipt.documentId, JSON.stringify({ kind: receipt.kind })],

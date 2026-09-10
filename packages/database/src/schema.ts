@@ -521,3 +521,35 @@ export const driverDocuments = pgTable(
     ),
   ],
 );
+
+export const driverDocumentScans = pgTable(
+  'driver_document_scans',
+  {
+    documentId: uuid()
+      .primaryKey()
+      .references(() => driverDocuments.id),
+    state: text().notNull().default('pending'),
+    attempts: integer().notNull().default(0),
+    availableAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    leaseToken: uuid(),
+    lockedUntil: timestamp({ withTimezone: true }),
+    scannedKey: text(),
+    scannedVersion: text(),
+    scannedSha256: text(),
+    completedAt: timestamp({ withTimezone: true }),
+  },
+  (t) => [
+    index('driver_document_scans_due')
+      .on(t.availableAt)
+      .where(sql`${t.state}='pending'`),
+    check('driver_document_scans_state_check', sql`${t.state} in ('pending','clean','infected','failed')`),
+    check('driver_document_scans_attempts_check', sql`${t.attempts} >= 0`),
+    check('driver_document_scans_check', sql`(${t.leaseToken} IS NULL) = (${t.lockedUntil} IS NULL)`),
+    check(
+      'driver_document_scans_check1',
+      sql`
+      (${t.state} IN ('pending','failed') AND ${t.scannedKey} IS NULL AND ${t.scannedVersion} IS NULL AND ${t.scannedSha256} IS NULL AND ${t.completedAt} IS NULL)
+      OR (${t.state} IN ('clean','infected') AND ${t.scannedKey} IS NOT NULL AND ${t.scannedVersion} IS NOT NULL AND ${t.scannedSha256} IS NOT NULL AND ${t.scannedSha256} ~ '^[a-f0-9]{64}$' AND ${t.completedAt} IS NOT NULL)`,
+    ),
+  ],
+);
