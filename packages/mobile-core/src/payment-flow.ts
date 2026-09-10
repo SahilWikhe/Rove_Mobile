@@ -1,3 +1,21 @@
+/** Match only the registered payment return route; Stripe validates its own callback state. */
+export function isPaymentReturnURL(value: string | null): value is string {
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === 'rove-rider:' &&
+      url.hostname === 'payment' &&
+      (url.pathname === '' || url.pathname === '/') &&
+      !url.username &&
+      !url.password &&
+      !url.port
+    );
+  } catch {
+    return false;
+  }
+}
+
 export interface NativePaymentSheet {
   initialize(secret: string): Promise<{ error?: { code: string } }>;
   present(): Promise<{ error?: { code: string } }>;

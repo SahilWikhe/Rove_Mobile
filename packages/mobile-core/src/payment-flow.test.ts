@@ -1,5 +1,5 @@
 import { expect, test, vi } from 'vitest';
-import { submitPayment } from './payment-flow';
+import { isPaymentReturnURL, submitPayment } from './payment-flow';
 function fixture() {
   const session = vi.fn(async () => ({ clientSecret: 'pi_fixture_secret_private' }));
   const initialize = vi.fn(async (_secret: string) => ({}));
@@ -51,4 +51,29 @@ test('leaving during initialization prevents presentation and leaving during con
     return {};
   });
   expect(await submitPayment(f.session, f, () => current)).toBe('abandoned');
+});
+
+test.each([
+  'rove-rider://payment',
+  'rove-rider://payment?id=synthetic-ride',
+  'rove-rider://payment/?id=synthetic-ride#callback',
+])('accepts the registered payment return URL: %s', (url) => {
+  expect(isPaymentReturnURL(url)).toBe(true);
+});
+test.each([
+  null,
+  '',
+  'not a URL',
+  '/payment',
+  'https://payment',
+  'rove-driver://payment',
+  'rove-rider://payments',
+  'rove-rider://payment.example.test',
+  'rove-rider://payment/unrelated',
+  'rove-rider://payment@other',
+  'rove-rider://user:password@payment',
+  'rove-rider://payment:8080',
+  'rove-rider://auth/callback?code=synthetic',
+])('ignores unrelated or malformed payment callbacks: %s', (url) => {
+  expect(isPaymentReturnURL(url)).toBe(false);
 });

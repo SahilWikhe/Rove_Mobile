@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, type PropsWithChildren } from 
 import { Linking } from 'react-native';
 import { StripeProvider, useStripe } from '@stripe/stripe-react-native';
 import { useSession } from '@rove/mobile-core/session';
-import { submitPayment } from '@rove/mobile-core/payment-flow';
+import { isPaymentReturnURL, submitPayment } from '@rove/mobile-core/payment-flow';
 import { theme } from '@rove/mobile-ui';
 import { PaymentsContext } from './context';
 
@@ -24,7 +24,7 @@ function NativePayments({ children }: PropsWithChildren) {
   useEffect(() => {
     mounted.current = true;
     const handle = (url: string | null) => {
-      if (url?.startsWith('rove-rider://payment')) void handleURLCallback(url).catch(() => {});
+      if (mounted.current && isPaymentReturnURL(url)) void handleURLCallback(url).catch(() => {});
     };
     void Linking.getInitialURL()
       .then(handle)
