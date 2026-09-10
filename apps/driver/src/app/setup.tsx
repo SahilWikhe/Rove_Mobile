@@ -81,6 +81,11 @@ function SetupStatus() {
                   onPress={() => router.push(status.driver.eligible ? '/drive' : '/support')}
                 />
               </Card>
+              <Button
+                title="View driving documents"
+                variant="secondary"
+                onPress={() => router.push('/documents')}
+              />
               <VehicleReviewStatus submission={status.vehicle} />
               <Button
                 title={status.vehicle ? 'Review vehicle details' : 'Add your vehicle'}
