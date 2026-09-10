@@ -32,6 +32,8 @@ Driver background tracking details and remaining device checks are recorded in [
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) before implementing a feature. Coding agents should also follow [AGENTS.md](AGENTS.md).
 
+For staging account configuration and remaining owner decisions, read [provider setup handoff](docs/62-provider-setup-handoff.md).
+
 ## First useful milestone
 
 Using synthetic data on real iOS and Android devices: a rider gets a quote and requests a ride; an online eligible driver receives a time-limited offer, accepts, picks up and completes the trip; payment settles once in sandbox and the rider receives a receipt. Also prove no-driver, cancellation, payment-failure and lost-connectivity behavior. This must work with no institution, sponsor or B2B dashboard configured.

@@ -1,6 +1,6 @@
 # Implementation status
 
-Updated: September 8, 2026. This is an implementation ledger, not a production-readiness claim.
+Updated: September 9, 2026. This is an implementation ledger, not a production-readiness claim.
 
 ## Current checkpoint — staging infrastructure
 
@@ -14,6 +14,12 @@ This section is the current summary; dated entries below are historical implemen
 - **Verification baseline:** the prior notification checkpoint passed 397 workspace tests. The later Neon change passed seven database tests, relevant typechecks/lint/docs/boundary/build checks and the Neon smoke. The entire workspace suite was not rerun for that later checkpoint.
 
 Checkpoint verification: project settings readback and empty deployment/environment lists passed at project creation. Added `pnpm staging:preflight` to validate one explicit environment file with runtime validators and shared recovery-secret validation. It does not use ambient credentials or perform network calls. Twelve targeted preflight/worker tests passed, plus API typecheck, changed-source lint, boundaries, API build and packaged smoke verification. The actual local partial file correctly failed for missing database/maps/OIDC fields. Documentation lint and diff whitespace checks passed. The subsequent database provisioning checkpoint verified 24 migration journal entries, 26 empty application tables, restricted role privileges, pooled TLS and ignored credentials storage. No runtime code changed in that provisioning checkpoint, so application tests were not rerun. Documentation lint and whitespace checks passed. No cloud API deployment was performed.
+
+### September 9 handoff resumption
+
+Revalidated the clean local checkout against remote `main` at `7c70c9b` before editing. Neon CLI confirms both staging branches and production are ready; no database mutations were performed. Vercel project settings remain the September 8 observation, not a fresh hosted verification. Added [provider setup handoff](62-provider-setup-handoff.md), mapping actual API/mobile variable names, native identifiers, PKCE flow and accepted Stripe events to account setup. Auth0 is a candidate only; ADR-005 remains open. No credentials were printed, uploaded or changed, and no provider purchases or deployment were made.
+
+Verification for this documentation checkpoint: cross-checked instructions against mobile layouts/config, session implementation, Google adapter, Stripe adapter and webhook event allowlist; documentation lint and diff whitespace checks passed. No application code changed, so application tests were not rerun. Next: obtain the identity-provider decision and missing sandbox/maps credentials, then validate their integration before requesting deployment approval.
 
 ### Next steps in order
 

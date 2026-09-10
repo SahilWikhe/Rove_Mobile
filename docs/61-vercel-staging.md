@@ -22,6 +22,8 @@ This project's eventual Vercel Production target is still application **staging*
 
 ## Environment readiness
 
+See [provider account setup](62-provider-setup-handoff.md) for exact auth, server/mobile maps and Stripe sandbox configuration, source-code mappings and outstanding owner decisions.
+
 No environment variables have been uploaded to Vercel yet.
 
 The ignored, permission-600 `.env.vercel.staging.partial` holds only a partial local configuration: staging mode, empty browser origins, synthetic rate/service-area fixtures, disabled Connect/push, Stripe test mode/account identifier and a generated recovery secret. It is not an import-ready complete runtime environment. Never commit or print its values.
