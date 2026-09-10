@@ -152,3 +152,19 @@ A cookie-aware HTTPS authorization probe for each real staging client reached `/
 Run `pnpm auth:staging:check` after authorizing the Auth0 CLI. It pins the staging tenant and public resource IDs, reads the API and two Native clients, paginates connection membership, and checks the configured token/grant/callback policies plus HTTPS discovery and RSA signing-key availability. It requests no client secrets and prints only fixed diagnostics. Discovery cannot redirect the checker to an arbitrary endpoint. The command makes no tenant mutations, submits no user credentials and performs no user token exchange.
 
 The 11 regression tests in `scripts/auth0-staging-check.test.mjs` run through the existing `pnpm tooling:test` CI step without credentials or network access. The live command is intentionally manual; do not add management credentials to ordinary PR jobs. A passing check proves configuration consistency only, not a successful native login or cryptographic signature verification of an issued token. On failure, inspect the named policy or CLI access; do not automatically overwrite tenant settings.
+
+## Real staging protocol verification — September 9
+
+Completed a one-off provider protocol check for both registered Native clients using one explicitly synthetic Auth0 database user (`example.test` address). Account creation disabled verification-email delivery. The check used a separate cookie jar per client, `prompt=login`, random state, an S256 PKCE challenge, the registered native callback and staging API audience. It submitted the hosted email/password form, intercepted the custom-scheme redirect, verified state and exchanged the authorization code with its original verifier. A first harness attempt incorrectly included a separate social-login form field; excluding that field exercised the intended database login. No real user's credentials were used.
+
+Both clients passed:
+
+- Authorization-code exchange issued an access token and refresh token.
+- The actual `apps/api/src/auth.ts` verifier accepted the access token using remote signing keys and returned the expected issuer-qualified synthetic subject, without MFA evidence.
+- That verifier rejected the same token with an incorrect configured issuer or audience.
+- Refresh succeeded, returned a different refresh token, and preserved the verified subject.
+- Revoking the rotated refresh token succeeded; exchanging it afterward failed with `invalid_grant`.
+
+The synthetic account was then blocked, with the blocked state independently read back. Private temporary credential/token files were removed. The blocked fixture remains in the development tenant for audit; no production identity or database record was created or modified. Revocation invalidates the refresh grant; this check does not claim immediate invalidation of already-issued access tokens.
+
+This used an HTTP harness and the real backend verifier, not the native app runtime or a hosted Rove API. It does not prove iOS/Android URL dispatch, SecureStore behavior, the Expo refresh adapter against Auth0, existing-session account switching, staff MFA, account recovery, or full app-to-API authorization. Those remain acceptance tasks. No paid services or deployment were activated.
