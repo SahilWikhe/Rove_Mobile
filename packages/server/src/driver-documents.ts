@@ -262,7 +262,17 @@ export class DriverDocumentService {
   async list(actor: Actor) {
     driverOnly(actor);
     const result = await this.pool.query(
-      'SELECT x.* FROM driver_documents x JOIN users u ON u.id=x.driver_id WHERE x.driver_id=$1 AND NOT u.disabled ORDER BY x.created_at DESC,x.id DESC LIMIT 30',
+      `SELECT x.*,
+        CASE
+          WHEN s.state IN ('clean','infected') AND s.scanned_key=x.object_key
+            AND s.scanned_version=x.object_version AND s.scanned_sha256=x.expected_sha256
+            THEN CASE WHEN s.state='clean' THEN 'awaiting_review' ELSE 'replacement_required' END
+          WHEN s.state='failed' THEN 'delayed'
+          ELSE 'pending'
+        END AS verification
+       FROM driver_documents x JOIN users u ON u.id=x.driver_id
+       LEFT JOIN driver_document_scans s ON s.document_id=x.id
+       WHERE x.driver_id=$1 AND NOT u.disabled ORDER BY x.created_at DESC,x.id DESC LIMIT 30`,
       [actor.id],
     );
     return { documents: result.rows.map((row) => this.summary(row)) };
@@ -273,6 +283,7 @@ export class DriverDocumentService {
       id: row.id,
       kind: row.kind,
       state: row.state === 'reserved' && expiresAt.getTime() <= Date.now() ? 'expired' : row.state,
+      ...(row.state === 'quarantined' && row.verification ? { verification: row.verification } : {}),
       createdAt: (row.created_at as Date).toISOString(),
       expiresAt: expiresAt.toISOString(),
     });

@@ -233,3 +233,38 @@ test('quarantine completion rolls back if scan work cannot be persisted', async 
     ).rowCount,
   ).toBe(0);
 });
+
+test.each([
+  ['clean', 'awaiting_review'],
+  ['infected', 'replacement_required'],
+] as const)('driver sees actionable %s status without storage metadata', async (verdict, verification) => {
+  const service = new DriverDocumentService(db.pool);
+  const actor = { id: driverId, role: 'driver' as const };
+  expect((await service.list(actor)).documents[0]?.verification).toBe('pending');
+  expect(
+    await new DocumentScanWorker(db.pool, { scan: async (value) => ({ ...value, verdict }) }).runOnce(),
+  ).toBe(verdict);
+  const summary = (await service.list(actor)).documents[0]!;
+  expect(summary.verification).toBe(verification);
+  expect(Object.keys(summary).sort()).toEqual([
+    'createdAt',
+    'expiresAt',
+    'id',
+    'kind',
+    'state',
+    'verification',
+  ]);
+  const other = { id: randomUUID(), role: 'driver' as const };
+  expect((await service.list(other)).documents).toEqual([]);
+  // Evidence for an old object must never display as verified or rejected for the replacement.
+  await db.pool.query("UPDATE driver_documents SET object_version='replaced' WHERE id=$1", [documentId]);
+  expect((await service.list(actor)).documents[0]?.verification).toBe('pending');
+});
+
+test('exhausted scanning reports a support path instead of pretending verification is still running', async () => {
+  await db.pool.query("UPDATE driver_document_scans SET state='failed' WHERE document_id=$1", [documentId]);
+  expect(
+    (await new DriverDocumentService(db.pool).list({ id: driverId, role: 'driver' })).documents[0]
+      ?.verification,
+  ).toBe('delayed');
+});

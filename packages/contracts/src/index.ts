@@ -462,6 +462,8 @@ export const DriverDocumentSummary = z
     id: z.uuid(),
     kind: DriverDocumentReservation.shape.kind,
     state: z.enum(['reserved', 'quarantined', 'expired']),
+    // Optional so an updated app can still read summaries from an older staging API.
+    verification: z.enum(['pending', 'awaiting_review', 'replacement_required', 'delayed']).optional(),
     createdAt: z.iso.datetime(),
     expiresAt: z.iso.datetime(),
   })

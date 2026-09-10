@@ -15,6 +15,12 @@ const names = {
   vehicle_registration: 'Vehicle registration',
   vehicle_insurance: 'Vehicle insurance',
 };
+const verificationCopy = {
+  pending: 'Uploaded. Verification is pending.',
+  awaiting_review: 'File verified. Awaiting document review.',
+  replacement_required: 'We could not accept this file. Upload a different copy.',
+  delayed: 'File verification needs attention. Contact support for help.',
+};
 type Kind = z.infer<typeof DriverDocumentReservation>['kind'];
 type Pending = { id: string; key: string };
 export default function Documents() {
@@ -133,7 +139,7 @@ function DocumentScreen() {
                   {!documents
                     ? 'Checking document status…'
                     : latest?.state === 'quarantined'
-                      ? 'Uploaded. Verification is pending.'
+                      ? verificationCopy[latest.verification ?? 'pending']
                       : latest?.state === 'expired'
                         ? 'Previous upload expired.'
                         : latest
@@ -141,7 +147,7 @@ function DocumentScreen() {
                           : 'No document uploaded yet.'}
                 </Copy>
                 <Button
-                  title={`Choose ${names[kind].toLowerCase()}`}
+                  title={`${latest?.verification === 'replacement_required' ? 'Replace' : 'Choose'} ${names[kind].toLowerCase()}`}
                   variant="secondary"
                   disabled={!!phase || !!pending || !documents}
                   onPress={() => void run(kind)}
@@ -149,6 +155,14 @@ function DocumentScreen() {
               </Card>
             );
           })}
+          {documents?.some((item) => item.verification === 'delayed') && (
+            <Button
+              title="Get document help"
+              variant="secondary"
+              disabled={!!phase || !!pending}
+              onPress={() => router.push('/support')}
+            />
+          )}
           <Copy kind="muted">JPEG, PNG or PDF · Up to 10 MB each. Keep every edge readable.</Copy>
           <Button
             title="Refresh documents"

@@ -11,6 +11,7 @@ import {
   uniqueIndex,
   index,
   check,
+  foreignKey,
 } from 'drizzle-orm/pg-core';
 
 export const rideStatus = pgEnum('ride_status', [
@@ -525,9 +526,7 @@ export const driverDocuments = pgTable(
 export const driverDocumentScans = pgTable(
   'driver_document_scans',
   {
-    documentId: uuid()
-      .primaryKey()
-      .references(() => driverDocuments.id),
+    documentId: uuid().primaryKey(),
     state: text().notNull().default('pending'),
     attempts: integer().notNull().default(0),
     availableAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
@@ -539,6 +538,11 @@ export const driverDocumentScans = pgTable(
     completedAt: timestamp({ withTimezone: true }),
   },
   (t) => [
+    foreignKey({
+      name: 'driver_document_scans_document_id_fkey',
+      columns: [t.documentId],
+      foreignColumns: [driverDocuments.id],
+    }),
     index('driver_document_scans_due')
       .on(t.availableAt)
       .where(sql`${t.state}='pending'`),
