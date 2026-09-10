@@ -15,6 +15,7 @@ import { Platform } from 'react-native';
 import * as AuthSession from 'expo-auth-session';
 import * as SecureStore from 'expo-secure-store';
 import * as Crypto from 'expo-crypto';
+import { discoveryIssuer } from './discovery-issuer';
 import { createScopedSessionStorage } from './session-storage';
 import * as WebBrowser from 'expo-web-browser';
 import { z } from 'zod';
@@ -74,7 +75,7 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
   const configured = Boolean(
     config.apiUrl && (synthetic || (config.issuer && config.clientId && config.audience)),
   );
-  const discovery = AuthSession.useAutoDiscovery(config.issuer || unavailableDiscovery);
+  const discovery = AuthSession.useAutoDiscovery(discoveryIssuer(config.issuer) || unavailableDiscovery);
   const redirectUri = AuthSession.makeRedirectUri({ scheme: config.scheme, path: 'auth/callback' });
   const [request, , promptAsync] = AuthSession.useAuthRequest(
     {
