@@ -21,6 +21,20 @@ const verificationCopy = {
   replacement_required: 'We could not accept this file. Upload a different copy.',
   delayed: 'File verification needs attention. Contact support for help.',
 };
+const rejectionCopy = {
+  unreadable: 'Some details are not readable. Upload a clearer copy.',
+  wrong_document: 'Upload the requested document.',
+  expired: 'Upload a current document.',
+  details_mismatch: 'The document details do not match your profile. Check them and upload an updated copy.',
+};
+function documentStatus(document: z.infer<typeof DriverDocumentSummary>) {
+  if (document.review?.status === 'expired') return 'This document has expired. Upload an updated copy.';
+  if (document.review?.status === 'rejected' && document.review.reason)
+    return rejectionCopy[document.review.reason];
+  if (document.review?.status === 'approved' && document.review.expiresAt)
+    return `Document approved. Valid until ${new Date(document.review.expiresAt).toLocaleDateString()}.`;
+  return verificationCopy[document.verification ?? 'pending'];
+}
 type Kind = z.infer<typeof DriverDocumentReservation>['kind'];
 type Pending = { id: string; key: string };
 export default function Documents() {
@@ -139,7 +153,7 @@ function DocumentScreen() {
                   {!documents
                     ? 'Checking document status…'
                     : latest?.state === 'quarantined'
-                      ? verificationCopy[latest.verification ?? 'pending']
+                      ? documentStatus(latest)
                       : latest?.state === 'expired'
                         ? 'Previous upload expired.'
                         : latest
@@ -147,7 +161,7 @@ function DocumentScreen() {
                           : 'No document uploaded yet.'}
                 </Copy>
                 <Button
-                  title={`${latest?.verification === 'replacement_required' ? 'Replace' : 'Choose'} ${names[kind].toLowerCase()}`}
+                  title={`${latest?.verification === 'replacement_required' || latest?.review?.status === 'rejected' || latest?.review?.status === 'expired' ? 'Replace' : 'Choose'} ${names[kind].toLowerCase()}`}
                   variant="secondary"
                   disabled={!!phase || !!pending || !documents}
                   onPress={() => void run(kind)}

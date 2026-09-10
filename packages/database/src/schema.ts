@@ -557,3 +557,31 @@ export const driverDocumentScans = pgTable(
     ),
   ],
 );
+
+export const driverDocumentReviews = pgTable(
+  'driver_document_reviews',
+  {
+    documentId: uuid()
+      .primaryKey()
+      .references(() => driverDocuments.id),
+    reviewerId: uuid()
+      .notNull()
+      .references(() => users.id),
+    decision: text().notNull(),
+    reason: text(),
+    expiresAt: timestamp({ withTimezone: true }),
+    reviewedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    objectKey: text().notNull(),
+    objectVersion: text().notNull(),
+    sha256: text().notNull(),
+  },
+  (t) => [
+    check('driver_document_reviews_hash', sql`${t.sha256} ~ '^[a-f0-9]{64}$'`),
+    check(
+      'driver_document_reviews_decision',
+      sql`
+      (${t.decision}='approved' AND ${t.reason} IS NULL AND ${t.expiresAt} IS NOT NULL AND ${t.expiresAt}>${t.reviewedAt})
+      OR (${t.decision}='rejected' AND ${t.reason} IS NOT NULL AND ${t.reason} IN ('unreadable','wrong_document','expired','details_mismatch') AND ${t.expiresAt} IS NULL)`,
+    ),
+  ],
+);

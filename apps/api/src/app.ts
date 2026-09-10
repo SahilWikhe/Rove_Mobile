@@ -8,6 +8,7 @@ import { cors } from 'hono/cors';
 import { z } from 'zod';
 import {
   DriverDocumentReservation,
+  DriverDocumentReviewDecision,
   DriverDocumentUploadCompletion,
   NotificationDeviceRevoke,
   PushInstallationProof,
@@ -30,6 +31,7 @@ import {
 } from '@rove/contracts';
 import {
   DriverDocumentService,
+  DocumentReviewService,
   type DriverDocumentTransfers,
   PushInstallations,
   DriverPayouts,
@@ -95,6 +97,7 @@ export function createApp(deps: Dependencies) {
   const limiter = new RequestLimiter(deps.pool);
   const documents = new DriverDocumentService(deps.pool, deps.documentTransfers);
   const vehicleSubmissions = new VehicleSubmissionService(deps.pool);
+  const documentReviews = new DocumentReviewService(deps.pool);
   const vehicleReviews = new VehicleReviewService(deps.pool);
   const drivers = new DriverService(deps.pool);
   const savedPlaces = new SavedPlaceService(deps.pool, deps.maps);
@@ -355,6 +358,20 @@ export function createApp(deps: Dependencies) {
   app.get('/v1/staff/support-requests/:id', async (c) =>
     c.json(await support.inspect(c.var.actor, id(c.req.param('id')))),
   );
+  app.get('/v1/staff/drivers/:id/documents', async (c) =>
+    c.json(await documentReviews.list(c.var.actor, id(c.req.param('id')))),
+  );
+  app.post('/v1/staff/documents/:id/review', async (c) =>
+    c.json(
+      await documentReviews.decide(
+        c.var.actor,
+        id(c.req.param('id')),
+        await body(c, DriverDocumentReviewDecision),
+        c.req.header('Idempotency-Key') ?? '',
+      ),
+    ),
+  );
+
   app.get('/v1/staff/drivers/:id/vehicle-submission', async (c) =>
     c.json(await vehicleReviews.inspect(c.var.actor, id(c.req.param('id')))),
   );

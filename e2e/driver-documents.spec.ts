@@ -149,3 +149,44 @@ test('scan outcomes explain the next step without implying approval to drive', a
   await page.getByRole('button', { name: 'Get document help', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Help & support', exact: true })).toBeVisible();
 });
+
+test('document decisions show expiry and correction actions on a phone layout', async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.route('**/v1/drivers/me/documents', async (route) => {
+    if (route.request().method() !== 'GET') return route.continue();
+    await route.fulfill({
+      json: {
+        documents: [
+          ['driver_license', 'approved', null, '2030-01-01T12:00:00Z'],
+          ['vehicle_registration', 'rejected', 'unreadable', null],
+          ['vehicle_insurance', 'expired', null, '2025-01-01T12:00:00Z'],
+        ].map(([kind, status, reason, expiresAt], index) => ({
+          id: `00000000-0000-4000-8000-00000000001${index}`,
+          kind,
+          state: 'quarantined',
+          verification: 'awaiting_review',
+          createdAt: '2026-09-10T10:00:00Z',
+          expiresAt: '2026-09-10T10:15:00Z',
+          review: { status, reason, expiresAt, reviewedAt: '2024-01-01T12:00:00Z' },
+        })),
+      },
+    });
+  });
+  await page.goto('http://localhost:8092');
+  await page.getByRole('button', { name: 'Get started', exact: true }).click();
+  await page.getByRole('button', { name: 'Account', exact: true }).click();
+  await page.getByRole('button', { name: 'Driver setup', exact: true }).click();
+  await page.getByRole('button', { name: 'View driving documents', exact: true }).click();
+  await expect(page.getByText(/Document approved. Valid until/)).toBeVisible();
+  await expect(
+    page.getByText('Some details are not readable. Upload a clearer copy.', { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Replace vehicle registration', exact: true })).toBeEnabled();
+  await expect(
+    page.getByText('This document has expired. Upload an updated copy.', { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Replace vehicle insurance', exact: true })).toBeEnabled();
+  await page.screenshot({ path: testInfo.outputPath('document-review-states.png'), fullPage: true });
+});

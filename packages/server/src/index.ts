@@ -48,3 +48,5 @@ export { S3DocumentInbox } from './s3-document-inbox';
 export * from './document-scanning';
 
 export * from './guardduty-document-scanner';
+
+export * from './document-review';

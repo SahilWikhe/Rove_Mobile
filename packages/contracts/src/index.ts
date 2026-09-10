@@ -457,6 +457,26 @@ export const DriverDocumentReservation = z
       .max(10 * 1024 * 1024),
   })
   .strict();
+export const DriverDocumentRejection = z.enum([
+  'unreadable',
+  'wrong_document',
+  'expired',
+  'details_mismatch',
+]);
+export const DriverDocumentReviewDecision = z.discriminatedUnion('decision', [
+  z.object({ decision: z.literal('approved'), expiresAt: z.iso.datetime() }).strict(),
+  z.object({ decision: z.literal('rejected'), reason: DriverDocumentRejection }).strict(),
+]);
+export const DriverDocumentReviewResult = z
+  .object({
+    documentId: z.uuid(),
+    status: z.enum(['approved', 'rejected', 'expired']),
+    expiresAt: z.iso.datetime().nullable(),
+    reason: DriverDocumentRejection.nullable(),
+    reviewedAt: z.iso.datetime(),
+  })
+  .strict();
+
 export const DriverDocumentSummary = z
   .object({
     id: z.uuid(),
@@ -464,6 +484,7 @@ export const DriverDocumentSummary = z
     state: z.enum(['reserved', 'quarantined', 'expired']),
     // Optional so an updated app can still read summaries from an older staging API.
     verification: z.enum(['pending', 'awaiting_review', 'replacement_required', 'delayed']).optional(),
+    review: DriverDocumentReviewResult.omit({ documentId: true }).optional(),
     createdAt: z.iso.datetime(),
     expiresAt: z.iso.datetime(),
   })
