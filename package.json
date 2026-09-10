@@ -25,7 +25,7 @@
     "staging:preflight": "node --import tsx apps/api/src/staging-preflight-cli.ts",
     "db:staging:check": "node --import tsx packages/database/src/staging-readiness-cli.ts",
     "auth:staging:check": "node scripts/auth0-staging-check.mjs",
-    "dev:api:auth0": "ROVE_LOCAL_AUTH=auth0 pnpm --filter @rove/api dev"
+    "dev:api:auth0": "node scripts/local-auth-api.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

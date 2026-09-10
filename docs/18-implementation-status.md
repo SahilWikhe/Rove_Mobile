@@ -1,6 +1,6 @@
 # Implementation status
 
-Updated: September 9, 2026. This is an implementation ledger, not a production-readiness claim.
+Updated: September 10, 2026. This is an implementation ledger, not a production-readiness claim.
 
 ## Current checkpoint — staging infrastructure
 
@@ -15,6 +15,10 @@ This section is the current summary; dated entries below are historical implemen
 - **Verification baseline:** the prior notification checkpoint passed 397 workspace tests. The later Neon change passed seven database tests, relevant typechecks/lint/docs/boundary/build checks and the Neon smoke. The entire workspace suite was not rerun for that later checkpoint.
 
 Checkpoint verification: project settings readback and empty deployment/environment lists passed at project creation. Added `pnpm staging:preflight` to validate one explicit environment file with runtime validators and shared recovery-secret validation. It does not use ambient credentials or perform network calls. Twelve targeted preflight/worker tests passed, plus API typecheck, changed-source lint, boundaries, API build and packaged smoke verification. The actual local partial file correctly failed for missing database/maps/OIDC fields. Documentation lint and diff whitespace checks passed. The subsequent database provisioning checkpoint verified 24 migration journal entries, 26 empty application tables, restricted role privileges, pooled TLS and ignored credentials storage. No runtime code changed in that provisioning checkpoint, so application tests were not rerun. Documentation lint and whitespace checks passed. No cloud API deployment was performed.
+
+### Local Auth0 shutdown fix — September 10
+
+Replaced the Auth0 harness command with a supervised launcher that isolates its child process group and forwards termination to the API before PostgreSQL. A bounded timeout prevents indefinite shutdown. Real SIGINT and SIGTERM integration checks both exited zero without pool exceptions and removed their disposable database directories. Changed-script lint, documentation lint and whitespace checks passed. Windows behavior and native auth interaction remain unverified; no runtime application behavior or cloud configuration changed. Next: launch isolated mobile sessions and verify native Auth0 callbacks and session lifecycle.
 
 ### Local native-auth harness checkpoint — September 9
 
