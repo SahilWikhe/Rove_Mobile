@@ -226,3 +226,31 @@ test('a refresh storage failure still invalidates credentials instead of reusing
   expect(onExpired).toHaveBeenCalledOnce();
   expect(persist).toHaveBeenLastCalledWith(null);
 });
+
+test('expired access-only sessions clear remembered sign-in and invalidate pending profile work', async () => {
+  const persist = vi.fn(async () => {});
+  const session = createSessionCredentials(persist);
+  await session.save(session.epoch(), { accessToken: 'expired-access-only', expiresAt: 0 });
+  const epoch = session.epoch();
+  const renew = vi.fn();
+  const onExpired = vi.fn();
+  expect(await session.token(renew, onExpired, 1)).toBeNull();
+  expect(session.current(epoch)).toBe(false);
+  expect(session.peek()).toBeNull();
+  expect(renew).not.toHaveBeenCalled();
+  expect(onExpired).toHaveBeenCalledOnce();
+  expect(persist).toHaveBeenLastCalledWith(null);
+  expect(await session.token(renew, onExpired, 1)).toBeNull();
+  expect(onExpired).toHaveBeenCalledOnce();
+});
+
+test('an explicitly unavailable refresh grant expires the session instead of retaining stale profile state', async () => {
+  const session = createSessionCredentials(async () => {});
+  await session.save(session.epoch(), expired);
+  const epoch = session.epoch();
+  const onExpired = vi.fn();
+  expect(await session.token(async () => null, onExpired, 1)).toBeNull();
+  expect(session.current(epoch)).toBe(false);
+  expect(session.peek()).toBeNull();
+  expect(onExpired).toHaveBeenCalledOnce();
+});

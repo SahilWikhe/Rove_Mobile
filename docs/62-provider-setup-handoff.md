@@ -107,3 +107,7 @@ Native credential storage now uses a versioned key derived with SHA-256 from the
 The old role-only `v1` key is never restored or automatically migrated because its original environment cannot be established. Existing development installations must sign in again. Old keychain records are not automatically deleted by this change; they are ignored. Browser previews continue keeping auth tokens only in memory. The hash is a namespacing mechanism, not encryption; native SecureStore provides device-protected persistence as before.
 
 Tests exercise read/write/delete separation across each configuration dimension, matching-scope restore, legacy non-restoration and hash-failure rejection. Actual provider login and physical-device keychain persistence remain required after account configuration.
+
+## Expired sessions without refresh grants
+
+When an access token reaches the client's expiry safety window and no refresh token exists, the credential controller now invalidates pending account work, clears stored credentials and notifies the session UI to return to sign-in. An explicit null renewal result follows the same path. Transient refresh failures still preserve credentials and produce a retryable error; late results still cannot affect a newer session. This matters when offline access is disabled, declined or not issued by the chosen provider.

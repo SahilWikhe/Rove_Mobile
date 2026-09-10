@@ -42,6 +42,13 @@ export function createSessionCredentials(persist: (tokens: SessionTokens | null)
       return value !== null;
     });
   }
+  async function expire(epoch: number, onExpired: () => void): Promise<null> {
+    if (!current(epoch)) return null;
+    const clearedEpoch = begin();
+    onExpired();
+    await save(clearedEpoch, null);
+    return null;
+  }
   async function token(
     renew: (previous: SessionTokens) => Promise<SessionTokens | null>,
     onExpired: () => void,
@@ -50,13 +57,14 @@ export function createSessionCredentials(persist: (tokens: SessionTokens | null)
     const previous = tokens;
     if (!previous) return null;
     if (previous.expiresAt > now + 30_000) return previous.accessToken;
-    if (!previous.refreshToken) return null;
+    if (!previous.refreshToken) return expire(generation, onExpired);
     if (refresh?.generation === generation) return refresh.promise;
     const epoch = generation;
     const promise = (async () => {
       try {
         const renewed = await renew(previous);
-        if (!current(epoch) || !renewed) return null;
+        if (!current(epoch)) return null;
+        if (!renewed) return expire(epoch, onExpired);
         if (!(await save(epoch, renewed))) return null;
         return current(epoch) ? renewed.accessToken : null;
       } catch (failure) {
@@ -64,10 +72,7 @@ export function createSessionCredentials(persist: (tokens: SessionTokens | null)
         // Preserve saved credentials on an outage, but never return an expired access token.
         if (failure instanceof SessionRefreshUnavailable) throw failure;
         // Expiration invalidates profile/registration work from this session too.
-        const clearedEpoch = begin();
-        onExpired();
-        await save(clearedEpoch, null);
-        return null;
+        return expire(epoch, onExpired);
       } finally {
         if (refresh?.generation === epoch) refresh = null;
       }

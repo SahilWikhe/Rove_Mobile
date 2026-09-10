@@ -41,6 +41,12 @@ Replaced role-only saved auth keys with deployment/identity-scoped native Secure
 
 Verification: all 85 mobile-core tests passed, including environment read/write/delete isolation and legacy/failure behavior; mobile-core and both app typechecks, changed-source lint and import boundaries passed. Both apps exported successfully for iOS, Android and web; documentation lint and whitespace checks passed. Real OIDC/native keychain verification remains pending provider setup. No database or cloud configuration changed. Next: finish managed auth/Maps/Stripe sandbox configuration before any authorized staging deployment.
 
+### Access-only session expiration checkpoint
+
+Fixed expired sessions without refresh tokens retaining account state after authorization stopped. Missing refresh grants and explicit null renewal now invalidate pending profile work, clear persistence and notify the UI. Temporary provider outages retain retry behavior. All 87 mobile-core tests, mobile-core typecheck and changed-source lint passed; documentation and whitespace checks passed. New regressions cover access-only expiry and null renewal alongside existing concurrent refresh/sign-out tests. Real native/provider verification remains outstanding; next remains provider configuration and authorized staging deployment.
+
+GitHub's dependency-repair run `34444646599` passed quality, tests, mobile, security and CodeQL; its browser job was cancelled after a later push, so it is not a fully green CI baseline. Local browser verification on that dependency checkpoint passed all ten journeys. Subsequent commits require their own completed remote CI evidence.
+
 ### Next steps in order
 
 1. Completed: create and verify the undeployed Vercel staging project with backend monorepo settings. Keep automatic Git deployment disconnected until configuration is complete.
