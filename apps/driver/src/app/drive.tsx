@@ -151,7 +151,10 @@ export default function Drive() {
         />
       )}
       {profile && !profile.eligible && (
-        <Banner message="Complete your document review and payout setup before going online." />
+        <>
+          <Banner message="Complete your document review and payout setup before going online." />
+          <Button title="View setup progress" variant="secondary" onPress={() => router.push('/setup')} />
+        </>
       )}
       <Button
         title={profile?.online ? 'Go offline' : 'Go online'}

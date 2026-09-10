@@ -46,6 +46,12 @@ export default function Account() {
             <Copy kind="muted">Rove driver</Copy>
           </Card>
           <Button
+            title="Driver setup"
+            variant="secondary"
+            disabled={busy}
+            onPress={() => router.push('/setup')}
+          />
+          <Button
             title="Vehicle & review status"
             variant="secondary"
             disabled={busy}
