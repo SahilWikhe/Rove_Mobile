@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type { Pool } from 'pg';
 import type { Actor } from './rides';
 import { driverOnly } from './drivers';
@@ -59,6 +60,80 @@ export class DriverDocumentService {
         [actor.id, input.id, JSON.stringify({ kind: input.kind })],
       );
       return this.summary(row);
+    });
+  }
+  /** Internal use only: receipt comes from validated quarantine storage, never an HTTP request body. */
+  async recordQuarantine(actor: Actor, raw: unknown) {
+    driverOnly(actor);
+    const receipt = z
+      .object({
+        documentId: z.uuid(),
+        driverId: z.uuid(),
+        kind: Reservation.shape.kind,
+        contentType: Reservation.shape.contentType,
+        sha256: Reservation.shape.sha256,
+        bytes: Reservation.shape.bytes,
+        state: z.literal('quarantined'),
+        key: z.string().max(300),
+        version: z.string().min(1).max(1024),
+      })
+      .strict()
+      .parse(raw);
+    if (receipt.driverId !== actor.id)
+      throw new DomainError('FORBIDDEN', 'This upload does not belong to your account.', 403);
+    const prefix = `driver-documents/quarantine/${receipt.documentId}/`;
+    if (!receipt.key.startsWith(prefix) || !z.uuid().safeParse(receipt.key.slice(prefix.length)).success)
+      throw new DomainError('INVALID_DOCUMENT', 'The stored document could not be verified.', 422);
+    return transaction(this.pool, async (client) => {
+      const account = (
+        await client.query(
+          'SELECT d.id,u.disabled FROM drivers d JOIN users u ON u.id=d.id WHERE d.id=$1 FOR UPDATE OF d,u',
+          [actor.id],
+        )
+      ).rows[0];
+      if (!account || account.disabled)
+        throw new DomainError('FORBIDDEN', 'This account cannot submit documents.', 403);
+      const row = (
+        await client.query(
+          'SELECT *,expires_at > now() AS valid FROM driver_documents WHERE id=$1 AND driver_id=$2 FOR UPDATE',
+          [receipt.documentId, actor.id],
+        )
+      ).rows[0];
+      if (!row)
+        throw new DomainError('DOCUMENT_NOT_FOUND', 'Start a document upload before submitting a file.', 404);
+      if (
+        row.kind !== receipt.kind ||
+        row.content_type !== receipt.contentType ||
+        row.expected_sha256 !== receipt.sha256 ||
+        row.expected_bytes !== receipt.bytes
+      )
+        throw new DomainError(
+          'DOCUMENT_CONFLICT',
+          'The stored file does not match this upload request.',
+          409,
+        );
+      if (row.state === 'quarantined') {
+        if (row.object_key !== receipt.key || row.object_version !== receipt.version)
+          throw new DomainError(
+            'DOCUMENT_CONFLICT',
+            'A different file is already attached to this upload.',
+            409,
+          );
+        return this.summary(row);
+      }
+      if (!row.valid)
+        throw new DomainError('DOCUMENT_EXPIRED', 'This upload expired. Start a new upload.', 409);
+      const saved = (
+        await client.query(
+          "UPDATE driver_documents SET state='quarantined',object_key=$2,object_version=$3 WHERE id=$1 RETURNING *",
+          [receipt.documentId, receipt.key, receipt.version],
+        )
+      ).rows[0];
+      await client.query(
+        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'driver.document_quarantined',$2,$3)",
+        [actor.id, receipt.documentId, JSON.stringify({ kind: receipt.kind })],
+      );
+      return this.summary(saved);
     });
   }
   async list(actor: Actor) {

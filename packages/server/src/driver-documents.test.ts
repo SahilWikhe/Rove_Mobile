@@ -1,4 +1,5 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
+import { quarantineDriverDocument } from './document-intake';
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
 import { testDatabase } from '@rove/database/testing';
 import { users, drivers } from '@rove/database';
@@ -87,4 +88,90 @@ test('database rejects impossible quarantine metadata and unsafe sizes', async (
   await expect(
     db.pool.query('UPDATE driver_documents SET expected_bytes=0 WHERE id=$1', [body.id]),
   ).rejects.toThrow();
+});
+
+async function uploaded() {
+  const bytes = new TextEncoder().encode('%PDF-1.7 synthetic document');
+  const reservation = {
+    ...input(),
+    bytes: bytes.length,
+    sha256: createHash('sha256').update(bytes).digest('hex'),
+  };
+  await service.reserve(actor, reservation);
+  const receipt = await quarantineDriverDocument(
+    {
+      documentId: reservation.id,
+      driverId: actor.id,
+      kind: reservation.kind,
+      contentType: reservation.contentType,
+      expectedSha256: reservation.sha256,
+    },
+    bytes,
+    {
+      put: async (value) => ({
+        version: 'immutable-fixture',
+        sha256: value.sha256,
+        bytes: value.body.length,
+      }),
+    },
+  );
+  return { receipt, reservation };
+}
+test('validated upload completion is durable and idempotent without approving the driver', async () => {
+  const { receipt } = await uploaded();
+  const results = await Promise.all([
+    service.recordQuarantine(actor, receipt),
+    service.recordQuarantine(actor, receipt),
+  ]);
+  expect(results[0]).toEqual(results[1]);
+  expect(results[0].state).toBe('quarantined');
+  expect(results[0]).not.toHaveProperty('key');
+  expect((await service.list(actor)).documents[0]?.state).toBe('quarantined');
+  expect(
+    (await db.pool.query("SELECT * FROM audit WHERE action='driver.document_quarantined'")).rowCount,
+  ).toBe(1);
+  expect((await db.pool.query('SELECT approved FROM drivers WHERE id=$1', [actor.id])).rows[0].approved).toBe(
+    false,
+  );
+});
+test('late storage completion cannot revive an expired reservation', async () => {
+  const { receipt } = await uploaded();
+  await db.pool.query("UPDATE driver_documents SET expires_at=now()-interval '1 second' WHERE id=$1", [
+    receipt.documentId,
+  ]);
+  await expect(service.recordQuarantine(actor, receipt)).rejects.toMatchObject({ code: 'DOCUMENT_EXPIRED' });
+  expect((await service.list(actor)).documents[0]?.state).toBe('expired');
+});
+test('recorded receipt remains retryable after reservation expiry but cannot be replaced', async () => {
+  const { receipt } = await uploaded();
+  await service.recordQuarantine(actor, receipt);
+  await db.pool.query("UPDATE driver_documents SET expires_at=now()-interval '1 second' WHERE id=$1", [
+    receipt.documentId,
+  ]);
+  expect((await service.recordQuarantine(actor, receipt)).state).toBe('quarantined');
+  await expect(
+    service.recordQuarantine(actor, { ...receipt, version: 'different-version' }),
+  ).rejects.toMatchObject({ code: 'DOCUMENT_CONFLICT' });
+});
+test('storage metadata must match the reserved file and private path', async () => {
+  const { receipt } = await uploaded();
+  await expect(
+    service.recordQuarantine(actor, { ...receipt, bytes: receipt.bytes + 1 }),
+  ).rejects.toMatchObject({ code: 'DOCUMENT_CONFLICT' });
+  await expect(
+    service.recordQuarantine(actor, { ...receipt, key: 'public/document.pdf' }),
+  ).rejects.toMatchObject({ code: 'INVALID_DOCUMENT' });
+  await expect(service.recordQuarantine(actor, { ...receipt, driverId: randomUUID() })).rejects.toMatchObject(
+    { code: 'FORBIDDEN' },
+  );
+  expect((await service.list(actor)).documents[0]?.state).toBe('reserved');
+});
+test('an account disabled while the file is uploading cannot finalize it', async () => {
+  const { receipt } = await uploaded();
+  await db.pool.query('UPDATE users SET disabled=true WHERE id=$1', [actor.id]);
+  await expect(service.recordQuarantine(actor, receipt)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  expect(
+    (await db.pool.query('SELECT state FROM driver_documents WHERE id=$1', [receipt.documentId])).rows[0]
+      .state,
+  ).toBe('reserved');
 });
