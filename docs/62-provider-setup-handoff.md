@@ -99,3 +99,11 @@ Prefer a separate sandbox restricted key for the backend instead of an unrestric
 Map these operations to Stripe's current restricted-key permission controls and verify actual requests in sandbox. This table is an implementation inventory, not proof the selected key has enough permissions. The existing refund adapter is not proof of a finished customer refund workflow. No runtime key permission is needed merely to verify webhook signatures locally; `STRIPE_WEBHOOK_SECRET` is a separate credential. Event-destination and payment-configuration administration should remain separate from ordinary runtime permissions.
 
 Store the key in ignored local secret storage for development and a sensitive Vercel environment variable for hosted staging. Never put it in the rider publishable-key setting. Connector OAuth authorization is separate from this backend credential. Connect account/link/event operations require a separately reviewed permission set before that feature is enabled.
+
+## Saved-session environment isolation
+
+Native credential storage now uses a versioned key derived with SHA-256 from the exact API URL, issuer, public client ID, audience, app role and synthetic-mode setting. Moving a build from local/staging to another backend or identity configuration requires signing in for that scope. Matching configurations can restore their own saved session. Sign-out deletes only the current scope; it is not a global logout across environments or the identity provider.
+
+The old role-only `v1` key is never restored or automatically migrated because its original environment cannot be established. Existing development installations must sign in again. Old keychain records are not automatically deleted by this change; they are ignored. Browser previews continue keeping auth tokens only in memory. The hash is a namespacing mechanism, not encryption; native SecureStore provides device-protected persistence as before.
+
+Tests exercise read/write/delete separation across each configuration dimension, matching-scope restore, legacy non-restoration and hash-failure rejection. Actual provider login and physical-device keychain persistence remain required after account configuration.

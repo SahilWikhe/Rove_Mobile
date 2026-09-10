@@ -35,6 +35,12 @@ Verification: all eight database tests passed, including real disposable Postgre
 
 Inspected actual GitHub CI results and found two dependency failures predating the database checker: a vulnerable TOML parser in documentation tooling and stale Expo patch versions. Updated both apps/shared mobile-core to Expo 57.0.21 and the routers to 57.0.20; constrained the linter's parser to patched 1.7.1. See [CI repair](21-ci-verification.md#september-9-dependency-gate-repair). All workspace tests/typechecks, both Expo compatibility checks, both apps' iOS/Android/web exports, audit, peers and formatting passed locally. All ten browser journeys also passed, including completed trips and the real no-driver search deadline. Frozen-lockfile installation and documentation checks passed. This is a dependency repair, not a deployment or new product feature. Auth/provider setup and staging deployment gates remain unchanged.
 
+### Session storage isolation checkpoint
+
+Replaced role-only saved auth keys with deployment/identity-scoped native SecureStore keys. Backend URL, issuer, client ID, audience, rider/driver role and synthetic mode all separate stored credentials. Legacy unscoped sessions are ignored and require fresh sign-in; browser tokens remain memory-only. The implementation does not select or activate Auth0. See [session isolation](62-provider-setup-handoff.md#saved-session-environment-isolation).
+
+Verification: all 85 mobile-core tests passed, including environment read/write/delete isolation and legacy/failure behavior; mobile-core and both app typechecks, changed-source lint and import boundaries passed. Both apps exported successfully for iOS, Android and web; documentation lint and whitespace checks passed. Real OIDC/native keychain verification remains pending provider setup. No database or cloud configuration changed. Next: finish managed auth/Maps/Stripe sandbox configuration before any authorized staging deployment.
+
 ### Next steps in order
 
 1. Completed: create and verify the undeployed Vercel staging project with backend monorepo settings. Keep automatic Git deployment disconnected until configuration is complete.

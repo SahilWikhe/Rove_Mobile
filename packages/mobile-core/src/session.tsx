@@ -14,6 +14,8 @@ import {
 import { Platform } from 'react-native';
 import * as AuthSession from 'expo-auth-session';
 import * as SecureStore from 'expo-secure-store';
+import * as Crypto from 'expo-crypto';
+import { createScopedSessionStorage } from './session-storage';
 import * as WebBrowser from 'expo-web-browser';
 import { z } from 'zod';
 import type { Profile } from '@rove/contracts';
@@ -96,19 +98,38 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
   const [needsProfile, setNeedsProfile] = useState(false);
   const [cleanupRequired, setCleanupRequired] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const storageKey = `rove.${config.role}.${synthetic ? 'synthetic' : 'oidc'}.session.v1`;
+  const storage = useMemo(
+    () =>
+      createScopedSessionStorage(
+        {
+          apiUrl: config.apiUrl,
+          issuer: config.issuer,
+          clientId: config.clientId,
+          audience: config.audience,
+          role: config.role,
+          synthetic,
+        },
+        (value) => Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, value),
+        {
+          read: (key) => SecureStore.getItemAsync(key),
+          write: (key, value) =>
+            SecureStore.setItemAsync(key, value, {
+              keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+            }),
+          remove: (key) => SecureStore.deleteItemAsync(key),
+        },
+      ),
+    [config.apiUrl, config.issuer, config.clientId, config.audience, config.role, synthetic],
+  );
   const credentials = useMemo(
     () =>
       createSessionCredentials(async (tokens) => {
         // Browser previews deliberately keep tokens only in memory.
         if (Platform.OS === 'web') return;
-        if (tokens)
-          await SecureStore.setItemAsync(storageKey, JSON.stringify(tokens), {
-            keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-          });
-        else await SecureStore.deleteItemAsync(storageKey);
+        if (tokens) await storage.write(JSON.stringify(tokens));
+        else await storage.remove();
       }),
-    [storageKey],
+    [storage],
   );
   useEffect(
     () => () => {
@@ -190,7 +211,7 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
       setLoading(true);
       try {
         const restored = await credentials.restore(epoch, async () => {
-          const raw = await SecureStore.getItemAsync(storageKey);
+          const raw = await storage.read();
           if (!raw) return null;
           try {
             const parsed = StoredSession.safeParse(JSON.parse(raw));
@@ -198,7 +219,7 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
           } catch {
             /* Invalid local state is removed, never used as credentials. */
           }
-          await SecureStore.deleteItemAsync(storageKey);
+          await storage.remove();
           return null;
         });
         if (restored && alive) await loadProfile(epoch, () => alive);
@@ -219,7 +240,7 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
     return () => {
       alive = false;
     };
-  }, [loadProfile, configured, discovery, storageKey, credentials]);
+  }, [loadProfile, configured, discovery, storage, credentials]);
   async function signIn() {
     if (!configured || (!synthetic && (!request || !discovery))) {
       setError('Sign in is temporarily unavailable. Please try again later.');
