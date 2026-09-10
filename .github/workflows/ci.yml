@@ -90,6 +90,15 @@ jobs:
       # Isolated synthetic API + both Expo web apps; no cloud credentials.
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e
+      # Synthetic-only screenshots/traces make browser failures diagnosable.
+      - name: Preserve browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: browser-failure-evidence
+          path: test-results/
+          retention-days: 7
+          if-no-files-found: ignore
 
   mobile:
     name: mobile

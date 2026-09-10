@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 test('Home shortcut resolves an owned destination, requires route review and survives deletion', async ({
   page,

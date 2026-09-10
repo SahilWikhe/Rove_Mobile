@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 test('driver setup shows authoritative statuses and leads to vehicle and payout actions', async ({
   page,
 }) => {

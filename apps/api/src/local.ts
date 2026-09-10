@@ -144,6 +144,13 @@ if (e2e)
     await drain();
     return c.json({ stopped: true });
   });
+// Each serial browser test gets fresh rate counters in its disposable database.
+// Never expose this helper with real Auth0 identities or in a deployed runtime.
+if (e2e && !authConfig)
+  app.post('/__e2e/reset-rate-limits', async (c) => {
+    await database.pool.query('DELETE FROM rate_limit_buckets');
+    return c.json({ reset: true });
+  });
 const server = serve({ fetch: app.fetch, port, hostname: '127.0.0.1' }, (address) => {
   console.log(
     `Local Rove API: http://localhost:${address.port}. ${authConfig ? 'Real staging Auth0 identity' : 'Synthetic identity'}; disposable data, simulated maps/payments, no notifications.`,

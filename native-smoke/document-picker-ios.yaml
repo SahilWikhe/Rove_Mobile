@@ -1,0 +1,31 @@
+# Requires a signed-in synthetic driver, iOS native build with document-picker,
+# and the local API/Metro. Exercises native picker cancellation, not S3 upload.
+appId: co.roveride.driver
+---
+- tapOn:
+    text: Cancel
+    optional: true
+- openLink: rove-driver://documents
+- tapOn:
+    text: Open
+    optional: true
+- extendedWaitUntil:
+    visible: Ready for review.
+    timeout: 30000
+- tapOn: Choose driver’s license
+- extendedWaitUntil:
+    visible: Browse
+    timeout: 10000
+- assertVisible: Cancel
+- takeScreenshot: native-document-picker
+- tapOn: Cancel
+- assertVisible: Ready for review.
+- assertVisible: Choose driver’s license
+- assertNotVisible: Retry upload verification
+- tapOn: Choose driver’s license
+- extendedWaitUntil:
+    visible: Browse
+    timeout: 10000
+- tapOn: Cancel
+- assertVisible: Ready for review.
+- takeScreenshot: native-document-picker-cancelled

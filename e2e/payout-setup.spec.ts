@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 test('driver can inspect payout setup without claiming a synthetic bank account is connected', async ({
   page,
 }) => {
@@ -13,6 +13,12 @@ test('driver can inspect payout setup without claiming a synthetic bank account 
     }),
   ).toBeVisible();
   await expect(page.getByRole('button', { name: 'Continue with Stripe', exact: true })).toHaveCount(0);
+  const refresh = page.waitForResponse(
+    (response) =>
+      response.url().endsWith('/v1/drivers/me/payout-setup') && response.request().method() === 'GET',
+  );
   await page.getByRole('button', { name: 'Check setup status', exact: true }).click();
+  const refreshed = await refresh;
+  expect(refreshed.status(), await refreshed.text()).toBe(200);
   await expect(page.getByText('Payout setup is not available yet.', { exact: true })).toBeVisible();
 });

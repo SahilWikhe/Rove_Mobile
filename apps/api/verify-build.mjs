@@ -37,6 +37,9 @@ const result = spawnSync(
   const unauthorized = await app.request('/v1/me', { headers: { Authorization: 'Bearer synthetic-rider' } });
   assert.equal(unauthorized.status, 401);
   assert.equal((await app.request('/unknown')).status, 404);
+  for (const path of ['/__e2e/reset-rate-limits', '/__e2e/shutdown']) {
+    assert.equal((await app.request(path, { method: 'POST' })).status, 404);
+  }
 `,
   ],
   {
