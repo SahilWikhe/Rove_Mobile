@@ -1,0 +1,164 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Rove private driver document quarantine storage. Deploy separately for each environment. No runtime credentials or scanner are provisioned.",
+  "Parameters": {
+    "Environment": {
+      "Type": "String",
+      "AllowedValues": ["staging", "production"],
+      "Default": "staging",
+      "Description": "Isolated environment for this bucket."
+    }
+  },
+  "Resources": {
+    "DocumentBucket": {
+      "Type": "AWS::S3::Bucket",
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain",
+      "Properties": {
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "BlockPublicPolicy": true,
+          "IgnorePublicAcls": true,
+          "RestrictPublicBuckets": true
+        },
+        "OwnershipControls": {
+          "Rules": [
+            {
+              "ObjectOwnership": "BucketOwnerEnforced"
+            }
+          ]
+        },
+        "BucketEncryption": {
+          "ServerSideEncryptionConfiguration": [
+            {
+              "ServerSideEncryptionByDefault": {
+                "SSEAlgorithm": "AES256"
+              }
+            }
+          ]
+        },
+        "VersioningConfiguration": {
+          "Status": "Enabled"
+        },
+        "LifecycleConfiguration": {
+          "Rules": [
+            {
+              "Id": "AbortIncompleteMultipartUploads",
+              "Status": "Enabled",
+              "AbortIncompleteMultipartUpload": {
+                "DaysAfterInitiation": 1
+              }
+            }
+          ]
+        },
+        "Tags": [
+          {
+            "Key": "Application",
+            "Value": "Rove"
+          },
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "Environment"
+            }
+          },
+          {
+            "Key": "DataClassification",
+            "Value": "PrivateDriverDocuments"
+          }
+        ]
+      }
+    },
+    "DocumentBucketPolicy": {
+      "Type": "AWS::S3::BucketPolicy",
+      "Properties": {
+        "Bucket": {
+          "Ref": "DocumentBucket"
+        },
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "DenyInsecureTransport",
+              "Effect": "Deny",
+              "Principal": "*",
+              "Action": "s3:*",
+              "Resource": [
+                {
+                  "Fn::GetAtt": ["DocumentBucket", "Arn"]
+                },
+                {
+                  "Fn::Sub": "${DocumentBucket.Arn}/*"
+                }
+              ],
+              "Condition": {
+                "Bool": {
+                  "aws:SecureTransport": "false",
+                  "aws:PrincipalIsAWSService": "false"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "DocumentUploaderPolicy": {
+      "Type": "AWS::IAM::ManagedPolicy",
+      "Properties": {
+        "Description": "Attach only to the Rove backend upload role; no document read, delete, list, or bucket administration permissions.",
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "CheckPrivateVersionedBucket",
+              "Effect": "Allow",
+              "Action": ["s3:GetBucketVersioning", "s3:GetBucketPublicAccessBlock"],
+              "Resource": {
+                "Fn::GetAtt": ["DocumentBucket", "Arn"]
+              }
+            },
+            {
+              "Sid": "WriteQuarantineObjects",
+              "Effect": "Allow",
+              "Action": ["s3:PutObject"],
+              "Resource": {
+                "Fn::Sub": "${DocumentBucket.Arn}/driver-documents/quarantine/*"
+              },
+              "Condition": {
+                "StringEquals": {
+                  "s3:x-amz-server-side-encryption": "AES256"
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "DocumentBucketName": {
+      "Description": "Bucket for the server storage adapter.",
+      "Value": {
+        "Ref": "DocumentBucket"
+      }
+    },
+    "DocumentBucketRegion": {
+      "Description": "Region for the server storage adapter.",
+      "Value": {
+        "Ref": "AWS::Region"
+      }
+    },
+    "DocumentBucketOwner": {
+      "Description": "ExpectedBucketOwner account ID for server requests.",
+      "Value": {
+        "Ref": "AWS::AccountId"
+      }
+    },
+    "DocumentUploaderPolicyArn": {
+      "Description": "Attach this scoped policy to a separately configured backend identity.",
+      "Value": {
+        "Ref": "DocumentUploaderPolicy"
+      }
+    }
+  }
+}
