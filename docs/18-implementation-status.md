@@ -21,6 +21,10 @@ Revalidated the clean local checkout against remote `main` at `7c70c9b` before e
 
 Verification for this documentation checkpoint: cross-checked instructions against mobile layouts/config, session implementation, Google adapter, Stripe adapter and webhook event allowlist; documentation lint and diff whitespace checks passed. No application code changed, so application tests were not rerun. Next: obtain the identity-provider decision and missing sandbox/maps credentials, then validate their integration before requesting deployment approval.
 
+### Stripe sandbox access checkpoint
+
+Sandbox configuration read succeeded on September 9. Confirmed one active default payment-method configuration; no Stripe mutations or provider payments were performed. Creation searches exposed only GET operations, so write access remains unverified despite the generic write tool. Added the backend restricted-key operation inventory and this limitation to [provider setup](62-provider-setup-handoff.md#september-9-stripe-connection-verification). Documentation lint and whitespace checks passed; no runtime code changed or application tests were rerun. Next: resolve runtime sandbox credentials/configuration and the managed-auth choice; keep deployment gated.
+
 ### Next steps in order
 
 1. Completed: create and verify the undeployed Vercel staging project with backend monorepo settings. Keep automatic Git deployment disconnected until configuration is complete.

@@ -79,3 +79,23 @@ Owner decisions/setup still needed:
 4. Upgrade hosting when ready and approve the first staging deployment after configuration review.
 
 Real pricing, driver compensation, production Connect responsibilities, launch operations and mobile store releases remain later decisions. Synthetic rate fixtures are suitable only for testing and are not approved fares.
+
+## September 9 Stripe connection verification
+
+Read access to Rove sandbox `acct_1UDH7bPUl4I4KcSJ` succeeded through the connector. Listing all active payment-method configurations returned one default configuration, `pmc_1UDH87PUl4I4KcSJqafC1k5e`, with no additional pages. Cards and Apple Pay were available/on, Google Pay unavailable/off, and several other methods enabled. This does not prove those methods will appear for a particular PaymentIntent: Stripe also filters by integration, currency and eligibility.
+
+No configuration or payment was created. Operation searches for creating configurations and PaymentIntents returned GET operations only, despite a generic write tool being exposed. Therefore account-specific write capability remains unverified. Do not describe it as confirmed or conclude the user's permission selection failed; the connector's available operation set may be the limitation. Continue with dashboard setup or an appropriately scoped runtime key when available.
+
+### Restricted runtime key checklist
+
+Prefer a separate sandbox restricted key for the backend instead of an unrestricted secret key. With Connect disabled, the current `StripePaymentsProvider` invokes:
+
+| Resource | Adapter operations | Required capability |
+| --- | --- | --- |
+| Customers | Create rider customer binding | Write |
+| PaymentIntents | Create, retrieve, capture, cancel | Read/write |
+| Refunds | Create refund | Write when that flow is enabled/tested |
+
+Map these operations to Stripe's current restricted-key permission controls and verify actual requests in sandbox. This table is an implementation inventory, not proof the selected key has enough permissions. The existing refund adapter is not proof of a finished customer refund workflow. No runtime key permission is needed merely to verify webhook signatures locally; `STRIPE_WEBHOOK_SECRET` is a separate credential. Event-destination and payment-configuration administration should remain separate from ordinary runtime permissions.
+
+Store the key in ignored local secret storage for development and a sensitive Vercel environment variable for hosted staging. Never put it in the rider publishable-key setting. Connector OAuth authorization is separate from this backend credential. Connect account/link/event operations require a separately reviewed permission set before that feature is enabled.
