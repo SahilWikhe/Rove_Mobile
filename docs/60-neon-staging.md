@@ -99,3 +99,17 @@ node --env-file=.staging-provider/.env.neon.staging --import tsx --input-type=mo
 ```
 
 Do not run the synthetic ride smoke against this branch. It is reserved for managed-auth accounts and actual sandbox-provider IDs once configured. No payment/provider calls, application rows or Vercel environment upload were made during provisioning. The empty-table check is a provisioning observation, not a permanent invariant after provider testing begins.
+
+## Repeatable read-only readiness check
+
+Run from the repository root:
+
+```sh
+pnpm db:staging:check .staging-provider/.env.neon.staging
+```
+
+Use an explicit ignored environment file whose endpoint has already been confirmed as a staging branch in Neon. The checker cannot identify a production branch from its hostname alone. It uses only the pooled runtime credentials from that file; owner credentials and ambient database variables are not used. No migrations, grants, fixture inserts or application workers run.
+
+The check validates certificate-authorized TLS on the actual client socket, starts a read-only transaction with a statement timeout, and requires the restricted role, no other role memberships, no dangerous role flags or public-schema creation, individual SELECT/INSERT/UPDATE/DELETE grants on each public application table, no TRUNCATE, and USAGE/SELECT on sequences. A pooler's internal PostgreSQL hop may not use TLS, so `pg_stat_ssl` is not used as evidence for the client connection. Connections are destroyed even on failure. Fixed diagnostic stages help locate failures without printing provider errors or secrets.
+
+On September 9 this passed against clean provider staging with 26 tables. Permission failure cases are tested against disposable local PostgreSQL. The command does not verify migration journal completeness, data cleanliness, per-user application authorization, default grants for future migrations or any external provider. Re-run it after migrations or credential/grant changes; retain the separate migration and API behavior checks.

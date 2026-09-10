@@ -25,6 +25,12 @@ Verification for this documentation checkpoint: cross-checked instructions again
 
 Sandbox configuration read succeeded on September 9. Confirmed one active default payment-method configuration; no Stripe mutations or provider payments were performed. Creation searches exposed only GET operations, so write access remains unverified despite the generic write tool. Added the backend restricted-key operation inventory and this limitation to [provider setup](62-provider-setup-handoff.md#september-9-stripe-connection-verification). Documentation lint and whitespace checks passed; no runtime code changed or application tests were rerun. Next: resolve runtime sandbox credentials/configuration and the managed-auth choice; keep deployment gated.
 
+### Read-only database readiness checkpoint
+
+Added `pnpm db:staging:check /path/to/ignored-staging.env`. It reads only the explicitly supplied file, requires the confirmed pooled endpoint with `verify-full`, checks the actual client TLS socket and inspects role/table/sequence permissions inside a read-only transaction. It rejects elevated role flags, role memberships, schema creation, table truncation and missing individual DML grants. Errors expose only fixed diagnostic stages, not driver messages or credentials.
+
+Verification: all eight database tests passed, including real disposable PostgreSQL permission regressions. Database typecheck, changed-source lint, import boundaries, documentation lint and whitespace checks passed. The clean `rove-provider-staging` endpoint passed verified client TLS and restricted grants for 26 application tables. No rows, schema, roles or provider settings were changed by the hosted check. This command does not prove migration completeness, row-level authorization, provider integration or deployment readiness. Next: obtain the managed-auth decision and missing Maps/Stripe runtime configuration; staging deployment remains gated on authorization and hosting support.
+
 ### Next steps in order
 
 1. Completed: create and verify the undeployed Vercel staging project with backend monorepo settings. Keep automatic Git deployment disconnected until configuration is complete.
