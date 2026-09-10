@@ -1,0 +1,31 @@
+# Requires the signed-in synthetic driver and local API without S3 configured.
+# Push a synthetic PDF to /sdcard/Download/rove-synthetic.pdf first.
+# Native Android file picker layout verified on the API 36 emulator.
+appId: co.roveride.driver
+---
+- openLink: rove-driver://documents
+- extendedWaitUntil:
+    visible: Ready for review.
+    timeout: 30000
+- tapOn: Choose driver’s license
+- extendedWaitUntil:
+    visible: Recent|Downloads
+    timeout: 10000
+- tapOn:
+    point: 7%, 8%
+- tapOn: Downloads
+- tapOn: rove-synthetic.pdf
+- extendedWaitUntil:
+    visible: Document uploads are not available yet. Try again later.
+    timeout: 30000
+- scrollUntilVisible:
+    element: Refresh documents
+    direction: DOWN
+    centerElement: true
+- waitForAnimationToEnd
+- tapOn: Refresh documents
+- scrollUntilVisible:
+    element: Previous upload is incomplete.
+    direction: UP
+- assertVisible: Choose driver’s license
+- takeScreenshot: native-document-selection-android

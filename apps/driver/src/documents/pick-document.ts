@@ -25,7 +25,10 @@ export async function pickDriverDocument() {
       !['image/jpeg', 'image/png', 'application/pdf'].includes(file.type)
     )
       throw new Error('Choose a JPEG, PNG or PDF up to 10 MB.');
-    const digest = await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, await file.arrayBuffer());
+    const digest = await Crypto.digest(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      new Uint8Array(await file.arrayBuffer()),
+    );
     const sha256 = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
     return { file, sha256, dispose };
   } catch (error) {
