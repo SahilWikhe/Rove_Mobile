@@ -175,3 +175,81 @@ test('an account disabled while the file is uploading cannot finalize it', async
       .state,
   ).toBe('reserved');
 });
+
+test('upload uses reserved metadata, persists quarantine and retries without another storage write', async () => {
+  const body = new TextEncoder().encode('%PDF-1.7 synthetic');
+  const reservation = {
+    ...input(),
+    bytes: body.length,
+    sha256: createHash('sha256').update(body).digest('hex'),
+  };
+  await service.reserve(actor, reservation);
+  let writes = 0;
+  const store = {
+    put: async (value: { sha256: string; body: Uint8Array }) => {
+      writes++;
+      return { version: 'version-one', sha256: value.sha256, bytes: value.body.length };
+    },
+  };
+  const result = await service.upload(actor, reservation.id, body, store);
+  expect(result.state).toBe('quarantined');
+  expect(await service.upload(actor, reservation.id, body, store)).toEqual(result);
+  expect(writes).toBe(1);
+});
+
+test('unauthorized, changed and expired uploads never reach storage', async () => {
+  const body = new TextEncoder().encode('%PDF-1.7 synthetic');
+  const reservation = {
+    ...input(),
+    bytes: body.length,
+    sha256: createHash('sha256').update(body).digest('hex'),
+  };
+  await service.reserve(actor, reservation);
+  let writes = 0;
+  const store = {
+    put: async () => {
+      writes++;
+      throw new Error('Storage must not be called');
+    },
+  };
+  await expect(
+    service.upload({ ...actor, id: randomUUID() }, reservation.id, body, store),
+  ).rejects.toMatchObject({ code: 'DOCUMENT_NOT_FOUND' });
+  await expect(
+    service.upload({ ...actor, role: 'rider' }, reservation.id, body, store),
+  ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  await expect(service.upload(actor, reservation.id, body.slice(1), store)).rejects.toMatchObject({
+    code: 'INVALID_DOCUMENT_SIZE',
+  });
+  await expect(
+    service.upload(actor, reservation.id, new Uint8Array(body.length), store),
+  ).rejects.toMatchObject({ code: 'DOCUMENT_CHECKSUM_MISMATCH' });
+  await db.pool.query("UPDATE driver_documents SET expires_at=now()-interval '1 second' WHERE id=$1", [
+    reservation.id,
+  ]);
+  await expect(service.upload(actor, reservation.id, body, store)).rejects.toMatchObject({
+    code: 'DOCUMENT_EXPIRED',
+  });
+  expect(writes).toBe(0);
+});
+
+test('disabling an account during storage I/O prevents completion', async () => {
+  const body = new TextEncoder().encode('%PDF-1.7 synthetic');
+  const reservation = {
+    ...input(),
+    bytes: body.length,
+    sha256: createHash('sha256').update(body).digest('hex'),
+  };
+  await service.reserve(actor, reservation);
+  await expect(
+    service.upload(actor, reservation.id, body, {
+      put: async (value) => {
+        await db.pool.query('UPDATE users SET disabled=true WHERE id=$1', [actor.id]);
+        return { version: 'version-one', sha256: value.sha256, bytes: value.body.length };
+      },
+    }),
+  ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  expect(
+    (await db.pool.query('SELECT state FROM driver_documents WHERE id=$1', [reservation.id])).rows[0].state,
+  ).toBe('reserved');
+});

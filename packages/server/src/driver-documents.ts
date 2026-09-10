@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { createHash } from 'node:crypto';
+import { quarantineDriverDocument, type DocumentQuarantineStore } from './document-intake';
 import type { Pool } from 'pg';
 import type { Actor } from './rides';
 import { driverOnly } from './drivers';
@@ -61,6 +63,53 @@ export class DriverDocumentService {
       );
       return this.summary(row);
     });
+  }
+  /** Server upload orchestration. Transport must bound the body before calling this method. */
+  async upload(actor: Actor, documentId: string, bytes: Uint8Array, store: DocumentQuarantineStore) {
+    driverOnly(actor);
+    const id = z.uuid().parse(documentId);
+    const row = (
+      await this.pool.query(
+        `SELECT x.*,u.disabled,x.expires_at > now() AS valid
+         FROM driver_documents x JOIN users u ON u.id=x.driver_id
+         WHERE x.id=$1 AND x.driver_id=$2`,
+        [id, actor.id],
+      )
+    ).rows[0];
+    if (!row)
+      throw new DomainError('DOCUMENT_NOT_FOUND', 'Start a document upload before submitting a file.', 404);
+    if (row.disabled) throw new DomainError('FORBIDDEN', 'This account cannot submit documents.', 403);
+    if (!(bytes instanceof Uint8Array) || bytes.byteLength !== row.expected_bytes)
+      throw new DomainError(
+        'INVALID_DOCUMENT_SIZE',
+        'The file size does not match this upload request.',
+        422,
+      );
+    // Snapshot before asynchronous storage so mutable caller memory cannot change the submitted file.
+    const body = Uint8Array.from(bytes);
+    if (createHash('sha256').update(body).digest('hex') !== row.expected_sha256)
+      throw new DomainError(
+        'DOCUMENT_CHECKSUM_MISMATCH',
+        'The file changed. Select it again before uploading.',
+        422,
+      );
+    // A lost response can be retried without writing a second object, even after expiry.
+    if (row.state === 'quarantined') return this.summary(row);
+    if (!row.valid)
+      throw new DomainError('DOCUMENT_EXPIRED', 'This upload expired. Start a new upload.', 409);
+    const receipt = await quarantineDriverDocument(
+      {
+        documentId: id,
+        driverId: actor.id,
+        kind: row.kind,
+        contentType: row.content_type,
+        expectedSha256: row.expected_sha256,
+      },
+      body,
+      store,
+    );
+    // Recheck account state and expiry transactionally after network I/O.
+    return this.recordQuarantine(actor, receipt);
   }
   /** Internal use only: receipt comes from validated quarantine storage, never an HTTP request body. */
   async recordQuarantine(actor: Actor, raw: unknown) {
