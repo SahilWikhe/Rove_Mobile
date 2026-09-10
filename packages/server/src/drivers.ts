@@ -21,15 +21,22 @@ export class DriverService {
       )
     ).rows[0];
     if (!row) throw new DomainError('NOT_FOUND', 'Driver profile not found.', 404);
+    const now = this.now();
+    const payoutReady = !!(row.payout_ready && row.payout_valid_until > now);
+    const eligibilityStatus =
+      !row.approved || !row.eligibility_expires_at
+        ? 'review_required'
+        : row.eligibility_expires_at <= now
+          ? 'expired'
+          : !payoutReady
+            ? 'payout_required'
+            : 'eligible';
     return {
       approved: row.approved,
       online: row.online,
-      payoutReady: !!(row.payout_ready && row.payout_valid_until > this.now()),
-      eligible:
-        row.approved &&
-        row.payout_ready &&
-        row.payout_valid_until > this.now() &&
-        row.eligibility_expires_at?.getTime() > this.now().getTime(),
+      payoutReady,
+      eligible: eligibilityStatus === 'eligible',
+      eligibilityStatus,
       locationAt: row.location_at?.toISOString() ?? null,
       locationSequence: row.location_sequence,
       vehicle: row.vehicle,

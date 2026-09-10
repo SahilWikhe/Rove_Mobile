@@ -38,3 +38,37 @@ test('setup clears previous eligibility while a refresh fails and recovers on re
   await expect(page.getByText('Driving eligibility', { exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('driver-setup.png'), fullPage: true });
 });
+
+test('setup distinguishes expired approval from payout requirements and offers the right action', async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  let eligibilityStatus = 'payout_required';
+  await page.route('**/v1/drivers/me', async (route) => {
+    const response = await route.fetch();
+    const profile = await response.json();
+    await route.fulfill({
+      json: { ...profile, approved: true, eligible: false, payoutReady: false, eligibilityStatus },
+    });
+  });
+  await page.goto('http://localhost:8092');
+  await page.getByRole('button', { name: 'Get started', exact: true }).click();
+  await page.getByRole('button', { name: 'Account', exact: true }).click();
+  await page.getByRole('button', { name: 'Driver setup', exact: true }).click();
+  await expect(
+    page.getByText('Your driving review is complete. Finish or refresh your payout setup to go online.', {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Continue payout setup', exact: true }).click();
+  await expect(page.getByText('Your payout details.', { exact: true })).toBeVisible();
+  eligibilityStatus = 'expired';
+  await page.goBack();
+  await expect(
+    page.getByText('Your driving approval has expired. Contact Rove for a new review.', { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Continue payout setup', exact: true })).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath('expired-eligibility.png'), fullPage: true });
+  await page.getByRole('button', { name: 'Get help with eligibility', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Help & support', exact: true })).toBeVisible();
+});

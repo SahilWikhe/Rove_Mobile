@@ -203,3 +203,17 @@ test('a racing replacement cannot leave approval active on superseded evidence',
       .rows[0],
   ).toEqual({ approved: false, eligibility_expires_at: null });
 });
+
+test('profile identifies the next eligibility step using the server clock', async () => {
+  const driversService = new DriverService(db.pool);
+  expect((await driversService.profile(driver)).eligibilityStatus).toBe('review_required');
+  await service.decide(staff, driver.id, approval(), randomUUID());
+  expect((await driversService.profile(driver)).eligibilityStatus).toBe('payout_required');
+  await db.pool.query(
+    "UPDATE drivers SET payout_ready=true,payout_valid_until=now()+interval '1 hour' WHERE id=$1",
+    [driver.id],
+  );
+  expect((await driversService.profile(driver)).eligibilityStatus).toBe('eligible');
+  const future = new DriverService(db.pool, () => new Date(Date.parse(documentExpiry) + 1));
+  expect(await future.profile(driver)).toMatchObject({ eligibilityStatus: 'expired', eligible: false });
+});

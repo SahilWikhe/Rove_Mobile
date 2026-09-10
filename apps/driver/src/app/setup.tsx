@@ -5,6 +5,12 @@ import { useSession } from '@rove/mobile-core/session';
 import { Banner, Button, Card, Copy, Screen } from '@rove/mobile-ui';
 import { VehicleReviewStatus } from '../vehicle/review-status';
 
+const eligibilityCopy = {
+  review_required: 'Your account review is not complete.',
+  expired: 'Your driving approval has expired. Contact Rove for a new review.',
+  payout_required: 'Your driving review is complete. Finish or refresh your payout setup to go online.',
+  eligible: 'Your account is currently eligible.',
+};
 type Status = { driver: DriverProfile; vehicle: VehicleReview | null; payout: DriverPayoutStatus['status'] };
 export default function Setup() {
   const { profile } = useSession();
@@ -65,20 +71,36 @@ function SetupStatus() {
               <Card>
                 <Copy kind="heading">Driving eligibility</Copy>
                 <Copy>
-                  {status.driver.eligible
-                    ? 'Your account is currently eligible.'
-                    : status.driver.approved
-                      ? 'Your account needs an eligibility check.'
-                      : 'Your account review is not complete.'}
+                  {status.driver.eligibilityStatus
+                    ? eligibilityCopy[status.driver.eligibilityStatus]
+                    : status.driver.eligible
+                      ? 'Your account is currently eligible.'
+                      : status.driver.approved
+                        ? 'Your account needs an eligibility check.'
+                        : 'Your account review is not complete.'}
                 </Copy>
                 <Copy kind="muted">
                   Vehicle review and payout setup are separate checks. Location permission is requested when
                   you go online.
                 </Copy>
                 <Button
-                  title={status.driver.eligible ? 'Back to Drive' : 'Get help with eligibility'}
+                  title={
+                    status.driver.eligible
+                      ? 'Back to Drive'
+                      : status.driver.eligibilityStatus === 'payout_required'
+                        ? 'Continue payout setup'
+                        : 'Get help with eligibility'
+                  }
                   variant="secondary"
-                  onPress={() => router.push(status.driver.eligible ? '/drive' : '/support')}
+                  onPress={() =>
+                    router.push(
+                      status.driver.eligible
+                        ? '/drive'
+                        : status.driver.eligibilityStatus === 'payout_required'
+                          ? '/payouts'
+                          : '/support',
+                    )
+                  }
                 />
               </Card>
               <Button

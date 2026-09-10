@@ -131,6 +131,7 @@ export const RideDriverLocation = z
 export type RideDriverLocation = z.infer<typeof RideDriverLocation>;
 
 export const DriverProfile = z.object({
+  eligibilityStatus: z.enum(['review_required', 'expired', 'payout_required', 'eligible']).optional(),
   approved: z.boolean(),
   online: z.boolean(),
   payoutReady: z.boolean(),
