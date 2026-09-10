@@ -37,3 +37,5 @@ export * from './expo-push';
 export * from './push-installations';
 export * from './push-audience';
 export * from './push-delivery';
+
+export * from './driver-documents';

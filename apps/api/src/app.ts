@@ -7,6 +7,7 @@ import { secureHeaders } from 'hono/secure-headers';
 import { cors } from 'hono/cors';
 import { z } from 'zod';
 import {
+  DriverDocumentReservation,
   NotificationDeviceRevoke,
   PushInstallationProof,
   PushInstallationUpdate,
@@ -27,6 +28,7 @@ import {
   ProfileNameUpdate,
 } from '@rove/contracts';
 import {
+  DriverDocumentService,
   PushInstallations,
   DriverPayouts,
   SupportService,
@@ -88,6 +90,7 @@ export function createApp(deps: Dependencies) {
   const pushInstallations = new PushInstallations(deps.pool, deps.pushProjects ?? {});
   const support = new SupportService(deps.pool);
   const limiter = new RequestLimiter(deps.pool);
+  const documents = new DriverDocumentService(deps.pool);
   const vehicleSubmissions = new VehicleSubmissionService(deps.pool);
   const vehicleReviews = new VehicleReviewService(deps.pool);
   const drivers = new DriverService(deps.pool);
@@ -308,6 +311,10 @@ export function createApp(deps: Dependencies) {
     await body(c, z.object({}).strict());
     return c.json(await tracking.issue(c.var.actor), 201);
   });
+  app.get('/v1/drivers/me/documents', async (c) => c.json(await documents.list(c.var.actor)));
+  app.post('/v1/drivers/me/documents', async (c) =>
+    c.json(await documents.reserve(c.var.actor, await body(c, DriverDocumentReservation))),
+  );
   app.get('/v1/drivers/me/vehicle-submission', async (c) =>
     c.json(await vehicleSubmissions.get(c.var.actor)),
   );

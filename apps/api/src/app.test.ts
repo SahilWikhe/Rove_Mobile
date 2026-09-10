@@ -519,3 +519,32 @@ test('notification-device management is authenticated, owner scoped and rejects 
     ).status,
   ).toBe(409);
 });
+
+test('document reservations require driver auth and cannot accept client approval or storage paths', async () => {
+  const input = {
+    id: randomUUID(),
+    kind: 'driver_license',
+    contentType: 'application/pdf',
+    sha256: 'a'.repeat(64),
+    bytes: 100,
+  };
+  const submit = (value: unknown, token: string) =>
+    app.request('/v1/drivers/me/documents', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(value),
+    });
+  expect((await submit(input, 'rider')).status).toBe(403);
+  await request('/v1/me', { name: 'Synthetic driver', role: 'driver' }, 'driver');
+  expect((await submit({ ...input, state: 'approved', objectKey: 'public/file.pdf' }, 'driver')).status).toBe(
+    400,
+  );
+  const response = await submit(input, 'driver');
+  expect(response.status).toBe(200);
+  expect(response.headers.get('Cache-Control')).toBe('no-store');
+  expect(await response.json()).toMatchObject({ id: input.id, state: 'reserved' });
+  const list = await app.request('/v1/drivers/me/documents', { headers: { Authorization: 'Bearer driver' } });
+  const data = await list.json();
+  expect(data.documents).toHaveLength(1);
+  expect(Object.keys(data.documents[0]).sort()).toEqual(['createdAt', 'expiresAt', 'id', 'kind', 'state']);
+});

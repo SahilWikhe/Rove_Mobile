@@ -443,3 +443,27 @@ export const NotificationDeviceRevoked = z
     enabled: z.literal(false),
   })
   .strict();
+
+export const DriverDocumentReservation = z
+  .object({
+    id: z.uuid(),
+    kind: z.enum(['driver_license', 'vehicle_registration', 'vehicle_insurance']),
+    contentType: z.enum(['image/jpeg', 'image/png', 'application/pdf']),
+    sha256: z.string().regex(/^[a-f0-9]{64}$/),
+    bytes: z
+      .number()
+      .int()
+      .min(1)
+      .max(10 * 1024 * 1024),
+  })
+  .strict();
+export const DriverDocumentSummary = z
+  .object({
+    id: z.uuid(),
+    kind: DriverDocumentReservation.shape.kind,
+    state: z.enum(['reserved', 'quarantined', 'expired']),
+    createdAt: z.iso.datetime(),
+    expiresAt: z.iso.datetime(),
+  })
+  .strict();
+export const DriverDocumentList = z.object({ documents: z.array(DriverDocumentSummary).max(30) }).strict();

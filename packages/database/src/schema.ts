@@ -487,3 +487,37 @@ export const pushRateWindows = pgTable('push_rate_windows', {
   windowAt: timestamp({ withTimezone: true }).notNull(),
   count: integer().notNull(),
 });
+
+export const driverDocuments = pgTable(
+  'driver_documents',
+  {
+    id: uuid().primaryKey(),
+    driverId: uuid()
+      .notNull()
+      .references(() => drivers.id),
+    kind: text().notNull(),
+    contentType: text().notNull(),
+    expectedSha256: text().notNull(),
+    expectedBytes: integer().notNull(),
+    state: text().notNull().default('reserved'),
+    objectKey: text(),
+    objectVersion: text(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp({ withTimezone: true }).notNull(),
+  },
+  (t) => [
+    index('driver_documents_owner').on(t.driverId, t.createdAt),
+    check(
+      'driver_documents_kind',
+      sql`${t.kind} in ('driver_license','vehicle_registration','vehicle_insurance')`,
+    ),
+    check('driver_documents_type', sql`${t.contentType} in ('image/jpeg','image/png','application/pdf')`),
+    check('driver_documents_hash', sql`${t.expectedSha256} ~ '^[a-f0-9]{64}$'`),
+    check('driver_documents_bytes', sql`${t.expectedBytes} between 1 and 10485760`),
+    check('driver_documents_state', sql`${t.state} in ('reserved','quarantined')`),
+    check(
+      'driver_documents_object',
+      sql`(${t.state}='reserved' AND ${t.objectKey} IS NULL AND ${t.objectVersion} IS NULL) OR (${t.state}='quarantined' AND ${t.objectKey} IS NOT NULL AND ${t.objectVersion} IS NOT NULL)`,
+    ),
+  ],
+);
