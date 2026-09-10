@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1128.0",
     "@rove/contracts": "workspace:*",
     "@rove/database": "workspace:*",
     "drizzle-orm": "0.45.2",
