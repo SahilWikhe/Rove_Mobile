@@ -90,3 +90,30 @@ test('CLI validates only the explicit file and signals failure with no secret ou
   }
   // Four independently bounded (10s) CLI invocations can exceed Vitest's default 5s on CI.
 }, 45_000);
+
+test('independent missing integrations are reported together rather than masked by the first error', () => {
+  const result = inspectStagingEnvironment({
+    ...fixture(),
+    GOOGLE_MAPS_API_KEY: undefined,
+    STRIPE_SECRET_KEY: undefined,
+    STRIPE_WEBHOOK_SECRET: undefined,
+    STRIPE_PAYMENT_METHOD_CONFIGURATION: undefined,
+    STRIPE_CONNECT_ONBOARDING_ENABLED: 'true',
+    EXPO_PUSH_DELIVERY_ENABLED: 'true',
+    DOCUMENT_UPLOADS_ENABLED: 'true',
+    DOCUMENT_SCANNING_ENABLED: 'true',
+  });
+  expect(result).toEqual({
+    valid: false,
+    problems: [
+      'connect.origin',
+      'documents.scanning',
+      'documents.storage',
+      'googleMapsApiKey',
+      'payments.paymentMethodConfiguration',
+      'payments.secretKey',
+      'payments.webhookSecret',
+      'push.delivery',
+    ],
+  });
+});

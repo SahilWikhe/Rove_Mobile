@@ -10,8 +10,7 @@ const Payments = z.object({
   paymentMethodConfiguration: z.string().regex(/^pmc_[a-zA-Z0-9]{1,96}$/),
 });
 /** No real-provider deployment can silently fall back to mock payments or identity. */
-export function readRuntimeConfig(env: Record<string, string | undefined>) {
-  const api = readApiConfig(env);
+function readPaymentConfig(env: Record<string, string | undefined>) {
   const parsed = Payments.safeParse({
     accountId: env.STRIPE_ACCOUNT_ID,
     mode: env.STRIPE_MODE,
@@ -27,8 +26,11 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
     !payments.secretKey.startsWith(`rk_${payments.mode}_`)
   )
     throw new ConfigurationError(['payments.mode']);
-  if ((api.environment === 'production') !== (payments.mode === 'live'))
+  if ((env.ROVE_ENVIRONMENT === 'production') !== (payments.mode === 'live'))
     throw new ConfigurationError(['payments.mode']);
+  return payments;
+}
+function readConnectConfig(env: Record<string, string | undefined>) {
   const enabled = env.STRIPE_CONNECT_ONBOARDING_ENABLED;
   if (enabled !== undefined && !['true', 'false'].includes(enabled))
     throw new ConfigurationError(['connect.enabled']);
@@ -44,7 +46,7 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
       .safeParse(env.STRIPE_CONNECT_RETURN_ORIGIN);
     if (!parsedOrigin.success) throw new ConfigurationError(['connect.origin']);
     if (
-      payments.mode === 'live' &&
+      env.STRIPE_MODE === 'live' &&
       env.STRIPE_CONNECT_MODEL_APPROVED !== 'recipient-express-platform-responsibility'
     )
       throw new ConfigurationError(['connect.modelApproval']);
@@ -53,9 +55,12 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
       .regex(/^whsec_[a-zA-Z0-9]+$/)
       .safeParse(env.STRIPE_CONNECT_WEBHOOK_SECRET);
     if (!webhook.success) throw new ConfigurationError(['connect.webhookSecret']);
-    if (webhook.data === payments.webhookSecret) throw new ConfigurationError(['connect.webhookSecret']);
+    if (webhook.data === env.STRIPE_WEBHOOK_SECRET) throw new ConfigurationError(['connect.webhookSecret']);
     connect = { origin: parsedOrigin.data, webhookSecret: webhook.data };
   }
+  return connect;
+}
+function readPushConfig(env: Record<string, string | undefined>) {
   let pushProjects: { rider: string; driver: string } | undefined;
   if (env.EXPO_RIDER_PROJECT_ID !== undefined || env.EXPO_DRIVER_PROJECT_ID !== undefined) {
     const projects = z.object({ rider: z.uuid(), driver: z.uuid() }).safeParse({
@@ -80,6 +85,9 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
     if (!pushProjects || !token.success) throw new ConfigurationError(['push.delivery']);
     pushAccessToken = token.data;
   }
+  return { ...(pushProjects ? { pushProjects } : {}), ...(pushAccessToken ? { pushAccessToken } : {}) };
+}
+function readDocumentStorage(env: Record<string, string | undefined>) {
   let documentStorage: z.infer<typeof S3DocumentConfig> | undefined;
   const documentEnabled = env.DOCUMENT_UPLOADS_ENABLED;
   if (documentEnabled !== undefined && !['true', 'false'].includes(documentEnabled))
@@ -93,6 +101,9 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
     if (!storage.success) throw new ConfigurationError(['documents.storage']);
     documentStorage = storage.data;
   }
+  return documentStorage;
+}
+function readDocumentScanning(env: Record<string, string | undefined>) {
   let documentScanning: z.infer<typeof GuardDutyScanConfig> | undefined;
   if (
     env.DOCUMENT_SCANNING_ENABLED !== undefined &&
@@ -109,13 +120,33 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
     if (!scanning.success) throw new ConfigurationError(['documents.scanning']);
     documentScanning = scanning.data;
   }
+  return documentScanning;
+}
+/** Evaluate independent integrations even when another configuration section is invalid. */
+export function readRuntimeConfig(env: Record<string, string | undefined>) {
+  const problems: string[] = [];
+  function capture<T>(read: () => T): T | undefined {
+    try {
+      return read();
+    } catch (error) {
+      if (!(error instanceof ConfigurationError)) throw error;
+      problems.push(...error.fields);
+      return undefined;
+    }
+  }
+  const api = capture(() => readApiConfig(env));
+  const payments = capture(() => readPaymentConfig(env));
+  const connect = capture(() => readConnectConfig(env));
+  const push = capture(() => readPushConfig(env));
+  const documentStorage = capture(() => readDocumentStorage(env));
+  const documentScanning = capture(() => readDocumentScanning(env));
+  if (problems.length || !api || !payments) throw new ConfigurationError([...new Set(problems)]);
   return {
+    ...api,
+    ...push,
+    payments,
     ...(documentScanning ? { documentScanning } : {}),
     ...(documentStorage ? { documentStorage } : {}),
-    ...(pushAccessToken ? { pushAccessToken } : {}),
-    ...(pushProjects ? { pushProjects } : {}),
-    ...api,
-    payments,
     ...(connect ? { connect } : {}),
     paymentSource: `${payments.accountId}:${payments.mode}`,
   };
