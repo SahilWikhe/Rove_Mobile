@@ -8,6 +8,7 @@ import { cors } from 'hono/cors';
 import { z } from 'zod';
 import {
   DriverDocumentReservation,
+  DriverDocumentUploadCompletion,
   NotificationDeviceRevoke,
   PushInstallationProof,
   PushInstallationUpdate,
@@ -29,6 +30,7 @@ import {
 } from '@rove/contracts';
 import {
   DriverDocumentService,
+  type DriverDocumentTransfers,
   PushInstallations,
   DriverPayouts,
   SupportService,
@@ -56,6 +58,7 @@ import { getRide, listRides } from './ride-queries';
 type Environment = { Variables: { actor: Actor; subject: string; requestId: string } };
 interface Dependencies {
   pool: Pool;
+  documentTransfers?: DriverDocumentTransfers;
   verifyIdentity: VerifyIdentity;
   rides: RideService;
   quotes: QuoteService;
@@ -90,7 +93,7 @@ export function createApp(deps: Dependencies) {
   const pushInstallations = new PushInstallations(deps.pool, deps.pushProjects ?? {});
   const support = new SupportService(deps.pool);
   const limiter = new RequestLimiter(deps.pool);
-  const documents = new DriverDocumentService(deps.pool);
+  const documents = new DriverDocumentService(deps.pool, deps.documentTransfers);
   const vehicleSubmissions = new VehicleSubmissionService(deps.pool);
   const vehicleReviews = new VehicleReviewService(deps.pool);
   const drivers = new DriverService(deps.pool);
@@ -310,6 +313,13 @@ export function createApp(deps: Dependencies) {
   app.post('/v1/drivers/me/tracking-session', async (c) => {
     await body(c, z.object({}).strict());
     return c.json(await tracking.issue(c.var.actor), 201);
+  });
+  app.post('/v1/drivers/me/documents/:id/upload', async (c) =>
+    c.json(await documents.uploadTarget(c.var.actor, id(c.req.param('id')))),
+  );
+  app.post('/v1/drivers/me/documents/:id/complete', async (c) => {
+    const input = await body(c, DriverDocumentUploadCompletion);
+    return c.json(await documents.completeUpload(c.var.actor, id(c.req.param('id')), input.key));
   });
   app.get('/v1/drivers/me/documents', async (c) => c.json(await documents.list(c.var.actor)));
   app.post('/v1/drivers/me/documents', async (c) =>

@@ -467,3 +467,14 @@ export const DriverDocumentSummary = z
   })
   .strict();
 export const DriverDocumentList = z.object({ documents: z.array(DriverDocumentSummary).max(30) }).strict();
+
+export const DriverDocumentUploadTarget = z
+  .object({
+    documentId: z.uuid(),
+    key: z.string().max(300),
+    url: z.url({ protocol: /^https$/ }),
+    fields: z.record(z.string().max(100), z.string().max(10000)),
+    expiresAt: z.iso.datetime(),
+  })
+  .strict();
+export const DriverDocumentUploadCompletion = z.object({ key: z.string().max(300) }).strict();

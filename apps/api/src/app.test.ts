@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import { testDatabase } from '@rove/database/testing';
 import { users } from '@rove/database';
 import { QuoteService, RideService, developmentRates, DomainError, type MapsProvider } from '@rove/server';
@@ -17,11 +17,32 @@ const maps: MapsProvider = {
   resolve: async () => place,
   route: async () => ({ distanceMeters: 5000, durationSeconds: 720 }),
 };
+const uploadBytes = new TextEncoder().encode('%PDF-1.7 synthetic driver document');
+const documentTransfers = {
+  forms: {
+    issue: vi.fn(async (input: { id: string; expiresAt: string }) => ({
+      documentId: input.id,
+      key: `driver-documents/inbox/${input.id}/${randomUUID()}`,
+      url: 'https://synthetic-bucket.s3.us-east-2.amazonaws.com/',
+      fields: { synthetic: 'test-only' },
+      expiresAt: input.expiresAt,
+    })),
+  },
+  inbox: { read: vi.fn(async () => uploadBytes) },
+  quarantine: {
+    put: vi.fn(async (value: { sha256: string; body: Uint8Array }) => ({
+      version: 'synthetic-version',
+      sha256: value.sha256,
+      bytes: value.body.length,
+    })),
+  },
+};
 const riderId = randomUUID();
 beforeAll(async () => {
   database = await testDatabase();
   app = createApp({
     pool: database.pool,
+    documentTransfers,
     pushProjects: {
       rider: '00000000-0000-4000-8000-000000000001',
       driver: '00000000-0000-4000-8000-000000000002',
@@ -35,7 +56,7 @@ beforeAll(async () => {
     }),
     maps,
     verifyIdentity: async (token) => {
-      if (!['rider', 'new-user', 'driver', 'staff', 'staff-no-mfa'].includes(token))
+      if (!['rider', 'new-user', 'driver', 'other-driver', 'staff', 'staff-no-mfa'].includes(token))
         throw new DomainError('UNAUTHENTICATED', 'Please sign in.', 401);
       return { subject: token === 'staff-no-mfa' ? 'staff' : token, mfa: token === 'staff' };
     },
@@ -48,6 +69,7 @@ afterAll(async () => {
   await database?.close();
 });
 beforeEach(async () => {
+  vi.clearAllMocks();
   await database.pool.query('TRUNCATE users CASCADE');
   await database.pool.query('TRUNCATE outbox, rate_limit_buckets CASCADE');
   await database.db
@@ -547,4 +569,76 @@ test('document reservations require driver auth and cannot accept client approva
   const data = await list.json();
   expect(data.documents).toHaveLength(1);
   expect(Object.keys(data.documents[0]).sort()).toEqual(['createdAt', 'expiresAt', 'id', 'kind', 'state']);
+});
+
+test('authenticated document flow reserves, signs and verifies before persisting quarantine', async () => {
+  await request('/v1/me', { name: 'Synthetic driver', role: 'driver' }, 'driver');
+  const reservation = {
+    id: randomUUID(),
+    kind: 'driver_license',
+    contentType: 'application/pdf',
+    bytes: uploadBytes.length,
+    sha256: createHash('sha256').update(uploadBytes).digest('hex'),
+  };
+  expect((await request('/v1/drivers/me/documents', reservation, 'driver')).status).toBe(200);
+  const path = `/v1/drivers/me/documents/${reservation.id}`;
+  const signed = await request(`${path}/upload`, {}, 'driver');
+  expect(signed.status).toBe(200);
+  expect(signed.headers.get('cache-control')).toBe('no-store');
+  const target = await signed.json();
+  expect(documentTransfers.forms.issue).toHaveBeenCalledWith(expect.objectContaining(reservation));
+  expect((await request(`${path}/complete`, { key: target.key, state: 'approved' }, 'driver')).status).toBe(
+    400,
+  );
+  expect(
+    (
+      await request(
+        `${path}/complete`,
+        { key: `driver-documents/inbox/${randomUUID()}/${randomUUID()}` },
+        'driver',
+      )
+    ).status,
+  ).toBe(422);
+  expect(documentTransfers.inbox.read).not.toHaveBeenCalled();
+  const done = await request(`${path}/complete`, { key: target.key }, 'driver');
+  expect(done.status).toBe(200);
+  expect(await done.json()).toMatchObject({ id: reservation.id, state: 'quarantined' });
+  expect((await request(`${path}/complete`, { key: target.key }, 'driver')).status).toBe(200);
+  expect(documentTransfers.inbox.read).toHaveBeenCalledTimes(1);
+  expect(documentTransfers.quarantine.put).toHaveBeenCalledTimes(1);
+  expect((await database.pool.query('SELECT approved FROM drivers')).rows[0].approved).toBe(false);
+});
+test('upload endpoints reject unauthenticated requests and non-driver roles before storage', async () => {
+  const path = `/v1/drivers/me/documents/${randomUUID()}`;
+  expect((await app.request(`${path}/upload`, { method: 'POST' })).status).toBe(401);
+  expect((await request(`${path}/upload`, {})).status).toBe(403);
+  expect((await request(`${path}/complete`, { key: 'anything' })).status).toBe(403);
+  expect(documentTransfers.forms.issue).not.toHaveBeenCalled();
+  expect(documentTransfers.inbox.read).not.toHaveBeenCalled();
+});
+
+test('another driver cannot sign or complete an existing reservation', async () => {
+  await request('/v1/me', { name: 'Synthetic driver', role: 'driver' }, 'driver');
+  await request('/v1/me', { name: 'Other synthetic driver', role: 'driver' }, 'other-driver');
+  const reservation = {
+    id: randomUUID(),
+    kind: 'driver_license',
+    contentType: 'application/pdf',
+    bytes: uploadBytes.length,
+    sha256: createHash('sha256').update(uploadBytes).digest('hex'),
+  };
+  await request('/v1/drivers/me/documents', reservation, 'driver');
+  const path = `/v1/drivers/me/documents/${reservation.id}`;
+  expect((await request(`${path}/upload`, {}, 'other-driver')).status).toBe(404);
+  expect(
+    (
+      await request(
+        `${path}/complete`,
+        { key: `driver-documents/inbox/${reservation.id}/${randomUUID()}` },
+        'other-driver',
+      )
+    ).status,
+  ).toBe(404);
+  expect(documentTransfers.forms.issue).not.toHaveBeenCalled();
+  expect(documentTransfers.inbox.read).not.toHaveBeenCalled();
 });

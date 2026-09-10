@@ -1,6 +1,7 @@
 import { createDatabase } from '@rove/database';
 import {
   PushDelivery,
+  type DriverDocumentTransfers,
   ExpoPushProvider,
   type PushProvider,
   type JobHandler,
@@ -33,6 +34,7 @@ import { oidcIdentity, type VerifyIdentity } from './auth';
 import { readRuntimeConfig, type RuntimeConfig } from './runtime-config';
 
 interface Resources {
+  documentTransfers?: DriverDocumentTransfers;
   pushProvider?: PushProvider;
   database: ReturnType<typeof createDatabase>;
   maps: MapsProvider;
@@ -69,6 +71,7 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
   const worker = new OutboxWorker(pool, pushDelivery ? pushDelivery.handlers(handlers) : handlers);
   const app = createApp({
     pool,
+    ...(resources.documentTransfers ? { documentTransfers: resources.documentTransfers } : {}),
     ...(resources.payoutWebhookVerifier
       ? {
           payoutWebhooks: new PayoutWebhookInbox(pool, resources.payoutWebhookVerifier, config.paymentSource),

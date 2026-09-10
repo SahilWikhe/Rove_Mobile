@@ -6,11 +6,28 @@ import type { Actor } from './rides';
 import { driverOnly } from './drivers';
 import { transaction } from './transactions';
 import { DomainError } from './errors';
-import { DriverDocumentReservation as Reservation, DriverDocumentSummary as Summary } from '@rove/contracts';
+import {
+  DriverDocumentReservation as Reservation,
+  DriverDocumentSummary as Summary,
+  DriverDocumentUploadTarget,
+} from '@rove/contracts';
+
+export interface DriverDocumentTransfers {
+  forms: {
+    issue(
+      input: z.infer<typeof Reservation> & { expiresAt: string },
+    ): Promise<z.infer<typeof DriverDocumentUploadTarget>>;
+  };
+  inbox: { read(input: z.infer<typeof Reservation> & { key: string }): Promise<Uint8Array> };
+  quarantine: DocumentQuarantineStore;
+}
 
 /** Metadata only. Returned summaries intentionally exclude keys, checksums and private storage versions. */
 export class DriverDocumentService {
-  constructor(private pool: Pool) {}
+  constructor(
+    private pool: Pool,
+    private transfers?: DriverDocumentTransfers,
+  ) {}
   async reserve(actor: Actor, raw: unknown) {
     driverOnly(actor);
     const input = Reservation.parse(raw);
@@ -63,6 +80,62 @@ export class DriverDocumentService {
       );
       return this.summary(row);
     });
+  }
+  private async ownedReservation(actor: Actor, documentId: string) {
+    driverOnly(actor);
+    const id = z.uuid().parse(documentId);
+    const row = (
+      await this.pool.query(
+        'SELECT x.*,u.disabled,x.expires_at > now() AS valid FROM driver_documents x JOIN users u ON u.id=x.driver_id WHERE x.id=$1 AND x.driver_id=$2',
+        [id, actor.id],
+      )
+    ).rows[0];
+    if (!row) throw new DomainError('DOCUMENT_NOT_FOUND', 'This document upload was not found.', 404);
+    if (row.disabled) throw new DomainError('FORBIDDEN', 'This account cannot submit documents.', 403);
+    return row;
+  }
+  private transferProvider() {
+    if (!this.transfers)
+      throw new DomainError(
+        'DOCUMENT_UPLOAD_UNAVAILABLE',
+        'Document uploads are not available yet. Try again later.',
+        503,
+      );
+    return this.transfers;
+  }
+  private reservationInput(row: Record<string, unknown>) {
+    return Reservation.parse({
+      id: row.id,
+      kind: row.kind,
+      contentType: row.content_type,
+      sha256: row.expected_sha256,
+      bytes: row.expected_bytes,
+    });
+  }
+  async uploadTarget(actor: Actor, documentId: string) {
+    const row = await this.ownedReservation(actor, documentId);
+    if (row.state !== 'reserved')
+      throw new DomainError('DOCUMENT_CONFLICT', 'This document has already been uploaded.', 409);
+    if (!row.valid)
+      throw new DomainError('DOCUMENT_EXPIRED', 'This upload expired. Start a new upload.', 409);
+    return DriverDocumentUploadTarget.parse(
+      await this.transferProvider().forms.issue({
+        ...this.reservationInput(row),
+        expiresAt: (row.expires_at as Date).toISOString(),
+      }),
+    );
+  }
+  async completeUpload(actor: Actor, documentId: string, key: string) {
+    const row = await this.ownedReservation(actor, documentId);
+    const prefix = `driver-documents/inbox/${documentId}/`;
+    if (!key.startsWith(prefix) || !z.uuid().safeParse(key.slice(prefix.length)).success)
+      throw new DomainError('INVALID_DOCUMENT', 'The upload reference is invalid.', 422);
+    if (row.state === 'quarantined') return this.summary(row);
+    if (!row.valid)
+      throw new DomainError('DOCUMENT_EXPIRED', 'This upload expired. Start a new upload.', 409);
+    const provider = this.transferProvider();
+    const bytes = await provider.inbox.read({ ...this.reservationInput(row), key });
+    return this.upload(actor, documentId, bytes, provider.quarantine);
   }
   /** Server upload orchestration. Transport must bound the body before calling this method. */
   async upload(actor: Actor, documentId: string, bytes: Uint8Array, store: DocumentQuarantineStore) {
