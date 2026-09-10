@@ -77,3 +77,25 @@ test.each([
 ])('ignores unrelated or malformed payment callbacks: %s', (url) => {
   expect(isPaymentReturnURL(url)).toBe(false);
 });
+
+test('session failures are sanitized and never initialize the payment sheet', async () => {
+  const f = fixture();
+  f.session.mockRejectedValue(new Error('pi_fixture_secret_private'));
+  await expect(submitPayment(f.session, f, () => true)).rejects.toThrow(
+    'Payment could not be confirmed. Check your ride status before trying again.',
+  );
+  expect(f.initialize).not.toHaveBeenCalled();
+  expect(f.present).not.toHaveBeenCalled();
+});
+
+test('a rejected session request after leaving the screen is abandoned', async () => {
+  const f = fixture();
+  let current = true;
+  f.session.mockImplementation(async () => {
+    current = false;
+    throw new Error('late request failure');
+  });
+  expect(await submitPayment(f.session, f, () => current)).toBe('abandoned');
+  expect(f.initialize).not.toHaveBeenCalled();
+  expect(f.present).not.toHaveBeenCalled();
+});

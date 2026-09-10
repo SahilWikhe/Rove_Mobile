@@ -27,9 +27,9 @@ export async function submitPayment(
   current: () => boolean,
 ): Promise<'submitted' | 'cancelled' | 'abandoned'> {
   if (!current()) return 'abandoned';
-  const { clientSecret } = await session();
-  if (!current()) return 'abandoned';
   try {
+    const { clientSecret } = await session();
+    if (!current()) return 'abandoned';
     const initialized = await sheet.initialize(clientSecret);
     if (!current()) return 'abandoned';
     if (initialized.error) throw new Error('Initialization failed');
