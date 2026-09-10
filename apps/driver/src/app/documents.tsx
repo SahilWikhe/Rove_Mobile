@@ -83,6 +83,18 @@ function DocumentScreen() {
       if (mounted.current) setPending(null);
       await refresh();
     } catch (cause) {
+      if (
+        mounted.current &&
+        cause instanceof ApiError &&
+        ['DOCUMENT_EXPIRED', 'DOCUMENT_NOT_FOUND', 'DOCUMENT_UPLOAD_UNVERIFIED', 'INVALID_DOCUMENT'].includes(
+          cause.code,
+        )
+      ) {
+        setPending(null);
+        void refresh().catch(() => {
+          /* Keep the actionable upload error below. */
+        });
+      }
       if (mounted.current)
         setError(
           cause instanceof ApiError
