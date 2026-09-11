@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import type { RideDetails } from '@rove/contracts';
 import { useSession } from '@rove/mobile-core/session';
+import { latestPaymentRide } from '@rove/mobile-core/payment-flow';
 import { pollWhileForeground } from '@rove/mobile-core/foreground-polling';
 import { Banner, Button, Card, Copy, Money, RouteSummary, Screen } from '@rove/mobile-ui';
 import { usePayments } from '../payments/context';
@@ -32,7 +33,7 @@ export default function Payment() {
         load: (signal) => api.ride(id, signal),
         onData: (updated) => {
           setReadError(null);
-          setRide((old) => (old?.id === updated.id && old.version > updated.version ? old : updated));
+          setRide((old) => latestPaymentRide(old, updated));
         },
         onError: () => setReadError('Ride status could not be refreshed. Check your connection.'),
         intervalMs: 3000,
@@ -64,10 +65,17 @@ export default function Payment() {
             ? 'Checking your payment with Rove. Your ride status will update when confirmed.'
             : null,
       );
-      const updated = await api.ride(id);
-      if (current()) setRide(updated);
-    } catch (failure) {
-      if (current()) setError(failure instanceof Error ? failure.message : 'Payment could not be confirmed.');
+      try {
+        const updated = await api.ride(id);
+        if (current()) {
+          setRide((old) => latestPaymentRide(old, updated));
+          setReadError(null);
+        }
+      } catch {
+        if (current()) setReadError('Ride status could not be refreshed. Check your connection.');
+      }
+    } catch {
+      if (current()) setError('Payment could not be confirmed. Check your ride status before trying again.');
     } finally {
       paying.current = false;
       if (active.current) setBusy(false);

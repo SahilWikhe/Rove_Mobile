@@ -1,3 +1,11 @@
+/** Concurrent payment refreshes must not undo a newer server-confirmed ride state. */
+export function latestPaymentRide<T extends { id: string; version: number }>(
+  previous: T | null,
+  incoming: T,
+): T {
+  return previous?.id === incoming.id && previous.version > incoming.version ? previous : incoming;
+}
+
 /** Match only the registered payment return route; Stripe validates its own callback state. */
 export function isPaymentReturnURL(value: string | null): value is string {
   if (!value) return false;

@@ -1,5 +1,5 @@
 import { expect, test, vi } from 'vitest';
-import { isPaymentReturnURL, submitPayment } from './payment-flow';
+import { isPaymentReturnURL, latestPaymentRide, submitPayment } from './payment-flow';
 function fixture() {
   const session = vi.fn(async () => ({ clientSecret: 'pi_fixture_secret_private' }));
   const initialize = vi.fn(async (_secret: string) => ({}));
@@ -98,4 +98,29 @@ test('a rejected session request after leaving the screen is abandoned', async (
   expect(await submitPayment(f.session, f, () => current)).toBe('abandoned');
   expect(f.initialize).not.toHaveBeenCalled();
   expect(f.present).not.toHaveBeenCalled();
+});
+
+test('a late payment refresh cannot undo authorization observed by polling', async () => {
+  let resolveRefresh!: (value: { id: string; version: number; paymentState: string }) => void;
+  const refresh = new Promise<{ id: string; version: number; paymentState: string }>((resolve) => {
+    resolveRefresh = resolve;
+  });
+  let visible = { id: 'ride-one', version: 1, paymentState: 'pending' };
+  const pending = refresh.then((updated) => {
+    visible = latestPaymentRide(visible, updated);
+  });
+  visible = latestPaymentRide(visible, { id: 'ride-one', version: 3, paymentState: 'authorized' });
+  resolveRefresh({ id: 'ride-one', version: 2, paymentState: 'action_required' });
+  await pending;
+  expect(visible.paymentState).toBe('authorized');
+  expect(visible.version).toBe(3);
+});
+test('payment refresh accepts a newer state and does not compare versions across rides', () => {
+  const previous = { id: 'first', version: 8, paymentState: 'authorized' };
+  expect(latestPaymentRide(previous, { ...previous, version: 9, paymentState: 'paid' }).paymentState).toBe(
+    'paid',
+  );
+  const other = { id: 'second', version: 1, paymentState: 'pending' };
+  expect(latestPaymentRide(previous, other)).toEqual(other);
+  expect(latestPaymentRide(null, other)).toEqual(other);
 });
