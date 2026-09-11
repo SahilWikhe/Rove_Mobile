@@ -28,7 +28,9 @@
     "dev:api:auth0": "node scripts/local-auth-api.mjs",
     "payments:staging:check": "node --import tsx packages/server/src/stripe-staging-readiness-cli.ts",
     "documents:staging:smoke": "node --import tsx packages/server/src/document-storage-smoke-cli.ts",
-    "maps:staging:check": "node --import tsx packages/server/src/maps-staging-readiness-cli.ts"
+    "maps:staging:check": "node --import tsx packages/server/src/maps-staging-readiness-cli.ts",
+    "dev:staging:rider": "node scripts/mobile-staging.mjs rider",
+    "dev:staging:driver": "node scripts/mobile-staging.mjs driver"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

@@ -59,3 +59,22 @@ Every commit/push must include an accurate checkpoint in [implementation status]
 ## API references
 
 Project creation and verification follow the official [create project](https://vercel.com/docs/rest-api/projects/create-a-new-project) and [project settings](https://vercel.com/docs/rest-api/projects/update-an-existing-project) API documentation. Creating the project does not build or deploy the repository.
+
+## Running native apps against staging
+
+From the repository root, run `pnpm dev:staging:rider` or
+`pnpm dev:staging:driver`. These launch Metro on ports 8087 and 8088 respectively,
+using the staging API, the corresponding Auth0 native client, and synthetic mode
+explicitly disabled. The API audience is an Auth0 identifier, not a second backend.
+
+The installed development build must use the matching Metro port. When rebuilding,
+use `pnpm --filter @rove/rider exec expo run:ios --port 8087` or
+`pnpm --filter @rove/driver exec expo run:ios --port 8088`; use `run:android` for
+Android. Launching Metro does not build or install native code.
+
+Provide a sandbox `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` to test rider PaymentSheet.
+The launcher rejects live and secret Stripe keys. Configure platform-restricted
+Google Maps SDK keys before rebuilding native maps. These public mobile keys are
+separate from the API's server credentials. Without them, sign-in can be tested,
+but native payment/map verification is incomplete. Never copy the backend `.env`
+into either mobile app. Use synthetic accounts and destinations in staging.
