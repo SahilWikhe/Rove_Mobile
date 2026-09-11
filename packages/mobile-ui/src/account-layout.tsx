@@ -41,12 +41,14 @@ export function AccountProfile({
 export function AccountRow({
   label,
   detail,
+  attention = false,
   disabled = false,
   onPress,
   icon,
 }: {
   label: string;
   detail?: string;
+  attention?: boolean | undefined;
   disabled?: boolean;
   onPress: () => void;
   icon: ImageSourcePropType;
@@ -55,13 +57,20 @@ export function AccountRow({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityValue={detail ? { text: detail } : undefined}
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [styles.row, (pressed || disabled) && { opacity: 0.6 }]}
     >
       <Copy style={styles.rowLabel}>{label}</Copy>
-      {detail && <Copy style={[styles.subtitle, styles.detail]}>{detail}</Copy>}
+      {detail && (
+        <View style={[styles.detail, attention && styles.attention]}>
+          <Copy style={[styles.subtitle, { textAlign: 'right' }, attention && styles.attentionText]}>
+            {detail}
+          </Copy>
+        </View>
+      )}
       <Image source={icon} style={{ width: 16, height: 16 }} accessible={false} />
     </Pressable>
   );
@@ -91,7 +100,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   driverAvatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#33291C', overflow: 'hidden' },
-  detail: { flexShrink: 1, maxWidth: '45%', textAlign: 'right' },
+  detail: { flexShrink: 1, maxWidth: '45%' },
+  attention: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: 'rgba(214,178,109,0.13)',
+    borderWidth: 1,
+    borderColor: 'rgba(214,178,109,0.4)',
+  },
+  attentionText: { fontFamily: 'Manrope_700Bold', color: theme.gold, fontSize: 11, lineHeight: 16 },
   initials: { fontFamily: 'Manrope_800ExtraBold', fontSize: 17, color: theme.gold },
   name: { fontFamily: 'Manrope_700Bold', fontSize: 16, lineHeight: 23 },
   subtitle: { color: theme.muted, fontSize: 13, lineHeight: 19 },

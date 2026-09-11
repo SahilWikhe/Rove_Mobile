@@ -1,3 +1,4 @@
+import { useAccountDetails } from '../account/use-account-details';
 import avatar from '../../assets/account/avatar.png';
 import { DriverNavigation } from '../navigation/driver-navigation';
 import { View } from 'react-native';
@@ -13,6 +14,7 @@ import { Banner, Button, Copy, Screen } from '@rove/mobile-ui';
 
 export default function Account() {
   const { profile, api, notifications, signOut, cleanupRequired } = useSession();
+  const details = useAccountDetails();
   const pending = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,18 +67,24 @@ export default function Account() {
             <AccountRow
               icon={chevron}
               label="Vehicle & review status"
+              detail={details.vehicle.text}
+              attention={details.vehicle.attention}
               disabled={busy}
               onPress={() => router.push('/vehicle')}
             />
             <AccountRow
               icon={chevron}
               label="Documents & credentials"
+              detail={details.documents.text}
+              attention={details.documents.attention}
               disabled={busy}
               onPress={() => router.push('/documents')}
             />
             <AccountRow
               icon={chevron}
               label="Payout setup"
+              detail={details.payout.text}
+              attention={details.payout.attention}
               disabled={busy}
               onPress={() => router.push('/payouts')}
             />
