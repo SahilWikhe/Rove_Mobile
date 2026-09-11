@@ -1,0 +1,114 @@
+diff --git a/ios/StripeSdkImpl+CustomerSheet.swift b/ios/StripeSdkImpl+CustomerSheet.swift
+index 65367292637bb903060a5bf361e7e32e4294938f..ac99b310f1e60bb1f70c9e2ff1f962459009e791 100644
+--- a/ios/StripeSdkImpl+CustomerSheet.swift
++++ b/ios/StripeSdkImpl+CustomerSheet.swift
+@@ -7,12 +7,43 @@
+ 
+ import Foundation
+ @_spi(PrivateBetaCustomerSheet) @_spi(CustomerSessionBetaAccess) @_spi(STP) import StripePaymentSheet
++// Coalesce overlapping requests from CustomerSheet. The JS bridge carries no
++// request identifier, so only one event may be outstanding for each provider.
++final class CustomerSheetPendingCallbacks<Value> {
++    private let lock = NSLock()
++    private var callbacks: [(Result<Value, Error>) -> Void] = []
++
++    func append(_ callback: @escaping (Result<Value, Error>) -> Void) -> Bool {
++        lock.lock()
++        defer { lock.unlock() }
++        let shouldRequest = callbacks.isEmpty
++        callbacks.append(callback)
++        return shouldRequest
++    }
++
++    func resolve(_ value: Value) { finish(.success(value)) }
++
++    func cancel() { finish(.failure(CancellationError())) }
++
++    private func finish(_ result: Result<Value, Error>) {
++        lock.lock()
++        let pending = callbacks
++        callbacks.removeAll()
++        lock.unlock()
++        // Resume outside the lock; resumed tasks may request another refresh.
++        for callback in pending { callback(result) }
++    }
++}
++
+ extension StripeSdkImpl {
+     @objc(initCustomerSheet:customerAdapterOverrides:resolver:rejecter:)
+     public func initCustomerSheet(params: NSDictionary,
+                                   customerAdapterOverrides: NSDictionary,
+                                   resolver resolve: @escaping RCTPromiseResolveBlock,
+                                   rejecter reject: @escaping RCTPromiseRejectBlock) {
++        // Abandoned requests must not leave the next sheet waiting indefinitely.
++        clientSecretProviderSetupIntentClientSecretCallbacks.cancel()
++        clientSecretProviderCustomerSessionClientSecretCallbacks.cancel()
+         do {
+             customerSheetConfiguration = CustomerSheetUtils.buildCustomerSheetConfiguration(
+                 appearance: try PaymentSheetAppearance.buildAppearanceFromParams(userParams: params["appearance"] as? NSDictionary),
+@@ -48,22 +79,24 @@ extension StripeSdkImpl {
+                 onBehalfOf: intentConfigurationBase["onBehalfOf"] as? String,
+                 setupIntentClientSecretProvider: {
+                     return try await withCheckedThrowingContinuation { continuation in
+-                        // Store the continuation to be resumed later
+-                        self.clientSecretProviderSetupIntentClientSecretCallback = { clientSecret in
+-                            continuation.resume(returning: clientSecret)
++                        let shouldRequest = self.clientSecretProviderSetupIntentClientSecretCallbacks.append {
++                            continuation.resume(with: $0)
++                        }
++                        if shouldRequest {
++                            self.emitter?.emitOnCustomerSessionProviderSetupIntentClientSecret()
+                         }
+-                        // Emit the event to JS
+-                        self.emitter?.emitOnCustomerSessionProviderSetupIntentClientSecret()
+                     }
+                 }
+             )
+ 
+             let customerSessionClientSecretProvider: () async throws -> CustomerSessionClientSecret = {
+                 return try await withCheckedThrowingContinuation { continuation in
+-                    StripeSdkImpl.shared.clientSecretProviderCustomerSessionClientSecretCallback = { customerSessionClientSecret in
+-                        continuation.resume(returning: customerSessionClientSecret)
++                    let shouldRequest = self.clientSecretProviderCustomerSessionClientSecretCallbacks.append {
++                        continuation.resume(with: $0)
++                    }
++                    if shouldRequest {
++                        self.emitter?.emitOnCustomerSessionProviderCustomerSessionClientSecret()
+                     }
+-                    self.emitter?.emitOnCustomerSessionProviderCustomerSessionClientSecret()
+                 }
+             }
+ 
+@@ -208,7 +241,7 @@ extension StripeSdkImpl {
+ 
+     @objc(clientSecretProviderSetupIntentClientSecretCallback:resolver:rejecter:)
+     public func clientSecretProviderSetupIntentClientSecretCallback(setupIntentClientSecret: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+-        self.clientSecretProviderSetupIntentClientSecretCallback?(setupIntentClientSecret)
++        self.clientSecretProviderSetupIntentClientSecretCallbacks.resolve(setupIntentClientSecret)
+         resolve([])
+     }
+ 
+@@ -221,7 +254,7 @@ extension StripeSdkImpl {
+         }
+ 
+         let customerSessionClientSecret = CustomerSessionClientSecret(customerId: customerId, clientSecret: clientSecret)
+-        self.clientSecretProviderCustomerSessionClientSecretCallback?(customerSessionClientSecret)
++        self.clientSecretProviderCustomerSessionClientSecretCallbacks.resolve(customerSessionClientSecret)
+         resolve([])
+     }
+ }
+diff --git a/ios/StripeSdkImpl.swift b/ios/StripeSdkImpl.swift
+index 46ef2f938389771eba879dfb28ae773bece7ad75..8900395fa9ad8e3035e661413f5dffb1a0feeb6e 100644
+--- a/ios/StripeSdkImpl.swift
++++ b/ios/StripeSdkImpl.swift
+@@ -115,8 +115,8 @@ public class StripeSdkImpl: NSObject, UIAdaptivePresentationControllerDelegate {
+     var fetchSelectedPaymentOptionCallback: ((CustomerPaymentOption?) -> Void)?
+     var setupIntentClientSecretForCustomerAttachCallback: ((String) -> Void)?
+     var customPaymentMethodResultCallback: ((PaymentSheetResult) -> Void)?
+-    var clientSecretProviderSetupIntentClientSecretCallback: ((String) -> Void)?
+-    var clientSecretProviderCustomerSessionClientSecretCallback: ((CustomerSessionClientSecret) -> Void)?
++    let clientSecretProviderSetupIntentClientSecretCallbacks = CustomerSheetPendingCallbacks<String>()
++    let clientSecretProviderCustomerSessionClientSecretCallbacks = CustomerSheetPendingCallbacks<CustomerSessionClientSecret>()
+ 
+ #if canImport(StripeCryptoOnramp)
+     var cryptoOnrampCoordinator: CryptoOnrampCoordinator?

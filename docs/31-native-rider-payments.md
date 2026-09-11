@@ -44,10 +44,29 @@ Verify Customer Session creation for both settings and checkout, SetupIntent cre
 
 Five controller tests cover submission versus authorization, user dismissal, safe SDK-error handling, abandonment during session loading, and abandonment during initialization/confirmation. Type checking verifies the native SDK integration; local Expo exports compile both apps for iOS, Android and web. These are JavaScript/Hermes exports, not signed binaries or native-device verification.
 
-Still required: a sandbox account/API deployment connection, real PaymentSheet and 3DS/bank-app return tests on iOS and Android, cold-start/process-death recovery, wallet setup, native visual/accessibility/large-text review, native saved-payment-method acceptance, verified receipts/refunds/ledger and final production payment policies. The assistant's Stripe plugin connection does not replace these tests or supply application runtime credentials.
+The staging API and its expected Stripe sandbox account/card configuration have been checked. On the signed iOS simulator build, CustomerSheet opened in TEST mode, saved Stripe’s synthetic card, showed it again after reopening, and removed it successfully with the callback patch below. These checks do not prove ride payment authorization.
+
+Still required: real PaymentSheet and 3DS/bank-app return tests on iOS and Android, cold-start/process-death recovery, wallet setup, native visual/accessibility/large-text review, Android saved-payment-method acceptance, verified receipts/refunds/ledger and final production payment policies. The assistant's Stripe plugin connection does not replace these tests or supply application runtime credentials.
 
 Synthetic native verification confirmed the payment-status screen on iOS and Android. On Android,
 removing the local API forwarding hid the retained confirmation and payment entry; restoring the
 connection returned the screen to authoritative status. These checks exercise read recovery only,
 not Stripe card collection or bank authentication. The shared payment-flow suite includes guards
 for wrong-ride data, unavailable reads, authorization and terminal states.
+
+## iOS CustomerSheet callback patch
+
+Stripe React Native 0.64.0 stores a single continuation for each CustomerSheet secret provider.
+The staging save/reopen/remove sequence reproduced a native double-resume crash while refreshing
+Customer Sessions. The version-pinned pnpm patch coalesces overlapping provider requests and drains
+all waiting callbacks once, outside a lock. Reinitialization cancels abandoned waiters. Rove retains
+its account/screen callback guards; this patch does not replace authorization or cache secrets.
+
+`scripts/stripe-customer-sheet-native.test.mjs` compiles the installed Swift helper on macOS and
+exercises concurrent callers, duplicate completion, subsequent refreshes, cancellation and reentrancy.
+`native-smoke/customer-sheet-ios.yaml` exercises a sandbox account with no saved cards, adds the
+standard Stripe test card, reopens settings and removes that same card. Run it only against staging
+with matching test keys. Native rebuilds are required after installing this patch; an OTA JavaScript
+update cannot fix the Swift crash. Reevaluate the patch when upgrading Stripe.
+
+The signed iPhone 17 Pro / iOS 26.5 simulator build passed the full CustomerSheet flow against staging. The original failing removal and a subsequent complete save/reopen/remove cycle both finished without a new crash; test cards were removed. The 31 tooling tests (including the Swift concurrency test), rider typecheck, documentation/format/lint checks, and frozen-lockfile installation passed. This is simulator evidence, not Android or physical-device acceptance.

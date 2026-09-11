@@ -1,0 +1,41 @@
+# Start on Account > Payment methods in the staging iOS rider, signed in with
+# a test account that has no saved methods. Requires matching sandbox keys.
+# The TEST assertion is mandatory before entering Stripe's synthetic card.
+# This adds only a test card, verifies persistence, and removes that same card.
+appId: co.roveride.rider
+---
+- tapOn: Manage saved payment methods
+- extendedWaitUntil:
+    visible: Save a new payment method
+    timeout: 30000
+- assertVisible: TEST
+- tapOn: Card number
+- inputText: '4242424242424242'
+# Stripe automatically moves focus from number to expiry, then CVC.
+- inputText: '1230'
+- inputText: '123'
+- tapOn: ZIP
+- inputText: '27601'
+- tapOn: Save
+- extendedWaitUntil:
+    visible: Saved payment methods
+    timeout: 30000
+- assertVisible: '.*4242.*'
+- tapOn: Confirm
+- tapOn: Manage saved payment methods
+- extendedWaitUntil:
+    visible: Saved payment methods
+    timeout: 30000
+- assertVisible: TEST
+- assertVisible: '.*4242.*'
+- tapOn: Edit
+- tapOn: '.*4242.*'
+- assertVisible: Manage card
+- tapOn: Remove
+- assertVisible: 'Remove card?'
+- tapOn: Remove
+- extendedWaitUntil:
+    notVisible: '.*4242.*'
+    timeout: 30000
+- assertVisible: TEST
+- takeScreenshot: customer-sheet-test-card-removed

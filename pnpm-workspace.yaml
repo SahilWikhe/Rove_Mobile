@@ -55,4 +55,5 @@ minimumReleaseAgeExclude:
   - expo-task-manager@57.0.17
   - unimodules-app-loader@57.0.2
 patchedDependencies:
+  '@stripe/stripe-react-native@0.64.0': patches/@stripe__stripe-react-native@0.64.0.patch
   query-string@7.1.3: patches/query-string@7.1.3.patch
