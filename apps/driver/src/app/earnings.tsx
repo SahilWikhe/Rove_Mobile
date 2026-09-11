@@ -1,11 +1,11 @@
-import { Keyboard } from 'react-native';
+import { Keyboard, Pressable, StyleSheet, View } from 'react-native';
 import { DriverNavigation } from '../navigation/driver-navigation';
 import { useCallback, useState } from 'react';
 import { Stack, router, useFocusEffect } from 'expo-router';
 import { EarningsDateRange, type DriverEarnings } from '@rove/contracts';
 import { useSession } from '@rove/mobile-core/session';
 import { pollWhileForeground } from '@rove/mobile-core/foreground-polling';
-import { Banner, Button, Card, Copy, Field, Money, Screen } from '@rove/mobile-ui';
+import { Banner, Button, Card, Copy, Field, Money, Screen, theme } from '@rove/mobile-ui';
 export default function Earnings() {
   const { profile } = useSession();
   return <EarningsBrowser key={profile?.id ?? 'signed-out'} />;
@@ -44,6 +44,7 @@ function EarningsContent({
   const { api, profile, synthetic } = useSession();
   const [from, setFrom] = useState(range?.from ?? '');
   const [through, setThrough] = useState(range?.through ?? '');
+  const [customDates, setCustomDates] = useState(false);
   const [rangeError, setRangeError] = useState<string | null>(null);
   const [data, setData] = useState<DriverEarnings | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -64,12 +65,55 @@ function EarningsContent({
       });
     }, [api, profile, before, range]),
   );
+  const today = new Date();
+  const date = (value: Date) => value.toISOString().slice(0, 10);
+  const weekStart = new Date(today);
+  weekStart.setUTCDate(weekStart.getUTCDate() - 6);
+  const presets = [
+    { label: 'Last 7 days', from: date(weekStart), through: date(today) },
+    {
+      label: 'This month',
+      from: date(new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1))),
+      through: date(today),
+    },
+  ];
   return (
-    <Screen footer={profile ? <DriverNavigation active="/earnings" /> : undefined}>
-      <Stack.Screen options={{ title: 'Earnings' }} />
-      <Copy kind="title">Your work. Recorded.</Copy>
+    <Screen
+      contentStyle={{ padding: 20, gap: 16 }}
+      footer={profile ? <DriverNavigation active="/earnings" /> : undefined}
+    >
+      <Stack.Screen options={{ title: 'Earnings', headerShown: false }} />
+      <Copy kind="title" style={styles.title}>
+        Earnings
+      </Copy>
+      {profile && (
+        <View accessibilityRole="tablist" style={styles.filters}>
+          {presets.map((preset) => {
+            const selected = range?.from === preset.from && range.through === preset.through;
+            return (
+              <Pressable
+                key={preset.label}
+                accessibilityRole="tab"
+                accessibilityState={{ selected }}
+                aria-selected={selected}
+                onPress={() => applyRange({ from: preset.from, through: preset.through })}
+                style={[styles.filter, selected && styles.selectedFilter]}
+              >
+                <Copy style={[styles.filterText, selected && { color: '#120D02' }]}>{preset.label}</Copy>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
       {synthetic && <Banner message="Synthetic earnings · no money will be paid out." />}
       {profile && (
+        <Button
+          title={customDates ? 'Hide custom dates' : 'Filter recorded dates'}
+          variant="secondary"
+          onPress={() => setCustomDates(!customDates)}
+        />
+      )}
+      {profile && customDates && (
         <Card>
           <Copy kind="heading">Filter recorded dates</Copy>
           <Copy kind="muted">Use YYYY-MM-DD. Dates include the full day in UTC.</Copy>
@@ -117,22 +161,36 @@ function EarningsContent({
       {error && <Banner error message={error} />}
       {data ? (
         <>
-          <Card>
-            <Money cents={data.recordedTotal.amount} label="LIFETIME RECORDED EARNINGS" />
-            <Copy kind="muted">
-              Allocated from captured trip payments. Before payouts or later adjustments.
+          <Card style={styles.summary}>
+            <Copy style={styles.amount}>
+              {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
+                (range && data.periodTotal ? data.periodTotal.amount : data.recordedTotal.amount) / 100,
+              )}
+            </Copy>
+            <Copy kind="muted" style={styles.caption}>
+              {range ? `${range.from} – ${range.through} · UTC` : 'Lifetime recorded earnings'}
+            </Copy>
+            <Copy kind="muted" style={styles.caption}>
+              Allocated from captured trip payments, before payouts or adjustments.
             </Copy>
           </Card>
-          {range && data.periodTotal && (
-            <Card>
-              <Money cents={data.periodTotal.amount} label="RECORDED IN SELECTED PERIOD" />
-              <Copy kind="muted">
-                {range.from} through {range.through} (UTC)
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Review payout setup"
+            onPress={() => router.push('/payouts')}
+            style={styles.payout}
+          >
+            <View style={{ flex: 1, gap: 4 }}>
+              <Copy style={{ fontFamily: 'Manrope_700Bold', fontSize: 14 }}>Payout setup</Copy>
+              <Copy kind="muted" style={styles.caption}>
+                Review your payout account and eligibility
               </Copy>
-            </Card>
-          )}
-          <Banner message="Recorded earnings are not an available withdrawal balance. Review payout setup separately." />
-          <Button title="Review payout setup" variant="secondary" onPress={() => router.push('/payouts')} />
+            </View>
+            <Copy style={{ color: theme.gold }}>›</Copy>
+          </Pressable>
+          <Copy kind="muted" style={styles.caption}>
+            Recorded earnings are not an available withdrawal balance.
+          </Copy>
           <Copy kind="heading">{before ? 'Earlier earnings' : 'Recent earnings'}</Copy>
           {data.entries.length === 0 && (
             <Copy kind="muted">
@@ -143,14 +201,15 @@ function EarningsContent({
           )}
           {data.entries.map((entry) => (
             <Card key={entry.id}>
-              <Money cents={entry.amount.amount} label="TRIP EARNINGS" />
-              <Copy kind="muted">Recorded {new Date(entry.recordedAt).toLocaleString()}</Copy>
-              <Copy kind="muted">Trip reference {entry.rideId}</Copy>
-              <Button
-                title="View trip details"
-                variant="secondary"
-                onPress={() => router.push({ pathname: '/trip', params: { id: entry.rideId } })}
-              />
+              <View testID={`earning-${entry.rideId}`} style={{ gap: 12 }}>
+                <Money cents={entry.amount.amount} label="TRIP EARNINGS" />
+                <Copy kind="muted">Recorded {new Date(entry.recordedAt).toLocaleString()}</Copy>
+                <Button
+                  title="View trip details"
+                  variant="secondary"
+                  onPress={() => router.push({ pathname: '/trip', params: { id: entry.rideId } })}
+                />
+              </View>
             </Card>
           ))}
           {data.nextCursor && (
@@ -163,3 +222,40 @@ function EarningsContent({
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  title: { fontSize: 26, letterSpacing: -0.52, fontFamily: 'Manrope_800ExtraBold' },
+  filters: {
+    flexDirection: 'row',
+    padding: 4,
+    gap: 4,
+    borderRadius: 14,
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  filter: {
+    flex: 1,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 11,
+    padding: 8,
+  },
+  selectedFilter: { backgroundColor: theme.gold },
+  filterText: { fontSize: 13, fontFamily: 'Manrope_700Bold', color: theme.muted },
+  summary: { padding: 20, borderRadius: 18, gap: 8 },
+  amount: { fontSize: 34, letterSpacing: -0.68, fontFamily: 'Manrope_800ExtraBold', color: theme.gold },
+  caption: { fontSize: 13, lineHeight: 20 },
+  payout: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 18,
+    padding: 18,
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.border,
+    minHeight: 64,
+  },
+});

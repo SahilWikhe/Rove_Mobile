@@ -262,8 +262,8 @@ test('rider request reaches the driver and both apps follow a completed syntheti
       driver.getByText('Synthetic earnings · no money will be paid out.', { exact: true }),
     ).toBeVisible();
     await driver.getByRole('button', { name: 'View earnings', exact: true }).click();
-    await expect(driver.getByText('Your work. Recorded.', { exact: true })).toBeVisible();
-    const earning = driver.getByText('Trip reference ' + id, { exact: true });
+    await expect(driver.getByText('Lifetime recorded earnings', { exact: true })).toBeVisible();
+    const earning = driver.getByTestId('earning-' + id);
     await expect(earning).toBeVisible();
     await earning.locator('..').getByRole('button', { name: 'View trip details', exact: true }).click();
     await expect(driver).toHaveURL(new RegExp('/trip\\?id=' + id));
