@@ -157,7 +157,15 @@ test('rider request reaches the driver and both apps follow a completed syntheti
       };
     });
     for (const action of ['Head to pickup', 'I’ve arrived', 'Start trip', 'Complete trip']) {
+      if (action === 'I’ve arrived') {
+        await expect(driver.getByText('Alex Rider', { exact: true })).toBeVisible();
+        await expect(driver.getByText('Home · synthetic pickup', { exact: true })).toBeVisible();
+        await driver.screenshot({ path: '/tmp/rove-active-pickup-web.png', fullPage: true });
+      }
       if (action === 'Complete trip') {
+        await expect(driver.getByText('DROPPING OFF AT', { exact: true })).toBeVisible();
+        await expect(driver.getByText('Work · synthetic destination', { exact: true })).toBeVisible();
+        await driver.screenshot({ path: '/tmp/rove-active-dropoff-web.png', fullPage: true });
         await page.bringToFront();
         await expect(page.getByText('Ride · now', { exact: true })).toBeVisible();
         await page.screenshot({ path: test.info().outputPath('rider-tracking.png'), fullPage: true });

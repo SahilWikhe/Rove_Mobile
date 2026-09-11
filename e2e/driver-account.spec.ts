@@ -57,6 +57,18 @@ test('Driver online map layout keeps offline control reachable', async ({ page }
   await expect(page.getByText('Waiting for a request…', { exact: true })).toBeVisible();
   await expect(page.getByText('You’re online · looking for rides', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Go offline', exact: true })).toBeEnabled();
+  const map = page.getByTestId('drive-map-area');
+  const collapsedHeight = (await map.boundingBox())!.height;
+  // Native swipe coverage lives in native-smoke/driver-panel.yaml; verify keyboard access here.
+  await page.getByRole('button', { name: 'Expand driving panel', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('button', { name: 'Collapse driving panel', exact: true })).toBeVisible();
+  await expect.poll(async () => (await map.boundingBox())!.height).toBeLessThan(collapsedHeight / 2);
+  await page.screenshot({ path: '/tmp/rove-driver-sheet-expanded-web.png', fullPage: true });
+  await page.getByRole('button', { name: 'Collapse driving panel', exact: true }).click();
+  await expect
+    .poll(async () => Math.abs((await map.boundingBox())!.height - collapsedHeight))
+    .toBeLessThan(1);
   await page.screenshot({ path: '/tmp/rove-driver-waiting-web.png', fullPage: true });
   await page.getByRole('button', { name: 'Go offline', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Open your account', exact: true })).toBeVisible();

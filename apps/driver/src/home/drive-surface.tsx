@@ -1,7 +1,8 @@
 import { useState, type PropsWithChildren, type ReactNode } from 'react';
-import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Animated, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Copy, Screen, theme } from '@rove/mobile-ui';
+import { useDriveSheet } from './use-drive-sheet';
 import { WaitingMap } from './waiting-map';
 
 /** Figma 1:62: map above an accessible scrolling sheet; no mock roads or driver positions. */
@@ -20,6 +21,11 @@ export function DriveSurface({
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [footerHeight, setFooterHeight] = useState(90);
+  const collapsedHeight =
+    (request ? Math.max(140, Math.min(260, height * 0.28)) : Math.max(240, Math.min(440, height * 0.43))) +
+    insets.top;
+  const expandedHeight = Math.min(collapsedHeight - 40, insets.top + 100);
+  const sheet = useDriveSheet(collapsedHeight - expandedHeight);
   if (!online)
     return (
       <Screen floatingFooter contentStyle={{ paddingTop: 20, gap: 16 }} footer={footer}>
@@ -28,12 +34,14 @@ export function DriveSurface({
     );
   return (
     <SafeAreaView edges={['left', 'right']} style={styles.screen}>
-      <View
+      <Animated.View
+        testID="drive-map-area"
         style={{
-          height:
-            (request
-              ? Math.max(140, Math.min(260, height * 0.28))
-              : Math.max(240, Math.min(440, height * 0.43))) + insets.top,
+          height: sheet.progress.interpolate({
+            inputRange: [0, 1],
+            outputRange: [collapsedHeight, expandedHeight],
+          }),
+          overflow: 'hidden',
         }}
       >
         <WaitingMap synthetic={synthetic} />
@@ -42,17 +50,34 @@ export function DriveSurface({
             {request ? 'Ride request · your location' : 'You’re online · looking for rides'}
           </Copy>
         </View>
+      </Animated.View>
+      <View style={styles.sheet} {...sheet.panHandlers}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={sheet.expanded ? 'Collapse driving panel' : 'Expand driving panel'}
+          accessibilityHint="Drag up or down to resize the panel and map."
+          accessibilityState={{ expanded: sheet.expanded }}
+          onPress={sheet.toggle}
+          style={styles.handleTarget}
+        >
+          <View style={styles.handle} />
+        </Pressable>
+        <ScrollView
+          style={{ flex: 1 }}
+          scrollEnabled={sheet.expanded}
+          onScroll={(event) => {
+            sheet.scrollY.current = Math.max(0, event.nativeEvent.contentOffset.y);
+          }}
+          scrollEventThrottle={16}
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: (footer ? footerHeight + 16 : 24) + insets.bottom },
+          ]}
+          keyboardShouldPersistTaps="handled"
+        >
+          {children}
+        </ScrollView>
       </View>
-      <ScrollView
-        style={styles.sheet}
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: (footer ? footerHeight + 16 : 24) + insets.bottom },
-        ]}
-        keyboardShouldPersistTaps="handled"
-      >
-        {children}
-      </ScrollView>
       {footer && (
         <View
           pointerEvents="box-none"
@@ -92,5 +117,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
   },
-  content: { padding: 20, gap: 14, paddingBottom: 24 },
+  handleTarget: { height: 48, alignItems: 'center', justifyContent: 'center' },
+  handle: { width: 44, height: 4, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.3)' },
+  content: { padding: 20, paddingTop: 0, gap: 14, paddingBottom: 24 },
 });

@@ -1,0 +1,22 @@
+# Requires the signed-in driver online on Drive against the synthetic API.
+appId: co.roveride.driver
+---
+- extendedWaitUntil:
+    visible: Expand driving panel
+    timeout: 30000
+- swipe:
+    start: '50%,60%'
+    end: '50%,25%'
+    duration: 800
+- assertVisible: Collapse driving panel
+- takeScreenshot: driving-panel-expanded
+- swipe:
+    start: '50%,20%'
+    end: '50%,65%'
+    duration: 800
+- assertVisible: Expand driving panel
+- tapOn: Expand driving panel
+- assertVisible: Collapse driving panel
+- assertVisible: Go offline
+- tapOn: Collapse driving panel
+- assertVisible: Expand driving panel

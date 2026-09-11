@@ -1,5 +1,6 @@
 import completionMark from '../../assets/completion/check.png';
 import { Image, View } from 'react-native';
+import { ActiveTripDetails } from '../trips/active-trip-details';
 import { ActiveTripSurface } from '../trips/active-trip-surface';
 import { TripEarningsSummary } from '../earnings/trip-summary';
 import { useOperations } from '@rove/mobile-core/use-operations';
@@ -158,6 +159,8 @@ function TripContent({ id }: { id: string }) {
                 </Copy>
               </View>
             </View>
+          ) : action ? (
+            <ActiveTripDetails ride={ride} />
           ) : (
             <>
               <Copy kind="label">{ride.state.replaceAll('_', ' ').toUpperCase()}</Copy>
