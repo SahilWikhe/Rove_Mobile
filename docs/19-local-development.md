@@ -57,6 +57,8 @@ pnpm docs:check
 pnpm --filter @rove/rider --filter @rove/driver --parallel build
 ```
 
+Keep Expo packages aligned across both apps and `packages/mobile-core`. Check each app with `pnpm --filter @rove/rider exec expo install --check` and the driver equivalent. When applying SDK-compatible patches with `expo install --fix`, review dynamic `app.config.js` plugin requirements explicitly; the CLI cannot add them automatically. Rebuild both native platforms after native package or plugin changes.
+
 Database tests intentionally attempt invalid concurrent assignments and invalid monetary values; PostgreSQL constraint errors in their logs are expected when the tests pass. See the implementation ledger for current coverage and remaining release requirements.
 
 ## Local iPhone simulator builds
