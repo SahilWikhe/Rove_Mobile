@@ -48,7 +48,9 @@ export default function Layout() {
               headerBackTitle: 'Back',
             }}
           >
-            <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen name="index" options={{ headerShown: false, animation: 'none' }} />
+            <Stack.Screen name="rides" options={{ animation: 'none' }} />
+            <Stack.Screen name="account" options={{ animation: 'none' }} />
           </Stack>
         </SafeAreaProvider>
       </PaymentProvider>

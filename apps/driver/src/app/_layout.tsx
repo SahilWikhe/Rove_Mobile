@@ -46,7 +46,11 @@ export default function Layout() {
               headerBackTitle: 'Back',
             }}
           >
-            <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen name="index" options={{ headerShown: false, animation: 'none' }} />
+            <Stack.Screen name="drive" options={{ animation: 'none' }} />
+            <Stack.Screen name="trips" options={{ animation: 'none' }} />
+            <Stack.Screen name="earnings" options={{ animation: 'none' }} />
+            <Stack.Screen name="account" options={{ animation: 'none' }} />
           </Stack>
         </SafeAreaProvider>
       </DriverTrackingProvider>
