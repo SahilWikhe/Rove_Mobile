@@ -1,5 +1,13 @@
 module.exports = ({ config }) => ({
   ...config,
+  ...(process.env.EXPO_PUBLIC_EAS_PROJECT_ID
+    ? {
+        extra: {
+          ...config.extra,
+          eas: { ...config.extra?.eas, projectId: process.env.EXPO_PUBLIC_EAS_PROJECT_ID },
+        },
+      }
+    : {}),
   plugins: [
     ...(config.plugins ?? []),
     'expo-notifications',

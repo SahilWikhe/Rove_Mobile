@@ -9,7 +9,8 @@
     "android": "expo run:android",
     "web": "expo start --web",
     "build": "expo export --platform all",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "eas-build-pre-install": "node ../../scripts/mobile-build-check.mjs rider"
   },
   "dependencies": {
     "@expo-google-fonts/manrope": "0.4.2",

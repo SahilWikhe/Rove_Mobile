@@ -10,7 +10,8 @@
     "web": "expo start --web",
     "build": "expo export --platform all",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "eas-build-pre-install": "node ../../scripts/mobile-build-check.mjs driver"
   },
   "dependencies": {
     "@expo-google-fonts/manrope": "0.4.2",

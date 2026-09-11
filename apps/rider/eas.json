@@ -1,0 +1,28 @@
+{
+  "cli": {
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "staging": {
+      "distribution": "internal",
+      "environment": "preview",
+      "node": "24.19.0",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://rove-api-staging.vercel.app",
+        "EXPO_PUBLIC_AUTH_ISSUER": "https://dev-1x3fgtb2cj2nfbj1.us.auth0.com",
+        "EXPO_PUBLIC_AUTH_AUDIENCE": "https://api.staging.roveride.co",
+        "EXPO_PUBLIC_AUTH_CLIENT_ID": "TEp7gmPu56D1JUC92H0K0gmhRBfFiewe",
+        "EXPO_PUBLIC_SYNTHETIC": "false"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "staging-simulator": {
+      "extends": "staging",
+      "ios": {
+        "simulator": true
+      }
+    }
+  }
+}
