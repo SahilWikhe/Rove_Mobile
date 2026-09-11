@@ -37,11 +37,19 @@ const documentTransfers = {
     })),
   },
 };
+const walletSessions = {
+  customerSession: vi.fn(async () => ({
+    customerId: 'cus_fixture',
+    clientSecret: 'synthetic-customer-secret',
+  })),
+  setupSession: vi.fn(async () => ({ clientSecret: 'seti_fixture_secret_synthetic' })),
+};
 const riderId = randomUUID();
 beforeAll(async () => {
   database = await testDatabase();
   app = createApp({
     pool: database.pool,
+    walletSessions,
     documentTransfers,
     documentDownloads: {
       issue: async () => ({
@@ -693,4 +701,68 @@ test('staff download HTTP boundary enforces MFA, clean scan and no-store respons
   expect(response.status).toBe(200);
   expect(response.headers.get('cache-control')).toBe('no-store');
   expect(await response.json()).toMatchObject({ url: 'https://synthetic.example/download' });
+});
+
+test('wallet endpoints require authentication and reject client-supplied customer identities', async () => {
+  expect((await app.request('/v1/wallet/customer-session', { method: 'POST' })).status).toBe(401);
+  expect((await request('/v1/wallet/customer-session', { customerId: 'cus_other' })).status).toBe(400);
+  expect((await request('/v1/wallet/setup-session', { requestId: 'bad' })).status).toBe(400);
+  expect(walletSessions.customerSession).not.toHaveBeenCalled();
+  expect(walletSessions.setupSession).not.toHaveBeenCalled();
+});
+test('wallet credentials are no-store and use the authenticated actor', async () => {
+  const response = await request('/v1/wallet/customer-session', {});
+  expect(response.status).toBe(200);
+  expect(response.headers.get('cache-control')).toBe('no-store');
+  expect(walletSessions.customerSession).toHaveBeenCalledWith(
+    expect.objectContaining({ id: riderId, role: 'rider' }),
+  );
+  const requestId = randomUUID();
+  const setup = await request('/v1/wallet/setup-session', { requestId });
+  expect(setup.status).toBe(200);
+  expect(setup.headers.get('cache-control')).toBe('no-store');
+  expect(walletSessions.setupSession).toHaveBeenCalledWith(
+    expect.objectContaining({ id: riderId }),
+    requestId,
+  );
+});
+test('driver accounts cannot obtain wallet settings credentials', async () => {
+  await database.pool.query("UPDATE users SET role='driver' WHERE id=$1", [riderId]);
+  expect((await request('/v1/wallet/customer-session', {})).status).toBe(403);
+  expect((await request('/v1/wallet/setup-session', { requestId: randomUUID() })).status).toBe(403);
+  expect(walletSessions.customerSession).not.toHaveBeenCalled();
+  expect(walletSessions.setupSession).not.toHaveBeenCalled();
+});
+
+test('wallet settings and setup share the payment-session request limit', async () => {
+  for (let index = 0; index < 10; index++) {
+    const response =
+      index % 2 === 0
+        ? await request('/v1/wallet/customer-session', {})
+        : await request('/v1/wallet/setup-session', { requestId: randomUUID() });
+    expect(response.status).toBe(200);
+  }
+  expect((await request('/v1/wallet/customer-session', {})).status).toBe(429);
+  expect(walletSessions.customerSession).toHaveBeenCalledTimes(5);
+  expect(walletSessions.setupSession).toHaveBeenCalledTimes(5);
+});
+
+test('earnings date parameters are paired, validated and preserve the original unfiltered response', async () => {
+  await database.pool.query("UPDATE users SET role='driver' WHERE id=$1", [riderId]);
+  for (const query of [
+    'from=2026-09-01',
+    'through=2026-09-30',
+    'from=2026-02-30&through=2026-03-01',
+    'from=2026-09-30&through=2026-09-01',
+  ]) {
+    const response = await request('/v1/drivers/me/earnings?' + query);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: { code: 'INVALID_DATE_RANGE' } });
+  }
+  const response = await request('/v1/drivers/me/earnings?from=2026-09-01&through=2026-09-30');
+  expect(response.status).toBe(200);
+  expect(response.headers.get('cache-control')).toBe('no-store');
+  expect(await response.json()).toMatchObject({ periodTotal: { amount: 0, currency: 'USD' } });
+  const unfiltered = await request('/v1/drivers/me/earnings');
+  expect(await unfiltered.json()).not.toHaveProperty('periodTotal');
 });

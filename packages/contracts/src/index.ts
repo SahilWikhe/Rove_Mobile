@@ -166,6 +166,13 @@ export type BackgroundLocation = z.infer<typeof BackgroundLocation>;
 export const PaymentSession = z
   .object({
     rideId: z.uuid(),
+    customer: z
+      .object({
+        customerId: z.string().regex(/^cus_[a-zA-Z0-9]{1,96}$/),
+        clientSecret: z.string().min(1).max(1024),
+      })
+      .strict()
+      .optional(),
     clientSecret: z
       .string()
       .regex(/^pi_[a-zA-Z0-9]+_secret_[a-zA-Z0-9]+$/)
@@ -198,6 +205,12 @@ export const DriverTripEarnings = z
   .strict();
 export type DriverTripEarnings = z.infer<typeof DriverTripEarnings>;
 
+export const EarningsDateRange = z
+  .object({ from: z.iso.date(), through: z.iso.date() })
+  .strict()
+  .refine((range) => range.from <= range.through, 'Start date must not follow end date.');
+export type EarningsDateRange = z.infer<typeof EarningsDateRange>;
+
 export const DriverEarnings = z
   .object({
     recordedTotal: z
@@ -206,6 +219,13 @@ export const DriverEarnings = z
         currency: z.literal('USD'),
       })
       .strict(),
+    periodTotal: z
+      .object({
+        amount: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+        currency: z.literal('USD'),
+      })
+      .strict()
+      .optional(),
     entries: z
       .array(
         z.object({ id: z.uuid(), rideId: z.uuid(), recordedAt: z.iso.datetime(), amount: Money }).strict(),
@@ -502,3 +522,20 @@ export const DriverDocumentUploadTarget = z
   })
   .strict();
 export const DriverDocumentUploadCompletion = z.object({ key: z.string().max(300) }).strict();
+
+// Short-lived Stripe settings credentials. Keep in memory only.
+export const WalletSetupRequest = z.object({ requestId: z.uuid() }).strict();
+export const WalletCustomerSession = z
+  .object({
+    customerId: z.string().regex(/^cus_[a-zA-Z0-9]{1,96}$/),
+    clientSecret: z.string().min(1).max(1024),
+  })
+  .strict();
+export const WalletSetupSession = z
+  .object({
+    clientSecret: z
+      .string()
+      .regex(/^seti_[a-zA-Z0-9]+_secret_[a-zA-Z0-9]+$/)
+      .max(1024),
+  })
+  .strict();

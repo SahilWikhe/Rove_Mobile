@@ -55,3 +55,6 @@ export { DocumentAccessService, type DocumentDownloads } from './document-access
 export { S3DocumentDownloads } from './s3-document-download';
 
 export { DriverEligibilityService, EligibilityDecision } from './driver-eligibility';
+
+export { WalletSessions, type WalletProvider } from './wallet-sessions';
+export { StripeWalletProvider } from './stripe-wallet';

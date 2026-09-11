@@ -9,26 +9,51 @@ export function SavedPlaceControls({
   target,
   busy,
   onUse,
+  management = false,
 }: {
   api: ApiClient;
   selected: Place | null;
-  target: 'pickup' | 'destination';
+  target?: 'pickup' | 'destination';
   busy: boolean;
-  onUse: (kind: SavedPlaceKind) => void;
+  onUse?: (kind: SavedPlaceKind) => void;
+  management?: boolean;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(management);
   const [slots, setSlots] = useState<Slots | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(management);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const mounted = useRef(false);
-  const running = useRef(false);
+  const running = useRef(management);
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
     };
   }, []);
+  useEffect(() => {
+    if (!management) return;
+    let current = true;
+    const controller = new AbortController();
+    void api
+      .savedPlaces(controller.signal)
+      .then((data) => {
+        if (current) setSlots(data.places);
+      })
+      .catch(() => {
+        if (current) setError('Saved places could not be loaded. Please try again.');
+      })
+      .finally(() => {
+        if (current) {
+          running.current = false;
+          setLoading(false);
+        }
+      });
+    return () => {
+      current = false;
+      controller.abort();
+    };
+  }, [api, management]);
   async function refresh() {
     const data = await api.savedPlaces();
     if (mounted.current) setSlots(data.places);
@@ -41,10 +66,12 @@ export function SavedPlaceControls({
     setMessage(null);
     try {
       await work();
-    } catch (failure) {
+    } catch {
       if (mounted.current) {
         setSlots(null);
-        setError(failure instanceof Error ? failure.message : 'Unable to update saved places.');
+        setError(
+          'Unable to update saved places. Reload to check the latest saved values before trying again.',
+        );
       }
     } finally {
       running.current = false;
@@ -84,7 +111,7 @@ export function SavedPlaceControls({
                 <Card key={kind} style={{ padding: 14, gap: 10 }}>
                   <Copy kind="heading">{label}</Copy>
                   <Copy kind="muted">{slot ? 'Saved to your account.' : 'No place saved yet.'}</Copy>
-                  {slot && (
+                  {slot && onUse && target && (
                     <Button
                       title={`Use ${label} as ${target}`}
                       disabled={disabled}

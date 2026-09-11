@@ -291,3 +291,62 @@ test('notification device calls preserve cancellation, validate data and send on
   expect(JSON.parse(String(fetcher.mock.calls[1]?.[1]?.body))).toEqual({ expectedRevision: 1, mutationId });
   expect(() => api.revokeNotificationDevice('../me', { expectedRevision: 1, mutationId })).toThrow();
 });
+
+test('wallet requests bind no customer ID and preserve the setup request ID', async () => {
+  const fetcher = vi.fn<Transport>(
+    async () => new Response(JSON.stringify({ customerId: 'cus_fixture', clientSecret: 'synthetic' })),
+  );
+  const api = new ApiClient('https://api.example', async () => 'token', fetcher);
+  await api.walletCustomerSession();
+  expect(fetcher.mock.calls[0]?.[1]).toMatchObject({
+    method: 'POST',
+    body: '{}',
+    headers: { Authorization: 'Bearer token' },
+  });
+  fetcher.mockResolvedValue(new Response(JSON.stringify({ clientSecret: 'seti_fixture_secret_synthetic' })));
+  const requestId = '00000000-0000-4000-8000-000000000001';
+  await api.walletSetupSession(requestId);
+  expect(fetcher.mock.calls[1]?.[1]?.body).toBe(JSON.stringify({ requestId }));
+  fetcher.mockResolvedValue(new Response(JSON.stringify({ clientSecret: 'pi_other_secret_synthetic' })));
+  await expect(api.walletSetupSession(requestId)).rejects.toMatchObject({ code: 'INCOMPATIBLE_RESPONSE' });
+});
+
+test('payment sessions preserve the saved customer contract and reject malformed customer references', async () => {
+  const rideId = 'decd77a9-6895-452a-92ec-6bbb0ea51f90';
+  for (const customerId of ['cus_fixture', 'acct_wrong']) {
+    const response = {
+      rideId,
+      clientSecret: 'pi_fixture_secret_private',
+      customer: { customerId, clientSecret: 'synthetic_customer_secret' },
+    };
+    const api = new ApiClient(
+      'https://api.example',
+      async () => 'fixture',
+      async () => new Response(JSON.stringify(response)),
+    );
+    if (customerId === 'cus_fixture') await expect(api.paymentSession(rideId)).resolves.toEqual(response);
+    else await expect(api.paymentSession(rideId)).rejects.toMatchObject({ code: 'INCOMPATIBLE_RESPONSE' });
+  }
+});
+
+test('filtered earnings forwards the range and refuses an unfiltered older-server response', async () => {
+  const fetcher = vi.fn<Transport>(
+    async () =>
+      new Response(
+        JSON.stringify({
+          recordedTotal: { amount: 100, currency: 'USD' },
+          entries: [],
+          hasMore: false,
+          nextCursor: null,
+          payoutStatus: 'not_configured',
+        }),
+      ),
+  );
+  const api = new ApiClient('https://api.example', async () => 'fixture', fetcher);
+  await expect(
+    api.earnings(undefined, undefined, { from: '2026-09-01', through: '2026-09-07' }),
+  ).rejects.toMatchObject({ code: 'INCOMPATIBLE_RESPONSE' });
+  expect(fetcher.mock.calls[0]?.[0]).toBe(
+    'https://api.example/v1/drivers/me/earnings?from=2026-09-01&through=2026-09-07',
+  );
+});

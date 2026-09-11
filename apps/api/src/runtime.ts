@@ -1,3 +1,4 @@
+import { WalletSessions, StripeWalletProvider, type WalletProvider } from '@rove/server';
 import { awsCredentialsProvider } from '@vercel/oidc-aws-credentials-provider';
 import { createDatabase } from '@rove/database';
 import {
@@ -43,6 +44,7 @@ import { oidcIdentity, type VerifyIdentity } from './auth';
 import { readRuntimeConfig, type RuntimeConfig } from './runtime-config';
 
 interface Resources {
+  wallet?: WalletProvider;
   documentScanner?: DocumentScanner;
   documentTransfers?: DriverDocumentTransfers;
   documentDownloads?: DocumentDownloads;
@@ -97,7 +99,17 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
     flags: async () => ({ scheduling: false, weekly: false, monthly: false }),
     allowedOrigins: config.allowedOrigins,
     ...(config.pushProjects ? { pushProjects: config.pushProjects } : {}),
-    paymentSessions: new PaymentSessions(pool, payments, config.paymentSource, undefined, customers),
+    ...(resources.wallet
+      ? { walletSessions: new WalletSessions(pool, resources.wallet, customers, config.paymentSource) }
+      : {}),
+    paymentSessions: new PaymentSessions(
+      pool,
+      payments,
+      config.paymentSource,
+      undefined,
+      customers,
+      resources.wallet,
+    ),
     paymentWebhooks: new PaymentWebhookInbox(pool, payments, config.paymentSource),
   });
   return {
@@ -144,6 +156,7 @@ export function createRuntime(env: Record<string, string | undefined>) {
   // pg emits idle-client errors outside queries. Keep the process alive; never log driver error details.
   database.pool.on('error', () => console.error('Database connection interrupted.'));
   return composeRuntime(config, {
+    wallet: new StripeWalletProvider({ ...config.payments, live: config.payments.mode === 'live' }),
     ...(config.documentScanning
       ? {
           documentScanner: new GuardDutyDocumentScanner(

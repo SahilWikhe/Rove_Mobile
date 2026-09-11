@@ -1,3 +1,4 @@
+import { DriverNavigation } from '../navigation/driver-navigation';
 import { useState } from 'react';
 import { router, Stack, useFocusEffect } from 'expo-router';
 import { useSession } from '@rove/mobile-core/session';
@@ -36,7 +37,7 @@ function HistoryPage({
   const { data, error, focus, refresh } = useRidePage(api, before, Boolean(profile));
   useFocusEffect(focus);
   return (
-    <Screen>
+    <Screen footer={profile ? <DriverNavigation active="/trips" /> : undefined}>
       <Stack.Screen options={{ title: 'Your trips' }} />
       <Copy kind="title">Every mile, in one place.</Copy>
       {newer && <Button title="Newer trips" variant="secondary" onPress={newer} />}

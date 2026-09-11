@@ -3,7 +3,7 @@ import { TripEarningsSummary } from '../earnings/trip-summary';
 import { useOperations } from '@rove/mobile-core/use-operations';
 import { pollWhileForeground } from '@rove/mobile-core/foreground-polling';
 import { useTrackingError } from '../tracking/provider';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { NavigationButton } from '../navigation/button';
 import { router, Stack, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import type { RideDetails } from '@rove/contracts';
@@ -17,6 +17,10 @@ const actions = {
 } as const;
 export default function Trip() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { profile } = useSession();
+  return <TripContent key={`${profile?.id ?? 'signed-out'}:${id}`} id={id} />;
+}
+function TripContent({ id }: { id: string }) {
   const { api, synthetic, profile } = useSession();
   const { pending, restoring, recoveryError, execute } = useOperations();
   const trackingError = useTrackingError();
@@ -24,7 +28,19 @@ export default function Trip() {
   const [error, setError] = useState<string | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [confirm, setConfirm] = useState(false);
+  const [confirm, setConfirm] = useState<number | null>(null);
+  const epoch = useRef(0);
+  const sending = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      epoch.current++;
+      setBusy(sending.current);
+      setConfirm(null);
+      return () => {
+        epoch.current++;
+      };
+    }, []),
+  );
   useFocusEffect(
     useCallback(
       () =>
@@ -36,8 +52,10 @@ export default function Trip() {
             );
             setReadError(null);
           },
-          onError: (failure) =>
-            setReadError(failure instanceof Error ? failure.message : 'Trip information is unavailable.'),
+          onError: (failure) => {
+            setReadError(failure instanceof Error ? failure.message : 'Trip information is unavailable.');
+            setConfirm(null);
+          },
           intervalMs: 4000,
         }),
       [api, id],
@@ -45,29 +63,43 @@ export default function Trip() {
   );
   const action = ride && ride.state in actions ? actions[ride.state as keyof typeof actions] : null;
   async function transition() {
-    if (!ride || !action || restoring || recoveryError) return;
+    if (!ride || !action || confirm !== ride.version || sending.current || restoring || recoveryError) return;
+    sending.current = true;
+    const generation = epoch.current;
     setBusy(true);
     setError(null);
     try {
       await execute({ kind: 'transition', rideId: id, state: action[0], version: ride.version });
-      setRide(await api.ride(id));
-      setConfirm(false);
+      if (generation !== epoch.current) return;
+      const updated = await api.ride(id);
+      if (generation !== epoch.current) return;
+      setRide((current) => (current && current.version > updated.version ? current : updated));
+      setConfirm(null);
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'Trip update was not confirmed.');
+      if (generation === epoch.current)
+        setError(failure instanceof Error ? failure.message : 'Trip update was not confirmed.');
     } finally {
+      sending.current = false;
       setBusy(false);
     }
   }
   async function recover() {
-    if (!pending) return;
+    if (!pending || sending.current || restoring || recoveryError) return;
+    sending.current = true;
+    const generation = epoch.current;
     setBusy(true);
     setError(null);
     try {
       await execute(pending.operation);
-      setRide(await api.ride(id));
+      if (generation !== epoch.current) return;
+      const updated = await api.ride(id);
+      if (generation === epoch.current)
+        setRide((current) => (current && current.version > updated.version ? current : updated));
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'Request could not be confirmed.');
+      if (generation === epoch.current)
+        setError(failure instanceof Error ? failure.message : 'Request could not be confirmed.');
     } finally {
+      sending.current = false;
       setBusy(false);
     }
   }
@@ -125,10 +157,11 @@ export default function Trip() {
             disabled={busy || !!readError || !!pending || restoring || !!recoveryError}
           />
           {action &&
+            !readError &&
             !pending &&
             !restoring &&
             !recoveryError &&
-            (confirm ? (
+            (confirm === ride.version ? (
               <Card>
                 <Copy kind="heading">{action[1]}?</Copy>
                 <Copy kind="muted">
@@ -143,11 +176,11 @@ export default function Trip() {
                   title="Not yet"
                   variant="secondary"
                   disabled={busy}
-                  onPress={() => setConfirm(false)}
+                  onPress={() => setConfirm(null)}
                 />
               </Card>
             ) : (
-              <Button title={action[1]} onPress={() => setConfirm(true)} />
+              <Button title={action[1]} onPress={() => setConfirm(ride.version)} />
             ))}
           {ride.state === 'completed' && <TripEarningsSummary key={ride.id} rideId={ride.id} />}
           {!action && <Button title="Back to driving" onPress={() => router.replace('/drive')} />}

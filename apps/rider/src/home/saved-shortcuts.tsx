@@ -43,7 +43,7 @@ export function SavedShortcuts() {
               accessibilityState={{ disabled: saved === null }}
               disabled={saved === null}
               onPress={() =>
-                router.push(exists ? { pathname: '/book', params: { savedKind: kind } } : '/book')
+                router.push(exists ? { pathname: '/book', params: { savedKind: kind } } : '/saved-places')
               }
               style={({ pressed }) => ({
                 flex: 1,
@@ -65,7 +65,7 @@ export function SavedShortcuts() {
                     : 'Loading…'
                   : exists
                     ? 'Saved destination'
-                    : 'Save in booking'}
+                    : 'Add a place'}
               </Copy>
             </Pressable>
           );

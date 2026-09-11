@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { RideState } from '@rove/contracts';
 const Operation = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('book'), quoteId: z.uuid() }).strict(),
+  z.object({ kind: z.literal('accept'), offerId: z.uuid() }).strict(),
   z
     .object({
       kind: z.literal('transition'),

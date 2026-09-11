@@ -1,15 +1,17 @@
-import { NotificationControls } from '@rove/mobile-ui/notification-controls';
+import { DriverNavigation } from '../navigation/driver-navigation';
+import { View } from 'react-native';
+import { AccountProfile, AccountRow, accountContent, accountTitle } from '@rove/mobile-ui/account-layout';
+import chevron from '../../assets/account/chevron.png';
 import { useRef, useState } from 'react';
 import { Stack, router } from 'expo-router';
 import * as Crypto from 'expo-crypto';
 import { signOutDriver } from '../account/sign-out';
 import { stopBackgroundTracking } from '../tracking/background';
 import { useSession } from '@rove/mobile-core/session';
-import { Banner, Button, Card, Copy, Screen } from '@rove/mobile-ui';
-import { ProfileNameForm } from '@rove/mobile-ui/profile-name-form';
+import { Banner, Button, Copy, Screen } from '@rove/mobile-ui';
 
 export default function Account() {
-  const { profile, api, notifications, signOut, updateName, reloadName, cleanupRequired } = useSession();
+  const { profile, api, notifications, signOut, cleanupRequired } = useSession();
   const pending = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,59 +38,66 @@ export default function Account() {
     }
   }
   return (
-    <Screen>
-      <Stack.Screen options={{ title: 'Account' }} />
-      <Copy kind="title">Your space.</Copy>
+    <Screen
+      contentStyle={accountContent}
+      footer={profile ? <DriverNavigation active="/account" disabled={busy} /> : undefined}
+    >
+      <Stack.Screen options={{ title: 'Account', headerShown: false }} />
+      <Copy style={accountTitle}>Account</Copy>
       {profile ? (
         <>
-          <Card>
-            <Copy kind="heading">{profile.name}</Copy>
-            <Copy kind="muted">Rove driver</Copy>
-          </Card>
-          <Button
-            title="Driver setup"
-            variant="secondary"
-            disabled={busy}
-            onPress={() => router.push('/setup')}
-          />
-          <Button
-            title="Vehicle & review status"
-            variant="secondary"
-            disabled={busy}
-            onPress={() => router.push('/vehicle')}
-          />
-          <Button
-            title="Payout setup"
-            variant="secondary"
-            disabled={busy}
-            onPress={() => router.push('/payouts')}
-          />
-          <ProfileNameForm
-            key={profile.id}
-            initialName={profile.name}
-            save={updateName}
-            reload={reloadName}
-            disabled={busy}
-          />
-          <Copy kind="muted">
-            Changing this name does not change your verified identity, driver approval or payout details.
-          </Copy>
-          {profile && (
-            <Button
-              title="Help & support"
-              variant="secondary"
+          <AccountProfile name={profile.name} subtitle="Rove driver" />
+          <View style={{ paddingTop: 6 }}>
+            <AccountRow
+              icon={chevron}
+              label="Edit profile"
+              disabled={busy}
+              onPress={() => router.push('/profile')}
+            />
+            <AccountRow
+              icon={chevron}
+              label="Driver setup"
+              disabled={busy}
+              onPress={() => router.push('/setup')}
+            />
+            <AccountRow
+              icon={chevron}
+              label="Vehicle & review status"
+              disabled={busy}
+              onPress={() => router.push('/vehicle')}
+            />
+            <AccountRow
+              icon={chevron}
+              label="Documents & credentials"
+              disabled={busy}
+              onPress={() => router.push('/documents')}
+            />
+            <AccountRow
+              icon={chevron}
+              label="Payout setup"
+              disabled={busy}
+              onPress={() => router.push('/payouts')}
+            />
+            <AccountRow
+              icon={chevron}
+              label="Notifications"
+              detail={notifications.available ? (notifications.enabled ? 'On' : 'Off') : 'Unavailable'}
+              disabled={busy}
+              onPress={() => router.push('/notifications')}
+            />
+            <AccountRow
+              icon={chevron}
+              label="Manage notification devices"
+              disabled={busy}
+              onPress={() => router.push('/notification-devices')}
+            />
+            <AccountRow
+              icon={chevron}
+              label="Help & support"
               disabled={busy}
               onPress={() => router.push('/support')}
             />
-          )}
-          {profile && <NotificationControls key={`notifications:${profile.id}`} settings={notifications} />}
-          {profile && (
-            <Button
-              title="Manage notification devices"
-              variant="secondary"
-              onPress={() => router.push('/notification-devices')}
-            />
-          )}
+          </View>
           {error && <Banner error message={error} />}
           <Copy kind="muted">
             Signing out takes you offline and stops location sharing. Finish or resolve an active trip first.

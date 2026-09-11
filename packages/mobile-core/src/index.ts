@@ -1,3 +1,5 @@
+import { EarningsDateRange } from '@rove/contracts';
+import { WalletCustomerSession, WalletSetupSession, WalletSetupRequest } from '@rove/contracts';
 import { z } from 'zod';
 import {
   DriverDocumentReservation,
@@ -245,10 +247,17 @@ export class ApiClient {
   book(quoteId: string, key: string) {
     return this.request('/v1/ride-requests', RideSummary, { method: 'POST', body: { quoteId }, key });
   }
-  earnings(signal?: AbortSignal, before?: string) {
+  earnings(signal?: AbortSignal, before?: string, range?: EarningsDateRange) {
+    const query = new URLSearchParams();
+    if (before) query.set('before', before);
+    if (range) {
+      const valid = EarningsDateRange.parse(range);
+      query.set('from', valid.from);
+      query.set('through', valid.through);
+    }
     return this.request(
-      `/v1/drivers/me/earnings${before ? `?before=${encodeURIComponent(before)}` : ''}`,
-      DriverEarnings,
+      `/v1/drivers/me/earnings${query.size ? `?${query}` : ''}`,
+      range ? DriverEarnings.refine((value) => value.periodTotal !== undefined) : DriverEarnings,
       signal ? { signal } : {},
     );
   }
@@ -272,6 +281,15 @@ export class ApiClient {
       RideReceipt,
       signal ? { signal } : {},
     );
+  }
+  walletCustomerSession() {
+    return this.request('/v1/wallet/customer-session', WalletCustomerSession, { method: 'POST', body: {} });
+  }
+  walletSetupSession(requestId: string) {
+    return this.request('/v1/wallet/setup-session', WalletSetupSession, {
+      method: 'POST',
+      body: WalletSetupRequest.parse({ requestId }),
+    });
   }
   paymentSession(rideId: string) {
     return this.request(`/v1/rides/${encodeURIComponent(rideId)}/payment-session`, PaymentSession, {

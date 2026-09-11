@@ -1,11 +1,13 @@
 import type { Pool } from 'pg';
 import { z } from 'zod';
-import { DriverEarnings, DriverTripEarnings } from '@rove/contracts';
+import { DriverEarnings, DriverTripEarnings, EarningsDateRange } from '@rove/contracts';
 import { DomainError, type Actor } from '@rove/server';
-export async function getEarnings(pool: Pool, actor: Actor, before?: string) {
+export async function getEarnings(pool: Pool, actor: Actor, before?: string, range?: EarningsDateRange) {
   if (actor.role !== 'driver') throw new DomainError('NOT_FOUND', 'Earnings not found.', 404);
   if (before !== undefined && !z.uuid().safeParse(before).success)
     throw new DomainError('INVALID_CURSOR', 'Refresh your earnings history.', 400);
+  if (range !== undefined && !EarningsDateRange.safeParse(range).success)
+    throw new DomainError('INVALID_DATE_RANGE', 'Use valid dates with the start on or before the end.', 400);
   const rows = (
     await pool.query<{
       id: string | null;
@@ -14,20 +16,24 @@ export async function getEarnings(pool: Pool, actor: Actor, before?: string) {
       amount: string;
       total: string;
       cursor_valid: boolean;
+      period_total: string;
     }>(
       `WITH owned AS MATERIALIZED (
        SELECT j.id,j.ride_id,j.created_at,(-SUM(l.amount_cents))::text AS amount
        FROM ledger_postings l JOIN ledger_journals j ON j.id=l.journal_id
        WHERE l.owner_id=$1 AND l.account='driver_payable' AND j.kind='allocation'
        GROUP BY j.id,j.ride_id,j.created_at
-     ), boundary AS (SELECT id,created_at FROM owned WHERE id=$2::uuid),
+     ), filtered AS (
+       SELECT * FROM owned WHERE ($3::date IS NULL OR created_at >= ($3::date::timestamp AT TIME ZONE 'UTC'))
+         AND ($4::date IS NULL OR created_at < (($4::date + 1)::timestamp AT TIME ZONE 'UTC'))
+     ), boundary AS (SELECT id,created_at FROM filtered WHERE id=$2::uuid),
      page AS (
-       SELECT * FROM owned WHERE $2::uuid IS NULL OR (created_at,id)<(SELECT created_at,id FROM boundary)
+       SELECT * FROM filtered WHERE $2::uuid IS NULL OR (created_at,id)<(SELECT created_at,id FROM boundary)
        ORDER BY created_at DESC,id DESC LIMIT 51
      ), totals AS (SELECT COALESCE(SUM(amount::bigint),0)::text AS total FROM owned)
-     SELECT p.*,t.total,($2::uuid IS NULL OR EXISTS(SELECT 1 FROM boundary)) AS cursor_valid
+     SELECT p.*,t.total,(SELECT COALESCE(SUM(amount::bigint),0)::text FROM filtered) AS period_total,($2::uuid IS NULL OR EXISTS(SELECT 1 FROM boundary)) AS cursor_valid
      FROM totals t LEFT JOIN page p ON true ORDER BY p.created_at DESC,p.id DESC`,
-      [actor.id, before ?? null],
+      [actor.id, before ?? null, range?.from ?? null, range?.through ?? null],
     )
   ).rows;
   if (!rows[0]?.cursor_valid) throw new DomainError('INVALID_CURSOR', 'Refresh your earnings history.', 400);
@@ -36,6 +42,7 @@ export async function getEarnings(pool: Pool, actor: Actor, before?: string) {
   const page = records.slice(0, 50);
   return DriverEarnings.parse({
     recordedTotal: { amount: Number(rows[0].total), currency: 'USD' },
+    ...(range ? { periodTotal: { amount: Number(rows[0].period_total), currency: 'USD' } } : {}),
     entries: page.map((row) => ({
       id: row.id,
       rideId: row.ride_id,

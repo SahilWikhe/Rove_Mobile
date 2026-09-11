@@ -1,0 +1,29 @@
+# Requires the rider app on its synthetic Home screen and an empty Home slot.
+# Uses the disposable local API; no booking or payment is submitted.
+appId: co.roveride.rider
+---
+- tapOn: Account
+- scrollUntilVisible:
+    element: Saved places
+    direction: DOWN
+- tapOn: Saved places
+- assertVisible: Your familiar places.
+- tapOn:
+    id: saved-place-address
+- inputText: Home
+- tapOn: Search places
+- extendedWaitUntil:
+    visible: Home · synthetic pickup
+    timeout: 30000
+- tapOn: Home · synthetic pickup
+- scrollUntilVisible:
+    element: Save Home
+    direction: DOWN
+- tapOn: Save Home
+- assertVisible: Home saved.
+- scrollUntilVisible:
+    element: Remove Home
+    direction: DOWN
+- tapOn: Remove Home
+- assertVisible: Home removed.
+- takeScreenshot: native-account-saved-places

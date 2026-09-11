@@ -41,3 +41,29 @@ test('Home shortcut resolves an owned destination, requires route review and sur
     await request.delete(endpoint, { headers, data: { expectedPlaceId: 'synthetic-work' } });
   }
 });
+
+test('Empty Work shortcut saves a place without entering booking and refreshes Home', async ({
+  page,
+  request,
+}) => {
+  const headers = { Authorization: 'Bearer synthetic-rider' };
+  const endpoint = 'http://localhost:4085/v1/saved-places/work';
+  await page.goto('http://localhost:8091');
+  await page.getByRole('button', { name: 'Get started', exact: true }).click();
+  await page.getByRole('button', { name: 'Set up Work', exact: true }).click();
+  await expect(page).toHaveURL(/\/saved-places$/);
+  await expect(page.getByRole('button', { name: 'Request ride', exact: true })).toHaveCount(0);
+  await page.getByRole('textbox', { name: 'Saved place address', exact: true }).fill('Work');
+  await page.getByRole('button', { name: 'Search places', exact: true }).click();
+  await page.getByRole('button', { name: 'Work · synthetic destination', exact: true }).click();
+  try {
+    await page.getByRole('button', { name: 'Save Work', exact: true }).click();
+    await expect(page.getByText('Work saved.', { exact: true })).toBeVisible();
+    await page.getByRole('link', { name: 'Go back', exact: true }).click();
+    await page.getByRole('button', { name: 'Go to Work', exact: true }).click();
+    await expect(page.getByText('Work · synthetic destination', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Request ride', exact: true })).toHaveCount(0);
+  } finally {
+    await request.delete(endpoint, { headers, data: { expectedPlaceId: 'synthetic-work' } });
+  }
+});

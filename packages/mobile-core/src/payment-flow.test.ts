@@ -1,5 +1,5 @@
 import { expect, test, vi } from 'vitest';
-import { isPaymentReturnURL, latestPaymentRide, submitPayment } from './payment-flow';
+import { isPaymentReturnURL, latestPaymentRide, submitPayment, paymentCallbackScope } from './payment-flow';
 function fixture() {
   const session = vi.fn(async () => ({ clientSecret: 'pi_fixture_secret_private' }));
   const initialize = vi.fn(async (_secret: string) => ({}));
@@ -55,6 +55,8 @@ test('leaving during initialization prevents presentation and leaving during con
 
 test.each([
   'rove-rider://payment',
+  'rove-rider://payment-methods',
+  'rove-rider://payment-methods/?setup_intent=seti_fixture',
   'rove-rider://payment?id=synthetic-ride',
   'rove-rider://payment/?id=synthetic-ride#callback',
 ])('accepts the registered payment return URL: %s', (url) => {
@@ -68,6 +70,9 @@ test.each([
   'https://payment',
   'rove-driver://payment',
   'rove-rider://payments',
+  'rove-rider://payment-methods/unrelated',
+  'https://payment-methods',
+  'rove-driver://payment-methods',
   'rove-rider://payment.example.test',
   'rove-rider://payment/unrelated',
   'rove-rider://payment@other',
@@ -123,4 +128,40 @@ test('payment refresh accepts a newer state and does not compare versions across
   const other = { id: 'second', version: 1, paymentState: 'pending' };
   expect(latestPaymentRide(previous, other)).toEqual(other);
   expect(latestPaymentRide(null, other)).toEqual(other);
+});
+
+test('checkout forwards the scoped customer session to the native sheet', async () => {
+  const f = fixture();
+  const customer = { customerId: 'cus_fixture', clientSecret: 'synthetic_customer_secret' };
+  const session = async () => ({ clientSecret: 'pi_fixture_secret_private', customer });
+  expect(await submitPayment(session, f, () => true)).toBe('submitted');
+  expect(f.initialize).toHaveBeenCalledWith('pi_fixture_secret_private', customer);
+});
+
+test('closed sheet callbacks cannot fetch fresh customer credentials', async () => {
+  const scope = paymentCallbackScope(() => true);
+  const operation = vi.fn(async () => 'synthetic_secret');
+  scope.close();
+  await expect(scope.run(operation)).rejects.toThrow('Payment settings closed.');
+  expect(operation).not.toHaveBeenCalled();
+});
+test.each(['sheet closed', 'account changed'])('pending credentials are withheld when %s', async (reason) => {
+  let current = true;
+  const scope = paymentCallbackScope(() => current);
+  let resolve!: (secret: string) => void;
+  const pending = scope.run(
+    () =>
+      new Promise<string>((done) => {
+        resolve = done;
+      }),
+  );
+  if (reason === 'sheet closed') scope.close();
+  else current = false;
+  resolve('synthetic_secret');
+  await expect(pending).rejects.toThrow('Payment settings closed.');
+});
+test('an open current sheet receives its requested credentials', async () => {
+  const scope = paymentCallbackScope(() => true);
+  await expect(scope.run(async () => 'synthetic_secret')).resolves.toBe('synthetic_secret');
+  scope.close();
 });

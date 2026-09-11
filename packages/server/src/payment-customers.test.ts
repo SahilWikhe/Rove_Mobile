@@ -120,3 +120,66 @@ test('a valid rider payment session provisions its customer automatically withou
     'pi_fixture',
   );
 });
+
+test.each(['valid', 'wrong_customer', 'disabled', 'cancelled', 'expired'])(
+  'checkout customer session handles %s after provider I/O',
+  async (scenario) => {
+    const quote = randomUUID();
+    const ride = randomUUID();
+    await database.pool.query("INSERT INTO quotes(id,rider_id,snapshot,expires_at) VALUES($1,$2,'{}',$3)", [
+      quote,
+      actor.id,
+      new Date(now.getTime() + 60000),
+    ]);
+    await database.pool.query(
+      'INSERT INTO rides(id,quote_id,rider_id,fare_cents,earnings_cents,search_deadline) VALUES($1,$2,$3,1050,790,$4)',
+      [ride, quote, actor.id, new Date(now.getTime() + 180000)],
+    );
+    const create = vi.fn<PaymentProvider['create']>(async (reference) => ({
+      payment: {
+        ...reference,
+        intentId: 'pi_fixture',
+        status: 'requires_payment_method',
+        capturableCents: 0,
+        receivedCents: 0,
+      },
+      clientSecret: 'pi_fixture_secret_private',
+    }));
+    const customerSession = vi.fn(async () => {
+      if (scenario === 'disabled')
+        await database.pool.query('UPDATE users SET disabled=true WHERE id=$1', [actor.id]);
+      if (scenario === 'cancelled')
+        await database.pool.query("UPDATE rides SET state='cancelled' WHERE id=$1", [ride]);
+      if (scenario === 'expired') now = new Date(now.getTime() + 180001);
+      return {
+        customerId: scenario === 'wrong_customer' ? 'cus_other' : 'cus_fixture',
+        clientSecret: 'synthetic_customer_secret',
+      };
+    });
+    const sessions = new PaymentSessions(
+      database.pool,
+      { create } as unknown as PaymentProvider,
+      source,
+      () => now,
+      service,
+      { customerSession },
+    );
+    if (scenario === 'valid') {
+      await expect(sessions.create(actor, ride)).resolves.toMatchObject({
+        rideId: ride,
+        customer: { customerId: 'cus_fixture', clientSecret: 'synthetic_customer_secret' },
+      });
+    } else {
+      await expect(sessions.create(actor, ride)).rejects.toMatchObject({
+        code: scenario === 'wrong_customer' ? 'PAYMENT_REFERENCE_MISMATCH' : 'PAYMENT_SESSION_UNAVAILABLE',
+      });
+    }
+    expect(customerSession).toHaveBeenCalledWith('cus_fixture', 'payment');
+    expect((await database.pool.query('SELECT intent_id FROM payment_attempts')).rows[0].intent_id).toBe(
+      'pi_fixture',
+    );
+    expect(
+      (await database.pool.query("SELECT * FROM outbox WHERE topic='payment.reconcile'")).rows,
+    ).toHaveLength(1);
+  },
+);

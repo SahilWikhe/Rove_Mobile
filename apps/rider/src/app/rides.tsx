@@ -1,3 +1,4 @@
+import { HomeNavigation } from '../navigation/rider-navigation';
 import { useState } from 'react';
 import { router, Stack, useFocusEffect } from 'expo-router';
 import { useSession } from '@rove/mobile-core/session';
@@ -36,7 +37,7 @@ function HistoryPage({
   const { data, error, focus, refresh } = useRidePage(api, before, Boolean(profile));
   useFocusEffect(focus);
   return (
-    <Screen>
+    <Screen footer={profile ? <HomeNavigation active="/rides" /> : undefined}>
       <Stack.Screen options={{ title: 'My rides' }} />
       <Copy kind="title">Your journeys.</Copy>
       {newer && <Button title="Newer trips" variant="secondary" onPress={newer} />}

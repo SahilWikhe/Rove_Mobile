@@ -42,7 +42,9 @@ export function useOperations() {
         return await journal.execute(input, ({ key, operation }) =>
           operation.kind === 'book'
             ? api.book(operation.quoteId, key)
-            : api.transition(operation.rideId, operation.state, operation.version, key),
+            : operation.kind === 'accept'
+              ? api.accept(operation.offerId, key)
+              : api.transition(operation.rideId, operation.state, operation.version, key),
         );
       } finally {
         try {
@@ -56,5 +58,19 @@ export function useOperations() {
     },
     [operations, api],
   );
-  return { pending, restoring, recoveryError, execute };
+  const refresh = useCallback(async () => {
+    if (!operations) return;
+    const current = epoch.current;
+    try {
+      const entry = await (await operations).pending();
+      if (current === epoch.current) {
+        setPending(entry);
+        setRecoveryError(null);
+      }
+    } catch {
+      if (current === epoch.current)
+        setRecoveryError('Previous request could not be read. Contact support before another action.');
+    }
+  }, [operations]);
+  return { pending, restoring, recoveryError, execute, refresh };
 }

@@ -88,7 +88,27 @@ test('rider request reaches the driver and both apps follow a completed syntheti
     await expect(driver.getByText('Home · synthetic pickup', { exact: true })).toHaveCount(0);
     await expect(driver.getByText('Alex Rider', { exact: true })).toHaveCount(0);
     await expect(driver.getByText('TRIP MAP', { exact: true })).toHaveCount(0);
+    const acceptanceKeys: string[] = [];
+    let dropAcceptance = true;
+    await driver.route('**/v1/offers/*/accept', async (route) => {
+      acceptanceKeys.push(route.request().headers()['idempotency-key']!);
+      if (dropAcceptance) {
+        dropAcceptance = false;
+        const response = await route.fetch();
+        expect(response.ok()).toBe(true);
+        await route.abort('failed');
+      } else await route.continue();
+    });
     await driver.getByRole('button', { name: 'Accept ride', exact: true }).click();
+    await expect(driver.getByRole('button', { name: 'Check acceptance result', exact: true })).toBeVisible();
+    // Synthetic browser credentials are memory-only; sign back in after the restart.
+    await driver.goto('http://localhost:8092');
+    await driver.getByRole('button', { name: 'Get started', exact: true }).click();
+    await driver.getByRole('button', { name: 'Check previous acceptance', exact: true }).click();
+    await driver.getByRole('button', { name: 'Check acceptance result', exact: true }).click();
+    await expect.poll(() => acceptanceKeys.length).toBe(2);
+    expect(new Set(acceptanceKeys).size).toBe(1);
+
     await expect(driver.getByText('TRIP MAP', { exact: true })).toBeVisible();
     const locationUrl = 'http://localhost:4085/v1/rides/' + id + '/driver-location';
     await expect
@@ -141,7 +161,31 @@ test('rider request reaches the driver and both apps follow a completed syntheti
       expect((await after.json()).state).toBe(trip.state);
 
       await driver.getByRole('button', { name: action, exact: true }).click();
-      await driver.getByRole('button', { name: 'Confirm: ' + action, exact: true }).click();
+      if (action === 'Head to pickup') {
+        const tripUrl = 'http://localhost:4085/v1/rides/' + id;
+        await driver.route(tripUrl, (route) => route.abort('failed'));
+        await expect(
+          driver.getByRole('button', { name: 'Confirm: Head to pickup', exact: true }),
+        ).toHaveCount(0);
+        await expect(driver.getByRole('button', { name: 'Head to pickup', exact: true })).toHaveCount(0);
+        await driver.unroute(tripUrl);
+        await driver.getByRole('button', { name: 'Head to pickup', exact: true }).click();
+        // Another signed-in device advances the trip while this confirmation is open.
+        const advanced = await request.post('http://localhost:4085/v1/rides/' + id + '/transitions', {
+          headers: { Authorization: 'Bearer synthetic-driver', 'Idempotency-Key': crypto.randomUUID() },
+          data: { state: 'en_route', expectedVersion: trip.version },
+        });
+        expect(advanced.ok()).toBe(true);
+        await expect(driver.getByRole('button', { name: 'I’ve arrived', exact: true })).toBeVisible();
+        await expect(driver.getByRole('button', { name: 'Confirm: I’ve arrived', exact: true })).toHaveCount(
+          0,
+        );
+        await expect(
+          driver.getByRole('button', { name: 'Confirm: Head to pickup', exact: true }),
+        ).toHaveCount(0);
+      } else {
+        await driver.getByRole('button', { name: 'Confirm: ' + action, exact: true }).click();
+      }
     }
     await expect(driver.getByRole('button', { name: 'Back to driving', exact: true })).toBeVisible();
     await expect(driver.getByText('TRIP MAP', { exact: true })).toHaveCount(0);
@@ -182,13 +226,25 @@ test('rider request reaches the driver and both apps follow a completed syntheti
     expect(tripEarnings.recordedAmount.amount).toBeGreaterThan(0);
     expect(tripEarnings.payoutStatus).toBe('not_configured');
     await driver.bringToFront();
-    await expect(driver.getByText('RECORDED TRIP EARNINGS', { exact: true })).toBeVisible();
+    await expect(
+      driver.getByText('RECORDED TRIP EARNINGS', { exact: true }).filter({ visible: true }),
+    ).toBeVisible();
     await expect(
       driver.getByText('Synthetic earnings · no money will be paid out.', { exact: true }),
     ).toBeVisible();
     await driver.getByRole('button', { name: 'View earnings', exact: true }).click();
     await expect(driver.getByText('Your work. Recorded.', { exact: true })).toBeVisible();
-    await expect(driver.getByText('Trip reference ' + id, { exact: true })).toBeVisible();
+    const earning = driver.getByText('Trip reference ' + id, { exact: true });
+    await expect(earning).toBeVisible();
+    await earning.locator('..').getByRole('button', { name: 'View trip details', exact: true }).click();
+    await expect(driver).toHaveURL(new RegExp('/trip\\?id=' + id));
+    await expect(
+      driver.getByText('RECORDED TRIP EARNINGS', { exact: true }).filter({ visible: true }),
+    ).toBeVisible();
+    await driver.goBack();
+    await driver.getByRole('button', { name: 'Review payout setup', exact: true }).click();
+    await expect(driver.getByText('Your payout details.', { exact: true })).toBeVisible();
+    await driver.goBack();
     await driver.goBack();
     await driver.getByRole('button', { name: 'Back to driving', exact: true }).click();
     await driver.getByRole('button', { name: 'Go offline', exact: true }).click();

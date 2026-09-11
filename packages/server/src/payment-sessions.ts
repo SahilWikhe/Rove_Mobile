@@ -1,3 +1,4 @@
+import type { WalletProvider } from './wallet-sessions';
 import type { Pool } from 'pg';
 import type { PaymentCustomers } from './payment-customers';
 import type { Actor } from './rides';
@@ -23,6 +24,7 @@ export class PaymentSessions {
     private source: string,
     private now: () => Date = () => new Date(),
     private customers?: Pick<PaymentCustomers, 'ensure'>,
+    private wallet?: Pick<WalletProvider, 'customerSession'>,
   ) {
     if (!/^acct_[a-zA-Z0-9]{1,96}:(test|live)$/.test(source)) throw new Error('Invalid payment source.');
   }
@@ -126,6 +128,23 @@ export class PaymentSessions {
       return !ride.disabled && ride.state === 'searching' && ride.search_deadline > this.now();
     });
     if (!allowed) throw unavailable();
-    return { rideId, clientSecret: result.clientSecret };
+    if (!this.wallet) return { rideId, clientSecret: result.clientSecret };
+    const customer = await this.wallet.customerSession(customerId, 'payment');
+    if (customer.customerId !== customerId || !customer.clientSecret)
+      throw new DomainError('PAYMENT_REFERENCE_MISMATCH', 'Payment could not be verified.', 503);
+    const current = (
+      await this.pool.query<{ disabled: boolean; state: string; search_deadline: Date }>(
+        'SELECT u.disabled,r.state,r.search_deadline FROM rides r JOIN users u ON u.id=r.rider_id WHERE r.id=$1 AND r.rider_id=$2',
+        [rideId, actor.id],
+      )
+    ).rows[0];
+    if (
+      !current ||
+      current.disabled ||
+      current.state !== 'searching' ||
+      current.search_deadline <= this.now()
+    )
+      throw unavailable();
+    return { rideId, clientSecret: result.clientSecret, customer };
   }
 }

@@ -22,8 +22,18 @@ Expo selected `@stripe/stripe-react-native` 0.64.0 for SDK 57. The config plugin
 
 `apps/rider/.env.example` documents `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY`. Use a publishable key belonging to the same Stripe account/mode as the API. Server restricted/secret keys and webhook secrets never belong in app environment variables. Changing public configuration requires rebuilding/updating the app appropriately. The server must separately compose the payment/customer/session/webhook/worker services and credentials.
 
+## Saved payment methods
+
+The Account payment-methods screen opens Stripe CustomerSheet on native devices. The server authenticates the rider, resolves that rider's Stripe customer binding, and creates a Customer Session scoped to settings. CustomerSheet collects card details directly with Stripe through a SetupIntent; Rove stores neither card numbers nor session client secrets. Setup requests use an idempotency key scoped to the customer binding and request UUID.
+
+Checkout uses a separate Customer Session scoped to the mobile payment element. It allows previously consented payment methods to be displayed; saving and removal are disabled inside checkout and handled through Account settings. Account changes, screen abandonment, and completion invalidate retained native callbacks. A shared guard prevents a payment flow and a settings flow from opening simultaneously.
+
+The server restricted key requires **Customer Sessions: Write** and **Setup Intents: Write** in addition to the existing payment/customer permissions. These are permissions on Rove's sandbox account, not blanket Connect-account access. Configure the matching sandbox publishable key in the rider app. Keep secret keys and webhook secrets on the server. A sandbox permission denial must remain an unavailable-state response; never bypass it with fabricated success or live credentials.
+
+Verify Customer Session creation for both settings and checkout, SetupIntent creation, adding/removing a test payment method in CustomerSheet, and reuse in PaymentSheet. Cancel unconfirmed test SetupIntents and remove temporary customers after provider smoke tests. Unit and browser tests do not prove native card collection or bank authentication.
+
 ## Verification and outstanding acceptance
 
 Five controller tests cover submission versus authorization, user dismissal, safe SDK-error handling, abandonment during session loading, and abandonment during initialization/confirmation. Type checking verifies the native SDK integration; local Expo exports compile both apps for iOS, Android and web. These are JavaScript/Hermes exports, not signed binaries or native-device verification.
 
-Still required: a sandbox account/API deployment connection, real PaymentSheet and 3DS/bank-app return tests on iOS and Android, cold-start/process-death recovery, wallet setup, native visual/accessibility/large-text review, saved payment methods, verified receipts/refunds/ledger and final production payment policies. The assistant's Stripe plugin connection does not replace these tests or supply application runtime credentials.
+Still required: a sandbox account/API deployment connection, real PaymentSheet and 3DS/bank-app return tests on iOS and Android, cold-start/process-death recovery, wallet setup, native visual/accessibility/large-text review, native saved-payment-method acceptance, verified receipts/refunds/ledger and final production payment policies. The assistant's Stripe plugin connection does not replace these tests or supply application runtime credentials.

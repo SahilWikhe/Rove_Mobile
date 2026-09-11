@@ -36,7 +36,12 @@ beforeEach(async () => {
     [binding, rider],
   );
 });
-async function entry(owner = driver, amount = 790, kind: string | null = 'allocation') {
+async function entry(
+  owner = driver,
+  amount = 790,
+  kind: string | null = 'allocation',
+  recordedAt = '2026-09-07T12:00:00Z',
+) {
   const quote = randomUUID(),
     ride = randomUUID(),
     attempt = randomUUID();
@@ -56,8 +61,8 @@ async function entry(owner = driver, amount = 790, kind: string | null = 'alloca
     await transaction(db.pool, async (client) => {
       const id = randomUUID();
       await client.query(
-        "INSERT INTO ledger_journals(id,key,fingerprint,attempt_id,ride_id,kind,created_at) VALUES($1::uuid,$1::text,'fixture',$2,$3,$4,'2026-09-07T12:00:00Z')",
-        [id, attempt, ride, kind],
+        "INSERT INTO ledger_journals(id,key,fingerprint,attempt_id,ride_id,kind,created_at) VALUES($1::uuid,$1::text,'fixture',$2,$3,$4,$5)",
+        [id, attempt, ride, kind, recordedAt],
       );
       await client.query(
         "INSERT INTO ledger_postings(journal_id,account,owner_id,amount_cents) VALUES($1,'rider_funds',$2,$4),($1,'driver_payable',$3,-$4)",
@@ -174,4 +179,68 @@ test('duplicate allocation journals require review instead of displaying doubled
     code: 'EARNINGS_REVIEW_REQUIRED',
     status: 409,
   });
+});
+
+test('UTC date filtering includes both full dates and keeps lifetime totals separate', async () => {
+  const times = [
+    '2026-09-06T23:59:59.999Z',
+    '2026-09-07T00:00:00Z',
+    '2026-09-08T23:59:59.999Z',
+    '2026-09-09T00:00:00Z',
+  ];
+  const rides = [];
+  for (const time of times) {
+    const ride = await entry(driver, 100, 'allocation', time);
+    rides.push(ride);
+  }
+  await entry(other, 900);
+  const result = await getEarnings(db.pool, { id: driver, role: 'driver' }, undefined, {
+    from: '2026-09-07',
+    through: '2026-09-08',
+  });
+  expect(result.recordedTotal.amount).toBe(400);
+  expect(result.periodTotal?.amount).toBe(200);
+  expect(result.entries.map((row) => row.rideId)).toEqual([rides[2], rides[1]]);
+  const empty = await getEarnings(db.pool, { id: driver, role: 'driver' }, undefined, {
+    from: '2026-10-01',
+    through: '2026-10-01',
+  });
+  expect(empty.entries).toEqual([]);
+  expect(empty.periodTotal?.amount).toBe(0);
+  expect(empty.recordedTotal.amount).toBe(400);
+});
+test.each([
+  { from: '2026-02-30', through: '2026-03-01' },
+  { from: '2026-09-09', through: '2026-09-07' },
+])('rejects invalid date ranges %j', async (range) => {
+  await expect(getEarnings(db.pool, { id: driver, role: 'driver' }, undefined, range)).rejects.toMatchObject({
+    code: 'INVALID_DATE_RANGE',
+  });
+});
+test('a cursor outside the selected period cannot be reused', async () => {
+  await entry();
+  const latest = await read();
+  await expect(
+    getEarnings(db.pool, { id: driver, role: 'driver' }, latest.entries[0]!.id, {
+      from: '2026-10-01',
+      through: '2026-10-31',
+    }),
+  ).rejects.toMatchObject({ code: 'INVALID_CURSOR' });
+});
+
+test('filtered pagination keeps the complete period total across pages with tied timestamps', async () => {
+  for (let index = 0; index < 52; index++) await entry(driver, 10);
+  await entry(driver, 100, 'allocation', '2026-08-31T23:59:59Z');
+  const actor = { id: driver, role: 'driver' as const };
+  const range = { from: '2026-09-01', through: '2026-09-30' };
+  const first = await getEarnings(db.pool, actor, undefined, range);
+  const second = await getEarnings(db.pool, actor, first.nextCursor!, range);
+  expect(first.entries).toHaveLength(50);
+  expect(second.entries).toHaveLength(2);
+  expect(second.nextCursor).toBeNull();
+  for (const page of [first, second]) {
+    expect(page.recordedTotal.amount).toBe(620);
+    expect(page.periodTotal?.amount).toBe(520);
+  }
+  expect(new Set([...first.entries, ...second.entries].map((row) => row.id)).size).toBe(52);
 });

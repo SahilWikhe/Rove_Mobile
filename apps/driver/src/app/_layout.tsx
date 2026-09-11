@@ -4,9 +4,20 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { theme } from '@rove/mobile-ui';
 import { SessionProvider } from '@rove/mobile-core/session';
-import { useFonts, Manrope_500Medium, Manrope_700Bold } from '@expo-google-fonts/manrope';
+import {
+  useFonts,
+  Manrope_500Medium,
+  Manrope_600SemiBold,
+  Manrope_700Bold,
+  Manrope_800ExtraBold,
+} from '@expo-google-fonts/manrope';
 export default function Layout() {
-  const [loaded, error] = useFonts({ Manrope_500Medium, Manrope_700Bold });
+  const [loaded, error] = useFonts({
+    Manrope_500Medium,
+    Manrope_600SemiBold,
+    Manrope_700Bold,
+    Manrope_800ExtraBold,
+  });
   if (!loaded && !error) return null;
   return (
     <SessionProvider

@@ -1,11 +1,13 @@
-import { NotificationControls } from '@rove/mobile-ui/notification-controls';
 import { useRef, useState } from 'react';
 import { router, Stack } from 'expo-router';
-import { ProfileNameForm } from '@rove/mobile-ui/profile-name-form';
+import { View } from 'react-native';
+import { AccountProfile, AccountRow, accountContent, accountTitle } from '@rove/mobile-ui/account-layout';
+import { HomeNavigation } from '../navigation/rider-navigation';
+import chevron from '../../assets/account/chevron.png';
 import { useSession } from '@rove/mobile-core/session';
-import { Banner, Button, Card, Copy, Screen } from '@rove/mobile-ui';
+import { Banner, Button, Copy, Screen } from '@rove/mobile-ui';
 export default function Account() {
-  const { profile, api, notifications, signOut, updateName, reloadName, cleanupRequired } = useSession();
+  const { profile, api, notifications, signOut, cleanupRequired } = useSession();
   const pending = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,38 +36,53 @@ export default function Account() {
     }
   }
   return (
-    <Screen>
-      <Stack.Screen options={{ title: 'Account' }} />
-      <Copy kind="title">Your space.</Copy>
-      <Card>
-        <Copy kind="label">PROFILE</Copy>
-        <Copy kind="heading">{profile?.name ?? 'Sign in to continue'}</Copy>
-        <Copy kind="muted">Rove rider</Copy>
-      </Card>
+    <Screen
+      contentStyle={accountContent}
+      footer={profile ? <HomeNavigation active="/account" disabled={busy} /> : undefined}
+    >
+      <Stack.Screen options={{ title: 'Account', headerShown: false }} />
+      <Copy style={accountTitle}>Account</Copy>
+      <AccountProfile name={profile?.name ?? 'Sign in to continue'} subtitle="Rove member" />
       {profile && (
-        <ProfileNameForm
-          key={profile.id}
-          initialName={profile.name}
-          save={updateName}
-          reload={reloadName}
-          disabled={busy}
-        />
-      )}
-      {profile && (
-        <Button
-          title="Help & support"
-          variant="secondary"
-          disabled={busy}
-          onPress={() => router.push('/support')}
-        />
-      )}
-      {profile && <NotificationControls key={`notifications:${profile.id}`} settings={notifications} />}
-      {profile && (
-        <Button
-          title="Manage notification devices"
-          variant="secondary"
-          onPress={() => router.push('/notification-devices')}
-        />
+        <View style={{ paddingTop: 8 }}>
+          <AccountRow
+            icon={chevron}
+            label="Edit profile"
+            disabled={busy}
+            onPress={() => router.push('/profile')}
+          />
+          <AccountRow
+            icon={chevron}
+            label="Payment methods"
+            disabled={busy}
+            onPress={() => router.push('/payment-methods')}
+          />
+          <AccountRow
+            icon={chevron}
+            label="Saved places"
+            disabled={busy}
+            onPress={() => router.push('/saved-places')}
+          />
+          <AccountRow
+            icon={chevron}
+            label="Notifications"
+            detail={notifications.available ? (notifications.enabled ? 'On' : 'Off') : 'Unavailable'}
+            disabled={busy}
+            onPress={() => router.push('/notifications')}
+          />
+          <AccountRow
+            icon={chevron}
+            label="Manage notification devices"
+            disabled={busy}
+            onPress={() => router.push('/notification-devices')}
+          />
+          <AccountRow
+            icon={chevron}
+            label="Help & support"
+            disabled={busy}
+            onPress={() => router.push('/support')}
+          />
+        </View>
       )}
       {error && <Banner error message={error} />}
       <Button

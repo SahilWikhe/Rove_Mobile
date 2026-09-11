@@ -1,3 +1,4 @@
+import { HomeNavigation } from '../navigation/rider-navigation';
 import { SavedShortcuts } from './saved-shortcuts';
 import { useCallback, useState } from 'react';
 import { Image, Platform, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
@@ -10,10 +11,7 @@ import { Banner, Card, Copy, Screen, theme } from '@rove/mobile-ui';
 import search from '../../assets/home/search.png';
 import arrow from '../../assets/home/arrow.png';
 import journey from '../../assets/home/journey.png';
-import ride from '../../assets/home/ride.png';
-import rides from '../../assets/home/rides.png';
-import account from '../../assets/home/account.png';
-const assets = { search, arrow, journey, ride, rides, account };
+const assets = { search, arrow, journey };
 const gradient =
   'linear-gradient(139.87389642220478deg, rgb(240,220,174) 14.142%, rgb(220,185,116) 36.77%, rgb(198,156,76) 59.398%, rgb(227,198,138) 84.854%)';
 // RN 0.86 native uses the experimental name; React Native Web uses CSS backgroundImage.
@@ -34,36 +32,6 @@ const rideLabels: Record<RideDetails['state'], string> = {
   interrupted: 'Trip needs attention',
   terminated: 'Trip ended',
 };
-
-function HomeNavigation() {
-  return (
-    <View style={styles.navigationWrap}>
-      <View style={styles.navigation}>
-        {(
-          [
-            { label: 'Ride', icon: assets.ride, path: '/' },
-            { label: 'My rides', icon: assets.rides, path: '/rides' },
-            { label: 'Account', icon: assets.account, path: '/account' },
-          ] as const
-        ).map(({ label, icon, path }) => (
-          <Pressable
-            key={label}
-            accessibilityRole="button"
-            accessibilityLabel={label}
-            accessibilityState={{ selected: path === '/' }}
-            onPress={() => {
-              if (path !== '/') router.push(path);
-            }}
-            style={({ pressed }) => [styles.navItem, pressed && styles.pressed]}
-          >
-            <Image source={icon} style={styles.icon} accessible={false} />
-            <Copy style={[styles.navLabel, path === '/' && { color: theme.gold }]}>{label}</Copy>
-          </Pressable>
-        ))}
-      </View>
-    </View>
-  );
-}
 
 /** Keyed by profile ID at the route boundary so another account never sees the prior account's rides. */
 export function RiderHome({ name }: { name: string }) {
@@ -201,25 +169,5 @@ const styles = StyleSheet.create({
   promoActionText: { fontFamily: 'Manrope_800ExtraBold', fontSize: 15, color: '#120D02' },
   illustration: { width: '100%', aspectRatio: 350 / 146 },
   illustrationImage: { ...StyleSheet.absoluteFill, width: '100%', height: '100%' },
-  navigationWrap: { alignItems: 'center', paddingHorizontal: 20, paddingTop: 8, paddingBottom: 8 },
-  navigation: {
-    flexDirection: 'row',
-    gap: 6,
-    backgroundColor: 'rgba(18,18,18,0.94)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 999,
-    padding: 8,
-  },
-  navItem: {
-    minHeight: 54,
-    minWidth: 76,
-    paddingHorizontal: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 3,
-  },
-  icon: { width: 24, height: 24 },
-  navLabel: { color: theme.muted, fontSize: 11, lineHeight: 16 },
   pressed: { opacity: 0.75 },
 });

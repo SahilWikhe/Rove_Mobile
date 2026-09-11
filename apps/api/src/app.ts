@@ -1,3 +1,6 @@
+import { EarningsDateRange } from '@rove/contracts';
+import { WalletSetupRequest, WalletCustomerSession, WalletSetupSession } from '@rove/contracts';
+import type { WalletSessions } from '@rove/server';
 import { getDriverLocation } from './driver-location-queries';
 import { getEarnings, getTripEarnings } from './earnings-queries';
 import { randomUUID } from 'node:crypto';
@@ -63,6 +66,7 @@ import { getRide, listRides } from './ride-queries';
 
 type Environment = { Variables: { actor: Actor; subject: string; requestId: string } };
 interface Dependencies {
+  walletSessions?: Pick<WalletSessions, 'customerSession' | 'setupSession'>;
   pool: Pool;
   documentTransfers?: DriverDocumentTransfers;
   documentDownloads?: DocumentDownloads;
@@ -203,6 +207,7 @@ export function createApp(deps: Dependencies) {
     if (c.req.path === '/v1/places' || c.req.path.startsWith('/v1/saved-places/')) policy = 'places';
     else if (c.req.path === '/v1/support-requests' && c.req.method === 'POST') policy = 'support';
     else if (c.req.path === '/v1/drivers/me/payout-setup') policy = 'payoutSetup';
+    else if (c.req.path.startsWith('/v1/wallet/')) policy = 'paymentSessions';
     else if (c.req.path === '/v1/quotes') policy = 'quotes';
     else if (c.req.method === 'POST' && /^\/v1\/rides\/[^/]+\/payment-session$/.test(c.req.path))
       policy = 'paymentSessions';
@@ -449,9 +454,25 @@ export function createApp(deps: Dependencies) {
       await deps.rides.accept(c.var.actor, id(c.req.param('id')), c.req.header('Idempotency-Key') ?? ''),
     );
   });
-  app.get('/v1/drivers/me/earnings', async (c) =>
-    c.json(await getEarnings(deps.pool, c.var.actor, c.req.query('before'))),
-  );
+  app.get('/v1/drivers/me/earnings', async (c) => {
+    const from = c.req.query('from'),
+      through = c.req.query('through');
+    const parsed = EarningsDateRange.safeParse({ from, through });
+    if ((from !== undefined || through !== undefined) && !parsed.success)
+      throw new DomainError(
+        'INVALID_DATE_RANGE',
+        'Use valid dates with the start on or before the end.',
+        400,
+      );
+    return c.json(
+      await getEarnings(
+        deps.pool,
+        c.var.actor,
+        c.req.query('before'),
+        parsed.success ? parsed.data : undefined,
+      ),
+    );
+  });
   app.get('/v1/drivers/me/earnings/:id', async (c) =>
     c.json(await getTripEarnings(deps.pool, c.var.actor, id(c.req.param('id')))),
   );
@@ -461,6 +482,24 @@ export function createApp(deps: Dependencies) {
   app.get('/v1/rides/:id/receipt', async (c) =>
     c.json(await getReceipt(deps.pool, c.var.actor, id(c.req.param('id')))),
   );
+  app.post('/v1/wallet/customer-session', async (c) => {
+    await body(c, z.object({}).strict());
+    if (c.var.actor.role !== 'rider')
+      throw new DomainError('FORBIDDEN', 'Payment settings are for riders.', 403);
+    if (!deps.walletSessions)
+      throw new DomainError('PAYMENT_SETTINGS_UNAVAILABLE', 'Payment settings are not available yet.', 503);
+    return c.json(WalletCustomerSession.parse(await deps.walletSessions.customerSession(c.var.actor)));
+  });
+  app.post('/v1/wallet/setup-session', async (c) => {
+    const input = await body(c, WalletSetupRequest);
+    if (c.var.actor.role !== 'rider')
+      throw new DomainError('FORBIDDEN', 'Payment settings are for riders.', 403);
+    if (!deps.walletSessions)
+      throw new DomainError('PAYMENT_SETTINGS_UNAVAILABLE', 'Payment settings are not available yet.', 503);
+    return c.json(
+      WalletSetupSession.parse(await deps.walletSessions.setupSession(c.var.actor, input.requestId)),
+    );
+  });
   app.post('/v1/rides/:id/payment-session', async (c) => {
     await body(c, z.object({}).strict());
     if (!deps.paymentSessions)

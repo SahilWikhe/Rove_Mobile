@@ -111,3 +111,20 @@ test('transition recovery retains its original expected version even after scree
   await recovered.execute(original, send);
   expect(send).toHaveBeenCalledWith({ operation: original, key });
 });
+
+test('an uncertain driver acceptance is recovered after restart with the original offer and key', async () => {
+  const { storage, journal } = fixture();
+  const acceptance = { kind: 'accept' as const, offerId: '00000000-0000-4000-8000-000000000003' };
+  await expect(
+    journal.execute(acceptance, async () => {
+      throw { status: 0 };
+    }),
+  ).rejects.toEqual({ status: 0 });
+  const restored = new OperationJournal(storage, () => {
+    throw new Error('Must reuse original key');
+  });
+  const send = vi.fn(async () => ({ id: 'matched-ride' }));
+  await expect(restored.execute(acceptance, send)).resolves.toEqual({ id: 'matched-ride' });
+  expect(send).toHaveBeenCalledWith({ key, operation: acceptance });
+  expect(await restored.pending()).toBeNull();
+});

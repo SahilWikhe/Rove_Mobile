@@ -13,7 +13,7 @@ export function isPaymentReturnURL(value: string | null): value is string {
     const url = new URL(value);
     return (
       url.protocol === 'rove-rider:' &&
-      url.hostname === 'payment' &&
+      (url.hostname === 'payment' || url.hostname === 'payment-methods') &&
       (url.pathname === '' || url.pathname === '/') &&
       !url.username &&
       !url.password &&
@@ -25,20 +25,25 @@ export function isPaymentReturnURL(value: string | null): value is string {
 }
 
 export interface NativePaymentSheet {
-  initialize(secret: string): Promise<{ error?: { code: string } }>;
+  initialize(
+    secret: string,
+    customer?: { customerId: string; clientSecret: string },
+  ): Promise<{ error?: { code: string } }>;
   present(): Promise<{ error?: { code: string } }>;
 }
 /** Does not store a secret or assert that a successful sheet response means funds are authorized. */
 export async function submitPayment(
-  session: () => Promise<{ clientSecret: string }>,
+  session: () => Promise<{ clientSecret: string; customer?: { customerId: string; clientSecret: string } }>,
   sheet: NativePaymentSheet,
   current: () => boolean,
 ): Promise<'submitted' | 'cancelled' | 'abandoned'> {
   if (!current()) return 'abandoned';
   try {
-    const { clientSecret } = await session();
+    const { clientSecret, customer } = await session();
     if (!current()) return 'abandoned';
-    const initialized = await sheet.initialize(clientSecret);
+    const initialized = customer
+      ? await sheet.initialize(clientSecret, customer)
+      : await sheet.initialize(clientSecret);
     if (!current()) return 'abandoned';
     if (initialized.error) throw new Error('Initialization failed');
     const presented = await sheet.present();
@@ -51,4 +56,21 @@ export async function submitPayment(
     if (!current()) return 'abandoned';
     throw new Error('Payment could not be confirmed. Check your ride status before trying again.');
   }
+}
+
+/** Native SDK callbacks may outlive the sheet that registered them. */
+export function paymentCallbackScope(current: () => boolean) {
+  let open = true;
+  const valid = () => open && current();
+  return {
+    close: () => {
+      open = false;
+    },
+    async run<T>(operation: () => Promise<T>): Promise<T> {
+      if (!valid()) throw new Error('Payment settings closed.');
+      const result = await operation();
+      if (!valid()) throw new Error('Payment settings closed.');
+      return result;
+    },
+  };
 }

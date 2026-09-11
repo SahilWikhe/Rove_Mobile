@@ -1,3 +1,4 @@
+import { useOperations } from '@rove/mobile-core/use-operations';
 import { pollWhileForeground } from '@rove/mobile-core/foreground-polling';
 import { currentPosition, useTrackingError } from '../tracking/provider';
 import { useCallback, useState } from 'react';
@@ -15,6 +16,12 @@ import { useSession } from '@rove/mobile-core/session';
 import { Banner, Brand, Button, Card, Copy, Screen, theme } from '@rove/mobile-ui';
 export default function Drive() {
   const { api, synthetic, profile: account } = useSession();
+  const { pending, recoveryError, refresh: refreshOperations } = useOperations();
+  useFocusEffect(
+    useCallback(() => {
+      void refreshOperations();
+    }, [refreshOperations]),
+  );
   const [profile, setProfile] = useState<DriverProfile | null>(null);
   const [offer, setOffer] = useState<DriverOffer | null>(null);
   const [active, setActive] = useState<RideDetails | null>(null);
@@ -155,6 +162,17 @@ export default function Drive() {
           <Banner message="Complete your document review and payout setup before going online." />
           <Button title="View setup progress" variant="secondary" onPress={() => router.push('/setup')} />
         </>
+      )}
+      {recoveryError && <Banner error message={recoveryError} />}
+      {pending?.operation.kind === 'accept' && (
+        <Button
+          title="Check previous acceptance"
+          variant="secondary"
+          onPress={() => {
+            if (pending.operation.kind === 'accept')
+              router.push({ pathname: '/offer', params: { id: pending.operation.offerId } });
+          }}
+        />
       )}
       <Button
         title={profile?.online ? 'Go offline' : 'Go online'}

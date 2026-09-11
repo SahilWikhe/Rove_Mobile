@@ -1,0 +1,45 @@
+# Requires the driver app configured against the disposable synthetic API.
+# The fixture must have no allocations in January 2000. No ride/payment is submitted.
+appId: co.roveride.driver
+---
+- launchApp
+- runFlow:
+    when:
+      visible: Get started
+    commands:
+      - tapOn: Get started
+- scrollUntilVisible:
+    element: Earnings
+    direction: DOWN
+- tapOn: Earnings
+- assertVisible: Your work. Recorded.
+- tapOn:
+    id: earnings-from-date
+- inputText: 2000-01-01
+- pressKey: Enter
+- scrollUntilVisible:
+    element:
+      id: earnings-through-date
+    direction: DOWN
+- tapOn:
+    id: earnings-through-date
+- inputText: 2000-01-31
+- pressKey: Enter
+- scrollUntilVisible:
+    element: Apply dates
+    direction: DOWN
+- tapOn: Apply dates
+- scrollUntilVisible:
+    element: RECORDED IN SELECTED PERIOD
+    direction: DOWN
+- assertVisible: RECORDED IN SELECTED PERIOD
+- scrollUntilVisible:
+    element: No recorded earnings in this date range.
+    direction: DOWN
+- assertVisible: No recorded earnings in this date range.
+- takeScreenshot: rove-native-earnings-filtered
+- scrollUntilVisible:
+    element: All recorded dates
+    direction: UP
+- tapOn: All recorded dates
+- assertNotVisible: RECORDED IN SELECTED PERIOD
