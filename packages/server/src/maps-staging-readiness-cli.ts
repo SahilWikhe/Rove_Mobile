@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { parseEnv } from 'node:util';
+import { parseMapsStagingEnvironment } from './maps-staging-environment';
 import { GoogleMapsProvider } from './google-maps';
 import { inspectMapsStaging, MapsReadinessError } from './maps-staging-readiness';
 const [filename, pickup, destination, confirmation] = process.argv.slice(2);
@@ -20,7 +20,7 @@ if (
 } else {
   try {
     await inspectMapsStaging(
-      parseEnv(readFileSync(filename, 'utf8')),
+      parseMapsStagingEnvironment(readFileSync(filename, 'utf8')),
       { pickup, destination },
       (key, area) => new GoogleMapsProvider(key, area),
       true,

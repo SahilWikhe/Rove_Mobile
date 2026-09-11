@@ -80,3 +80,39 @@ test('provider errors are safe and never echo credentials or private routes', as
     expect(String(error)).not.toContain('Private address');
   }
 });
+
+test.each([400, 401, 403, 429, 500, 503])(
+  'preserves safe upstream HTTP %i without response contents',
+  async (status) => {
+    const maps = new GoogleMapsProvider(
+      'synthetic-secret',
+      area,
+      async () =>
+        new Response(
+          JSON.stringify({
+            error: { message: 'synthetic-secret private address', details: ['private-project'] },
+          }),
+          { status },
+        ),
+    );
+    await expect(maps.search('Public station')).rejects.toMatchObject({
+      code: 'MAPS_UNAVAILABLE',
+      status: 503,
+      upstreamStatus: status,
+      message: 'Maps are temporarily unavailable. Please try again.',
+    });
+  },
+);
+test('transport failures never retain raw exceptions in diagnostic properties', async () => {
+  const maps = new GoogleMapsProvider('synthetic-secret', area, async () => {
+    throw new Error('https://private-endpoint/?key=synthetic-secret');
+  });
+  try {
+    await maps.search('Public station');
+    throw new Error('expected rejection');
+  } catch (error) {
+    expect(error).toMatchObject({ code: 'MAPS_UNAVAILABLE', upstreamStatus: undefined });
+    expect(JSON.stringify(error)).not.toMatch(/private-endpoint|synthetic-secret/);
+    expect(String(error)).not.toMatch(/private-endpoint|synthetic-secret/);
+  }
+});

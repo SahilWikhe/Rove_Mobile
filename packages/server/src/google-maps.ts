@@ -3,6 +3,13 @@ import { Coordinate, Place } from '@rove/contracts';
 import { DomainError } from './errors';
 import type { MapsProvider, ServiceArea } from './quotes';
 
+/** Internal diagnostic only; public API handlers expose the unchanged DomainError fields. */
+export class MapsProviderUnavailable extends DomainError {
+  constructor(readonly upstreamStatus?: number) {
+    super('MAPS_UNAVAILABLE', 'Maps are temporarily unavailable. Please try again.', 503);
+  }
+}
+
 type Transport = (url: string, options: RequestInit) => Promise<Response>;
 const GooglePlace = z.object({
   id: z.string(),
@@ -47,10 +54,11 @@ export class GoogleMapsProvider implements MapsProvider {
         },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       });
-      if (!response.ok) throw new Error('Maps provider rejected request');
+      if (!response.ok) throw new MapsProviderUnavailable(response.status);
       return await response.json();
-    } catch {
-      throw new DomainError('MAPS_UNAVAILABLE', 'Maps are temporarily unavailable. Please try again.', 503);
+    } catch (error) {
+      if (error instanceof MapsProviderUnavailable) throw error;
+      throw new MapsProviderUnavailable();
     }
   }
   async search(query: string): Promise<Place[]> {

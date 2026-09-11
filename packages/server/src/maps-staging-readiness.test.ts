@@ -1,4 +1,5 @@
 import { expect, test, vi } from 'vitest';
+import { MapsProviderUnavailable } from './google-maps';
 import { inspectMapsStaging } from './maps-staging-readiness';
 const env = {
   ROVE_ENVIRONMENT: 'staging',
@@ -74,5 +75,23 @@ test('changed resolution or zero-length route is rejected', async () => {
   f.provider.route.mockResolvedValue({ distanceMeters: 0, durationSeconds: 0 });
   await expect(inspectMapsStaging(env, queries, f.create, true)).rejects.toMatchObject({
     stage: 'driving route',
+  });
+});
+
+test.each([403, 429, 503])('diagnostics identify provider HTTP %i and stop further reads', async (status) => {
+  const f = fixture();
+  f.provider.search.mockRejectedValue(new MapsProviderUnavailable(status));
+  await expect(inspectMapsStaging(env, queries, f.create, true)).rejects.toMatchObject({
+    message: `Maps staging check failed at pickup search (provider HTTP ${status}).`,
+  });
+  expect(f.provider.search).toHaveBeenCalledTimes(1);
+  expect(f.provider.resolve).not.toHaveBeenCalled();
+  expect(f.provider.route).not.toHaveBeenCalled();
+});
+test.each([0, 200, 600, NaN, Infinity])('invalid diagnostic status %s is not printed', async (status) => {
+  const f = fixture();
+  f.provider.search.mockRejectedValue(new MapsProviderUnavailable(status));
+  await expect(inspectMapsStaging(env, queries, f.create, true)).rejects.toMatchObject({
+    message: 'Maps staging check failed at pickup search.',
   });
 });

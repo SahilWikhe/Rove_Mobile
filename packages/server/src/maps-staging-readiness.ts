@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { Place } from '@rove/contracts';
+import { MapsProviderUnavailable } from './google-maps';
 import type { MapsProvider, ServiceArea } from './quotes';
 const Area = z
   .object({
@@ -12,8 +13,15 @@ const Area = z
   .refine((a) => a.south < a.north && a.west < a.east);
 const Query = z.string().trim().min(3).max(150);
 export class MapsReadinessError extends Error {
-  constructor(readonly stage: string) {
-    super(`Maps staging check failed at ${stage}.`);
+  constructor(
+    readonly stage: string,
+    upstreamStatus?: number,
+  ) {
+    const status =
+      Number.isInteger(upstreamStatus) && upstreamStatus! >= 400 && upstreamStatus! <= 599
+        ? ` (provider HTTP ${upstreamStatus})`
+        : '';
+    super(`Maps staging check failed at ${stage}${status}.`);
   }
 }
 /** Up to five billable reads against public test locations; never books rides or touches the database. */
@@ -59,8 +67,11 @@ export async function inspectMapsStaging(
       })
       .parse(await provider.route(pickup, destination, 'standard'));
     return { distanceMeters: route.distanceMeters, durationSeconds: route.durationSeconds };
-  } catch {
-    // Never include provider messages, keys, addresses, or URLs in diagnostics.
-    throw new MapsReadinessError(stage);
+  } catch (error) {
+    // Only a validated status number may cross this boundary, never response content.
+    throw new MapsReadinessError(
+      stage,
+      error instanceof MapsProviderUnavailable ? error.upstreamStatus : undefined,
+    );
   }
 }

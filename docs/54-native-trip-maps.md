@@ -101,3 +101,15 @@ Run `native-smoke/driver-waiting.yaml` only against a signed-in, online syntheti
 active trip or offer. Tests mutate local availability, so run the platforms sequentially. Two
 foreground simulators sharing one driver can race the heartbeat sequence; a displayed update
 warning is not proof that the map SDK failed. Real-device tracking still needs separate testing.
+
+## Diagnosing staging address search
+
+The backend `GOOGLE_MAPS_API_KEY` is separate from the native iOS and Android SDK keys. An iOS-app restriction cannot authorize server-side Places requests. Keep native application restrictions intact; configure a separate server key for Places API (New) and Routes API.
+
+With an explicitly authorized billable diagnostic and a privately stored Vercel staging environment export, run:
+
+```sh
+pnpm maps:staging:check /path/to/private-staging.env "Public pickup" "Public destination" --allow-billable-requests
+```
+
+The diagnostic makes at most five Google requests, stops at the first failure, and creates no rides or database records. It handles Vercel's quoted service-area JSON exports. Failures identify the stage and, when available, the provider HTTP status; raw provider responses, addresses and credentials are not printed. A successful check verifies address search, details and routing only—not native rendering or a complete booking/payment flow. Delete temporary environment exports after use.
