@@ -1,0 +1,22 @@
+# Requires a signed-in driver on Drive with an accepted synthetic trip.
+# Use one driver simulator at a time with the shared synthetic account.
+appId: co.roveride.driver
+---
+- extendedWaitUntil:
+    visible: Continue your trip
+    timeout: 30000
+- tapOn: Continue your trip
+- assertVisible: Ride accepted · ready for pickup
+- assertVisible: '.*Pickup and destination markers.*'
+- scrollUntilVisible:
+    element: Head to pickup
+    direction: DOWN
+- tapOn: Head to pickup
+- scrollUntilVisible:
+    element: 'Confirm: Head to pickup'
+    direction: DOWN
+- tapOn: 'Confirm: Head to pickup'
+- extendedWaitUntil:
+    visible: Heading to pickup
+    timeout: 15000
+- takeScreenshot: active-trip-pickup

@@ -11,6 +11,7 @@ export function TripMap({
   iosEnabled,
   synthetic,
   driver,
+  fill = false,
 }: TripMapProps) {
   const map = useRef<MapView>(null);
   const [ready, setReady] = useState(false);
@@ -36,7 +37,7 @@ export function TripMap({
     longitudeDelta: Math.max(0.02, Math.abs(pickup.longitude - destination.longitude) * 1.5),
   };
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, fill && { flex: 1 }]}>
       <MapView
         ref={map}
         onMapReady={() => {
@@ -52,7 +53,7 @@ export function TripMap({
           }
         }}
         provider={applePreview ? undefined : PROVIDER_GOOGLE}
-        style={styles.map}
+        style={[styles.map, fill && { flex: 1, height: undefined, borderRadius: 0 }]}
         initialRegion={region}
         userInterfaceStyle="dark"
         {...(!applePreview ? { customMapStyle: darkMapStyle } : {})}

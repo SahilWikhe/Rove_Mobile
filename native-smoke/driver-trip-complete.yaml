@@ -1,0 +1,47 @@
+# Requires a signed-in driver on Drive with an en-route synthetic trip.
+# Use one driver simulator at a time with the shared synthetic account.
+appId: co.roveride.driver
+---
+- extendedWaitUntil:
+    visible: Continue your trip
+    timeout: 30000
+- tapOn: Continue your trip
+- assertVisible: Heading to pickup
+- scrollUntilVisible:
+    element: I’ve arrived
+    direction: DOWN
+- tapOn: I’ve arrived
+- scrollUntilVisible:
+    element: 'Confirm: I’ve arrived'
+    direction: DOWN
+- tapOn: 'Confirm: I’ve arrived'
+- extendedWaitUntil:
+    visible: Waiting at pickup
+    timeout: 15000
+- scrollUntilVisible:
+    element: Start trip
+    direction: DOWN
+- tapOn: Start trip
+- scrollUntilVisible:
+    element: 'Confirm: Start trip'
+    direction: DOWN
+- tapOn: 'Confirm: Start trip'
+- extendedWaitUntil:
+    visible: Rider on board
+    timeout: 15000
+- takeScreenshot: active-trip-onboard
+- scrollUntilVisible:
+    element: Complete trip
+    direction: DOWN
+- tapOn: Complete trip
+- scrollUntilVisible:
+    element: 'Confirm: Complete trip'
+    direction: DOWN
+- tapOn: 'Confirm: Complete trip'
+- extendedWaitUntil:
+    visible: Trip complete.
+    timeout: 15000
+- assertNotVisible: Home · synthetic pickup
+- assertNotVisible: Work · synthetic destination
+- assertNotVisible: Alex Rider
+- takeScreenshot: active-trip-complete

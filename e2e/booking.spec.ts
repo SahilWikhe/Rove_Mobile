@@ -139,6 +139,7 @@ test('rider request reaches the driver and both apps follow a completed syntheti
     });
     for (const action of ['Head to pickup', 'I’ve arrived', 'Start trip', 'Complete trip']) {
       await expect(driver.getByRole('button', { name: action, exact: true })).toBeVisible();
+      await expect(driver.getByRole('button', { name: action, exact: true })).toBeInViewport();
       const leg = action === 'Complete trip' ? 'destination' : 'pickup';
       const before = await request.get('http://localhost:4085/v1/rides/' + id, {
         headers: { Authorization: 'Bearer synthetic-driver' },

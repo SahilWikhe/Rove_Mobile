@@ -175,3 +175,22 @@ completed synthetic trip with lost acceptance response, long area labels at 320-
 expiry disabling both responses, and return navigation. Native simulator checks cover the offer
 sheet and absence of the synthetic exact pickup address; they do not establish real-device GPS,
 live offers or payment settlement. The layout preserves scrolling for larger text and small screens.
+
+## Driver active-trip surface
+
+Heading to pickup (`2:108`) and Trip in progress (`2:186`) now use a top-edge native map,
+server-state status pill, and rounded scrolling detail sheet. A persistent bottom action area
+keeps arrival/start/completion reachable without panning the map or scrolling through route details.
+Confirmation content can scroll on smaller screens. The existing fresh-state, conflict and lost-response
+checks still control mutations. Ended trips return to ordinary history/earnings layout without precise
+endpoints or rider identity, using the server's redacted response.
+
+Maps show authorized endpoint markers with a manual reframe control. No fabricated turn-by-turn
+route, ETA, remaining distance, rider notes, contact service or progress percentage is introduced.
+The new optional shared-map fill layout leaves rider inline maps unchanged. Real route geometry,
+compact rider-contact presentation and full Figma motion/gradient parity remain outstanding.
+
+Android native verification exercised accepted-trip map display and a confirmed pickup transition.
+iOS verification exercised arrival, start and completion, with exact addresses and rider identity
+absent after completion. Browser verification covers navigation handoff, unavailable reads, concurrent
+milestone updates, lost acceptance recovery and completion through synthetic payment settlement.

@@ -1,4 +1,4 @@
-import { TripMap } from '@rove/mobile-ui/trip-map';
+import { ActiveTripSurface } from '../trips/active-trip-surface';
 import { TripEarningsSummary } from '../earnings/trip-summary';
 import { useOperations } from '@rove/mobile-core/use-operations';
 import { pollWhileForeground } from '@rove/mobile-core/foreground-polling';
@@ -8,7 +8,7 @@ import { NavigationButton } from '../navigation/button';
 import { router, Stack, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import type { RideDetails } from '@rove/contracts';
 import { useSession } from '@rove/mobile-core/session';
-import { Banner, Button, Card, Copy, RouteSummary, Screen } from '@rove/mobile-ui';
+import { Banner, Button, Card, Copy, RouteSummary } from '@rove/mobile-ui';
 const actions = {
   matched: ['en_route', 'Head to pickup'],
   en_route: ['arrived', 'I’ve arrived'],
@@ -103,9 +103,32 @@ function TripContent({ id }: { id: string }) {
       setBusy(false);
     }
   }
+  const controls =
+    ride &&
+    action &&
+    !readError &&
+    !pending &&
+    !restoring &&
+    !recoveryError &&
+    (confirm === ride.version ? (
+      <Card>
+        <Copy kind="heading">{action[1]}?</Copy>
+        <Copy kind="muted">
+          {ride.state === 'arrived'
+            ? 'Confirm your rider is safely onboard before starting.'
+            : ride.state === 'in_progress'
+              ? 'Confirm you have safely dropped off your rider.'
+              : 'Confirm this trip milestone.'}
+        </Copy>
+        <Button title={`Confirm: ${action[1]}`} loading={busy} onPress={() => void transition()} />
+        <Button title="Not yet" variant="secondary" disabled={busy} onPress={() => setConfirm(null)} />
+      </Card>
+    ) : (
+      <Button style={{ borderRadius: 27 }} title={action[1]} onPress={() => setConfirm(ride.version)} />
+    ));
   return (
-    <Screen>
-      <Stack.Screen options={{ title: 'Active trip' }} />
+    <ActiveTripSurface ride={ride} synthetic={synthetic} footer={controls}>
+      <Stack.Screen options={{ headerShown: false }} />
       {(error || readError) && <Banner error message={error ?? readError!} />}
       {recoveryError && <Banner error message={recoveryError} />}
       {pending && (
@@ -122,7 +145,7 @@ function TripContent({ id }: { id: string }) {
       {ride ? (
         <>
           <Copy kind="label">{ride.state.replaceAll('_', ' ').toUpperCase()}</Copy>
-          <Copy kind="title">
+          <Copy kind="title" style={action ? { fontSize: 22, lineHeight: 30 } : {}}>
             {ride.state === 'completed'
               ? 'Trip complete.'
               : ride.state === 'arrived'
@@ -137,16 +160,6 @@ function TripContent({ id }: { id: string }) {
               <Copy kind="heading">{ride.rider.name}</Copy>
             </Card>
           )}
-          {ride.pickup && ride.destination && (
-            <TripMap
-              key={ride.id}
-              pickup={ride.pickup.coordinate}
-              destination={ride.destination.coordinate}
-              synthetic={synthetic}
-              androidEnabled={!!process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY}
-              iosEnabled={!!process.env.EXPO_PUBLIC_GOOGLE_MAPS_IOS_KEY}
-            />
-          )}
           <RouteSummary
             pickup={ride.pickup?.label ?? ride.pickupArea}
             destination={ride.destination?.label ?? ride.destinationArea}
@@ -156,38 +169,12 @@ function TripContent({ id }: { id: string }) {
             ride={ride}
             disabled={busy || !!readError || !!pending || restoring || !!recoveryError}
           />
-          {action &&
-            !readError &&
-            !pending &&
-            !restoring &&
-            !recoveryError &&
-            (confirm === ride.version ? (
-              <Card>
-                <Copy kind="heading">{action[1]}?</Copy>
-                <Copy kind="muted">
-                  {ride.state === 'arrived'
-                    ? 'Confirm your rider is safely onboard before starting.'
-                    : ride.state === 'in_progress'
-                      ? 'Confirm you have safely dropped off your rider.'
-                      : 'Confirm this trip milestone.'}
-                </Copy>
-                <Button title={`Confirm: ${action[1]}`} loading={busy} onPress={() => void transition()} />
-                <Button
-                  title="Not yet"
-                  variant="secondary"
-                  disabled={busy}
-                  onPress={() => setConfirm(null)}
-                />
-              </Card>
-            ) : (
-              <Button title={action[1]} onPress={() => setConfirm(ride.version)} />
-            ))}
           {ride.state === 'completed' && <TripEarningsSummary key={ride.id} rideId={ride.id} />}
           {!action && <Button title="Back to driving" onPress={() => router.replace('/drive')} />}
         </>
       ) : (
         <Copy kind="muted">Loading your trip…</Copy>
       )}
-    </Screen>
+    </ActiveTripSurface>
   );
 }
