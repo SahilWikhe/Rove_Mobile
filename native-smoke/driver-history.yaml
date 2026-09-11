@@ -1,0 +1,19 @@
+# Requires the local synthetic driver session with a completed Downtown Raleigh → North Hills trip.
+# Start from Drive. Exercises history, pull-to-refresh, and completion on iOS or Android.
+appId: co.roveride.driver
+---
+- extendedWaitUntil:
+    visible: 'Trips'
+    timeout: 30000
+- tapOn: 'Trips'
+- assertVisible: 'Your rides and their latest status'
+- assertNotVisible: 'Refresh'
+- swipe:
+    start: '50%,30%'
+    end: '50%,75%'
+    duration: 700
+- tapOn:
+    text: 'Downtown Raleigh to North Hills, completed,.*'
+    index: 0
+- assertVisible: 'Trip complete.'
+- assertVisible: 'You earned'

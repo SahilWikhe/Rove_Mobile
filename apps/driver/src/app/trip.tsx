@@ -143,7 +143,7 @@ function TripContent({ id }: { id: string }) {
         </Card>
       )}
 
-      {trackingError && <Banner error message={trackingError} />}
+      {action && trackingError && <Banner error message={trackingError} />}
       {ride ? (
         <>
           {ride.state === 'completed' ? (
