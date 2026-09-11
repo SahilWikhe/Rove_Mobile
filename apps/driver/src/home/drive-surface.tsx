@@ -56,10 +56,7 @@ export function DriveSurface({
           </Copy>
         </View>
       </Animated.View>
-      <View
-        style={[styles.sheet, { marginBottom: insets.bottom + (footer ? footerHeight + 8 : 12) }]}
-        {...sheet.panHandlers}
-      >
+      <View style={styles.sheet} {...sheet.panHandlers}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={sheet.expanded ? 'Collapse driving panel' : 'Expand driving panel'}
@@ -77,7 +74,10 @@ export function DriveSurface({
             sheet.scrollY.current = Math.max(0, event.nativeEvent.contentOffset.y);
           }}
           scrollEventThrottle={16}
-          contentContainerStyle={[styles.content, { paddingBottom: 24 }]}
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: insets.bottom + (footer ? footerHeight : 0) + 24 },
+          ]}
           keyboardShouldPersistTaps="handled"
         >
           {children}
