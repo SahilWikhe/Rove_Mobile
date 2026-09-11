@@ -257,7 +257,13 @@ const styles = StyleSheet.create({
   selectedFilter: { backgroundColor: theme.gold },
   filterText: { fontSize: 13, fontFamily: 'Manrope_700Bold', color: theme.muted },
   summary: { padding: 20, borderRadius: 18, gap: 8 },
-  amount: { fontSize: 34, letterSpacing: -0.68, fontFamily: 'Manrope_800ExtraBold', color: theme.gold },
+  amount: {
+    fontSize: 34,
+    lineHeight: 44,
+    letterSpacing: -0.68,
+    fontFamily: 'Manrope_800ExtraBold',
+    color: theme.gold,
+  },
   caption: { fontSize: 13, lineHeight: 20 },
   payout: {
     flexDirection: 'row',
