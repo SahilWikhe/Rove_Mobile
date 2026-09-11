@@ -10,10 +10,12 @@ export function DriveSurface({
   synthetic,
   footer,
   children,
+  request = false,
 }: PropsWithChildren<{
   online: boolean;
   synthetic: boolean;
-  footer: ReactNode;
+  footer?: ReactNode;
+  request?: boolean;
 }>) {
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -25,10 +27,19 @@ export function DriveSurface({
     );
   return (
     <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.screen}>
-      <View style={{ height: Math.max(240, Math.min(440, height * 0.43)) + insets.top }}>
+      <View
+        style={{
+          height:
+            (request
+              ? Math.max(140, Math.min(260, height * 0.28))
+              : Math.max(240, Math.min(440, height * 0.43))) + insets.top,
+        }}
+      >
         <WaitingMap synthetic={synthetic} />
         <View style={[styles.status, { top: insets.top + 20 }]} pointerEvents="none">
-          <Copy style={styles.statusText}>You’re online · looking for rides</Copy>
+          <Copy style={styles.statusText}>
+            {request ? 'Ride request · your location' : 'You’re online · looking for rides'}
+          </Copy>
         </View>
       </View>
       <ScrollView

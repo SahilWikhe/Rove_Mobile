@@ -5,14 +5,16 @@ import { router, Stack, useLocalSearchParams, useFocusEffect } from 'expo-router
 import * as Crypto from 'expo-crypto';
 import type { DriverOffer } from '@rove/contracts';
 import { useSession } from '@rove/mobile-core/session';
-import { Banner, Button, Card, Copy, Money, RouteSummary, Screen } from '@rove/mobile-ui';
+import { Banner, Button, Copy, Screen } from '@rove/mobile-ui';
+import { DriveSurface } from '../home/drive-surface';
+import { OfferSummary } from '../offers/offer-summary';
 export default function Offer() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { profile } = useSession();
   return <OfferContent key={`${profile?.id ?? 'signed-out'}:${id}`} id={id} />;
 }
 function OfferContent({ id }: { id: string }) {
-  const { api } = useSession();
+  const { api, synthetic } = useSession();
   const { pending, restoring, recoveryError, execute } = useOperations();
   const epoch = useRef(0);
   const sending = useRef(false);
@@ -98,31 +100,23 @@ function OfferContent({ id }: { id: string }) {
       </Screen>
     );
   return (
-    <Screen>
-      <Stack.Screen options={{ title: 'Ride request' }} />
+    <DriveSurface online={Boolean(offer)} synthetic={synthetic} request>
+      <Stack.Screen options={{ headerShown: false }} />
       {error && <Banner error message={error} />}
       {trackingError && <Banner error message={trackingError} />}
       {offer ? (
         <>
-          <Copy kind="label">{remaining ? `${remaining} SECONDS TO RESPOND` : 'OFFER EXPIRED'}</Copy>
-          <Money cents={offer.estimatedEarnings.amount} label="ESTIMATED EARNINGS" />
-          <Copy kind="title">Your next trip.</Copy>
-          <RouteSummary pickup={offer.pickupArea} destination={offer.destinationArea} />
-          <Card>
-            <Copy>{Math.ceil(offer.pickupSeconds / 60)} min to pickup</Copy>
-            <Copy>
-              {Math.ceil(offer.tripSeconds / 60)} min trip · {(offer.distanceMeters / 1000).toFixed(1)} km
-            </Copy>
-            <Copy kind="muted">Exact trip details are available after you accept.</Copy>
-          </Card>
+          <OfferSummary offer={offer} remaining={remaining} />
           <Button
             title="Accept ride"
+            style={{ borderRadius: 27 }}
             disabled={!remaining}
             loading={busy}
             onPress={() => void respond(true)}
           />
           <Button
             title="Decline"
+            style={{ borderRadius: 25 }}
             variant="secondary"
             disabled={!remaining || busy}
             onPress={() => void respond(false)}
@@ -132,6 +126,6 @@ function OfferContent({ id }: { id: string }) {
         !error && <Copy kind="muted">Loading the request…</Copy>
       )}
       <Button title="Back to driving" variant="secondary" onPress={() => router.replace('/drive')} />
-    </Screen>
+    </DriveSurface>
   );
 }

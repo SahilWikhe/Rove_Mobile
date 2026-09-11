@@ -1,0 +1,13 @@
+# Requires a fresh synthetic offer visible on Drive. Run one driver device at a time.
+appId: co.roveride.driver
+---
+- tapOn:
+    text: Back to driving
+    optional: true
+- tapOn: View ride request
+- extendedWaitUntil:
+    visible: New ride request
+    timeout: 15000
+- assertVisible: PICKUP AREA
+- assertNotVisible: Home · synthetic pickup
+- takeScreenshot: driver-offer-sheet

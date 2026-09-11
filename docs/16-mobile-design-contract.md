@@ -158,3 +158,20 @@ Driver navigation icons use transparent PNG renders of the original Figma `4:281
 retained alongside them in assets/navigation. Icon tint follows the selected route, matching the
 label and accessibility selection. Native iOS and Android screenshots verified the Drive selection
 and transparent backgrounds; the earlier opaque raster exports must not be restored.
+
+## Driver offer sheet adaptation
+
+Driver Ride request (`2:2`) now uses the native driver-location map above a rounded scrolling
+sheet, compact estimated earnings and travel summary, response countdown, and pill-shaped actions.
+The map only receives the driver's own location; it never receives offer endpoint coordinates or
+route geometry. Pickup/drop-off text comes from the strict broad-area offer contract. The original
+Figma route connector SVG is retained in assets/offers with its transparent PNG render. Rider
+identity, rating/history, medical funding, standing-ride labels and 100%-fare claims remain excluded.
+Standard or accessible service is shown from the actual offer. Shared Rove buttons retain their
+existing solid gold treatment; a complete gradient/motion parity pass remains outstanding.
+
+The original acceptance journal and lost-response recovery remain intact. Browser checks cover a
+completed synthetic trip with lost acceptance response, long area labels at 320-pixel width,
+expiry disabling both responses, and return navigation. Native simulator checks cover the offer
+sheet and absence of the synthetic exact pickup address; they do not establish real-device GPS,
+live offers or payment settlement. The layout preserves scrolling for larger text and small screens.
