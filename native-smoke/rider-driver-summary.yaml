@@ -8,6 +8,9 @@ appId: co.roveride.rider
 - extendedWaitUntil:
     visible: Your driver is confirmed.
     timeout: 30000
+- assertVisible: Back to rides
+- assertVisible: Your account
+- takeScreenshot: rider-tracking-header
 - scrollUntilVisible:
     element: 'Pickup · now'
     direction: DOWN

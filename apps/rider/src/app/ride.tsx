@@ -1,3 +1,4 @@
+import { TrackingHeader, trackingCaptions } from '../tracking/tracking-header';
 import { DriverSummary } from '../tracking/driver-summary';
 import { RiderTripMap } from '../tracking/trip-map';
 import { ApiError } from '@rove/mobile-core';
@@ -27,6 +28,7 @@ export default function Ride() {
   const { pending, restoring, recoveryError, execute } = useOperations();
   const [loadedRide, setRide] = useState<RideDetails | null>(null);
   const ride = loadedRide?.id === id ? loadedRide : null;
+  const trackingCaption = ride ? trackingCaptions[ride.state] : undefined;
   const [error, setError] = useState<string | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -92,8 +94,15 @@ export default function Ride() {
     }
   }
   return (
-    <Screen>
-      <Stack.Screen options={{ title: 'Your ride' }} />
+    <Screen contentStyle={trackingCaption ? { padding: 20, gap: 16 } : undefined}>
+      <Stack.Screen options={{ title: 'Your ride', headerShown: !trackingCaption }} />
+      {trackingCaption && (
+        <TrackingHeader
+          caption={trackingCaption}
+          onBack={() => router.replace('/rides')}
+          onAccount={() => router.push('/account')}
+        />
+      )}
       {(error || readError) && <Banner error message={error ?? readError!} />}
       {recoveryError && <Banner error message={recoveryError} />}
       {pending && (
@@ -108,7 +117,10 @@ export default function Ride() {
 
       {ride ? (
         <>
-          <Copy kind="title">
+          <Copy
+            kind="title"
+            style={trackingCaption ? { fontSize: 23, lineHeight: 29, letterSpacing: -0.5 } : undefined}
+          >
             {ride.state === 'searching' && !synthetic && ride.paymentState !== 'authorized'
               ? 'Confirm your payment.'
               : titles[ride.state]}

@@ -135,6 +135,8 @@ test('rider request reaches the driver and both apps follow a completed syntheti
       .toBe(true);
     await page.bringToFront();
     await expect(page.getByText('Pickup · now', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Back to rides', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Your account', exact: true })).toBeVisible();
     await expect(page.getByText('YOUR DRIVER', { exact: true })).toBeVisible();
     await expect(page.getByText(/Driver location last reported at/)).toBeVisible();
     // A location read failure must remove the previously visible report.

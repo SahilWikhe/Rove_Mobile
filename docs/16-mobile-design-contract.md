@@ -204,7 +204,15 @@ trip state and disappear with the driver card when the ride ends. Interrupted tr
 attention state without a normal progress indicator. The avatar is decorative, not a driver photo.
 
 No mock arrival time, vehicle plate, call action, progress percentage or rider-controlled arrival
-is introduced. Those require their own provider/contract support. Full screen/header spacing,
-route geometry and remaining tracking visual parity are still outstanding. Browser verification
+is introduced. Those require their own provider/contract support. Route geometry and remaining tracking visual parity are still outstanding. Browser verification
 covers pickup-to-onboard progression and removal after completion; iOS and Android simulator
 checks cover the accepted-ride card and original avatar rendering.
+
+The active rider tracking header follows `6:22`–`6:36`, with original back/account/status assets,
+48-point touch targets, Manrope wordmark and state-derived status pill. Active trips hide the
+extra native stack header so Screen owns the top safe area once; the heading uses the reference's
+23/29 typography and 16-point content gaps. Back opens personal ride history, Account opens the
+existing account route. Terminal/loading states retain the ordinary native header. iOS and Android
+screenshots and header/card assertions passed, alongside the full browser trip lifecycle. The
+inline map retains its existing accessibility and reframe controls; its detailed layout remains
+an adaptation rather than pixel-identical parity with Figma's decorative map.
