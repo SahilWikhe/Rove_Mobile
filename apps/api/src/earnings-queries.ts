@@ -17,6 +17,7 @@ export async function getEarnings(pool: Pool, actor: Actor, before?: string, ran
       total: string;
       cursor_valid: boolean;
       period_total: string;
+      daily_totals: { date: string; amount: number }[] | null;
     }>(
       `WITH owned AS MATERIALIZED (
        SELECT j.id,j.ride_id,j.created_at,(-SUM(l.amount_cents))::text AS amount
@@ -31,7 +32,12 @@ export async function getEarnings(pool: Pool, actor: Actor, before?: string, ran
        SELECT * FROM filtered WHERE $2::uuid IS NULL OR (created_at,id)<(SELECT created_at,id FROM boundary)
        ORDER BY created_at DESC,id DESC LIMIT 51
      ), totals AS (SELECT COALESCE(SUM(amount::bigint),0)::text AS total FROM owned)
-     SELECT p.*,t.total,(SELECT COALESCE(SUM(amount::bigint),0)::text FROM filtered) AS period_total,($2::uuid IS NULL OR EXISTS(SELECT 1 FROM boundary)) AS cursor_valid
+     SELECT p.*,t.total,
+       CASE WHEN $3::date IS NOT NULL AND ($4::date - $3::date) BETWEEN 0 AND 30 THEN
+         (SELECT json_agg(json_build_object('date',to_char(day,'YYYY-MM-DD'),'amount',COALESCE(d.amount,0)) ORDER BY day)
+          FROM generate_series($3::date::timestamp,$4::date::timestamp,interval '1 day') day
+          LEFT JOIN (SELECT (created_at AT TIME ZONE 'UTC')::date AS date,SUM(amount::bigint) AS amount FROM filtered GROUP BY 1) d ON d.date=day::date)
+       ELSE NULL END AS daily_totals,(SELECT COALESCE(SUM(amount::bigint),0)::text FROM filtered) AS period_total,($2::uuid IS NULL OR EXISTS(SELECT 1 FROM boundary)) AS cursor_valid
      FROM totals t LEFT JOIN page p ON true ORDER BY p.created_at DESC,p.id DESC`,
       [actor.id, before ?? null, range?.from ?? null, range?.through ?? null],
     )
@@ -43,6 +49,7 @@ export async function getEarnings(pool: Pool, actor: Actor, before?: string, ran
   return DriverEarnings.parse({
     recordedTotal: { amount: Number(rows[0].total), currency: 'USD' },
     ...(range ? { periodTotal: { amount: Number(rows[0].period_total), currency: 'USD' } } : {}),
+    ...(rows[0].daily_totals ? { dailyTotals: rows[0].daily_totals } : {}),
     entries: page.map((row) => ({
       id: row.id,
       rideId: row.ride_id,

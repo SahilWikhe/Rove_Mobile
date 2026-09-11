@@ -47,7 +47,10 @@ export function Screen({
   const overlay = floatingFooter && Boolean(footer);
   const bottomSpace = overlay ? { paddingBottom: footerHeight + insets.bottom + 16 } : undefined;
   return (
-    <SafeAreaView edges={overlay ? ['top', 'left', 'right'] : undefined} style={styles.screen}>
+    <SafeAreaView
+      edges={overlay ? ['top', 'left', 'right'] : ['top', 'left', 'right', 'bottom']}
+      style={styles.screen}
+    >
       {scroll ? (
         <ScrollView
           refreshControl={

@@ -7,9 +7,12 @@ appId: co.roveride.driver
     direction: DOWN
 - tapOn: Earnings
 - assertVisible: Last 7 days
+- assertVisible:
+    id: daily-earnings
 - tapOn: Filter recorded dates
 - tapOn:
     id: earnings-from-date
+- eraseText
 - inputText: '2000-01-01'
 - assertVisible: '2000-01-01'
 - pressKey: Enter
@@ -19,6 +22,7 @@ appId: co.roveride.driver
     direction: DOWN
 - tapOn:
     id: earnings-through-date
+- eraseText
 - inputText: '2000-01-31'
 - assertVisible: '2000-01-31'
 - pressKey: Enter
@@ -30,6 +34,10 @@ appId: co.roveride.driver
     element: 2000-01-01 – 2000-01-31 · UTC
     direction: DOWN
 - assertVisible: 2000-01-01 – 2000-01-31 · UTC
+- scrollUntilVisible:
+    element: Daily totals · swipe to see more dates
+    direction: DOWN
+- assertVisible: Daily totals · swipe to see more dates
 - scrollUntilVisible:
     element: No recorded earnings in this date range.
     direction: DOWN

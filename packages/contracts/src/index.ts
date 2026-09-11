@@ -242,6 +242,14 @@ export const DriverEarnings = z
       })
       .strict()
       .optional(),
+    dailyTotals: z
+      .array(
+        z
+          .object({ date: z.iso.date(), amount: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER) })
+          .strict(),
+      )
+      .max(31)
+      .optional(),
     entries: z
       .array(
         z.object({ id: z.uuid(), rideId: z.uuid(), recordedAt: z.iso.datetime(), amount: Money }).strict(),

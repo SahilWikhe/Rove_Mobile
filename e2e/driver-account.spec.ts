@@ -25,6 +25,7 @@ test('Driver Account navigation opens trips and earnings with a route back', asy
     'true',
   );
   await expect(page.getByRole('button', { name: 'Review payout setup', exact: true })).toBeVisible();
+  await expect(page.getByTestId('daily-earnings').getByRole('img')).toHaveCount(7);
   await page.screenshot({ path: '/tmp/rove-driver-earnings-figma-web.png', fullPage: true });
   await page.getByRole('button', { name: 'Filter recorded dates', exact: true }).click();
   await page.getByRole('textbox', { name: 'From date (UTC)', exact: true }).fill('2026-02-30');
@@ -37,12 +38,14 @@ test('Driver Account navigation opens trips and earnings with a route back', asy
   await page.getByRole('textbox', { name: 'Through date (UTC)', exact: true }).fill('2000-01-31');
   await page.getByRole('button', { name: 'Apply dates', exact: true }).click();
   await expect(page.getByText('2000-01-01 – 2000-01-31 · UTC', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('daily-earnings').getByRole('img')).toHaveCount(31);
   await expect(page.getByText('No recorded earnings in this date range.', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Filter recorded dates', exact: true }).click();
   await page.getByRole('button', { name: 'All recorded dates', exact: true }).click();
   await page.getByRole('button', { name: 'Filter recorded dates', exact: true }).click();
   await expect(page.getByRole('textbox', { name: 'From date (UTC)', exact: true })).toHaveValue('');
   await expect(page.getByText('2000-01-01 – 2000-01-31 · UTC', { exact: true })).toHaveCount(0);
+  await expect(page.getByTestId('daily-earnings')).toHaveCount(0);
   await page.getByRole('button', { name: 'Drive', exact: true }).click();
   await expect(page).toHaveURL(/\/drive$/);
 });

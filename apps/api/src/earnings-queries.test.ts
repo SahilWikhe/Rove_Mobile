@@ -200,6 +200,10 @@ test('UTC date filtering includes both full dates and keeps lifetime totals sepa
   });
   expect(result.recordedTotal.amount).toBe(400);
   expect(result.periodTotal?.amount).toBe(200);
+  expect(result.dailyTotals).toEqual([
+    { date: '2026-09-07', amount: 100 },
+    { date: '2026-09-08', amount: 100 },
+  ]);
   expect(result.entries.map((row) => row.rideId)).toEqual([rides[2], rides[1]]);
   const empty = await getEarnings(db.pool, { id: driver, role: 'driver' }, undefined, {
     from: '2026-10-01',
@@ -207,6 +211,7 @@ test('UTC date filtering includes both full dates and keeps lifetime totals sepa
   });
   expect(empty.entries).toEqual([]);
   expect(empty.periodTotal?.amount).toBe(0);
+  expect(empty.dailyTotals).toEqual([{ date: '2026-10-01', amount: 0 }]);
   expect(empty.recordedTotal.amount).toBe(400);
 });
 test.each([
@@ -241,6 +246,21 @@ test('filtered pagination keeps the complete period total across pages with tied
   for (const page of [first, second]) {
     expect(page.recordedTotal.amount).toBe(620);
     expect(page.periodTotal?.amount).toBe(520);
+    expect(page.dailyTotals).toHaveLength(30);
+    expect(page.dailyTotals?.reduce((total, day) => total + day.amount, 0)).toBe(520);
   }
   expect(new Set([...first.entries, ...second.entries].map((row) => row.id)).size).toBe(52);
+});
+
+test('daily totals include leap day and stop at the 31-day chart limit', async () => {
+  await entry(driver, 250, 'allocation', '2024-02-29T23:59:59Z');
+  const actor = { id: driver, role: 'driver' as const };
+  const bounded = await getEarnings(db.pool, actor, undefined, { from: '2024-02-01', through: '2024-03-02' });
+  expect(bounded.dailyTotals).toHaveLength(31);
+  expect(bounded.dailyTotals?.find((day) => day.date === '2024-02-29')?.amount).toBe(250);
+  expect(bounded.dailyTotals?.at(-1)).toEqual({ date: '2024-03-02', amount: 0 });
+  const longer = await getEarnings(db.pool, actor, undefined, { from: '2024-02-01', through: '2024-03-03' });
+  expect(longer).not.toHaveProperty('dailyTotals');
+  expect(longer.periodTotal?.amount).toBe(250);
+  expect(await read()).not.toHaveProperty('dailyTotals');
 });

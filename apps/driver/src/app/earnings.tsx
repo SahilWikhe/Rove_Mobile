@@ -1,4 +1,5 @@
 import { Keyboard, Pressable, StyleSheet, View } from 'react-native';
+import { DailyEarnings } from '../earnings/daily-earnings';
 import { DriverNavigation } from '../navigation/driver-navigation';
 import { useCallback, useState } from 'react';
 import { Stack, router, useFocusEffect } from 'expo-router';
@@ -13,7 +14,12 @@ export default function Earnings() {
 function EarningsBrowser() {
   const [cursors, setCursors] = useState<string[]>([]);
   const before = cursors.at(-1);
-  const [range, setRange] = useState<EarningsDateRange | undefined>();
+  const [range, setRange] = useState<EarningsDateRange | undefined>(() => {
+    const through = new Date();
+    const from = new Date(through);
+    from.setUTCDate(from.getUTCDate() - 6);
+    return { from: from.toISOString().slice(0, 10), through: through.toISOString().slice(0, 10) };
+  });
   return (
     <EarningsContent
       key={`${range?.from ?? ''}:${range?.through ?? ''}:${before ?? 'latest'}`}
@@ -178,6 +184,7 @@ function EarningsContent({
             <Copy kind="muted" style={styles.caption}>
               Allocated from captured trip payments, before payouts or adjustments.
             </Copy>
+            {data.dailyTotals && <DailyEarnings days={data.dailyTotals} />}
           </Card>
           <Pressable
             accessibilityRole="button"

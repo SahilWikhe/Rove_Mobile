@@ -262,7 +262,18 @@ test('rider request reaches the driver and both apps follow a completed syntheti
       driver.getByText('Synthetic earnings · no money will be paid out.', { exact: true }),
     ).toBeVisible();
     await driver.getByRole('button', { name: 'View earnings', exact: true }).click();
-    await expect(driver.getByText('Lifetime recorded earnings', { exact: true })).toBeVisible();
+    await expect(driver.getByRole('tab', { name: 'Last 7 days', exact: true })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    const today = new Date().toISOString().slice(0, 10);
+    const amount = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
+      tripEarnings.recordedAmount.amount / 100,
+    );
+    await expect(
+      driver.getByRole('img', { name: `${today}, ${amount} recorded earnings`, exact: true }),
+    ).toBeVisible();
+    await driver.screenshot({ path: '/tmp/rove-driver-chart-paid-web.png', fullPage: true });
     const earning = driver.getByTestId('earning-' + id);
     await expect(earning).toBeVisible();
     await earning.locator('..').getByRole('button', { name: 'View trip details', exact: true }).click();
