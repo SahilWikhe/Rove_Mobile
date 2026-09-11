@@ -1,0 +1,11 @@
+# Requires a signed-in rider and an authorized synthetic ride; provide PAYMENT_LINK.
+appId: co.roveride.rider
+---
+- openLink: ${PAYMENT_LINK}
+- tapOn:
+    text: Open
+    optional: true
+- extendedWaitUntil:
+    visible: 'Payment confirmed. Continue to your ride.'
+    timeout: 30000
+- takeScreenshot: payment-current-confirmation

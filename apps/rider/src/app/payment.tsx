@@ -3,12 +3,16 @@ import { Platform } from 'react-native';
 import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import type { RideDetails } from '@rove/contracts';
 import { useSession } from '@rove/mobile-core/session';
-import { latestPaymentRide } from '@rove/mobile-core/payment-flow';
+import { latestPaymentRide, paymentAvailability } from '@rove/mobile-core/payment-flow';
 import { pollWhileForeground } from '@rove/mobile-core/foreground-polling';
 import { Banner, Button, Card, Copy, Money, RouteSummary, Screen } from '@rove/mobile-ui';
 import { usePayments } from '../payments/context';
 export default function Payment() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { profile } = useSession();
+  return <PaymentScreen key={`${profile?.id ?? 'signed-out'}:${id}`} id={id} />;
+}
+function PaymentScreen({ id }: { id: string }) {
   const { api, profile } = useSession();
   const payments = usePayments();
   const [ride, setRide] = useState<RideDetails | null>(null);
@@ -24,6 +28,10 @@ export default function Payment() {
       active.current = true;
       epoch.current++;
       setBusy(paying.current);
+      setRide(null);
+      setError(null);
+      setNotice(null);
+      setReadError(null);
       if (!profile?.id)
         return () => {
           active.current = false;
@@ -32,6 +40,7 @@ export default function Payment() {
       const dispose = pollWhileForeground({
         load: (signal) => api.ride(id, signal),
         onData: (updated) => {
+          if (updated.id !== id) return;
           setReadError(null);
           setRide((old) => latestPaymentRide(old, updated));
         },
@@ -45,8 +54,9 @@ export default function Payment() {
       };
     }, [api, id, profile?.id]),
   );
-  const authorized = ride?.paymentState === 'authorized' || ride?.paymentState === 'paid';
-  const canPay = ride?.state === 'searching' && ['pending', 'action_required'].includes(ride.paymentState);
+  const availability = paymentAvailability(ride, id, !!readError);
+  const authorized = availability === 'confirmed';
+  const canPay = availability === 'ready';
   async function pay() {
     if (!canPay || paying.current) return;
     const started = epoch.current;
@@ -108,7 +118,9 @@ export default function Payment() {
               temporary hold.
             </Copy>
           </Card>
-          {authorized ? (
+          {availability === 'unknown' ? (
+            <Banner message="Waiting for current ride status before confirming payment." />
+          ) : authorized ? (
             <Banner message="Payment confirmed. Continue to your ride." />
           ) : !canPay ? (
             <Banner message="This ride is not waiting for payment. Open your ride for the latest status." />

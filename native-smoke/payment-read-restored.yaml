@@ -1,0 +1,8 @@
+# Restore the local API connection after payment-read-failure without leaving the screen.
+appId: co.roveride.rider
+---
+- extendedWaitUntil:
+    visible: '(Payment confirmed\. Continue to your ride\.|This ride is not waiting for payment\. Open your ride for the latest status\.)'
+    timeout: 30000
+- assertNotVisible: Waiting for current ride status before confirming payment.
+- takeScreenshot: payment-read-restored

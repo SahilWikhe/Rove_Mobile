@@ -16,6 +16,14 @@ The payment controller checks whether its account/screen is still current after 
 
 The web implementation excludes the native Stripe provider and explains that payment confirmation requires the iOS/Android app. Missing publishable-key configuration disables native payment entry with a clear message. Synthetic sessions retain the explicit local fixture flow and do not initialize Stripe.
 
+## Current-read requirement
+
+Payment screen state is isolated by signed-in profile and ride id. Returning to the screen clears
+retained fare/status until a fresh read arrives. A failed read suppresses payment entry and the
+confirmed-payment banner; a mismatched ride response cannot authorize entry. Successful subsequent
+reads restore only the actions appropriate to the current server state. These guards complement
+server authorization/idempotency and never retry a charge automatically.
+
 ## Configuration
 
 Expo selected `@stripe/stripe-react-native` 0.64.0 for SDK 57. The config plugin must receive an options object; the installer-added bare plugin string failed configuration evaluation and has been corrected. Google Pay is disabled and Apple Pay has no merchant identifier configured. Enable wallets only after their account/merchant setup and device verification. [Expo Stripe setup](https://docs.expo.dev/versions/latest/sdk/stripe/)
@@ -37,3 +45,9 @@ Verify Customer Session creation for both settings and checkout, SetupIntent cre
 Five controller tests cover submission versus authorization, user dismissal, safe SDK-error handling, abandonment during session loading, and abandonment during initialization/confirmation. Type checking verifies the native SDK integration; local Expo exports compile both apps for iOS, Android and web. These are JavaScript/Hermes exports, not signed binaries or native-device verification.
 
 Still required: a sandbox account/API deployment connection, real PaymentSheet and 3DS/bank-app return tests on iOS and Android, cold-start/process-death recovery, wallet setup, native visual/accessibility/large-text review, native saved-payment-method acceptance, verified receipts/refunds/ledger and final production payment policies. The assistant's Stripe plugin connection does not replace these tests or supply application runtime credentials.
+
+Synthetic native verification confirmed the payment-status screen on iOS and Android. On Android,
+removing the local API forwarding hid the retained confirmation and payment entry; restoring the
+connection returned the screen to authoritative status. These checks exercise read recovery only,
+not Stripe card collection or bank authentication. The shared payment-flow suite includes guards
+for wrong-ride data, unavailable reads, authorization and terminal states.

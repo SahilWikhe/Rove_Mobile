@@ -1,5 +1,11 @@
 import { expect, test, vi } from 'vitest';
-import { isPaymentReturnURL, latestPaymentRide, submitPayment, paymentCallbackScope } from './payment-flow';
+import {
+  isPaymentReturnURL,
+  latestPaymentRide,
+  submitPayment,
+  paymentCallbackScope,
+  paymentAvailability,
+} from './payment-flow';
 function fixture() {
   const session = vi.fn(async () => ({ clientSecret: 'pi_fixture_secret_private' }));
   const initialize = vi.fn(async (_secret: string) => ({}));
@@ -164,4 +170,18 @@ test('an open current sheet receives its requested credentials', async () => {
   const scope = paymentCallbackScope(() => true);
   await expect(scope.run(async () => 'synthetic_secret')).resolves.toBe('synthetic_secret');
   scope.close();
+});
+
+test('payment entry requires the requested ride and a successful read, even with a retained authorization', () => {
+  const pending = { id: 'ride-a', state: 'searching' as const, paymentState: 'pending' };
+  expect(paymentAvailability(pending, 'ride-a', false)).toBe('ready');
+  expect(paymentAvailability(pending, 'ride-b', false)).toBe('unknown');
+  expect(paymentAvailability(pending, 'ride-a', true)).toBe('unknown');
+  expect(paymentAvailability(null, 'ride-a', false)).toBe('unknown');
+  expect(paymentAvailability({ ...pending, paymentState: 'authorized' }, 'ride-a', true)).toBe('unknown');
+  expect(paymentAvailability({ ...pending, paymentState: 'authorized' }, 'ride-a', false)).toBe('confirmed');
+  expect(paymentAvailability({ ...pending, paymentState: 'action_required' }, 'ride-a', false)).toBe('ready');
+  for (const state of ['cancelled', 'completed', 'no_driver_found', 'terminated'] as const) {
+    expect(paymentAvailability({ ...pending, state }, 'ride-a', false)).toBe('closed');
+  }
 });

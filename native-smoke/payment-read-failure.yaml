@@ -1,0 +1,10 @@
+# After payment-confirmed, interrupt the local API connection without leaving the screen.
+# Restore the connection after this flow. This is a synthetic read-recovery check, not Stripe acceptance.
+appId: co.roveride.rider
+---
+- extendedWaitUntil:
+    visible: 'Waiting for current ride status before confirming payment.'
+    timeout: 30000
+- assertNotVisible: 'Payment confirmed. Continue to your ride.'
+- assertNotVisible: Choose payment method
+- takeScreenshot: payment-read-unavailable

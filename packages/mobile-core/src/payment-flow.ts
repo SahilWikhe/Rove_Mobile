@@ -1,3 +1,18 @@
+import type { RideDetails } from '@rove/contracts';
+
+/** Payment entry is scoped to the displayed ride and a successful current read. */
+export function paymentAvailability(
+  ride: Pick<RideDetails, 'id' | 'state' | 'paymentState'> | null,
+  rideId: string,
+  readFailed: boolean,
+): 'unknown' | 'ready' | 'confirmed' | 'closed' {
+  if (!ride || ride.id !== rideId || readFailed) return 'unknown';
+  if (ride.paymentState === 'authorized' || ride.paymentState === 'paid') return 'confirmed';
+  return ride.state === 'searching' && ['pending', 'action_required'].includes(ride.paymentState)
+    ? 'ready'
+    : 'closed';
+}
+
 /** Concurrent payment refreshes must not undo a newer server-confirmed ride state. */
 export function latestPaymentRide<T extends { id: string; version: number }>(
   previous: T | null,
