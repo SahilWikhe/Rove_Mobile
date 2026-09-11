@@ -51,6 +51,7 @@ const Schema = z.object({
   oidcIssuer: HttpsUrl,
   oidcAudience: z.string().trim().min(1).max(300),
   oidcJwksUrl: HttpsUrl,
+  oidcRequireVerifiedEmail: z.enum(['true', 'false']).transform((value) => value === 'true'),
   googleMapsApiKey: z.string().trim().min(1),
   allowedOrigins: z.array(Origin).max(20),
   rates: Rates,
@@ -80,6 +81,9 @@ export function readApiConfig(env: Record<string, string | undefined>): ApiConfi
     oidcIssuer: env.OIDC_ISSUER,
     oidcAudience: env.OIDC_AUDIENCE,
     oidcJwksUrl: env.OIDC_JWKS_URL,
+    // Staging activation follows provider/email and mobile recovery verification.
+    oidcRequireVerifiedEmail:
+      env.OIDC_REQUIRE_VERIFIED_EMAIL ?? (env.ROVE_ENVIRONMENT === 'production' ? 'true' : 'false'),
     googleMapsApiKey: env.GOOGLE_MAPS_API_KEY,
     allowedOrigins: json(env.ALLOWED_ORIGINS_JSON ?? '[]', 'allowedOrigins'),
     rates: json(env.RATE_POLICY_JSON, 'rates'),
@@ -90,6 +94,8 @@ export function readApiConfig(env: Record<string, string | undefined>): ApiConfi
       parsed.error.issues.map((issue) => String(issue.path[0] ?? 'configuration')),
     );
   const config = parsed.data;
+  if (config.environment === 'production' && !config.oidcRequireVerifiedEmail)
+    throw new ConfigurationError(['oidcRequireVerifiedEmail']);
   // Vercel previews must never accidentally select production configuration.
   if (
     env.VERCEL_ENV &&

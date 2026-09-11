@@ -231,3 +231,18 @@ const styles = StyleSheet.create({
   pin: { fontSize: 24, color: theme.gold },
   divider: { height: 1, backgroundColor: theme.border, marginLeft: 40 },
 });
+
+/** Shared rider/driver recovery UI; only the API determines verification status. */
+export function EmailVerificationNotice({ loading, onSignIn }: { loading: boolean; onSignIn: () => void }) {
+  return (
+    <>
+      <Copy kind="heading">Verify your email</Copy>
+      <Copy kind="muted">
+        Open the verification link from Auth0, then sign in again to continue. Check your spam folder if you
+        don’t see it.
+      </Copy>
+      <Button title="I verified my email — sign in" loading={loading} onPress={onSignIn} />
+      <Button title="Use a different account" variant="secondary" disabled={loading} onPress={onSignIn} />
+    </>
+  );
+}

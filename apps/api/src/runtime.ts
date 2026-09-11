@@ -151,6 +151,7 @@ export function createRuntime(env: Record<string, string | undefined>) {
     issuer: config.oidcIssuer,
     audience: config.oidcAudience,
     jwksUrl: config.oidcJwksUrl,
+    requireVerifiedEmail: config.oidcRequireVerifiedEmail,
   });
   const database = createDatabase(config.databaseUrl);
   // pg emits idle-client errors outside queries. Keep the process alive; never log driver error details.

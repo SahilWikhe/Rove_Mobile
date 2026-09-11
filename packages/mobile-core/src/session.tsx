@@ -52,6 +52,7 @@ interface Session {
   loading: boolean;
   error: string | null;
   needsProfile: boolean;
+  needsEmailVerification: boolean;
   cleanupRequired: boolean;
   canRetryProfile: boolean;
   retryProfile: () => Promise<void>;
@@ -86,7 +87,7 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
       // Explicit sign-in must offer account entry even when the browser retains Auth0 SSO.
       // This is a login UX hint, not proof of recent authentication for sensitive actions.
       prompt: AuthSession.Prompt.Login,
-      scopes: ['openid', 'profile', 'offline_access'],
+      scopes: ['openid', 'profile', 'email', 'offline_access'],
       extraParams: { audience: config.audience },
     },
     discovery,
@@ -100,6 +101,7 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
   const [needsProfile, setNeedsProfile] = useState(false);
+  const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
   const [cleanupRequired, setCleanupRequired] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const storage = useMemo(
@@ -162,6 +164,7 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
           () => {
             setProfile(null);
             setNeedsProfile(false);
+            setNeedsEmailVerification(false);
             setLoading(false);
             setReady(true);
           },
@@ -195,10 +198,18 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
         if (!credentials.current(epoch) || !alive()) return;
         setProfile(updated);
         setNeedsProfile(false);
+        setNeedsEmailVerification(false);
       } catch (failure) {
         if (!credentials.current(epoch) || !alive()) return;
-        if (failure instanceof ApiError && failure.code === 'PROFILE_REQUIRED') setNeedsProfile(true);
-        else throw failure;
+        if (failure instanceof ApiError && failure.code === 'EMAIL_VERIFICATION_REQUIRED') {
+          setProfile(null);
+          setNeedsProfile(false);
+          setNeedsEmailVerification(true);
+          setError(null);
+        } else if (failure instanceof ApiError && failure.code === 'PROFILE_REQUIRED') {
+          setNeedsEmailVerification(false);
+          setNeedsProfile(true);
+        } else throw failure;
       }
     },
     [api, credentials],
@@ -253,6 +264,7 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
     const epoch = credentials.begin();
     setProfile(null);
     setNeedsProfile(false);
+    setNeedsEmailVerification(false);
     setLoading(true);
     setError(null);
     try {
@@ -317,6 +329,7 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
     // Clear UI and memory before awaiting keychain or provider operations.
     setProfile(null);
     setNeedsProfile(false);
+    setNeedsEmailVerification(false);
     setLoading(false);
     setReady(true);
     setError(null);
@@ -381,6 +394,7 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
       if (!credentials.current(epoch)) return;
       setProfile(updated);
       setNeedsProfile(false);
+      setNeedsEmailVerification(false);
     } catch (failure) {
       if (credentials.current(epoch))
         setError(failure instanceof ApiError ? failure.message : 'Unable to save your profile.');
@@ -399,8 +413,9 @@ export function SessionProvider({ config, children }: PropsWithChildren<{ config
         loading,
         error,
         needsProfile,
+        needsEmailVerification,
         cleanupRequired,
-        canRetryProfile: Boolean(credentials.peek()) && !profile && !needsProfile,
+        canRetryProfile: Boolean(credentials.peek()) && !profile && !needsProfile && !needsEmailVerification,
         retryProfile,
         configured,
         synthetic,

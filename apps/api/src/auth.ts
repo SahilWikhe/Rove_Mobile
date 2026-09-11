@@ -1,9 +1,11 @@
 import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from 'jose';
 import { DomainError } from '@rove/server';
 
+export const VERIFIED_EMAIL_CLAIM = 'https://roveride.co/email_verified';
+
 export type VerifyIdentity = (token: string) => Promise<{ subject: string; mfa?: boolean }>;
 export function oidcIdentity(
-  config: { issuer: string; audience: string; jwksUrl: string },
+  config: { issuer: string; audience: string; jwksUrl: string; requireVerifiedEmail?: boolean },
   testKeys?: JWTVerifyGetKey,
 ): VerifyIdentity {
   if (![config.issuer, config.jwksUrl].every((value) => new URL(value).protocol === 'https:'))
@@ -22,6 +24,8 @@ export function oidcIdentity(
         clockTolerance: 5,
       });
       if (!payload.sub || payload.sub.length > 300) throw new Error('Invalid subject');
+      if (config.requireVerifiedEmail && payload[VERIFIED_EMAIL_CLAIM] !== true)
+        throw new DomainError('EMAIL_VERIFICATION_REQUIRED', 'Verify your email, then sign in again.', 403);
       return {
         subject: `${config.issuer}|${payload.sub}`,
         // Trust only the configured issuer's signed MFA evidence, never request headers.
@@ -30,7 +34,8 @@ export function oidcIdentity(
           payload.amr.every((method) => typeof method === 'string') &&
           payload.amr.includes('mfa'),
       };
-    } catch {
+    } catch (error) {
+      if (error instanceof DomainError) throw error;
       throw new DomainError('UNAUTHENTICATED', 'Please sign in again.', 401);
     }
   };

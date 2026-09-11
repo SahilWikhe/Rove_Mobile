@@ -113,3 +113,23 @@ describe('deployment configuration', () => {
     expect(() => readApiConfig({ ...environment(), ROVE_SYNTHETIC: 'true' })).toThrow();
   });
 });
+
+it('email verification rollout is explicit in staging and mandatory in production', () => {
+  expect(readApiConfig(environment()).oidcRequireVerifiedEmail).toBe(false);
+  expect(
+    readApiConfig({ ...environment(), OIDC_REQUIRE_VERIFIED_EMAIL: 'true' }).oidcRequireVerifiedEmail,
+  ).toBe(true);
+  for (const value of ['', 'TRUE', '1'])
+    expect(() => readApiConfig({ ...environment(), OIDC_REQUIRE_VERIFIED_EMAIL: value })).toThrow(
+      ConfigurationError,
+    );
+  const production = {
+    ...environment(),
+    ROVE_ENVIRONMENT: 'production',
+    RATE_POLICY_APPROVED_VERSION: rates.version,
+  };
+  expect(readApiConfig(production).oidcRequireVerifiedEmail).toBe(true);
+  expect(() => readApiConfig({ ...production, OIDC_REQUIRE_VERIFIED_EMAIL: 'false' })).toThrow(
+    ConfigurationError,
+  );
+});

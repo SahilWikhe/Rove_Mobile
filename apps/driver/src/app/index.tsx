@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Redirect } from 'expo-router';
 import { View } from 'react-native';
 import { useSession } from '@rove/mobile-core/session';
-import { Banner, Brand, Button, Card, Copy, Field, Screen } from '@rove/mobile-ui';
+import { Banner, Brand, Button, Card, Copy, EmailVerificationNotice, Field, Screen } from '@rove/mobile-ui';
 export default function DriverHome() {
   const session = useSession();
   const [name, setName] = useState('');
@@ -20,7 +20,9 @@ export default function DriverHome() {
       </View>
       <Card>
         <Copy kind="heading">{session.needsProfile ? 'Let’s get you started.' : 'Drive with Rove.'}</Copy>
-        {session.canRetryProfile ? (
+        {session.needsEmailVerification ? (
+          <EmailVerificationNotice loading={session.loading} onSignIn={() => void session.signIn()} />
+        ) : session.canRetryProfile ? (
           <>
             <Copy kind="muted">Your sign-in is saved. Retry loading your account to continue.</Copy>
             <Button
