@@ -38,43 +38,45 @@ export function TripMap({
   };
   return (
     <View style={[styles.container, fill && { flex: 1 }]}>
-      <MapView
-        ref={map}
-        onMapReady={() => {
-          setReady(true);
-          showFullTrip();
-        }}
-        onMapLoaded={() => {
-          // Google can report ready before its initial camera/tiles settle.
-          // Fit once after loading, without snapping back after user gestures.
-          if (!initialTilesLoaded.current) {
-            initialTilesLoaded.current = true;
+      <View style={[styles.viewport, fill && styles.fillViewport]}>
+        <MapView
+          ref={map}
+          onMapReady={() => {
+            setReady(true);
             showFullTrip();
+          }}
+          onMapLoaded={() => {
+            // Google can report ready before its initial camera/tiles settle.
+            // Fit once after loading, without snapping back after user gestures.
+            if (!initialTilesLoaded.current) {
+              initialTilesLoaded.current = true;
+              showFullTrip();
+            }
+          }}
+          provider={applePreview ? undefined : PROVIDER_GOOGLE}
+          style={StyleSheet.absoluteFill}
+          initialRegion={region}
+          userInterfaceStyle="dark"
+          {...(!applePreview ? { customMapStyle: darkMapStyle } : {})}
+          showsUserLocation={false}
+          showsMyLocationButton={false}
+          showsCompass
+          pitchEnabled={false}
+          rotateEnabled={false}
+          toolbarEnabled={false}
+          accessibilityLabel={
+            driver
+              ? 'Trip map with pickup, destination and last reported driver location'
+              : 'Trip map with pickup and destination markers'
           }
-        }}
-        provider={applePreview ? undefined : PROVIDER_GOOGLE}
-        style={[styles.map, fill && { flex: 1, height: undefined, borderRadius: 0 }]}
-        initialRegion={region}
-        userInterfaceStyle="dark"
-        {...(!applePreview ? { customMapStyle: darkMapStyle } : {})}
-        showsUserLocation={false}
-        showsMyLocationButton={false}
-        showsCompass
-        pitchEnabled={false}
-        rotateEnabled={false}
-        toolbarEnabled={false}
-        accessibilityLabel={
-          driver
-            ? 'Trip map with pickup, destination and last reported driver location'
-            : 'Trip map with pickup and destination markers'
-        }
-      >
-        <Marker coordinate={pickup} title="Pickup" pinColor="#D6B26D" />
-        <Marker coordinate={destination} title="Destination" pinColor="#F4F0E8" />
-        {driver && (
-          <Marker coordinate={driver.coordinate} title="Driver last reported location" pinColor="#68B5FA" />
-        )}
-      </MapView>
+        >
+          <Marker coordinate={pickup} title="Pickup" pinColor="#D6B26D" />
+          <Marker coordinate={destination} title="Destination" pinColor="#F4F0E8" />
+          {driver && (
+            <Marker coordinate={driver.coordinate} title="Driver last reported location" pinColor="#68B5FA" />
+          )}
+        </MapView>
+      </View>
       <Button title="Show full trip" variant="secondary" disabled={!ready} onPress={showFullTrip} />
       <Copy kind="muted">
         {synthetic ? 'Synthetic route endpoints. ' : ''}
@@ -87,5 +89,6 @@ export function TripMap({
 }
 const styles = StyleSheet.create({
   container: { gap: 8 },
-  map: { width: '100%', height: 260, borderRadius: 16 },
+  viewport: { width: '100%', height: 210, borderRadius: 20, overflow: 'hidden' },
+  fillViewport: { flex: 1, height: undefined, borderRadius: 0 },
 });
