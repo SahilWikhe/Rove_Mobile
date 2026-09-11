@@ -24,7 +24,6 @@ for (const [app, port] of [
     await page.getByRole('link', { name: 'Go back', exact: true }).click();
     expect(keyWarnings).toEqual([]);
     await page.getByRole('button', { name: 'Help & support', exact: true }).click();
-    await page.getByRole('button', { name: 'Load / refresh my requests', exact: true }).click();
     await expect(page.getByText('No requests yet.', { exact: true })).toBeVisible();
     const submit = page.getByRole('button', { name: 'Send support request', exact: true });
     await expect(submit).toBeDisabled();
@@ -42,7 +41,6 @@ for (const [app, port] of [
     await page.getByRole('link', { name: 'Go back', exact: true }).click();
     expect(keyWarnings).toEqual([]);
     await page.getByRole('button', { name: 'Help & support', exact: true }).click();
-    await page.getByRole('button', { name: 'Load / refresh my requests', exact: true }).click();
     await expect(page.getByText(message, { exact: true })).toBeVisible();
     await page.getByRole('textbox', { name: 'What do you need help with?', exact: true }).fill(message);
     await page.getByRole('button', { name: 'Send support request', exact: true }).click();

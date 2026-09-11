@@ -1,0 +1,25 @@
+appId: co.roveride.driver
+---
+- extendedWaitUntil:
+    visible: Account
+    timeout: 30000
+- tapOn: Account
+- scrollUntilVisible:
+    element: Help & support
+    direction: DOWN
+- tapOn: Help & support
+- assertVisible: How can we help?
+- extendedWaitUntil:
+    visible: New request
+    timeout: 15000
+- assertNotVisible: Load / refresh my requests
+- swipe:
+    start: '50%,30%'
+    end: '50%,75%'
+    duration: 700
+- assertVisible: New request
+- scrollUntilVisible:
+    element: Send support request
+    direction: DOWN
+- assertVisible: Send support request
+- takeScreenshot: support-form

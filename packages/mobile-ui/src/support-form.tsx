@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Banner, Button, Card, Copy, Field } from './index';
+import { Platform } from 'react-native';
+import { Banner, Button, Card, Copy, Field, Screen } from './index';
 type Category = 'account' | 'vehicle' | 'trip' | 'payment' | 'other';
 type Request = {
   id: string;
@@ -37,6 +38,30 @@ export function SupportForm({
       mounted.current = false;
     };
   }, []);
+  useEffect(() => {
+    let current = true;
+    running.current = true;
+    setBusy(true);
+    void list()
+      .then((result) => {
+        if (current) {
+          setRequests(result.requests);
+          setLoaded(true);
+        }
+      })
+      .catch((failure) => {
+        if (current) setError(failure instanceof Error ? failure.message : 'Unable to load your requests.');
+      })
+      .finally(() => {
+        if (current) {
+          running.current = false;
+          setBusy(false);
+        }
+      });
+    return () => {
+      current = false;
+    };
+  }, [list]);
   async function run(send: boolean) {
     if (running.current) return;
     running.current = true;
@@ -74,7 +99,7 @@ export function SupportForm({
     }
   }
   return (
-    <>
+    <Screen underHeader refreshing={busy} onRefresh={() => void run(false)}>
       <Copy kind="title">How can we help?</Copy>
       <Copy>
         For immediate danger, contact local emergency services. Support requests are not an emergency channel.
@@ -82,12 +107,15 @@ export function SupportForm({
       <Copy kind="muted">Do not include payment card numbers, passwords or medical details.</Copy>
       {error && <Banner error message={error} />}
       {receipt && <Banner message={`Request saved. Reference: ${receipt}`} />}
-      <Button
-        title="Load / refresh my requests"
-        variant="secondary"
-        loading={busy}
-        onPress={() => void run(false)}
-      />
+      {!loaded && busy && <Copy kind="muted">Loading your requests…</Copy>}
+      {Platform.OS === 'web' && (
+        <Button
+          title="Load / refresh my requests"
+          variant="secondary"
+          loading={busy}
+          onPress={() => void run(false)}
+        />
+      )}
       {loaded && (
         <>
           <Copy kind="heading">New request</Copy>
@@ -136,6 +164,6 @@ export function SupportForm({
           ))}
         </>
       )}
-    </>
+    </Screen>
   );
 }
