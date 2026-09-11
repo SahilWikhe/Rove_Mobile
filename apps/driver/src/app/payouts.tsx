@@ -5,6 +5,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { type DriverPayoutStatus } from '@rove/contracts';
 import { useSession } from '@rove/mobile-core/session';
 import { Banner, Button, Card, Copy, Screen } from '@rove/mobile-ui';
+import { refreshOnReturn } from '../account/refresh-on-return';
 export default function Payouts() {
   const { profile } = useSession();
   return <PayoutSetup key={profile?.id ?? 'signed-out'} />;
@@ -44,6 +45,12 @@ function PayoutSetup() {
       };
     }, [api, profile, revision]),
   );
+  useFocusEffect(
+    useCallback(() => {
+      if (!profile || Platform.OS === 'web') return;
+      return refreshOnReturn(() => setRevision((value) => value + 1));
+    }, [profile]),
+  );
   async function start() {
     if (pending.current) return;
     pending.current = true;
@@ -54,8 +61,9 @@ function PayoutSetup() {
       const link = await api.driverPayoutLink();
       if (epoch.current !== generation) return;
       // The shared response contract permits only Stripe HTTPS hosts. Never persist or log one-use links.
-      await WebBrowser.openBrowserAsync(link.url);
-      if (epoch.current === generation) setRevision((value) => value + 1);
+      const result = await WebBrowser.openBrowserAsync(link.url);
+      // Android's `opened` result arrives before the user returns; AppState handles that return.
+      if (result.type !== 'opened' && epoch.current === generation) setRevision((value) => value + 1);
     } catch (failure) {
       if (epoch.current === generation)
         setError(failure instanceof Error ? failure.message : 'Unable to open payout setup.');
