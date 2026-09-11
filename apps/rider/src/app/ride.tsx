@@ -1,3 +1,4 @@
+import { DriverSummary } from '../tracking/driver-summary';
 import { RiderTripMap } from '../tracking/trip-map';
 import { ApiError } from '@rove/mobile-core';
 import { useOperations } from '@rove/mobile-core/use-operations';
@@ -113,16 +114,11 @@ export default function Ride() {
               : titles[ride.state]}
           </Copy>
           <RiderTripMap key={ride.id} ride={ride} />
+          <DriverSummary ride={ride} />
           <RouteSummary
             pickup={ride.pickup?.label ?? ride.pickupArea}
             destination={ride.destination?.label ?? ride.destinationArea}
           />
-          {ride.driver && (
-            <Card>
-              <Copy kind="label">YOUR DRIVER</Copy>
-              <Copy kind="heading">{ride.driver.name}</Copy>
-            </Card>
-          )}
           <Card>
             <Money cents={ride.fare.amount} label="FARE" />
             <Copy kind="muted">Payment: {ride.paymentState.replaceAll('_', ' ')}</Copy>

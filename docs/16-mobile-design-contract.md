@@ -194,3 +194,17 @@ Android native verification exercised accepted-trip map display and a confirmed 
 iOS verification exercised arrival, start and completion, with exact addresses and rider identity
 absent after completion. Browser verification covers navigation handoff, unavailable reads, concurrent
 milestone updates, lost acceptance recovery and completion through synthetic payment settlement.
+
+## Rider tracking driver summary
+
+Rider Tracking (`6:20`, driver card `6:70`) now uses the original generic avatar export,
+compact driver typography, and charcoal rounded card. It appears directly after the inline map.
+The name and status come from the assigned ride; Pickup/Ride stages advance only on committed
+trip state and disappear with the driver card when the ride ends. Interrupted trips display their
+attention state without a normal progress indicator. The avatar is decorative, not a driver photo.
+
+No mock arrival time, vehicle plate, call action, progress percentage or rider-controlled arrival
+is introduced. Those require their own provider/contract support. Full screen/header spacing,
+route geometry and remaining tracking visual parity are still outstanding. Browser verification
+covers pickup-to-onboard progression and removal after completion; iOS and Android simulator
+checks cover the accepted-ride card and original avatar rendering.

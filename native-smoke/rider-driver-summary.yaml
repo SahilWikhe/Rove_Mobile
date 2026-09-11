@@ -1,0 +1,16 @@
+# Requires an accepted synthetic ride and a signed-in rider; provide TRIP_LINK.
+appId: co.roveride.rider
+---
+- openLink: ${TRIP_LINK}
+- tapOn:
+    text: Open
+    optional: true
+- extendedWaitUntil:
+    visible: Your driver is confirmed.
+    timeout: 30000
+- scrollUntilVisible:
+    element: 'Pickup · now'
+    direction: DOWN
+- assertVisible: YOUR DRIVER
+- assertVisible: Driver confirmed
+- takeScreenshot: rider-driver-summary
