@@ -1,3 +1,4 @@
+import { useReducedMotion } from '@rove/mobile-core/use-reduced-motion';
 import { DriverTrackingProvider } from '../tracking/provider';
 import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -12,6 +13,7 @@ import {
   Manrope_800ExtraBold,
 } from '@expo-google-fonts/manrope';
 export default function Layout() {
+  const reducedMotion = useReducedMotion();
   const [loaded, error] = useFonts({
     Manrope_500Medium,
     Manrope_600SemiBold,
@@ -44,6 +46,7 @@ export default function Layout() {
               headerTintColor: theme.text,
               contentStyle: { backgroundColor: theme.background },
               headerBackTitle: 'Back',
+              animation: reducedMotion ? 'none' : 'default',
             }}
           >
             <Stack.Screen name="index" options={{ headerShown: false, animation: 'none' }} />
