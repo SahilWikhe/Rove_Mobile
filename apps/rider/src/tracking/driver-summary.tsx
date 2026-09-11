@@ -24,6 +24,16 @@ export function DriverSummary({ ride }: { ride: RideDetails }) {
           <Copy kind="label">YOUR DRIVER</Copy>
           <Copy style={styles.name}>{ride.driver.name}</Copy>
           <Copy style={styles.caption}>{caption}</Copy>
+          {ride.driver.vehicle ? (
+            <>
+              <Copy style={styles.caption}>
+                {ride.driver.vehicle.color} · {ride.driver.vehicle.make} {ride.driver.vehicle.model}
+              </Copy>
+              <Copy style={styles.plate}>Plate: {ride.driver.vehicle.plate}</Copy>
+            </>
+          ) : (
+            <Copy style={styles.caption}>Vehicle details unavailable.</Copy>
+          )}
         </View>
       </View>
       {ride.state !== 'interrupted' && (
@@ -52,6 +62,7 @@ const styles = StyleSheet.create({
   avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#33291C' },
   details: { flex: 1, minWidth: 0, gap: 3 },
   name: { fontFamily: 'Manrope_700Bold', fontSize: 14, lineHeight: 21 },
+  plate: { fontFamily: 'Manrope_700Bold', fontSize: 14, lineHeight: 21, color: theme.gold },
   caption: { color: theme.muted, fontSize: 12, lineHeight: 18 },
   stages: { flexDirection: 'row', gap: 8, paddingTop: 12, borderTopWidth: 1, borderColor: theme.border },
   stage: { flex: 1, minWidth: 0, gap: 8 },

@@ -138,6 +138,7 @@ test('rider request reaches the driver and both apps follow a completed syntheti
     await expect(page.getByRole('button', { name: 'Back to rides', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Your account', exact: true })).toBeVisible();
     await expect(page.getByText('YOUR DRIVER', { exact: true })).toBeVisible();
+    await expect(page.getByText('Plate: DEMO', { exact: true })).toBeVisible();
     await expect(page.getByText(/Driver location last reported at/)).toBeVisible();
     // A location read failure must remove the previously visible report.
     await page.route(locationUrl, (route) => route.abort('failed'));
@@ -218,6 +219,7 @@ test('rider request reaches the driver and both apps follow a completed syntheti
     await page.bringToFront();
     await expect(page.getByText('You’ve arrived.', { exact: true })).toBeVisible();
     await expect(page.getByText('YOUR DRIVER', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Plate: DEMO', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Ride · now', { exact: true })).toHaveCount(0);
     const saved = await request.get('http://localhost:4085/v1/rides/' + id, {
       headers: { Authorization: 'Bearer synthetic-rider' },

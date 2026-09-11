@@ -216,3 +216,12 @@ existing account route. Terminal/loading states retain the ordinary native heade
 screenshots and header/card assertions passed, alongside the full browser trip lifecycle. The
 inline map retains its existing accessibility and reframe controls; its detailed layout remains
 an adaptation rather than pixel-identical parity with Figma's decorative map.
+
+The rider driver card now displays the effective vehicle's make, model, color and plate, matching
+Figma's identification row with actual assignment data. The ride API projects a strict `RideVehicle`
+allowlist from the approved vehicle record; pending submissions, document references and review
+notes are not exposed. Invalid or incomplete legacy records omit vehicle identification and the
+card says it is unavailable. Driver and vehicle identity remain limited to the owning rider's active
+assignment and are absent after termination/completion. No example plate, registration region or
+vehicle year is invented. The existing vehicle-review service prevents changing the effective
+vehicle during an active assignment.

@@ -1,5 +1,5 @@
 import type { Pool } from 'pg';
-import { Quote, RideDetails } from '@rove/contracts';
+import { Quote, RideDetails, RideVehicle } from '@rove/contracts';
 import { DomainError, type Actor } from '@rove/server';
 
 export async function getRide(pool: Pool, actor: Actor, rideId: string) {
@@ -20,6 +20,7 @@ export async function getRide(pool: Pool, actor: Actor, rideId: string) {
   const activeAssignment = ['matched', 'en_route', 'arrived', 'in_progress', 'interrupted'].includes(
     row.state,
   );
+  const vehicle = RideVehicle.strip().safeParse(row.vehicle);
   return RideDetails.parse({
     id: row.id,
     state: row.state,
@@ -33,7 +34,7 @@ export async function getRide(pool: Pool, actor: Actor, rideId: string) {
       ? { pickup: quote.pickup, destination: quote.destination }
       : {}),
     ...(actor.role === 'rider' && activeAssignment && row.driver_name
-      ? { driver: { name: row.driver_name, vehicle: row.vehicle } }
+      ? { driver: { name: row.driver_name, ...(vehicle.success ? { vehicle: vehicle.data } : {}) } }
       : {}),
     ...(actor.role === 'driver' && activeAssignment ? { rider: { name: row.rider_name } } : {}),
   });

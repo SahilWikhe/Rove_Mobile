@@ -16,4 +16,6 @@ appId: co.roveride.rider
     direction: DOWN
 - assertVisible: YOUR DRIVER
 - assertVisible: Driver confirmed
+- assertVisible: 'Plate: DEMO'
+- assertVisible: 'Black · Synthetic Test vehicle'
 - takeScreenshot: rider-driver-summary

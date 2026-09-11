@@ -102,13 +102,29 @@ export const RideSummary = z.object({
   fare: Money,
   paymentState: z.string(),
 });
+const VehicleText = z
+  .string()
+  .trim()
+  .min(1)
+  .max(80)
+  .regex(/^[^\p{Cc}]+$/u);
+/** Public identification of the effective assigned vehicle; excludes driver documents and review data. */
+export const RideVehicle = z
+  .object({
+    make: VehicleText,
+    model: VehicleText,
+    color: VehicleText,
+    plate: VehicleText,
+  })
+  .strict();
+export type RideVehicle = z.infer<typeof RideVehicle>;
 export const RideDetails = RideSummary.extend({
   pickupArea: z.string(),
   destinationArea: z.string(),
   createdAt: z.iso.datetime(),
   pickup: Place.optional(),
   destination: Place.optional(),
-  driver: z.object({ name: z.string(), vehicle: z.unknown().optional() }).optional(),
+  driver: z.object({ name: z.string(), vehicle: RideVehicle.optional() }).optional(),
   rider: z.object({ name: z.string() }).optional(),
 });
 export type Profile = z.infer<typeof Profile>;
@@ -250,12 +266,6 @@ export const SavedPlaceUpdate = z
   .strict();
 export const SavedPlaceDelete = z.object({ expectedPlaceId: z.string().min(1).max(512) }).strict();
 
-const VehicleText = z
-  .string()
-  .trim()
-  .min(1)
-  .max(80)
-  .regex(/^[^\p{Cc}]+$/u);
 export const VehicleSubmission = z
   .object({
     make: VehicleText,

@@ -172,6 +172,19 @@ test('unassigned drivers cannot read rides and exact details are removed after t
     ride.id,
     driver.id,
   ]);
+  const vehicle = { make: 'Synthetic', model: 'Test van', color: 'Blue', plate: 'TEST-123' };
+  await database.pool.query('UPDATE drivers SET vehicle=$2 WHERE id=$1', [
+    driver.id,
+    JSON.stringify({ ...vehicle, privateReviewNote: 'must not leave server', documentKey: 'private-key' }),
+  ]);
+  const riderView = await (await request(`/v1/rides/${ride.id}`)).json();
+  expect(riderView.driver).toEqual({ name: 'Driver fixture', vehicle });
+  await database.pool.query('UPDATE drivers SET vehicle=$2 WHERE id=$1', [
+    driver.id,
+    JSON.stringify({ make: 'Incomplete legacy record' }),
+  ]);
+  const missingVehicle = await (await request(`/v1/rides/${ride.id}`)).json();
+  expect(missingVehicle.driver).toEqual({ name: 'Driver fixture' });
   const assigned = await (await request(`/v1/rides/${ride.id}`, undefined, 'driver')).json();
   expect(assigned.pickup).toEqual(place);
   expect(assigned.rider).toEqual({ name: 'Test rider' });
@@ -182,6 +195,7 @@ test('unassigned drivers cannot read rides and exact details are removed after t
   expect(completed.rider).toBeUndefined();
   const owned = await (await request(`/v1/rides/${ride.id}`)).json();
   expect(owned.pickup).toEqual(place);
+  expect(owned.driver).toBeUndefined();
 });
 
 test('background credentials cannot become account tokens or read trip data', async () => {
