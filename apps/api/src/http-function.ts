@@ -1,3 +1,4 @@
-import { getRequestListener } from '@hono/node-server';
 import app from '../index';
-export default getRequestListener(app.fetch);
+
+// Vercel supplies a Web Request, preserving raw bytes for webhook verification.
+export default { fetch: app.fetch };

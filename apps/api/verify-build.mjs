@@ -19,17 +19,29 @@ const result = spawnSync(
     `
   import assert from 'node:assert/strict';
   import app from './dist/index.mjs';
-  import listener from './api/index.mjs';
+  import handler from './api/index.mjs';
   import consumer from './api/worker.mjs';
-  import { createServer } from 'node:http';
+  import { createHmac } from 'node:crypto';
   assert.equal(typeof consumer, 'function');
-  const server = createServer(listener);
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  try {
-    const response = await fetch('http://127.0.0.1:' + server.address().port + '/health/live');
-    assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), { status: 'ok' });
-  } finally { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
+  const response = await handler.fetch(new Request('https://api.example.test/health/live'));
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { status: 'ok' });
+  // An ignored event exercises exact raw-body verification without database or provider calls.
+  const payload = JSON.stringify({ id: 'evt_buildprobe', type: 'rove.build_probe',
+    created: Math.floor(Date.now() / 1000), livemode: false, data: { object: { id: 'build_probe' } } });
+  const timestamp = Math.floor(Date.now() / 1000);
+  const digest = createHmac('sha256', process.env.STRIPE_WEBHOOK_SECRET)
+    .update(timestamp + '.' + payload).digest('hex');
+  const signed = await handler.fetch(new Request('https://api.example.test/webhooks/stripe', {
+    method: 'POST', body: payload, headers: { 'content-type': 'application/json',
+      'stripe-signature': 't=' + timestamp + ',v1=' + digest }
+  }));
+  assert.equal(signed.status, 200);
+  const tampered = await handler.fetch(new Request('https://api.example.test/webhooks/stripe', {
+    method: 'POST', body: payload + ' ', headers: { 'content-type': 'application/json',
+      'stripe-signature': 't=' + timestamp + ',v1=' + digest }
+  }));
+  assert.equal(tampered.status, 400);
   const health = await app.request('/health/live');
   assert.equal(health.status, 200);
   assert.deepEqual(await health.json(), { status: 'ok' });
