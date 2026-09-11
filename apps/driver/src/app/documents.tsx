@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Stack, router } from 'expo-router';
 import * as Crypto from 'expo-crypto';
@@ -42,11 +43,12 @@ export default function Documents() {
   return <DocumentScreen key={profile?.id ?? 'signed-out'} />;
 }
 function DocumentScreen() {
-  const { profile, api, synthetic } = useSession();
+  const { profile, api } = useSession();
   const [documents, setDocuments] = useState<z.infer<typeof DriverDocumentSummary>[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [phase, setPhase] = useState<string | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const reads = useRef(0);
   const mounted = useRef(true);
   const active = useRef<AbortController | null>(null);
@@ -67,6 +69,18 @@ function DocumentScreen() {
       active.current?.abort();
     };
   }, [profile, refresh]);
+  async function reloadDocuments() {
+    if (active.current || refreshing || !profile) return;
+    setRefreshing(true);
+    setError(null);
+    try {
+      await refresh();
+    } catch {
+      if (mounted.current) setError('Unable to refresh documents. Try again.');
+    } finally {
+      if (mounted.current) setRefreshing(false);
+    }
+  }
   async function run(kind?: Kind) {
     if (active.current || !profile) return;
     const controller = new AbortController();
@@ -128,13 +142,12 @@ function DocumentScreen() {
     }
   }
   return (
-    <Screen>
+    <Screen refreshing={refreshing} onRefresh={profile && !phase ? () => void reloadDocuments() : undefined}>
       <Stack.Screen options={{ title: 'Your documents' }} />
       <Copy kind="title">Ready for review.</Copy>
       <Copy>
         Upload clear copies of your driving documents. Uploading does not confirm approval to drive.
       </Copy>
-      {synthetic && <Banner message="Use synthetic documents only in this preview." />}
       {!profile ? (
         <Button title="Sign in" onPress={() => router.replace('/')} />
       ) : (
@@ -178,15 +191,14 @@ function DocumentScreen() {
             />
           )}
           <Copy kind="muted">JPEG, PNG or PDF · Up to 10 MB each. Keep every edge readable.</Copy>
-          <Button
-            title="Refresh documents"
-            variant="secondary"
-            disabled={!!phase}
-            onPress={() => {
-              setError(null);
-              void refresh().catch(() => setError('Unable to refresh documents. Try again.'));
-            }}
-          />
+          {Platform.OS === 'web' && (
+            <Button
+              title="Refresh documents"
+              variant="secondary"
+              disabled={!!phase || refreshing}
+              onPress={() => void reloadDocuments()}
+            />
+          )}
         </>
       )}
     </Screen>

@@ -10,7 +10,6 @@ export default function DriverHome() {
   return (
     <Screen>
       <Brand driver />
-      {session.synthetic && <Banner message="Synthetic test mode · no real rides or payments" />}
       <View style={{ paddingTop: 48, gap: 20 }}>
         <Copy kind="label">MAKE EVERY MILE MATTER</Copy>
         <Copy kind="title">

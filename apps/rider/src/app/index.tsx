@@ -10,7 +10,6 @@ export default function Home() {
     return (
       <Screen>
         <Brand />
-        {session.synthetic && <Banner message="Synthetic test mode · no real rides or payments" />}
         <View style={{ paddingTop: 64, gap: 20 }}>
           <Copy kind="label">A NEW WAY TO GET THERE</Copy>
           <Copy kind="title">Life has places{'\n'}for you to be.</Copy>

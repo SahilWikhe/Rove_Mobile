@@ -7,7 +7,7 @@ import { pollWhileForeground } from '@rove/mobile-core/foreground-polling';
 import { Banner, Button, Card, Copy, theme } from '@rove/mobile-ui';
 
 export function TripEarningsSummary({ rideId }: { rideId: string }) {
-  const { api, synthetic } = useSession();
+  const { api } = useSession();
   const [data, setData] = useState<DriverTripEarnings | null>(null);
   const [error, setError] = useState<string | null>(null);
   useFocusEffect(
@@ -30,7 +30,6 @@ export function TripEarningsSummary({ rideId }: { rideId: string }) {
   );
   return (
     <>
-      {synthetic && <Banner message="Synthetic earnings · no money will be paid out." />}
       {error && <Banner error message={error} />}
       {data ? (
         <Card style={{ padding: 18, borderRadius: 18, gap: 12 }}>

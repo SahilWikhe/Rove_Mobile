@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { useCallback, useRef, useState } from 'react';
 import { Stack, router, useFocusEffect } from 'expo-router';
 import type { DriverProfile, DriverPayoutStatus, VehicleReview } from '@rove/contracts';
@@ -22,9 +23,10 @@ export default function Setup() {
   return <SetupStatus key={profile?.id ?? 'signed-out'} />;
 }
 function SetupStatus() {
-  const { profile, api, synthetic } = useSession();
+  const { profile, api } = useSession();
   const [status, setStatus] = useState<Status | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [revision, setRevision] = useState(0);
   const epoch = useRef(0);
   useFocusEffect(
@@ -41,6 +43,7 @@ function SetupStatus() {
           api.driverPayoutStatus(abort.signal),
         ]).then(([driver, vehicle, payout]) => {
           if (epoch.current !== generation) return;
+          setRefreshing(false);
           setStatus({
             driver: driver.status === 'fulfilled' ? driver.value : null,
             vehicle: vehicle.status === 'fulfilled' ? vehicle.value.submission : null,
@@ -57,16 +60,23 @@ function SetupStatus() {
     }, [api, profile, revision]),
   );
   return (
-    <Screen>
+    <Screen
+      refreshing={refreshing}
+      onRefresh={
+        profile
+          ? () => {
+              setRefreshing(true);
+              setRevision((value) => value + 1);
+            }
+          : undefined
+      }
+    >
       <Stack.Screen options={{ title: 'Driver setup' }} />
       <Copy kind="title">Your road to ready.</Copy>
       {!profile ? (
         <Button title="Sign in" onPress={() => router.replace('/')} />
       ) : (
         <>
-          {synthetic && (
-            <Banner message="Synthetic preview. Setup statuses are test data, not approval to drive real trips." />
-          )}
           <Copy>
             Check your progress and take the next step. Rove verifies your eligibility before you can go
             online.
@@ -168,11 +178,13 @@ function SetupStatus() {
               </Card>
             </>
           )}
-          <Button
-            title="Refresh setup status"
-            variant="secondary"
-            onPress={() => setRevision((value) => value + 1)}
-          />
+          {Platform.OS === 'web' && (
+            <Button
+              title="Refresh setup status"
+              variant="secondary"
+              onPress={() => setRevision((value) => value + 1)}
+            />
+          )}
         </>
       )}
     </Screen>

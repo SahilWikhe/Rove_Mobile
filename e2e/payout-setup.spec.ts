@@ -11,7 +11,7 @@ test('driver can inspect payout setup without claiming a synthetic bank account 
     page.getByText('Synthetic preview. No bank account is connected and no real payouts are enabled.', {
       exact: true,
     }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Continue with Stripe', exact: true })).toHaveCount(0);
   const refresh = page.waitForResponse(
     (response) =>

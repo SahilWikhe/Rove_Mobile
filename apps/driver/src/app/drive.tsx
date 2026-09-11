@@ -99,7 +99,6 @@ export default function Drive() {
         />
       )}
       {account && <DriveEarnings key={account.id} />}
-      {synthetic && <Banner message="Synthetic test mode · no real rides or payments" />}
       {(error || readError) && <Banner error message={error ?? readError!} />}
       {trackingError && <Banner error message={trackingError} />}
       {waiting ? (

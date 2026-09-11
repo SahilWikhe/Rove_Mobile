@@ -248,7 +248,7 @@ test('rider request reaches the driver and both apps follow a completed syntheti
     await expect(page.getByText('Your payment record.', { exact: true })).toBeVisible();
     await expect(
       page.getByText('Synthetic payment record · no money was charged.', { exact: true }),
-    ).toBeVisible();
+    ).toHaveCount(0);
     await expect(page.getByText('Payment: paid', { exact: true }).filter({ visible: true })).toBeVisible();
     const receipt = await request.get('http://localhost:4085/v1/rides/' + id + '/receipt', {
       headers: { Authorization: 'Bearer synthetic-rider' },
@@ -268,7 +268,7 @@ test('rider request reaches the driver and both apps follow a completed syntheti
     ).toBeVisible();
     await expect(
       driver.getByText('Synthetic earnings · no money will be paid out.', { exact: true }),
-    ).toBeVisible();
+    ).toHaveCount(0);
     await driver.getByRole('button', { name: 'View earnings', exact: true }).click();
     await expect(driver.getByRole('tab', { name: 'Last 7 days', exact: true })).toHaveAttribute(
       'aria-selected',

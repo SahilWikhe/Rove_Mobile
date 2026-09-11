@@ -10,7 +10,7 @@ export default function Receipt() {
   return <ReceiptContent key={`${profile?.id ?? 'signed-out'}:${id}`} id={id} />;
 }
 function ReceiptContent({ id }: { id: string }) {
-  const { api, profile, synthetic } = useSession();
+  const { api, profile } = useSession();
   const [receipt, setReceipt] = useState<RideReceipt | null>(null);
   const [error, setError] = useState<string | null>(null);
   useFocusEffect(
@@ -32,7 +32,6 @@ function ReceiptContent({ id }: { id: string }) {
     <Screen>
       <Stack.Screen options={{ title: 'Your receipt' }} />
       <Copy kind="title">Your payment record.</Copy>
-      {synthetic && <Banner message="Synthetic payment record · no money was charged." />}
       {error && <Banner message={error} />}
       {receipt ? (
         <>

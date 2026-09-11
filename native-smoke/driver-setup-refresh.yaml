@@ -1,0 +1,29 @@
+# Start on Drive with a signed-in synthetic driver. No documents are uploaded.
+appId: co.roveride.driver
+---
+- extendedWaitUntil:
+    visible: Account
+    timeout: 30000
+- assertNotVisible: 'Synthetic test mode · no real rides or payments'
+- tapOn: Account
+- tapOn: Driver setup
+- assertVisible: Your road to ready.
+- assertVisible: Driving eligibility
+- swipe:
+    start: '50%,30%'
+    end: '50%,75%'
+    duration: 700
+- assertVisible: Driving eligibility
+- assertNotVisible: Refresh setup status
+- scrollUntilVisible:
+    element: View driving documents
+    direction: DOWN
+- tapOn: View driving documents
+- assertVisible: Driver’s license
+- swipe:
+    start: '50%,30%'
+    end: '50%,75%'
+    duration: 700
+- assertVisible: Driver’s license
+- assertNotVisible: Refresh documents
+- takeScreenshot: driver-documents-refreshed

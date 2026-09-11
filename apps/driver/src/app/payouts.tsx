@@ -9,7 +9,7 @@ export default function Payouts() {
   return <PayoutSetup key={profile?.id ?? 'signed-out'} />;
 }
 function PayoutSetup() {
-  const { api, profile, synthetic } = useSession();
+  const { api, profile } = useSession();
   const [status, setStatus] = useState<DriverPayoutStatus['status'] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -74,9 +74,6 @@ function PayoutSetup() {
         <Copy>Sign in as a driver to continue.</Copy>
       ) : (
         <>
-          {synthetic && (
-            <Banner message="Synthetic preview. No bank account is connected and no real payouts are enabled." />
-          )}
           <Card>
             <Copy kind="heading">{status ? titles[status] : 'Checking payout setup…'}</Copy>
             <Copy>

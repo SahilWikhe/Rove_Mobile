@@ -47,7 +47,7 @@ function EarningsContent({
   older: (cursor: string) => void;
   newer: (() => void) | undefined;
 }) {
-  const { api, profile, synthetic } = useSession();
+  const { api, profile } = useSession();
   const [from, setFrom] = useState(range?.from ?? '');
   const [through, setThrough] = useState(range?.through ?? '');
   const [customDates, setCustomDates] = useState(false);
@@ -112,7 +112,6 @@ function EarningsContent({
           })}
         </View>
       )}
-      {synthetic && <Banner message="Synthetic earnings · no money will be paid out." />}
       {profile && (
         <Button
           title={customDates ? 'Hide custom dates' : 'Filter recorded dates'}
