@@ -7,6 +7,8 @@ export function paymentAvailability(
   readFailed: boolean,
 ): 'unknown' | 'ready' | 'confirmed' | 'closed' {
   if (!ride || ride.id !== rideId || readFailed) return 'unknown';
+  // A hold can outlive a closed request while its release is being processed.
+  if (['cancelled', 'no_driver_found', 'terminated'].includes(ride.state)) return 'closed';
   if (ride.paymentState === 'authorized' || ride.paymentState === 'paid') return 'confirmed';
   return ride.state === 'searching' && ['pending', 'action_required'].includes(ride.paymentState)
     ? 'ready'

@@ -185,3 +185,15 @@ test('payment entry requires the requested ride and a successful read, even with
     expect(paymentAvailability({ ...pending, state }, 'ride-a', false)).toBe('closed');
   }
 });
+
+test.each(['cancelled', 'no_driver_found', 'terminated'] as const)(
+  'a %s ride never reports payment confirmation while its hold is awaiting release',
+  (state) => {
+    for (const paymentState of ['authorized', 'release_pending', 'released', 'paid']) {
+      expect(paymentAvailability({ id: 'ride-a', state, paymentState }, 'ride-a', false)).toBe('closed');
+    }
+    expect(paymentAvailability({ id: 'ride-a', state, paymentState: 'authorized' }, 'ride-a', true)).toBe(
+      'unknown',
+    );
+  },
+);

@@ -57,6 +57,8 @@ function PaymentScreen({ id }: { id: string }) {
   const availability = paymentAvailability(ride, id, !!readError);
   const authorized = availability === 'confirmed';
   const canPay = availability === 'ready';
+  const requestClosed =
+    availability === 'closed' && !!ride && ['cancelled', 'no_driver_found'].includes(ride.state);
   async function pay() {
     if (!canPay || paying.current) return;
     const started = epoch.current;
@@ -104,7 +106,7 @@ function PaymentScreen({ id }: { id: string }) {
       <Copy kind="title">One step closer.</Copy>
       <Copy kind="muted">Confirm your payment before we match you with a driver.</Copy>
       {(error || readError) && <Banner error message={error ?? readError!} />}
-      {notice && <Banner message={notice} />}
+      {notice && (canPay || availability === 'unknown') && <Banner message={notice} />}
       {ride ? (
         <>
           <RouteSummary
@@ -122,6 +124,19 @@ function PaymentScreen({ id }: { id: string }) {
             <Banner message="Waiting for current ride status before confirming payment." />
           ) : authorized ? (
             <Banner message="Payment confirmed. Continue to your ride." />
+          ) : requestClosed ? (
+            <Card>
+              <Copy kind="heading">This ride request has ended.</Copy>
+              <Copy>Review your route and get a new fare before requesting another ride.</Copy>
+              <Copy kind="muted">
+                Any payment hold is handled separately. Open your ride to check its payment status.
+              </Copy>
+              <Button
+                title="Review route for a new ride"
+                disabled={busy}
+                onPress={() => router.replace({ pathname: '/book', params: { fromRide: id } })}
+              />
+            </Card>
           ) : !canPay ? (
             <Banner message="This ride is not waiting for payment. Open your ride for the latest status." />
           ) : payments.available ? (

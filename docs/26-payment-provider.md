@@ -12,6 +12,10 @@ The adapter pins Stripe SDK 22.6.1 and API version `2026-08-26.dahlia`, with ten
 
 The adapter requires a server-configured `paymentMethodConfiguration` (`pmc_...`). Create a dedicated configuration for ride authorizations in each Stripe environment and enable only reviewed methods compatible with native PaymentSheet and manual capture. The adapter passes this configuration to Stripe and never hardcodes `payment_method_types`. Changing method availability is a Dashboard setting; it must still pass the sandbox authorization/capture/SCA test matrix before launch. This does not enable any methods or modify the connected account automatically. [Stripe payment method configurations](https://docs.stripe.com/payments/payment-method-configurations)
 
+## Native recovery after a closed request
+
+The payment screen treats cancelled, no-driver-found and terminated rides as closed even when an authorization is still awaiting release. It must not report those rides as confirmed or offer another payment attempt. Cancelled and no-driver-found requests offer route review for a new quote; opening that review does not create a ride or charge. Payment release remains a separate server/provider state, and stale sheet-dismissal notices must not say a closed ride is awaiting payment.
+
 ## Verification at the boundary
 
 Each normalized intent is checked against the persisted intent, customer, ride, payment-attempt identifier, amount, currency, manual-capture mode and test/live mode. Capture, release and refund retrieve this reference before mutation. Already captured/canceled results are reconciled without issuing the same side effect again. Capturing beyond the original or available amount is rejected. Refunds cannot exceed the currently received amount; cumulative refund uniqueness and ledger limits also belong in the financial domain.
