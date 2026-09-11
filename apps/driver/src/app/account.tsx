@@ -1,3 +1,4 @@
+import avatar from '../../assets/account/avatar.png';
 import { DriverNavigation } from '../navigation/driver-navigation';
 import { View } from 'react-native';
 import { AccountProfile, AccountRow, accountContent, accountTitle } from '@rove/mobile-ui/account-layout';
@@ -46,7 +47,7 @@ export default function Account() {
       <Copy style={accountTitle}>Account</Copy>
       {profile ? (
         <>
-          <AccountProfile name={profile.name} subtitle="Rove driver" />
+          <AccountProfile name={profile.name} subtitle="Rove driver" avatar={avatar} />
           <View style={{ paddingTop: 6 }}>
             <AccountRow
               icon={chevron}
