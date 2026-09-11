@@ -79,6 +79,7 @@ function EarningsContent({
   ];
   return (
     <Screen
+      floatingFooter
       contentStyle={{ padding: 20, gap: 16 }}
       footer={profile ? <DriverNavigation active="/earnings" /> : undefined}
     >

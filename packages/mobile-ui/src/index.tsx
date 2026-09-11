@@ -1,4 +1,4 @@
-import type { PropsWithChildren, ReactNode } from 'react';
+import { useState, type PropsWithChildren, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -13,7 +13,7 @@ import {
   type StyleProp,
   type TextStyle,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Figma rider Home 2:12 and driver waiting 1:62. See docs/16-mobile-design-contract.md.
 export const theme = {
@@ -31,17 +31,23 @@ export function Screen({
   scroll = true,
   contentStyle,
   footer,
+  floatingFooter = false,
   onRefresh,
   refreshing = false,
 }: PropsWithChildren<{
   scroll?: boolean;
   contentStyle?: ViewStyle;
   footer?: ReactNode;
+  floatingFooter?: boolean;
   onRefresh?: () => void;
   refreshing?: boolean;
 }>) {
+  const insets = useSafeAreaInsets();
+  const [footerHeight, setFooterHeight] = useState(90);
+  const overlay = floatingFooter && Boolean(footer);
+  const bottomSpace = overlay ? { paddingBottom: footerHeight + insets.bottom + 16 } : undefined;
   return (
-    <SafeAreaView style={styles.screen}>
+    <SafeAreaView edges={overlay ? ['top', 'left', 'right'] : undefined} style={styles.screen}>
       {scroll ? (
         <ScrollView
           refreshControl={
@@ -54,7 +60,7 @@ export function Screen({
               />
             ) : undefined
           }
-          contentContainerStyle={[styles.content, contentStyle]}
+          contentContainerStyle={[styles.content, contentStyle, bottomSpace]}
           automaticallyAdjustKeyboardInsets
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
@@ -62,9 +68,25 @@ export function Screen({
           {children}
         </ScrollView>
       ) : (
-        <View style={[styles.content, { flex: 1 }, contentStyle]}>{children}</View>
+        <View style={[styles.content, { flex: 1 }, contentStyle, bottomSpace]}>{children}</View>
       )}
-      {footer}
+      {overlay ? (
+        <View
+          pointerEvents="box-none"
+          onLayout={(event) => setFooterHeight(event.nativeEvent.layout.height)}
+          style={{
+            position: 'absolute',
+            left: insets.left,
+            right: insets.right,
+            bottom: insets.bottom,
+            zIndex: 10,
+          }}
+        >
+          {footer}
+        </View>
+      ) : (
+        footer
+      )}
     </SafeAreaView>
   );
 }

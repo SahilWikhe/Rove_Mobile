@@ -1,4 +1,4 @@
-import type { PropsWithChildren, ReactNode } from 'react';
+import { useState, type PropsWithChildren, type ReactNode } from 'react';
 import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Copy, Screen, theme } from '@rove/mobile-ui';
@@ -19,14 +19,15 @@ export function DriveSurface({
 }>) {
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const [footerHeight, setFooterHeight] = useState(90);
   if (!online)
     return (
-      <Screen contentStyle={{ paddingTop: 20, gap: 16 }} footer={footer}>
+      <Screen floatingFooter contentStyle={{ paddingTop: 20, gap: 16 }} footer={footer}>
         {children}
       </Screen>
     );
   return (
-    <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.screen}>
+    <SafeAreaView edges={['left', 'right']} style={styles.screen}>
       <View
         style={{
           height:
@@ -44,12 +45,29 @@ export function DriveSurface({
       </View>
       <ScrollView
         style={styles.sheet}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: (footer ? footerHeight + 16 : 24) + insets.bottom },
+        ]}
         keyboardShouldPersistTaps="handled"
       >
         {children}
       </ScrollView>
-      {footer}
+      {footer && (
+        <View
+          pointerEvents="box-none"
+          onLayout={(event) => setFooterHeight(event.nativeEvent.layout.height)}
+          style={{
+            position: 'absolute',
+            left: insets.left,
+            right: insets.right,
+            bottom: insets.bottom,
+            zIndex: 10,
+          }}
+        >
+          {footer}
+        </View>
+      )}
     </SafeAreaView>
   );
 }

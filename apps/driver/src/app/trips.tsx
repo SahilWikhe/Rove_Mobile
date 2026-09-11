@@ -40,6 +40,7 @@ function HistoryPage({
   useFocusEffect(focus);
   return (
     <Screen
+      floatingFooter
       contentStyle={{ padding: 20, gap: 16 }}
       onRefresh={profile ? refresh : undefined}
       refreshing={refreshing}

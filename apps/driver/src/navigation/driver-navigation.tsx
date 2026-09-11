@@ -22,7 +22,7 @@ export function DriverNavigation({
   disabled?: boolean;
 }) {
   return (
-    <View style={styles.wrap}>
+    <View style={styles.wrap} pointerEvents="box-none">
       <View style={styles.bar}>
         {destinations.map(({ label, path, icon }) => (
           <Pressable
@@ -56,9 +56,14 @@ const styles = StyleSheet.create({
     gap: 4,
     padding: 12,
     borderRadius: 999,
-    backgroundColor: 'rgba(18,18,18,0.94)',
+    backgroundColor: 'rgba(12,12,12,0.78)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.14)',
+    shadowColor: '#000000',
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
   },
   item: { minWidth: 60, minHeight: 48, alignItems: 'center', justifyContent: 'center', gap: 3 },
   icon: { width: 24, height: 24 },
