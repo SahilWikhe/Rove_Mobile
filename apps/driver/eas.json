@@ -23,6 +23,18 @@
       "ios": {
         "simulator": true
       }
+    },
+    "production": {
+      "distribution": "store",
+      "environment": "production",
+      "node": "24.19.0",
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_SYNTHETIC": "false"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      }
     }
   }
 }
