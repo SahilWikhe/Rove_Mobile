@@ -1,3 +1,5 @@
+import completionMark from '../../assets/completion/check.png';
+import { Image, View } from 'react-native';
 import { ActiveTripSurface } from '../trips/active-trip-surface';
 import { TripEarningsSummary } from '../earnings/trip-summary';
 import { useOperations } from '@rove/mobile-core/use-operations';
@@ -144,33 +146,53 @@ function TripContent({ id }: { id: string }) {
       {trackingError && <Banner error message={trackingError} />}
       {ride ? (
         <>
-          <Copy kind="label">{ride.state.replaceAll('_', ' ').toUpperCase()}</Copy>
-          <Copy kind="title" style={action ? { fontSize: 22, lineHeight: 30 } : {}}>
-            {ride.state === 'completed'
-              ? 'Trip complete.'
-              : ride.state === 'arrived'
-                ? 'Waiting at pickup.'
-                : ride.state === 'in_progress'
-                  ? 'On the way.'
-                  : 'Let’s get there.'}
-          </Copy>
-          {ride.rider && (
-            <Card>
-              <Copy kind="label">YOUR RIDER</Copy>
-              <Copy kind="heading">{ride.rider.name}</Copy>
-            </Card>
+          {ride.state === 'completed' ? (
+            <View style={{ alignItems: 'center', gap: 16, paddingTop: 20, paddingBottom: 4 }}>
+              <Image source={completionMark} style={{ width: 72, height: 72 }} accessible={false} />
+              <View style={{ gap: 5, alignItems: 'center' }}>
+                <Copy kind="title" style={{ fontSize: 24, textAlign: 'center' }}>
+                  Trip complete.
+                </Copy>
+                <Copy kind="muted" style={{ fontSize: 13, textAlign: 'center' }}>
+                  {ride.destinationArea}
+                </Copy>
+              </View>
+            </View>
+          ) : (
+            <>
+              <Copy kind="label">{ride.state.replaceAll('_', ' ').toUpperCase()}</Copy>
+              <Copy kind="title" style={action ? { fontSize: 22, lineHeight: 30 } : {}}>
+                {ride.state === 'arrived'
+                  ? 'Waiting at pickup.'
+                  : ride.state === 'in_progress'
+                    ? 'On the way.'
+                    : 'Let’s get there.'}
+              </Copy>
+              {ride.rider && (
+                <Card>
+                  <Copy kind="label">YOUR RIDER</Copy>
+                  <Copy kind="heading">{ride.rider.name}</Copy>
+                </Card>
+              )}
+              <RouteSummary
+                pickup={ride.pickup?.label ?? ride.pickupArea}
+                destination={ride.destination?.label ?? ride.destinationArea}
+              />
+            </>
           )}
-          <RouteSummary
-            pickup={ride.pickup?.label ?? ride.pickupArea}
-            destination={ride.destination?.label ?? ride.destinationArea}
-          />
           <NavigationButton
             key={`${profile?.id}:${ride.id}:${ride.version}`}
             ride={ride}
             disabled={busy || !!readError || !!pending || restoring || !!recoveryError}
           />
           {ride.state === 'completed' && <TripEarningsSummary key={ride.id} rideId={ride.id} />}
-          {!action && <Button title="Back to driving" onPress={() => router.replace('/drive')} />}
+          {!action && (
+            <Button
+              title="Back to driving"
+              style={{ borderRadius: 26 }}
+              onPress={() => router.replace('/drive')}
+            />
+          )}
         </>
       ) : (
         <Copy kind="muted">Loading your trip…</Copy>

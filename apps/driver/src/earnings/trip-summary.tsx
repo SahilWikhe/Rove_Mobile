@@ -1,9 +1,10 @@
+import { View } from 'react-native';
 import { useCallback, useState } from 'react';
 import { router, useFocusEffect } from 'expo-router';
 import type { DriverTripEarnings } from '@rove/contracts';
 import { useSession } from '@rove/mobile-core/session';
 import { pollWhileForeground } from '@rove/mobile-core/foreground-polling';
-import { Banner, Button, Card, Copy, Money } from '@rove/mobile-ui';
+import { Banner, Button, Card, Copy, theme } from '@rove/mobile-ui';
 
 export function TripEarningsSummary({ rideId }: { rideId: string }) {
   const { api, synthetic } = useSession();
@@ -32,11 +33,39 @@ export function TripEarningsSummary({ rideId }: { rideId: string }) {
       {synthetic && <Banner message="Synthetic earnings · no money will be paid out." />}
       {error && <Banner error message={error} />}
       {data ? (
-        <Card>
-          <Money
-            cents={(data.recordedAmount ?? data.estimatedAmount).amount}
-            label={data.recordedAmount ? 'RECORDED TRIP EARNINGS' : 'ESTIMATED TRIP EARNINGS'}
-          />
+        <Card style={{ padding: 18, borderRadius: 18, gap: 12 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+            <Copy kind="muted" style={{ fontSize: 13 }}>
+              Original earnings estimate
+            </Copy>
+            <Copy style={{ fontSize: 13 }}>
+              {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
+                data.estimatedAmount.amount / 100,
+              )}
+            </Copy>
+          </View>
+          <View style={{ height: 1, backgroundColor: theme.border }} />
+          <Copy kind="label">
+            {data.recordedAmount ? 'RECORDED TRIP EARNINGS' : 'ESTIMATED TRIP EARNINGS'}
+          </Copy>
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: 8,
+            }}
+          >
+            <Copy style={{ fontSize: 15, fontFamily: 'Manrope_800ExtraBold' }}>
+              {data.recordedAmount ? 'You earned' : 'Estimated earnings'}
+            </Copy>
+            <Copy style={{ color: theme.gold, fontSize: 22, fontFamily: 'Manrope_800ExtraBold' }}>
+              {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
+                (data.recordedAmount ?? data.estimatedAmount).amount / 100,
+              )}
+            </Copy>
+          </View>
           <Copy kind="muted">
             {data.recordedAt
               ? `Recorded ${new Date(data.recordedAt).toLocaleString()}`
