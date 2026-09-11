@@ -2,6 +2,7 @@ import type { PropsWithChildren, ReactNode } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -30,15 +31,29 @@ export function Screen({
   scroll = true,
   contentStyle,
   footer,
+  onRefresh,
+  refreshing = false,
 }: PropsWithChildren<{
   scroll?: boolean;
   contentStyle?: ViewStyle;
   footer?: ReactNode;
+  onRefresh?: () => void;
+  refreshing?: boolean;
 }>) {
   return (
     <SafeAreaView style={styles.screen}>
       {scroll ? (
         <ScrollView
+          refreshControl={
+            onRefresh ? (
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={theme.gold}
+                colors={[theme.gold]}
+              />
+            ) : undefined
+          }
           contentContainerStyle={[styles.content, contentStyle]}
           automaticallyAdjustKeyboardInsets
           keyboardDismissMode="on-drag"

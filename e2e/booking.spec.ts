@@ -277,6 +277,13 @@ test('rider request reaches the driver and both apps follow a completed syntheti
     await driver.goBack();
     await driver.getByRole('button', { name: 'Back to driving', exact: true }).click();
     await driver.getByRole('button', { name: 'Go offline', exact: true }).click();
+    await driver.getByRole('button', { name: 'Trips', exact: true }).click();
+    const historyTrip = driver.getByTestId('driver-trip-' + id);
+    await expect(historyTrip).toBeVisible();
+    await expect(historyTrip.getByText('completed', { exact: true })).toBeVisible();
+    await driver.screenshot({ path: '/tmp/rove-driver-trips-figma-web.png', fullPage: true });
+    await historyTrip.click();
+    await expect(driver).toHaveURL(new RegExp('/trip\\?id=' + id));
   } finally {
     await context.close();
   }

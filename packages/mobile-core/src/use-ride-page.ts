@@ -6,6 +6,7 @@ import { pollWhileForeground } from './foreground-polling';
 export function useRidePage(api: ApiClient, before: string | undefined, signedIn: boolean) {
   const [data, setData] = useState<Awaited<ReturnType<ApiClient['rides']>> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [refreshVersion, setRefreshVersion] = useState(0);
   const focus = useCallback(() => {
     if (!signedIn) return;
@@ -13,10 +14,12 @@ export function useRidePage(api: ApiClient, before: string | undefined, signedIn
       load: (signal) => api.rides(before, signal),
       onData: (page) => {
         setData(page);
+        setRefreshing(false);
         setError(null);
       },
       onError: (failure) => {
         setData(null);
+        setRefreshing(false);
         setError(failure instanceof Error ? failure.message : 'Your trips could not be loaded.');
       },
       intervalMs: 15_000,
@@ -24,9 +27,9 @@ export function useRidePage(api: ApiClient, before: string | undefined, signedIn
     // A deliberate retry re-subscribes, aborting the previous read before starting another.
   }, [api, before, signedIn, refreshVersion]);
   const refresh = () => {
-    setData(null);
+    setRefreshing(true);
     setError(null);
     setRefreshVersion((value) => value + 1);
   };
-  return { data, error, focus, refresh };
+  return { data, error, focus, refresh, refreshing };
 }
