@@ -153,3 +153,8 @@ permissions continue using the existing server-backed controls.
 The online waiting map extends behind the system status bar to the top edge. Only its status
 pill is offset by the top safe-area inset; the lower sheet retains its position and bottom
 navigation remains protected. This layout was visually checked on iOS and Android simulators.
+
+Driver navigation icons use transparent PNG renders of the original Figma `4:281` SVG exports,
+retained alongside them in assets/navigation. Icon tint follows the selected route, matching the
+label and accessibility selection. Native iOS and Android screenshots verified the Drive selection
+and transparent backgrounds; the earlier opaque raster exports must not be restored.

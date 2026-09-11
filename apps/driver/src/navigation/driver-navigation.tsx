@@ -36,7 +36,11 @@ export function DriverNavigation({
             }}
             style={({ pressed }) => [styles.item, (pressed || disabled) && styles.dimmed]}
           >
-            <Image source={icon} accessible={false} style={styles.icon} />
+            <Image
+              source={icon}
+              accessible={false}
+              style={[styles.icon, { tintColor: path === active ? theme.gold : theme.muted }]}
+            />
             <Copy style={[styles.label, path === active && { color: theme.gold }]}>{label}</Copy>
           </Pressable>
         ))}
