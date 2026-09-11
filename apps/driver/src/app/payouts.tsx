@@ -67,7 +67,7 @@ function PayoutSetup() {
     ready: 'Stripe details are ready.',
   };
   return (
-    <Screen>
+    <Screen underHeader>
       <Stack.Screen options={{ title: 'Payout setup' }} />
       <Copy kind="title">Your payout details.</Copy>
       {!profile ? (

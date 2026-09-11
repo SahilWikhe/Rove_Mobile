@@ -32,6 +32,7 @@ export function Screen({
   contentStyle,
   footer,
   floatingFooter = false,
+  underHeader = false,
   onRefresh,
   refreshing = false,
 }: PropsWithChildren<{
@@ -39,6 +40,8 @@ export function Screen({
   contentStyle?: ViewStyle;
   footer?: ReactNode;
   floatingFooter?: boolean;
+  /** An opaque navigation header already protects the top safe area. */
+  underHeader?: boolean;
   onRefresh?: () => void;
   refreshing?: boolean;
 }>) {
@@ -48,7 +51,12 @@ export function Screen({
   const bottomSpace = overlay ? { paddingBottom: footerHeight + insets.bottom + 16 } : undefined;
   return (
     <SafeAreaView
-      edges={overlay ? ['top', 'left', 'right'] : ['top', 'left', 'right', 'bottom']}
+      edges={{
+        top: underHeader ? 'off' : 'additive',
+        left: 'additive',
+        right: 'additive',
+        bottom: overlay ? 'off' : 'additive',
+      }}
       style={styles.screen}
     >
       {scroll ? (

@@ -19,7 +19,7 @@ export default function Devices() {
     [api, notifications],
   );
   return (
-    <Screen>
+    <Screen underHeader>
       <Stack.Screen options={{ title: 'Notification devices' }} />
       {profile ? (
         <NotificationDevices key={profile.id} list={list} revoke={revoke} newKey={Crypto.randomUUID} />

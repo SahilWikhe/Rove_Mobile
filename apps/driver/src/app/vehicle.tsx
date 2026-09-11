@@ -100,13 +100,13 @@ function VehicleForm() {
   }
   if (!profile)
     return (
-      <Screen>
+      <Screen underHeader>
         <Copy>Sign in to manage your vehicle.</Copy>
         <Button title="Sign in" onPress={() => router.replace('/')} />
       </Screen>
     );
   return (
-    <Screen>
+    <Screen underHeader>
       <Stack.Screen options={{ title: 'Your vehicle' }} />
       <Copy kind="title">Your vehicle.</Copy>
       {error && <Banner error message={error} />}

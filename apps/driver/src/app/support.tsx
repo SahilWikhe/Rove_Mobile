@@ -6,7 +6,7 @@ import { SupportForm } from '@rove/mobile-ui/support-form';
 export default function Support() {
   const { profile, api } = useSession();
   return (
-    <Screen>
+    <Screen underHeader>
       <Stack.Screen options={{ title: 'Help & support' }} />
       {profile ? (
         <SupportForm

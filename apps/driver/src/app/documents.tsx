@@ -142,7 +142,11 @@ function DocumentScreen() {
     }
   }
   return (
-    <Screen refreshing={refreshing} onRefresh={profile && !phase ? () => void reloadDocuments() : undefined}>
+    <Screen
+      underHeader
+      refreshing={refreshing}
+      onRefresh={profile && !phase ? () => void reloadDocuments() : undefined}
+    >
       <Stack.Screen options={{ title: 'Your documents' }} />
       <Copy kind="title">Ready for review.</Copy>
       <Copy>

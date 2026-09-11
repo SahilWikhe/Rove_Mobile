@@ -5,7 +5,7 @@ import { ProfileNameForm } from '@rove/mobile-ui/profile-name-form';
 export default function Profile() {
   const { profile, updateName, reloadName } = useSession();
   return (
-    <Screen>
+    <Screen underHeader>
       <Stack.Screen options={{ title: 'Edit profile' }} />
       {profile ? (
         <ProfileNameForm key={profile.id} initialName={profile.name} save={updateName} reload={reloadName} />

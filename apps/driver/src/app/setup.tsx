@@ -61,6 +61,7 @@ function SetupStatus() {
   );
   return (
     <Screen
+      underHeader
       refreshing={refreshing}
       onRefresh={
         profile
