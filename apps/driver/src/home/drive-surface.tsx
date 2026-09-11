@@ -1,6 +1,6 @@
 import type { PropsWithChildren, ReactNode } from 'react';
 import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Copy, Screen, theme } from '@rove/mobile-ui';
 import { WaitingMap } from './waiting-map';
 
@@ -16,6 +16,7 @@ export function DriveSurface({
   footer: ReactNode;
 }>) {
   const { height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   if (!online)
     return (
       <Screen contentStyle={{ paddingTop: 20, gap: 16 }} footer={footer}>
@@ -23,10 +24,10 @@ export function DriveSurface({
       </Screen>
     );
   return (
-    <SafeAreaView style={styles.screen}>
-      <View style={{ height: Math.max(240, Math.min(440, height * 0.43)) }}>
+    <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.screen}>
+      <View style={{ height: Math.max(240, Math.min(440, height * 0.43)) + insets.top }}>
         <WaitingMap synthetic={synthetic} />
-        <View style={styles.status} pointerEvents="none">
+        <View style={[styles.status, { top: insets.top + 20 }]} pointerEvents="none">
           <Copy style={styles.statusText}>You’re online · looking for rides</Copy>
         </View>
       </View>
@@ -45,7 +46,6 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.background },
   status: {
     position: 'absolute',
-    top: 20,
     alignSelf: 'center',
     paddingHorizontal: 14,
     paddingVertical: 10,

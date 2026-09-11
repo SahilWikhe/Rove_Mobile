@@ -149,3 +149,7 @@ not expose trustworthy online-duration or completed-trip aggregates for this das
 reference's sample hours/counts are omitted. No scheduled card, Rove Pro subscription, 100%-fare
 promise or medical rider identity is reintroduced. Active-trip recovery, eligibility and location
 permissions continue using the existing server-backed controls.
+
+The online waiting map extends behind the system status bar to the top edge. Only its status
+pill is offset by the top safe-area inset; the lower sheet retains its position and bottom
+navigation remains protected. This layout was visually checked on iOS and Android simulators.
