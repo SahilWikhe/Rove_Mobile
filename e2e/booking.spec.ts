@@ -34,6 +34,20 @@ test('rider reviews a quote and explicitly confirms cancellation', async ({ page
       return (await response.json()).version;
     })
     .toBeGreaterThan(1);
+  // Losing the authoritative read invalidates an open confirmation. A recovered read
+  // must require a new deliberate confirmation instead of reviving the old one.
+  await page.getByRole('button', { name: 'Cancel ride', exact: true }).click();
+  await expect(page.getByText('Cancel this ride?', { exact: true })).toBeVisible();
+  await page.route(rideUrl, (route) => route.abort('failed'));
+  await expect(page.getByRole('button', { name: 'Cancel ride', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Confirm cancellation', exact: true })).toHaveCount(0);
+  const duringFailure = await request.get(rideUrl, {
+    headers: { Authorization: 'Bearer synthetic-rider' },
+  });
+  expect((await duringFailure.json()).state).toBe('searching');
+  await page.unroute(rideUrl);
+  await expect(page.getByRole('button', { name: 'Cancel ride', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Confirm cancellation', exact: true })).toHaveCount(0);
   let cancellationRequests = 0;
   await page.route(rideUrl + '/transitions', async (route) => {
     if (route.request().method() !== 'POST') return route.continue();

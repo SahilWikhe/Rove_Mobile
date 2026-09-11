@@ -24,31 +24,37 @@ export default function Ride() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { api, synthetic } = useSession();
   const { pending, restoring, recoveryError, execute } = useOperations();
-  const [ride, setRide] = useState<RideDetails | null>(null);
+  const [loadedRide, setRide] = useState<RideDetails | null>(null);
+  const ride = loadedRide?.id === id ? loadedRide : null;
   const [error, setError] = useState<string | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   useFocusEffect(
-    useCallback(
-      () =>
-        pollWhileForeground({
-          load: (signal) => api.ride(id, signal),
-          onData: (updated) => {
-            setRide((current) =>
-              current?.id === updated.id && current.version > updated.version ? current : updated,
-            );
-            setReadError(null);
-          },
-          onError: (failure) =>
-            setReadError(failure instanceof Error ? failure.message : 'Trip information is unavailable.'),
-          intervalMs: 4000,
-        }),
-      [api, id],
-    ),
+    useCallback(() => {
+      setRide(null);
+      setReadError(null);
+      setError(null);
+      setConfirmCancel(false);
+      return pollWhileForeground({
+        load: (signal) => api.ride(id, signal),
+        onData: (updated) => {
+          if (updated.id !== id) return;
+          setRide((current) =>
+            current?.id === updated.id && current.version > updated.version ? current : updated,
+          );
+          setReadError(null);
+        },
+        onError: (failure) => {
+          setConfirmCancel(false);
+          setReadError(failure instanceof Error ? failure.message : 'Trip information is unavailable.');
+        },
+        intervalMs: 4000,
+      });
+    }, [api, id]),
   );
   async function cancel() {
-    if (!ride || restoring || recoveryError) return;
+    if (!ride || readError || busy || restoring || recoveryError) return;
     setBusy(true);
     setError(null);
     try {
@@ -61,7 +67,7 @@ export default function Ride() {
           setRide(await api.ride(id));
           setError('Your trip changed. Review the latest details and confirm cancellation again.');
         } catch {
-          setError(
+          setReadError(
             'Your trip changed and could not be refreshed. Wait for current details before trying again.',
           );
         }
@@ -170,6 +176,7 @@ export default function Ride() {
                   title="Confirm cancellation"
                   variant="danger"
                   loading={busy}
+                  disabled={!!readError}
                   onPress={() => void cancel()}
                 />
                 <Button
@@ -180,7 +187,12 @@ export default function Ride() {
                 />
               </Card>
             ) : (
-              <Button title="Cancel ride" variant="secondary" onPress={() => setConfirmCancel(true)} />
+              <Button
+                title="Cancel ride"
+                variant="secondary"
+                disabled={!!readError || busy}
+                onPress={() => setConfirmCancel(true)}
+              />
             ))}
         </>
       ) : (

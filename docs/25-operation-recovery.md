@@ -15,6 +15,15 @@ The recovery button resends the original payload and key. If the server already 
 
 A committed booking is replayable after its quote expires. A brand-new booking with an expired quote is rejected. For trip transitions, preserve the original expected version even if a later poll shows a newer version; substituting that version under the same key would violate the server fingerprint contract.
 
+## Rider trip reads
+
+The rider trip screen clears its loaded details and cancellation confirmation when refocused or
+when the requested ride changes. A failed trip poll closes an open cancellation confirmation and
+disables new cancellation until a successful read arrives. Failed refresh after a version conflict
+also blocks new cancellation. Recovering a journaled operation continues to use its original key
+and payload; it is not replaced with a new cancellation command. Server version checks remain the
+final authority when the trip changes between reading and confirming.
+
 ## Privacy and storage
 
 The entry contains only a random key and either a quote identifier or a ride identifier/state/version. It contains no address, coordinates, bearer token, card data or quote snapshot. Keys are scoped using a SHA-256 digest of API URL, account identifier and synthetic-mode status.
