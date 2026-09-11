@@ -1,21 +1,17 @@
-# Requires the driver app configured against the disposable synthetic API.
+# Requires the signed-in driver on Drive against the disposable synthetic API.
 # The fixture must have no allocations in January 2000. No ride/payment is submitted.
 appId: co.roveride.driver
 ---
-- launchApp
-- runFlow:
-    when:
-      visible: Get started
-    commands:
-      - tapOn: Get started
 - scrollUntilVisible:
     element: Earnings
     direction: DOWN
 - tapOn: Earnings
-- assertVisible: Your work. Recorded.
+- assertVisible: Last 7 days
+- tapOn: Filter recorded dates
 - tapOn:
     id: earnings-from-date
-- inputText: 2000-01-01
+- inputText: '2000-01-01'
+- assertVisible: '2000-01-01'
 - pressKey: Enter
 - scrollUntilVisible:
     element:
@@ -23,23 +19,28 @@ appId: co.roveride.driver
     direction: DOWN
 - tapOn:
     id: earnings-through-date
-- inputText: 2000-01-31
+- inputText: '2000-01-31'
+- assertVisible: '2000-01-31'
 - pressKey: Enter
 - scrollUntilVisible:
     element: Apply dates
     direction: DOWN
 - tapOn: Apply dates
 - scrollUntilVisible:
-    element: RECORDED IN SELECTED PERIOD
+    element: 2000-01-01 – 2000-01-31 · UTC
     direction: DOWN
-- assertVisible: RECORDED IN SELECTED PERIOD
+- assertVisible: 2000-01-01 – 2000-01-31 · UTC
 - scrollUntilVisible:
     element: No recorded earnings in this date range.
     direction: DOWN
 - assertVisible: No recorded earnings in this date range.
 - takeScreenshot: rove-native-earnings-filtered
 - scrollUntilVisible:
-    element: All recorded dates
+    element: Filter recorded dates
     direction: UP
+- tapOn: Filter recorded dates
+- scrollUntilVisible:
+    element: All recorded dates
+    direction: DOWN
 - tapOn: All recorded dates
-- assertNotVisible: RECORDED IN SELECTED PERIOD
+- assertNotVisible: 2000-01-01 – 2000-01-31 · UTC

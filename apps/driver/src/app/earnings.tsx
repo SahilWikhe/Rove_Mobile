@@ -120,6 +120,8 @@ function EarningsContent({
           <Field
             label="From date (UTC)"
             testID="earnings-from-date"
+            returnKeyType="done"
+            onSubmitEditing={Keyboard.dismiss}
             autoCorrect={false}
             maxLength={10}
             value={from}
@@ -130,6 +132,8 @@ function EarningsContent({
           <Field
             label="Through date (UTC)"
             testID="earnings-through-date"
+            returnKeyType="done"
+            onSubmitEditing={Keyboard.dismiss}
             autoCorrect={false}
             maxLength={10}
             value={through}
