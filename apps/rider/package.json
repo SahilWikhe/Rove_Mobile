@@ -16,7 +16,7 @@
     "@rove/contracts": "workspace:*",
     "@rove/mobile-core": "workspace:*",
     "@rove/mobile-ui": "workspace:*",
-    "@stripe/stripe-react-native": "0.64.0",
+    "@stripe/stripe-react-native": "0.76.0",
     "expo": "~57.0.22",
     "expo-auth-session": "~57.0.12",
     "expo-constants": "~57.0.18",
@@ -29,18 +29,18 @@
     "expo-status-bar": "~57.0.1",
     "expo-system-ui": "~57.0.4",
     "expo-web-browser": "~57.0.3",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "react-native": "0.86.3",
-    "react-native-maps": "1.27.2",
-    "react-native-reanimated": "4.5.1",
-    "react-native-safe-area-context": "~5.7.0",
-    "react-native-screens": "~4.26.0",
+    "react-native-maps": "1.29.0",
+    "react-native-reanimated": "4.6.0",
+    "react-native-safe-area-context": "~5.9.1",
+    "react-native-screens": "~4.27.0",
     "react-native-web": "~0.21.0",
-    "react-native-worklets": "0.10.1"
+    "react-native-worklets": "0.12.2"
   },
   "devDependencies": {
-    "@react-native/metro-config": "0.86.3",
+    "@react-native/metro-config": "0.87.1",
     "@types/react": "~19.2.2"
   }
 }
