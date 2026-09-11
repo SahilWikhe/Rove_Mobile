@@ -1,0 +1,21 @@
+# Start on Drive with a synthetic driver and unconfigured payouts. No Stripe link is opened.
+appId: co.roveride.driver
+---
+- extendedWaitUntil:
+    visible: Account
+    timeout: 30000
+- tapOn: Account
+- tapOn: Payout setup
+- assertVisible: Your payout details.
+- assertVisible: Payout setup is not available yet.
+- swipe:
+    start: '50%,30%'
+    end: '50%,75%'
+    duration: 700
+- extendedWaitUntil:
+    visible: Payout setup is not available yet.
+    timeout: 15000
+- assertNotVisible: Checking payout setup…
+- assertNotVisible: Check setup status
+- assertVisible: Help with payout setup
+- takeScreenshot: driver-payout-refreshed

@@ -22,3 +22,25 @@ test('driver can inspect payout setup without claiming a synthetic bank account 
   expect(refreshed.status(), await refreshed.text()).toBe(200);
   await expect(page.getByText('Payout setup is not available yet.', { exact: true })).toBeVisible();
 });
+
+test('failed payout refresh clears stale readiness and leaves recovery available', async ({ page }) => {
+  let failed = false;
+  await page.route('**/v1/drivers/me/payout-setup', (route) =>
+    failed ? route.abort() : route.fulfill({ json: { status: 'ready' } }),
+  );
+  await page.goto('http://localhost:8092');
+  await page.getByRole('button', { name: 'Get started', exact: true }).click();
+  await page.getByRole('button', { name: 'Account', exact: true }).click();
+  await page.getByRole('button', { name: 'Payout setup', exact: true }).click();
+  await expect(page.getByText('Stripe details are ready.', { exact: true })).toBeVisible();
+  failed = true;
+  await page.getByRole('button', { name: 'Check setup status', exact: true }).click();
+  await expect(page.getByText('Payout status could not be checked.', { exact: true })).toBeVisible();
+  await expect(page.getByText('Checking payout setup…', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Review Stripe details', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Help with payout setup', exact: true })).toBeEnabled();
+  failed = false;
+  await page.getByRole('button', { name: 'Check setup status', exact: true }).click();
+  await expect(page.getByText('Stripe details are ready.', { exact: true })).toBeVisible();
+  await expect(page.getByText('Payout status could not be checked.', { exact: true })).toHaveCount(0);
+});

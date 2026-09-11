@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { useCallback, useRef, useState } from 'react';
 import { Stack, router, useFocusEffect } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -13,6 +14,7 @@ function PayoutSetup() {
   const [status, setStatus] = useState<DriverPayoutStatus['status'] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [revision, setRevision] = useState(0);
   const epoch = useRef(0),
     pending = useRef(false);
@@ -32,6 +34,9 @@ function PayoutSetup() {
           .catch((failure) => {
             if (epoch.current === generation)
               setError(failure instanceof Error ? failure.message : 'Unable to check payout setup.');
+          })
+          .finally(() => {
+            if (epoch.current === generation) setRefreshing(false);
           });
       return () => {
         epoch.current++;
@@ -67,7 +72,18 @@ function PayoutSetup() {
     ready: 'Stripe details are ready.',
   };
   return (
-    <Screen underHeader>
+    <Screen
+      underHeader
+      refreshing={refreshing}
+      onRefresh={
+        profile && !busy
+          ? () => {
+              setRefreshing(true);
+              setRevision((value) => value + 1);
+            }
+          : undefined
+      }
+    >
       <Stack.Screen options={{ title: 'Payout setup' }} />
       <Copy kind="title">Your payout details.</Copy>
       {!profile ? (
@@ -75,7 +91,13 @@ function PayoutSetup() {
       ) : (
         <>
           <Card>
-            <Copy kind="heading">{status ? titles[status] : 'Checking payout setup…'}</Copy>
+            <Copy kind="heading">
+              {status
+                ? titles[status]
+                : error
+                  ? 'Payout status could not be checked.'
+                  : 'Checking payout setup…'}
+            </Copy>
             <Copy>
               Stripe collects identity and bank details securely. Rove does not collect those details in this
               form.
@@ -93,15 +115,19 @@ function PayoutSetup() {
               onPress={() => void start()}
             />
           )}
-          <Button
-            title="Check setup status"
-            variant="secondary"
-            disabled={busy}
-            onPress={() => setRevision((value) => value + 1)}
-          />
+          {Platform.OS === 'web' && (
+            <Button
+              title="Check setup status"
+              variant="secondary"
+              disabled={busy}
+              onPress={() => setRevision((value) => value + 1)}
+            />
+          )}
           <Copy kind="muted">
-            After completing or closing Stripe, check your status here. If a link expires, select Continue
-            with Stripe to request a new one.
+            {Platform.OS === 'web'
+              ? 'After completing or closing Stripe, check your status here.'
+              : 'Pull down to check your status after returning from Stripe.'}{' '}
+            If a link expires, select Continue with Stripe to request a new one.
           </Copy>
         </>
       )}
