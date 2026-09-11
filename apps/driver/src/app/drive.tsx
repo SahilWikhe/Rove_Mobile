@@ -1,3 +1,4 @@
+import { DriveSurface } from '../home/drive-surface';
 import { DriveEarnings } from '../home/drive-earnings';
 import { DriveHeader } from '../home/drive-header';
 import { DriverNavigation } from '../navigation/driver-navigation';
@@ -15,7 +16,7 @@ import {
 import * as Crypto from 'expo-crypto';
 import type { DriverProfile, DriverOffer, RideDetails } from '@rove/contracts';
 import { useSession } from '@rove/mobile-core/session';
-import { Banner, Button, Card, Copy, Screen } from '@rove/mobile-ui';
+import { Banner, Button, Card, Copy } from '@rove/mobile-ui';
 export default function Drive() {
   const { api, synthetic, profile: account } = useSession();
   const { pending, recoveryError, refresh: refreshOperations } = useOperations();
@@ -82,33 +83,47 @@ export default function Drive() {
       setBusy(false);
     }
   }
+  const waiting = Boolean(profile?.online && !active && !offer);
   return (
-    <Screen
-      contentStyle={{ paddingTop: 20, gap: 16 }}
+    <DriveSurface
+      online={waiting}
+      synthetic={synthetic}
       footer={<DriverNavigation active="/drive" disabled={busy} />}
     >
       <Stack.Screen options={{ headerShown: false }} />
-      <DriveHeader name={account?.name ?? ''} online={profile?.online ?? null} activeTrip={Boolean(active)} />
+      {!waiting && (
+        <DriveHeader
+          name={account?.name ?? ''}
+          online={profile?.online ?? null}
+          activeTrip={Boolean(active)}
+        />
+      )}
       {account && <DriveEarnings key={account.id} />}
       {synthetic && <Banner message="Synthetic test mode · no real rides or payments" />}
       {(error || readError) && <Banner error message={error ?? readError!} />}
       {trackingError && <Banner error message={trackingError} />}
-      <Card style={{ minHeight: 140, borderRadius: 18, justifyContent: 'center', alignItems: 'center' }}>
-        <Copy kind="heading">
-          {active
-            ? 'Your trip is active'
-            : offer
-              ? 'A new ride request'
-              : profile?.online
-                ? 'Looking for your next trip'
-                : 'You’re offline'}
+      {waiting ? (
+        <Copy kind="muted" style={{ textAlign: 'center', fontSize: 12 }}>
+          Waiting for a request…
         </Copy>
-        <Copy kind="muted">
-          {profile?.online
-            ? 'Keep your location available for matching.'
-            : 'Go online when you’re ready to drive.'}
-        </Copy>
-      </Card>
+      ) : (
+        <Card style={{ minHeight: 140, borderRadius: 18, justifyContent: 'center', alignItems: 'center' }}>
+          <Copy kind="heading">
+            {active
+              ? 'Your trip is active'
+              : offer
+                ? 'A new ride request'
+                : profile?.online
+                  ? 'Looking for your next trip'
+                  : 'You’re offline'}
+          </Copy>
+          <Copy kind="muted">
+            {profile?.online
+              ? 'Keep your location available for matching.'
+              : 'Go online when you’re ready to drive.'}
+          </Copy>
+        </Card>
+      )}
       {active ? (
         <Button
           title="Continue your trip"
@@ -175,6 +190,6 @@ export default function Drive() {
         loading={busy}
         onPress={() => void availability()}
       />
-    </Screen>
+    </DriveSurface>
   );
 }

@@ -130,9 +130,17 @@ The Drive header follows the current driver Offline frame `1:12`: compact Manrop
 account-initial badge, wrapping greeting, availability pill, rounded summary cards and pill-shaped
 availability action. The shared Driver navigation replaces the earlier stack of full-width navigation
 buttons. Account, Trips and Earnings remain reachable through labeled touch targets; the badge also
-opens Account. The Online reference is `1:62`; a full-screen live waiting map and bottom-sheet
-composition still need implementation and configured native map credentials. Do not describe the
-current Drive layout as complete visual parity with that frame.
+opens Account. The Online reference is `1:62`; the waiting state now places a native location map
+under a status pill, above a rounded scrolling sheet. The sheet retains actual earnings, connection
+errors and the offline action. The map uses an accurate local sample for its initial region and the
+native location indicator thereafter; synthetic previews have an explicitly labeled test marker.
+Web previews explain that maps require the native apps. Missing keys or location show an honest
+unavailable state. Background heartbeats remain owned by the tracking provider, not the map.
+
+The map and sheet use bounded responsive heights so recovery controls remain scrollable, rather
+than copying the reference's fixed 844-pixel positioning. Platform SDK keys are configured locally. Driver accepted-trip Google tiles were verified on
+iOS and Android, and browser online/offline navigation passed. The waiting-map surface also rendered Google tiles and the local test marker on both
+platforms. Full visual parity, large-text layouts and real-device tracking remain separate checks.
 
 Dashboard amounts come from the existing earnings API, with TODAY · UTC and ALL TIME explicitly
 representing recorded earnings. They are not paid-out balances. Requests refresh only while focused

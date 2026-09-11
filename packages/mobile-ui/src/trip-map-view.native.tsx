@@ -1,3 +1,4 @@
+import { darkMapStyle } from './map-style';
 import { useRef, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
@@ -13,13 +14,14 @@ export function TripMap({
 }: TripMapProps) {
   const map = useRef<MapView>(null);
   const [ready, setReady] = useState(false);
+  const initialTilesLoaded = useRef(false);
   const showFullTrip = () => {
     map.current?.fitToCoordinates([pickup, destination, ...(driver ? [driver.coordinate] : [])], {
       edgePadding: { top: 56, right: 48, bottom: 56, left: 48 },
       animated: false,
     });
   };
-  const applePreview = Platform.OS === 'ios' && !!synthetic;
+  const applePreview = Platform.OS === 'ios' && !!synthetic && !iosEnabled;
   const configured = Platform.OS === 'ios' ? iosEnabled : androidEnabled;
   if (!applePreview && !configured)
     return (
@@ -41,10 +43,19 @@ export function TripMap({
           setReady(true);
           showFullTrip();
         }}
+        onMapLoaded={() => {
+          // Google can report ready before its initial camera/tiles settle.
+          // Fit once after loading, without snapping back after user gestures.
+          if (!initialTilesLoaded.current) {
+            initialTilesLoaded.current = true;
+            showFullTrip();
+          }
+        }}
         provider={applePreview ? undefined : PROVIDER_GOOGLE}
         style={styles.map}
         initialRegion={region}
         userInterfaceStyle="dark"
+        {...(!applePreview ? { customMapStyle: darkMapStyle } : {})}
         showsUserLocation={false}
         showsMyLocationButton={false}
         showsCompass

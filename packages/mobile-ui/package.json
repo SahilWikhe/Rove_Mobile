@@ -10,7 +10,8 @@
     "./trip-map": "./src/trip-map.tsx",
     "./notification-controls": "./src/notification-controls.tsx",
     "./notification-devices": "./src/notification-devices.tsx",
-    "./account-layout": "./src/account-layout.tsx"
+    "./account-layout": "./src/account-layout.tsx",
+    "./map-style": "./src/map-style.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

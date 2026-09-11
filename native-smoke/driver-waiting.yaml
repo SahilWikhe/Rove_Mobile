@@ -1,0 +1,20 @@
+# Requires a signed-in online synthetic driver with no active trip or offer.
+# Run against one device at a time: both platforms share the local synthetic driver.
+appId: co.roveride.driver
+---
+- extendedWaitUntil:
+    visible: 'You’re online · looking for rides'
+    timeout: 30000
+- scrollUntilVisible:
+    element: 'Go offline'
+    direction: DOWN
+- assertVisible: 'Waiting for a request…'
+- takeScreenshot: driver-waiting-map
+- tapOn: Go offline
+- extendedWaitUntil:
+    visible: Go online
+    timeout: 30000
+- tapOn: Go online
+- extendedWaitUntil:
+    visible: 'You’re online · looking for rides'
+    timeout: 30000

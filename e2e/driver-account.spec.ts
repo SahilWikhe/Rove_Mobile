@@ -36,3 +36,16 @@ test('Driver Account navigation opens trips and earnings with a route back', asy
   await page.getByRole('button', { name: 'Drive', exact: true }).click();
   await expect(page).toHaveURL(/\/drive$/);
 });
+
+test('Driver online map layout keeps offline control reachable', async ({ page }) => {
+  await page.goto('http://localhost:8092');
+  await page.getByRole('button', { name: 'Get started', exact: true }).click();
+  await page.getByRole('button', { name: 'Go online', exact: true }).click();
+  await expect(page.getByText('Waiting for a request…', { exact: true })).toBeVisible();
+  await expect(page.getByText('You’re online · looking for rides', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Go offline', exact: true })).toBeEnabled();
+  await page.screenshot({ path: '/tmp/rove-driver-waiting-web.png', fullPage: true });
+  await page.getByRole('button', { name: 'Go offline', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Open your account', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Go online', exact: true })).toBeEnabled();
+});
