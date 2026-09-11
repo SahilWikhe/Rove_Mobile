@@ -1,3 +1,7 @@
 # Verified prose false positive in docs/50 at line 51; see docs/51-browser-ci.md.
 # No credential is present. Suppress only this exact historical finding, not a path or rule.
 717ac52136a56a04d916e564eb663100bcc99c51:docs/50-support-requests.md:generic-api-key:51
+# Public Auth0 native-app client IDs, intentionally embedded in staging app builds.
+# These identify OAuth clients; they are not client secrets. Match only these exact findings.
+bc33b7f8814f7cc3092b76d81da9a9cbc0839954:apps/driver/eas.json:generic-api-key:14
+bc33b7f8814f7cc3092b76d81da9a9cbc0839954:apps/rider/eas.json:generic-api-key:14
