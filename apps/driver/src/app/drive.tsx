@@ -1,8 +1,10 @@
+import { DriveEarnings } from '../home/drive-earnings';
+import { DriveHeader } from '../home/drive-header';
+import { DriverNavigation } from '../navigation/driver-navigation';
 import { useOperations } from '@rove/mobile-core/use-operations';
 import { pollWhileForeground } from '@rove/mobile-core/foreground-polling';
 import { currentPosition, useTrackingError } from '../tracking/provider';
 import { useCallback, useState } from 'react';
-import { View } from 'react-native';
 import { Stack, router, useFocusEffect } from 'expo-router';
 import {
   requestTrackingPermissions,
@@ -13,7 +15,7 @@ import {
 import * as Crypto from 'expo-crypto';
 import type { DriverProfile, DriverOffer, RideDetails } from '@rove/contracts';
 import { useSession } from '@rove/mobile-core/session';
-import { Banner, Brand, Button, Card, Copy, Screen, theme } from '@rove/mobile-ui';
+import { Banner, Button, Card, Copy, Screen } from '@rove/mobile-ui';
 export default function Drive() {
   const { api, synthetic, profile: account } = useSession();
   const { pending, recoveryError, refresh: refreshOperations } = useOperations();
@@ -81,26 +83,17 @@ export default function Drive() {
     }
   }
   return (
-    <Screen>
+    <Screen
+      contentStyle={{ paddingTop: 20, gap: 16 }}
+      footer={<DriverNavigation active="/drive" disabled={busy} />}
+    >
       <Stack.Screen options={{ headerShown: false }} />
-      <Brand driver />
+      <DriveHeader name={account?.name ?? ''} online={profile?.online ?? null} activeTrip={Boolean(active)} />
+      {account && <DriveEarnings key={account.id} />}
       {synthetic && <Banner message="Synthetic test mode · no real rides or payments" />}
-      <Copy kind="title">{profile?.online ? 'You’re online.' : 'Ready when you are.'}</Copy>
       {(error || readError) && <Banner error message={error ?? readError!} />}
       {trackingError && <Banner error message={trackingError} />}
-      <Card style={{ minHeight: 160, justifyContent: 'center', alignItems: 'center' }}>
-        <View
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: 28,
-            backgroundColor: profile?.online ? theme.gold : theme.raised,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Copy style={{ color: profile?.online ? theme.background : theme.muted }}>↑</Copy>
-        </View>
+      <Card style={{ minHeight: 140, borderRadius: 18, justifyContent: 'center', alignItems: 'center' }}>
         <Copy kind="heading">
           {active
             ? 'Your trip is active'
@@ -176,13 +169,12 @@ export default function Drive() {
       )}
       <Button
         title={profile?.online ? 'Go offline' : 'Go online'}
+        variant={profile?.online ? 'secondary' : 'gold'}
+        style={{ borderRadius: 28, minHeight: 56 }}
         disabled={!profile || (!profile.online && !profile.eligible) || Boolean(active)}
         loading={busy}
         onPress={() => void availability()}
       />
-      <Button title="Earnings" variant="secondary" onPress={() => router.push('/earnings')} />
-      <Button title="Trips" variant="secondary" onPress={() => router.push('/trips')} />
-      <Button title="Account" variant="secondary" onPress={() => router.push('/account')} />
     </Screen>
   );
 }

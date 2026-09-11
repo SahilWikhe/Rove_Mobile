@@ -3,7 +3,13 @@ import { expect, test } from './fixtures';
 test('Driver Account navigation opens trips and earnings with a route back', async ({ page }) => {
   await page.goto('http://localhost:8092');
   await page.getByRole('button', { name: 'Get started', exact: true }).click();
-  await page.getByRole('button', { name: 'Account', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Open your account', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Drive', exact: true }).getByText('Drive', { exact: true }),
+  ).toHaveCSS('color', 'rgb(214, 178, 109)');
+  await expect(page.getByRole('button', { name: 'Go online', exact: true })).toBeEnabled();
+  await page.screenshot({ path: '/tmp/rove-driver-drive-figma-web.png', fullPage: true });
+  await page.getByRole('button', { name: 'Open your account', exact: true }).click();
   await expect(
     page.getByRole('button', { name: 'Account', exact: true }).getByText('Account', { exact: true }),
   ).toHaveCSS('color', 'rgb(214, 178, 109)');

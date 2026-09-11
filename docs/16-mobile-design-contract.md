@@ -123,3 +123,21 @@ Verify the core consumer journey with no sponsor configuration; no subscription 
 ## Design access verification — September 7, 2026
 
 The Figma connector successfully returned full design context and screenshots for rider Home (`2:12`) and driver Online/waiting (`1:62`). These frames specify black `#000000` backgrounds, `#0A0A0A` sheets/fields, `#0F0F0F` cards, gold `#D6B26D`, text `#F4F0E8`, muted text `#8B8B8B`, and Manrope typography. The rider promo uses a multistop gold gradient. Rider navigation is a floating pill; driver waiting uses a full map with a top status pill and bottom sheet. These are frame values, not a completed shared-variable audit. Implementation alignment remains outstanding; all approved consumer/scheduling/privacy overrides above still apply.
+
+## Driver Drive screen adaptation
+
+The Drive header follows the current driver Offline frame `1:12`: compact Manrope wordmark,
+account-initial badge, wrapping greeting, availability pill, rounded summary cards and pill-shaped
+availability action. The shared Driver navigation replaces the earlier stack of full-width navigation
+buttons. Account, Trips and Earnings remain reachable through labeled touch targets; the badge also
+opens Account. The Online reference is `1:62`; a full-screen live waiting map and bottom-sheet
+composition still need implementation and configured native map credentials. Do not describe the
+current Drive layout as complete visual parity with that frame.
+
+Dashboard amounts come from the existing earnings API, with TODAY · UTC and ALL TIME explicitly
+representing recorded earnings. They are not paid-out balances. Requests refresh only while focused
+and foregrounded; failed reads show unavailable values, never fabricated zeroes. The current API does
+not expose trustworthy online-duration or completed-trip aggregates for this dashboard, so the
+reference's sample hours/counts are omitted. No scheduled card, Rove Pro subscription, 100%-fare
+promise or medical rider identity is reintroduced. Active-trip recovery, eligibility and location
+permissions continue using the existing server-backed controls.
