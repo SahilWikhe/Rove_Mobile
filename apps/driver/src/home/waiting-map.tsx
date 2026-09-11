@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 import { Copy, theme } from '@rove/mobile-ui';
 
-export function WaitingMap({ synthetic }: { synthetic: boolean }) {
+export function WaitingMap({ synthetic }: { synthetic: boolean; bottomInset?: number }) {
   return (
     <View style={{ flex: 1, backgroundColor: theme.raised, justifyContent: 'center', padding: 24 }}>
       <Copy kind="muted">

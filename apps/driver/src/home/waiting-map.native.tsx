@@ -7,7 +7,7 @@ import { currentPosition } from '../tracking/provider';
 import type { LocationSample } from '@rove/mobile-core/driver-tracking';
 
 /** Local display only. The tracking provider owns server heartbeats and availability. */
-export function WaitingMap({ synthetic }: { synthetic: boolean }) {
+export function WaitingMap({ synthetic, bottomInset = 0 }: { synthetic: boolean; bottomInset?: number }) {
   const [sample, setSample] = useState<LocationSample | null>(null);
   const [failed, setFailed] = useState(false);
   const applePreview = Platform.OS === 'ios' && synthetic && !process.env.EXPO_PUBLIC_GOOGLE_MAPS_IOS_KEY;
@@ -51,6 +51,7 @@ export function WaitingMap({ synthetic }: { synthetic: boolean }) {
       style={StyleSheet.absoluteFill}
       provider={applePreview ? undefined : PROVIDER_GOOGLE}
       initialRegion={{ ...sample.coordinate, latitudeDelta: 0.025, longitudeDelta: 0.025 }}
+      mapPadding={{ top: 0, right: 0, bottom: bottomInset, left: 0 }}
       userInterfaceStyle="dark"
       {...(!applePreview ? { customMapStyle: darkMapStyle } : {})}
       showsUserLocation={!synthetic}
