@@ -6,5 +6,7 @@ export interface TripMapProps {
   synthetic?: boolean;
   /** Fill a parent map viewport instead of rendering an inline map card. */
   fill?: boolean;
+  /** Space occupied by controls/status above the map's useful framing area. */
+  topInset?: number;
   driver?: { coordinate: { latitude: number; longitude: number }; sampledAt: string };
 }

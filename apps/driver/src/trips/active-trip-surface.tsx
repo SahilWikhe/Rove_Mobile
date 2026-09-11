@@ -24,7 +24,7 @@ export function ActiveTripSurface({
   synthetic: boolean;
   footer?: ReactNode;
 }>) {
-  const { height } = useWindowDimensions();
+  const { height, fontScale } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const caption = ride && ride.state in captions ? captions[ride.state as keyof typeof captions] : null;
   if (!caption || !ride?.pickup || !ride.destination) return <Screen footer={footer}>{children}</Screen>;
@@ -39,6 +39,7 @@ export function ActiveTripSurface({
           androidEnabled={!!process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY}
           iosEnabled={!!process.env.EXPO_PUBLIC_GOOGLE_MAPS_IOS_KEY}
           fill
+          topInset={insets.top + 12 + 22 + 25 * fontScale}
         />
         <View style={[styles.status, { top: insets.top + 12 }]} pointerEvents="none">
           <Copy style={styles.statusText}>{caption}</Copy>

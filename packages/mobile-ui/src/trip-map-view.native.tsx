@@ -12,13 +12,14 @@ export function TripMap({
   synthetic,
   driver,
   fill = false,
+  topInset = 0,
 }: TripMapProps) {
   const map = useRef<MapView>(null);
   const [ready, setReady] = useState(false);
   const initialTilesLoaded = useRef(false);
   const showFullTrip = () => {
     map.current?.fitToCoordinates([pickup, destination, ...(driver ? [driver.coordinate] : [])], {
-      edgePadding: { top: 56, right: 48, bottom: 56, left: 48 },
+      edgePadding: { top: 56 + topInset, right: 48, bottom: 56, left: 48 },
       animated: false,
     });
   };
