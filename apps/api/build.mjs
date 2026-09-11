@@ -1,7 +1,11 @@
 import { build } from 'esbuild';
 import { writeFile } from 'node:fs/promises';
 const result = await build({
-  entryPoints: { index: 'index.ts', 'http-function': 'api/index.ts', 'queue-function': 'api/worker.ts' },
+  entryPoints: {
+    index: 'index.ts',
+    'http-function': 'src/http-function.ts',
+    'queue-function': 'src/queue-function.ts',
+  },
   outdir: 'dist',
   outExtension: { '.js': '.mjs' },
   bundle: true,

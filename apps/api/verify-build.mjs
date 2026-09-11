@@ -19,8 +19,8 @@ const result = spawnSync(
     `
   import assert from 'node:assert/strict';
   import app from './dist/index.mjs';
-  import listener from './dist/http-function.mjs';
-  import consumer from './dist/queue-function.mjs';
+  import listener from './api/index.mjs';
+  import consumer from './api/worker.mjs';
   import { createServer } from 'node:http';
   assert.equal(typeof consumer, 'function');
   const server = createServer(listener);
