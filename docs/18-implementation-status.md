@@ -1,6 +1,16 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `b9cd1eef809f23e2f583463aeea4b503d572a88b` plus the storage-write settlement checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `574ac2653cb07a72fe8a2f89d3c50ea873a4b8ca` plus the document cleanup domain checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Durable document cleanup domain — September 12
+
+Implemented per-document inventory manifests, immutable policy/review/quiescence approval, earliest execution time, per-version outbox jobs, durable dispatch/absence evidence, audited inspection and exhausted-job recovery. Preparation and approval recheck closed-account/write-settlement/retention barriers. Every new removal attempt rechecks those barriers; a later hold cannot suppress a confirmed earlier outcome. Prepared targets cannot be added/changed, and existing approvals cannot be rewritten. Delete markers remain separate from object removals; `versions_removed` refers only to the recorded plan, never account-wide erasure.
+
+Migration 0044 adds plan/item constraints and evidence guards. Twelve focused PostgreSQL workflow tests and all eleven local application test tasks passed. Workspace/E2E types, changed-source lint, documentation, formatting, boundaries, schema no-diff verification and packaged API build/authentication checks passed. Initial fixture cleanup needed `TRUNCATE ... CASCADE`; this was corrected before final verification. No live provider calls or hosted migrations occurred.
+
+Automatic approval review rejected the proposed staff HTTP/runtime/AWS-credential connection because irreversible S3 deletion requires explicit approval of target, role and blast radius despite a default-off flag. That command did not execute. The domain is not exported into or registered with runtime; no staff endpoint or credential wiring was added. The reviewable proposed connection uses only approved exact inbox/quarantine versions in the configured private document bucket and a separate cleanup role, with activation off. This connection awaits explicit user approval; other release work can continue independently.
+
+Next: approved runtime integration plus unresolved-write/inbox reconciliation, residual-version discovery, retained application-data cleanup and backup replay. Remaining Figma/native/provider acceptance and production setup are still incomplete. See [document cleanup scope, verification and pending approval](77-document-cleanup-plans.md). Owner policy and paid setup decisions remain final handoff items.
 
 ## Durable storage-write settlement — September 12
 

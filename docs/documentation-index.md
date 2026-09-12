@@ -118,3 +118,5 @@ For protected staff authorization, owned pending-liability reservations, worker 
 - [Account deletion fulfillment](75-account-deletion.md): durable consent, access closure, identity worker/recovery and remaining retention/storage setup.
 
 - [Retention holds](76-retention-holds.md): staff review/release permissions, destructive-dispatch boundaries and remaining cleanup work.
+
+- [Document cleanup plans](77-document-cleanup-plans.md): immutable inventory approvals, per-version worker evidence, local verification and pending runtime connection.

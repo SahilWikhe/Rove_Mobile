@@ -910,3 +910,29 @@ export const RetentionHoldQueue = z
     nextCursor: z.object({ afterReviewAt: z.iso.datetime(), afterId: z.uuid() }).strict().nullable(),
   })
   .strict();
+
+export const DocumentCleanupApproval = z
+  .object({
+    manifestHash: z.string().regex(/^[a-f0-9]{64}$/),
+    policyReference: PrivacyReference,
+    reviewReference: PrivacyReference,
+    quiescenceReference: PrivacyReference,
+    notBefore: z.iso.datetime(),
+  })
+  .strict();
+export const DocumentCleanupPlan = z
+  .object({
+    id: z.uuid(),
+    documentId: z.uuid(),
+    ownerId: z.uuid(),
+    manifestHash: z.string().regex(/^[a-f0-9]{64}$/),
+    createdAt: z.iso.datetime(),
+    approvedAt: z.iso.datetime().nullable(),
+    notBefore: z.iso.datetime().nullable(),
+    objects: z.number().int().nonnegative(),
+    removed: z.number().int().nonnegative(),
+    attempted: z.number().int().nonnegative(),
+    deleteMarkers: z.number().int().nonnegative(),
+    state: z.enum(['draft', 'approved', 'versions_removed']),
+  })
+  .strict();

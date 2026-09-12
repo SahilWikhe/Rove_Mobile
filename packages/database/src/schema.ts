@@ -970,3 +970,60 @@ export const documentStorageWrites = pgTable(
     ),
   ],
 );
+
+export const documentCleanupPlans = pgTable(
+  'document_cleanup_plans',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    documentId: uuid()
+      .notNull()
+      .references(() => driverDocuments.id),
+    ownerId: uuid()
+      .notNull()
+      .references(() => users.id),
+    manifestHash: text().notNull(),
+    deleteMarkers: integer().notNull(),
+    createdBy: uuid()
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    approvedBy: uuid().references(() => users.id),
+    approvedAt: timestamp({ withTimezone: true }),
+    notBefore: timestamp({ withTimezone: true }),
+    policyReference: text(),
+    reviewReference: text(),
+    quiescenceReference: text(),
+  },
+  (t) => [
+    check('document_cleanup_hash', sql`${t.manifestHash} ~ '^[a-f0-9]{64}$'`),
+    check('document_cleanup_markers', sql`${t.deleteMarkers} >= 0`),
+    check(
+      'document_cleanup_approval',
+      sql`(${t.approvedAt} is null and ${t.approvedBy} is null and ${t.notBefore} is null and ${t.policyReference} is null and ${t.reviewReference} is null and ${t.quiescenceReference} is null) or (${t.approvedAt} is not null and ${t.approvedAt}>=${t.createdAt} and ${t.approvedBy} is not null and ${t.notBefore} is not null and ${t.policyReference} is not null and ${t.reviewReference} is not null and ${t.quiescenceReference} is not null and length(${t.policyReference}) between 1 and 128 and length(${t.reviewReference}) between 1 and 128 and length(${t.quiescenceReference}) between 1 and 128)`,
+    ),
+  ],
+);
+export const documentCleanupItems = pgTable(
+  'document_cleanup_items',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    planId: uuid()
+      .notNull()
+      .references(() => documentCleanupPlans.id),
+    objectKey: text().notNull(),
+    objectVersion: text().notNull(),
+    attemptedAt: timestamp({ withTimezone: true }),
+    removedAt: timestamp({ withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex('document_cleanup_version').on(t.planId, t.objectKey, t.objectVersion),
+    check(
+      'document_cleanup_version_id',
+      sql`length(${t.objectVersion}) between 1 and 1024 and ${t.objectVersion}<>'null'`,
+    ),
+    check(
+      'document_cleanup_removal',
+      sql`${t.removedAt} is null or (${t.attemptedAt} is not null and ${t.removedAt}>=${t.attemptedAt})`,
+    ),
+  ],
+);
