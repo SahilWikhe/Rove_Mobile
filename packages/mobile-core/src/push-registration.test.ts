@@ -292,3 +292,100 @@ test('repair rejects a response for a different installation without replacing t
   expect(s.stored()).toBe(raw);
   expect(s.storage.write).not.toHaveBeenCalled();
 });
+
+test('explicit lost-proof reset requires an empty authorized device list and stays opted out', async () => {
+  const s = setup();
+  s.setStored('{broken');
+  const notificationDevices = vi.fn(async () => ({ devices: [] }));
+  await s.controller.resetLostProof({ notificationDevices }, () => true);
+  expect(notificationDevices).toHaveBeenCalledOnce();
+  expect(JSON.parse(s.stored()!)).toEqual({ ...s.identity, revision: null, pending: null, wanted: false });
+  expect(await s.controller.wantsEnabled()).toBe(false);
+  expect(s.api.registerPushInstallation).not.toHaveBeenCalled();
+  expect(s.api.removePushInstallation).not.toHaveBeenCalled();
+});
+
+test('remaining enabled devices or invalid server output blocks lost-proof reset without a write', async () => {
+  const s = setup();
+  const raw = '{"secret":"lost"}';
+  s.setStored(raw);
+  const notificationDevices = vi.fn(async () => ({
+    devices: [
+      { id: randomUUID(), revision: 1, platform: 'ios' as const, registeredAt: new Date().toISOString() },
+    ],
+  }));
+  await expect(s.controller.resetLostProof({ notificationDevices }, () => true)).rejects.toThrow(
+    'Turn off all notification devices',
+  );
+  const malformed = { notificationDevices: vi.fn(async () => ({ devices: null })) };
+  await expect(s.controller.resetLostProof(malformed as never, () => true)).rejects.toThrow();
+  expect(s.stored()).toBe(raw);
+  expect(s.storage.write).not.toHaveBeenCalled();
+});
+
+test('lost-proof reset preserves damaged storage on failed authorization or account changes', async () => {
+  const s = setup();
+  const raw = '{"revision":5}';
+  s.setStored(raw);
+  const notificationDevices = vi.fn(async (): Promise<{ devices: [] }> => {
+    throw new ApiError('FORBIDDEN', 'Unavailable', 403);
+  });
+  await expect(s.controller.resetLostProof({ notificationDevices }, () => true)).rejects.toThrow(
+    'Unavailable',
+  );
+  let current = true;
+  notificationDevices.mockImplementationOnce(async () => {
+    current = false;
+    return { devices: [] };
+  });
+  await expect(s.controller.resetLostProof({ notificationDevices }, () => current)).rejects.toThrow(
+    'account changed',
+  );
+  expect(s.stored()).toBe(raw);
+  expect(s.storage.write).not.toHaveBeenCalled();
+});
+
+test('reset cannot replace a recoverable proof or discard a healthy pending registration', async () => {
+  const s = setup();
+  const notificationDevices = vi.fn(async () => ({ devices: [] }));
+  const repairable = JSON.stringify({ ...s.identity, revision: 'broken' });
+  s.setStored(repairable);
+  await expect(s.controller.resetLostProof({ notificationDevices }, () => true)).rejects.toMatchObject({
+    repairable: true,
+  });
+  expect(s.stored()).toBe(repairable);
+  s.setStored(JSON.stringify({ ...s.identity, revision: null, pending: null, wanted: false }));
+  s.api.registerPushInstallation.mockRejectedValueOnce(new Error('Lost response'));
+  await expect(s.controller.enable(a, 'ExpoPushToken[first]', 'ios', s.api, () => true)).rejects.toThrow();
+  const pending = s.stored();
+  await s.controller.resetLostProof({ notificationDevices }, () => true);
+  expect(s.stored()).toBe(pending);
+  expect(notificationDevices).not.toHaveBeenCalled();
+});
+
+test('failed reset persistence can be retried and stale repeated confirmation preserves new identity', async () => {
+  const s = setup();
+  const raw = '{"unknown":true}';
+  s.setStored(raw);
+  const notificationDevices = vi.fn(async () => ({ devices: [] }));
+  s.storage.write.mockRejectedValueOnce(new Error('Locked'));
+  await expect(s.controller.resetLostProof({ notificationDevices }, () => true)).rejects.toThrow('Locked');
+  expect(s.stored()).toBe(raw);
+  await s.controller.resetLostProof({ notificationDevices }, () => true);
+  const fresh = s.stored();
+  await s.controller.resetLostProof({ notificationDevices }, () => true);
+  expect(s.stored()).toBe(fresh);
+  expect(notificationDevices).toHaveBeenCalledTimes(2);
+});
+
+test('post-reset token conflict cannot claim notifications are enabled or revoke the other installation', async () => {
+  const s = setup();
+  s.setStored('{broken');
+  await s.controller.resetLostProof({ notificationDevices: async () => ({ devices: [] }) }, () => true);
+  s.api.registerPushInstallation.mockRejectedValueOnce(
+    new ApiError('PUSH_REGISTRATION_CHANGED', 'Changed', 409),
+  );
+  expect(await s.controller.enable(a, 'ExpoPushToken[first]', 'ios', s.api, () => true)).toBe(false);
+  expect(await s.controller.wantsEnabled()).toBe(false);
+  expect(s.api.removePushInstallation).not.toHaveBeenCalled();
+});

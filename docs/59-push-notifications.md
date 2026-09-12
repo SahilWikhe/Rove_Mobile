@@ -148,7 +148,7 @@ Fourteen real-PostgreSQL orchestration tests cover fan-out deduplication, existi
 ## Remaining integration
 
 1. Verify real native registration, permission/token/logout behavior and delivery/taps on iOS and Android with isolated sandbox credentials.
-2. Complete lost-installation-proof support recovery, token/delivery retention cleanup and operational failure/dead-letter views. The internal dashboard remains in its separate repository.
+2. Verify lost-installation-proof recovery on physical devices; complete cross-account support recovery, token/delivery retention cleanup and operational failure/dead-letter views. The internal dashboard remains in its separate repository.
 3. Exercise staging queue latency/load, particularly twenty-second driver offers, and alert on failures and expired/unconfirmed receipts. Polling remains necessary; push does not guarantee dispatch timing.
 4. Verify revoked-token behavior and native cold-start consumption with real provider receipts before enabling production delivery.
 
@@ -160,4 +160,13 @@ Both apps expose **Repair and enable notifications** when the saved installation
 
 An account change, failed proof verification, wrong-installation response, or failed secure-storage write leaves the damaged record intact. The user can retry. Pending operations with an installation ID or secret different from the outer journal are treated as corruption and cannot be replayed. Repair does not claim that an existing server registration was disabled.
 
-When the installation secret or the entire JSON record is unreadable, automatic repair remains unavailable. The UI explains that support must clear the old registration; it never silently creates a new identity or takes over another account's push token. Existing account-authorized notification-device revocation remains the support/user cleanup mechanism. Physical-device push setup and delivery verification are still required.
+When the installation secret or entire JSON record is unreadable, automatic repair remains unavailable. Both apps now offer explicit lost-proof reset after account cleanup:
+
+1. Open Manage notification devices and deliberately turn off every enabled device listed for the current account. These confirmations use the existing authenticated, revision-fenced revocation. Other phones must explicitly enable notifications again; they remain signed in.
+2. Return to Notifications, choose Reset this device’s notification settings, read the explanation and confirm.
+3. The journal independently requests the authenticated device list and requires it to be empty. Invalid/failed responses, account changes and failed secure-storage writes leave the damaged data recoverable. A surviving proof uses the existing repair path; healthy state and pending operations cannot be discarded by a stale reset confirmation.
+4. A successful reset writes a fresh random installation proof with no pending operation and notifications off. It does not send a token, revoke anything remotely or request OS permissions. Explicit Enable notifications performs the normal registration later.
+
+The empty-list check is a prerequisite, not token authorization: a concurrent registration or token still owned by another account remains protected by the server’s unique enabled-token and revision rules. Reset cannot recall already submitted generic notifications or erase another account’s installation. Cross-account cleanup that the user cannot perform still requires support. No retention policy or bulk server deletion was added.
+
+Six added journal cases cover empty/nonempty/invalid lists, authorization/account changes, surviving proof and healthy pending preservation, failed-write retries, repeated confirmation and registration conflicts. All 168 mobile-core tests and all ten PostgreSQL installation tests passed, including actual revoke/new-identity/stale-old-work behavior. An isolated harness rendered the real shared controls with Manrope at 320 and 390 widths and checked confirmation, cancel, device management, blocked reset and successful retry. This is mocked UI evidence, not physical SecureStore, native permission or real push-delivery verification.

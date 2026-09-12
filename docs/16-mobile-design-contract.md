@@ -399,3 +399,7 @@ The shared rider/driver account-deletion screen recognizes an existing open requ
 ## Signed-out deletion access recovery
 
 Both account-deletion routes wait for session restoration, then offer signed-out or incomplete accounts a clear heading, explanation and the existing gold Continue to your account action. It returns to welcome/setup; users then open Request account deletion from Account. The authenticated request form and acknowledgement remain unchanged. Four focused browser scenarios and rider/driver iOS and Android debug smoke checks passed on September 12; inspected text and buttons fit the native layouts. This does not verify physical devices or actual account erasure.
+
+## Lost notification-proof reset
+
+The shared Trip notifications card now presents device management and an explicit reset confirmation when saved registration proof is lost. Confirmation explains that all listed notification devices must first be turned off, other phones stay signed in and this phone remains opted out after reset. Cancel performs no work; successful reset returns to Enable notifications. Existing gold/secondary controls and wrapping copy are retained. The real controls passed an isolated browser harness at 320 and 390 widths using Manrope; native recovery and physical-device acceptance remain open.

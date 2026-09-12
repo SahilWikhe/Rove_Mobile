@@ -172,3 +172,32 @@ test('disabled users and account transfers fence old remote revocations', async 
   await expect(service.revokeDevice(a, device.id, revoke)).rejects.toMatchObject({ code: 'NOT_FOUND' });
   expect((await service.devices(b)).devices).toHaveLength(1);
 });
+
+test('account revocation frees a lost-proof token for new identity without letting old work revoke it', async () => {
+  const old = input();
+  await service.register(a, old);
+  const listed = await service.devices(a);
+  const device = listed.devices[0]!;
+  await expect(
+    service.revokeDevice(b, device.id, { expectedRevision: device.revision, mutationId: randomUUID() }),
+  ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  expect((await service.devices(a)).devices).toHaveLength(1);
+  await service.revokeDevice(a, device.id, { expectedRevision: device.revision, mutationId: randomUUID() });
+  expect((await service.devices(a)).devices).toHaveLength(0);
+  const fresh = { ...input(), token: old.token };
+  expect(await service.register(a, fresh)).toMatchObject({ enabled: true, revision: 1 });
+  await expect(
+    service.register(a, { ...old, expectedRevision: 2, mutationId: randomUUID() }),
+  ).rejects.toMatchObject({ code: 'PUSH_REGISTRATION_CHANGED' });
+  await expect(
+    service.remove(a, {
+      installationId: old.installationId,
+      secret: old.secret,
+      expectedRevision: 1,
+      mutationId: randomUUID(),
+    }),
+  ).rejects.toMatchObject({ code: 'PUSH_REGISTRATION_CHANGED' });
+  expect(
+    await service.status(a, { installationId: fresh.installationId, secret: fresh.secret }),
+  ).toMatchObject({ enabled: true, revision: 1 });
+});

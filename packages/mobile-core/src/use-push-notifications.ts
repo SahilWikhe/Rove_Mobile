@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 import { z } from 'zod';
 import type { ApiClient } from './index';
-import { PushStorageError } from './push-registration';
+import { PushResetBlocked, PushStorageError } from './push-registration';
 import { pushRegistration } from './push-store';
 
 export function usePushNotifications(options: {
@@ -28,10 +28,21 @@ export function usePushNotifications(options: {
     busy: boolean;
     error: string | null;
     repairable: boolean;
-  }>({ epoch: sessionEpoch, enabled: false, busy: false, error: null, repairable: false });
+    lostProof: boolean;
+    notice: string | null;
+  }>({
+    epoch: sessionEpoch,
+    enabled: false,
+    busy: false,
+    error: null,
+    repairable: false,
+    lostProof: false,
+    notice: null,
+  });
   const enabled = state.epoch === sessionEpoch && state.enabled;
   const busy = state.epoch === sessionEpoch && state.busy;
   const repairable = state.epoch === sessionEpoch && state.repairable;
+  const lostProof = state.epoch === sessionEpoch && state.lostProof;
   const error = state.epoch === sessionEpoch ? state.error : null;
   useEffect(() => {
     alive.current = true;
@@ -41,14 +52,34 @@ export function usePushNotifications(options: {
   }, []);
   const current = useCallback(() => alive.current && isCurrent(sessionEpoch), [isCurrent, sessionEpoch]);
   const run = useCallback(
-    async (mode: 'enable' | 'refresh' | 'disable' | 'repair') => {
+    async (mode: 'enable' | 'refresh' | 'disable' | 'repair' | 'reset') => {
       if (!journal || !accountId) return;
       if (running.current) throw new Error('Notification settings are updating. Please retry shortly.');
       running.current = true;
-      setState({ epoch: sessionEpoch, enabled: false, busy: true, error: null, repairable: false });
+      setState({
+        epoch: sessionEpoch,
+        enabled: false,
+        busy: true,
+        error: null,
+        repairable: false,
+        lostProof: mode === 'reset',
+        notice: null,
+      });
       try {
         const store = await journal;
         if (!current()) return;
+        if (mode === 'reset') {
+          const reset = await store.resetLostProof(api, current);
+          if (current())
+            setState((value) => ({
+              ...value,
+              lostProof: false,
+              notice: reset
+                ? 'Notification settings reset. Enable notifications when you are ready.'
+                : 'Settings have already changed. Reopen notification settings to check their status.',
+            }));
+          return;
+        }
         if (mode === 'disable') {
           await store.disable(accountId, api, current);
           if (current()) setState((value) => ({ ...value, epoch: sessionEpoch, enabled: false }));
@@ -107,8 +138,9 @@ export function usePushNotifications(options: {
             ...value,
             epoch: sessionEpoch,
             repairable: failure instanceof PushStorageError && failure.repairable,
+            lostProof: failure instanceof PushStorageError ? !failure.repairable : mode === 'reset',
             error:
-              failure instanceof PushStorageError
+              failure instanceof PushStorageError || failure instanceof PushResetBlocked
                 ? failure.message
                 : 'Notification settings could not be confirmed. Retry or check device permissions.',
           }));
@@ -154,6 +186,9 @@ export function usePushNotifications(options: {
   return {
     available,
     repairable,
+    lostProof,
+    notice: state.epoch === sessionEpoch ? state.notice : null,
+    reset: () => run('reset'),
     repair: () => run('repair'),
     enabled: !!accountId && enabled,
     busy,

@@ -1,6 +1,14 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `b8fea4f3e8eac5b416b87f3b57026a3e5be0476a` plus the account recovery checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `e819ee0a6f6739f74ddfdec1b9edb86264c20c89` plus the notification recovery checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Lost notification-proof recovery — September 12
+
+Both apps now offer an explicit, confirmed reset when installation proof is lost, with direct access to account-owned device management. Reset requires a fresh authenticated empty device list after deliberate revocation of the account’s listed devices. It creates a new local proof with notifications off; enabling later uses normal server registration. Healthy pending operations and surviving proofs are preserved. Account changes, failed authorization, invalid responses and failed writes cannot authorize replacement. Server token/revision constraints continue to reject concurrent or cross-account conflicts.
+
+All 168 mobile-core tests and ten PostgreSQL installation tests passed. Six new journal cases and one new database case exercise cleanup, authorization, retry, stale work and token ownership. Workspace/E2E types, changed-source lint, boundaries and both apps’ iOS/Android/web exports passed before the final explanation-only copy edit. The actual shared controls passed an isolated 320/390 browser harness for confirmation, cancel, management, blocked reset and successful retry; Manrope screenshots were inspected. This does not establish physical SecureStore loss or native push acceptance. No personal local storage, account registrations, cloud credentials or provider settings were changed by verification.
+
+Cross-account support cleanup, retention operations, real APNs/FCM delivery and the other production requirements remain unfinished. Hosted CI retains the documented billing/CodeQL prerequisites. Next: native/provider acceptance and remaining financial/release work; paid setup and policy decisions remain in the handoff.
 
 ## Native account-deletion access recovery — September 12
 
@@ -155,7 +163,7 @@ Both mobile apps and the shared backend support the core synthetic ride journey.
 | Maps/navigation | Native Google maps and in-app Navigation SDK, pickup/destination guidance and compact controls | Simulator guidance has been displayed. Physical spoken/reroute/background acceptance and optional published cloud style are not established. |
 | Payments | Stripe sandbox adapter, PaymentSheet/CustomerSheet, durable sessions, webhooks, capture/allocation ledger, receipts and earnings | iOS sandbox CustomerSheet save/reopen/remove passed. Full native PaymentSheet/3DS, refunds/disputes, driver transfers and settlement are not complete. |
 | Documents/support | Private document intake/upload/scanning/review code, staff authorization, support intake/resolution, account-deletion request intake | Intake is not completed deletion fulfillment, staffed support or proof of every hosted document/provider path. |
-| Notifications | Registration/revocation, owned device list, tap authorization, durable delivery/receipt worker and repair when installation proof survives | Real APNs/FCM/Expo delivery remains disabled pending setup and physical-device checks. Lost proof cannot be silently repaired. |
+| Notifications | Registration/revocation, owned device list, tap authorization, durable delivery/receipt worker and repair when installation proof survives | Real APNs/FCM/Expo delivery remains disabled pending setup and physical-device checks. Lost proof has explicit reset after owned-device cleanup; cross-account support remains separate. |
 
 ## Hosted staging and deployment
 
@@ -178,7 +186,7 @@ This documentation refresh reconciles the current guides, infrastructure handoff
 
 1. Finish rider/driver Figma and cross-platform acceptance, including smaller screens, dynamic type, screen readers, keyboard and failure states.
 2. Run full physical iOS/Android journeys: Auth0, PaymentSheet/3DS/recovery, navigation, GPS with screen locked, permission changes, reconnect/relaunch and battery behavior.
-3. Configure isolated Expo/APNs/FCM and signing, then verify notification registration, delivery, receipts, taps and cold starts. Complete lost-installation-proof recovery/retention operations.
+3. Configure isolated Expo/APNs/FCM and signing, then verify notification registration, delivery, receipts, taps and cold starts. Verify lost-installation-proof reset physically and complete cross-account support/retention operations.
 4. Finish refund/dispute controls and journals, actual driver transfers/payout settlement, reconciliation/review operations and approved financial policies. Recorded earnings are not withdrawable funds.
 5. Fulfill account deletion with identity/storage/retention handling; approve and implement permanent message deletion. The 30-day message visibility window is not deletion.
 6. Provision isolated production services; rehearse controlled migrations/promotion, monitoring, restore, load and operational support. Prepare store distribution and review.

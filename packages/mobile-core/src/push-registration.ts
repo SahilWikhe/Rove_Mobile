@@ -4,6 +4,7 @@ import {
   PushInstallationUpdate,
   PushInstallationDelete,
   PushInstallationStatus,
+  NotificationDeviceList,
 } from '@rove/contracts';
 import { ApiError, type ApiClient } from './index';
 const Pending = z.discriminatedUnion('kind', [
@@ -35,7 +36,14 @@ export class PushStorageError extends Error {
     super(
       repairable
         ? 'Notification storage needs recovery. Repair settings to enable notifications again.'
-        : 'Notification storage needs recovery. This device’s saved registration proof is unavailable. Contact support to clear the old registration.',
+        : 'Notification storage needs recovery. Turn off this account’s notification devices in Manage notification devices, then explicitly reset this device’s settings.',
+    );
+  }
+}
+export class PushResetBlocked extends Error {
+  constructor() {
+    super(
+      'Turn off all notification devices listed for this account, then retry the reset. Other phones will need to enable notifications again.',
     );
   }
 }
@@ -154,6 +162,32 @@ export class PushRegistration {
       // Never replay an untrusted pending payload or assume notifications were turned off remotely.
       // Explicit enable will read the server revision again and perform the normal fenced registration.
       await this.save({ ...proof.data, revision: status.revision, pending: null, wanted: false });
+    });
+  }
+  /** Lost proof only. Remote revocation is a separate, explicitly confirmed account operation. */
+  resetLostProof(api: Pick<ApiClient, 'notificationDevices'>, current: () => boolean) {
+    return this.serial(async () => {
+      this.check(current);
+      const raw = await this.storage.read();
+      this.check(current);
+      if (raw === null) return false;
+      let decoded: unknown;
+      try {
+        decoded = JSON.parse(raw);
+      } catch {
+        decoded = null;
+      }
+      // A stale confirmation must not destroy a repaired identity or a healthy pending request.
+      if (State.safeParse(decoded).success) return false;
+      if (savedProof(decoded).success) throw new PushStorageError(true);
+      const result = NotificationDeviceList.parse(await api.notificationDevices());
+      this.check(current);
+      if (result.devices.length) throw new PushResetBlocked();
+      // This read does not authorize token takeover: normal registration still enforces unique
+      // enabled tokens, account ownership and revisions, including changes after this check.
+      await this.save(State.parse({ ...this.identity(), revision: null, pending: null, wanted: false }));
+      this.check(current);
+      return true;
     });
   }
   wantsEnabled() {
