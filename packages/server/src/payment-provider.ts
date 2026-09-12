@@ -41,3 +41,15 @@ export interface PaymentProvider {
 export interface PaymentCustomerProvider {
   createCustomer(reference: { riderId: string; bindingId: string }, key: string): Promise<string>;
 }
+
+/** Current provider facts only. These observations do not authorize refunds or allocate losses. */
+export interface RefundSnapshot {
+  id: string;
+  intentId: string;
+  amountCents: number;
+  status: 'pending' | 'requires_action' | 'succeeded' | 'failed' | 'canceled';
+  created: number;
+}
+export interface RefundProvider {
+  refunds(reference: PaymentReference): Promise<{ payment: PaymentSnapshot; refunds: RefundSnapshot[] }>;
+}

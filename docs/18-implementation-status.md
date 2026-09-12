@@ -1,6 +1,12 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `e819ee0a6f6739f74ddfdec1b9edb86264c20c89` plus the notification recovery checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `2602c69531ac0209092897a27fd17cd55aef6b29` plus the refund-provider checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Refund-history provider boundary — September 12
+
+Added a read-only refund-history capability to the Stripe adapter as the basis for durable reconciliation. It verifies the persisted payment reference before fetching all bounded refund pages, preserves status distinctions and rejects incomplete/duplicate/mismatched/overcommitted histories. Errors exclude raw provider details. No refund creation, receipt change, driver allocation or commercial policy was introduced.
+
+All fifteen Stripe adapter tests passed, including four new history cases. Workspace/E2E types, changed-source lint, package boundaries and the packaged API health/authentication/missing-route checks passed. These use mocked Stripe transport and do not establish sandbox or production refund acceptance. No provider call, cloud configuration or migration occurred. Next: persist observations with retry/version fencing, handle webhook/recovery updates and expose verified refund states on rider receipts; authorization and ledger operations remain separate work. Hosted CI and physical/provider prerequisites remain as documented below.
 
 ## Lost notification-proof recovery — September 12
 

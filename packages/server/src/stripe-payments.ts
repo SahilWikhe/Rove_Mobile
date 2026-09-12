@@ -6,6 +6,8 @@ import type {
   PaymentProvider,
   PaymentReference,
   PaymentSnapshot,
+  RefundProvider,
+  RefundSnapshot,
 } from './payment-provider';
 
 const MinorAmount = z.number().int().min(1).max(99_999_999);
@@ -55,7 +57,7 @@ function input<T>(schema: z.ZodType<T>, value: unknown): T {
 const mismatch = () => new DomainError('PAYMENT_REFERENCE_MISMATCH', 'Payment could not be verified.', 503);
 
 /** Platform PaymentIntents adapter. Connect transfers/payouts require a separately approved charge model. */
-export class StripePaymentProvider implements PaymentProvider, PaymentCustomerProvider {
+export class StripePaymentProvider implements PaymentProvider, PaymentCustomerProvider, RefundProvider {
   private stripe: StripeApi;
   constructor(
     private config: {
@@ -263,6 +265,65 @@ export class StripePaymentProvider implements PaymentProvider, PaymentCustomerPr
     )
       throw mismatch();
     return { id: parsed.data.id, status: parsed.data.status, amountCents: parsed.data.amount };
+  }
+  /** Read every bounded page; never turn a truncated or unverifiable list into a refund total. */
+  async refunds(raw: PaymentReference) {
+    const reference = input(Reference, raw);
+    const payment = await this.retrieve(reference);
+    const Refund = z.object({
+      id: z.string().regex(/^re_[a-zA-Z0-9]{1,96}$/),
+      object: z.literal('refund'),
+      payment_intent: z.union([IntentId, z.object({ id: IntentId })]),
+      amount: MinorAmount,
+      currency: z.literal('usd'),
+      status: z.enum(['pending', 'requires_action', 'succeeded', 'failed', 'canceled']),
+      created: z.number().int().min(0).max(2_147_483_647),
+    });
+    const Page = z.object({
+      object: z.literal('list'),
+      data: z.array(Refund).max(100),
+      has_more: z.boolean(),
+    });
+    const refunds: RefundSnapshot[] = [];
+    const seen = new Set<string>();
+    let cursor: string | undefined;
+    for (let pageIndex = 0; pageIndex < 10; pageIndex++) {
+      const result = await this.call(() =>
+        this.stripe.refunds.list({
+          payment_intent: reference.intentId,
+          limit: 100,
+          ...(cursor ? { starting_after: cursor } : {}),
+        }),
+      );
+      const parsed = Page.safeParse(result);
+      if (!parsed.success) throw mismatch();
+      for (const item of parsed.data.data) {
+        const intentId =
+          typeof item.payment_intent === 'string' ? item.payment_intent : item.payment_intent.id;
+        if (intentId !== reference.intentId || seen.has(item.id) || item.amount > payment.receivedCents)
+          throw mismatch();
+        seen.add(item.id);
+        refunds.push({
+          id: item.id,
+          intentId,
+          amountCents: item.amount,
+          status: item.status,
+          created: item.created,
+        });
+      }
+      const committed = refunds
+        .filter((item) => ['pending', 'requires_action', 'succeeded'].includes(item.status))
+        .reduce((total, item) => total + item.amountCents, 0);
+      if (committed > payment.receivedCents) throw mismatch();
+      if (!parsed.data.has_more) return { payment, refunds };
+      if (!parsed.data.data.length) throw mismatch();
+      cursor = parsed.data.data.at(-1)!.id;
+    }
+    throw new DomainError(
+      'PAYMENT_REFUND_REVIEW_REQUIRED',
+      'Refund history requires review before it can be confirmed.',
+      503,
+    );
   }
   verifyWebhook(body: string | Buffer, signature: string, now = Date.now()) {
     if (Buffer.byteLength(body) > 1_048_576 || signature.length > 8192)

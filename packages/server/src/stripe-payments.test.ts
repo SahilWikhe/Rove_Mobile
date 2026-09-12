@@ -42,6 +42,7 @@ function fixture() {
     cancel: vi.fn().mockResolvedValue(intent({ status: 'canceled', amount_capturable: 0 })),
   };
   const refunds = {
+    list: vi.fn().mockResolvedValue({ object: 'list', data: [], has_more: false }),
     create: vi.fn().mockResolvedValue({
       id: 're_fixture',
       payment_intent: 'pi_fixture',
@@ -230,4 +231,129 @@ test('customer provisioning sends reference metadata only and verifies provider 
       code: 'PAYMENT_REFERENCE_MISMATCH',
     });
   }
+});
+
+function refunded(id: string, extra: Record<string, unknown> = {}) {
+  return {
+    id,
+    object: 'refund',
+    payment_intent: reference.intentId,
+    amount: 100,
+    currency: 'usd',
+    status: 'succeeded',
+    created: 1700000000,
+    ...extra,
+  };
+}
+function refundFixture() {
+  const f = fixture();
+  f.paymentIntents.retrieve.mockResolvedValue(
+    intent({ status: 'succeeded', amount_capturable: 0, amount_received: 1050 }),
+  );
+  return f;
+}
+test('refund history verifies the persisted payment before listing and follows every cursor', async () => {
+  const f = refundFixture();
+  f.refunds.list
+    .mockResolvedValueOnce({
+      object: 'list',
+      data: [refunded('re_first', { status: 'pending' })],
+      has_more: true,
+    })
+    .mockResolvedValueOnce({
+      object: 'list',
+      data: [
+        refunded('re_second', { payment_intent: { id: reference.intentId }, status: 'requires_action' }),
+        refunded('re_third', { status: 'failed' }),
+        refunded('re_fourth', { status: 'canceled' }),
+        refunded('re_fifth'),
+      ],
+      has_more: false,
+    });
+  const result = await f.provider.refunds(reference);
+  expect(result.refunds.map((item) => item.status)).toEqual([
+    'pending',
+    'requires_action',
+    'failed',
+    'canceled',
+    'succeeded',
+  ]);
+  expect(result.refunds[0]).toEqual({
+    id: 're_first',
+    intentId: reference.intentId,
+    amountCents: 100,
+    status: 'pending',
+    created: 1700000000,
+  });
+  expect(f.refunds.list.mock.calls).toEqual([
+    [{ payment_intent: reference.intentId, limit: 100 }],
+    [{ payment_intent: reference.intentId, limit: 100, starting_after: 're_first' }],
+  ]);
+  expect(f.refunds.create).not.toHaveBeenCalled();
+  f.paymentIntents.retrieve.mockResolvedValueOnce(intent({ customer: 'cus_other' }));
+  f.refunds.list.mockClear();
+  await expect(f.provider.refunds(reference)).rejects.toMatchObject({ code: 'PAYMENT_REFERENCE_MISMATCH' });
+  expect(f.refunds.list).not.toHaveBeenCalled();
+});
+test('refund history rejects wrong intent, currency, amount, unknown status and malformed pagination', async () => {
+  const f = refundFixture();
+  for (const bad of [
+    { payment_intent: 'pi_other' },
+    { currency: 'eur' },
+    { amount: 1051 },
+    { amount: 1.5 },
+    { status: null },
+    { status: 'unknown' },
+    { created: -1 },
+  ]) {
+    f.refunds.list.mockResolvedValueOnce({
+      object: 'list',
+      data: [refunded('re_bad', bad)],
+      has_more: false,
+    });
+    await expect(f.provider.refunds(reference)).rejects.toMatchObject({ code: 'PAYMENT_REFERENCE_MISMATCH' });
+  }
+  f.refunds.list.mockResolvedValueOnce({ object: 'list', data: [], has_more: true });
+  await expect(f.provider.refunds(reference)).rejects.toMatchObject({ code: 'PAYMENT_REFERENCE_MISMATCH' });
+  f.refunds.list.mockResolvedValueOnce({ object: 'list', data: [], has_more: 'false' });
+  await expect(f.provider.refunds(reference)).rejects.toMatchObject({ code: 'PAYMENT_REFERENCE_MISMATCH' });
+});
+test('refund history rejects duplicate pages and overcommitted totals without treating failed refunds as paid', async () => {
+  const f = refundFixture();
+  f.refunds.list
+    .mockResolvedValueOnce({ object: 'list', data: [refunded('re_same')], has_more: true })
+    .mockResolvedValueOnce({ object: 'list', data: [refunded('re_same')], has_more: false });
+  await expect(f.provider.refunds(reference)).rejects.toMatchObject({ code: 'PAYMENT_REFERENCE_MISMATCH' });
+  f.refunds.list.mockResolvedValueOnce({
+    object: 'list',
+    data: [refunded('re_a', { amount: 600, status: 'pending' }), refunded('re_b', { amount: 600 })],
+    has_more: false,
+  });
+  await expect(f.provider.refunds(reference)).rejects.toMatchObject({ code: 'PAYMENT_REFERENCE_MISMATCH' });
+  f.refunds.list.mockResolvedValueOnce({
+    object: 'list',
+    data: [refunded('re_a', { amount: 1000, status: 'failed' }), refunded('re_b', { amount: 1000 })],
+    has_more: false,
+  });
+  expect((await f.provider.refunds(reference)).refunds).toHaveLength(2);
+});
+test('refund history bounds pagination and sanitizes provider errors after a partial read', async () => {
+  const f = refundFixture();
+  for (let i = 0; i < 10; i++)
+    f.refunds.list.mockResolvedValueOnce({
+      object: 'list',
+      data: [refunded(`re_page${i}`, { amount: 1 })],
+      has_more: true,
+    });
+  await expect(f.provider.refunds(reference)).rejects.toMatchObject({
+    code: 'PAYMENT_REFUND_REVIEW_REQUIRED',
+  });
+  expect(f.refunds.list).toHaveBeenCalledTimes(10);
+  f.refunds.list
+    .mockResolvedValueOnce({ object: 'list', data: [refunded('re_partial')], has_more: true })
+    .mockRejectedValueOnce(new Error('private provider details'));
+  await expect(f.provider.refunds(reference)).rejects.toMatchObject({
+    code: 'PAYMENT_PROVIDER_UNAVAILABLE',
+    message: 'Payment could not be confirmed. Please try again shortly.',
+  });
 });
