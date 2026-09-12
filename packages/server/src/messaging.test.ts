@@ -217,3 +217,29 @@ test('conversation pages preserve microsecond ordering without losing or repeati
   expect(new Set(ids)).toEqual(expected);
   expect((await service.list(outsider, first.nextCursor)).conversations).toEqual([]);
 });
+
+test('both participants racing for the last message slot cannot exceed the conversation limit', async () => {
+  await db.pool.query(
+    `INSERT INTO trip_messages(offer_id,sender_id,request_id,text,created_at)
+     SELECT $1::uuid,$2::uuid,gen_random_uuid(),'Earlier pickup message',now()-interval '2 minutes'
+     FROM generate_series(1,199)`,
+    [offer, rider.id],
+  );
+  const requests = [input('Rider final message'), input('Driver final message')];
+  const actors = [rider, driver];
+  const results = await Promise.allSettled(actors.map((actor, i) => service.send(actor, offer, requests[i])));
+  expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+  expect(results.filter((r) => r.status === 'rejected')).toHaveLength(1);
+  const failed = results.find((r) => r.status === 'rejected');
+  expect(failed?.reason).toMatchObject({ code: 'CONVERSATION_CLOSED' });
+  expect((await db.pool.query('SELECT id FROM trip_messages')).rowCount).toBe(200);
+  for (const actor of actors) {
+    expect((await service.thread(actor, offer)).conversation.canSend).toBe(false);
+    expect((await service.list(actor)).conversations[0]?.canSend).toBe(false);
+  }
+  const winner = results.findIndex((r) => r.status === 'fulfilled');
+  const result = results[winner];
+  if (result?.status !== 'fulfilled') throw new Error('Expected one successful send');
+  await expect(service.send(actors[winner]!, offer, requests[winner])).resolves.toEqual(result.value);
+  expect((await db.pool.query('SELECT id FROM trip_messages')).rowCount).toBe(200);
+});
