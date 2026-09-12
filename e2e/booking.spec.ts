@@ -15,6 +15,24 @@ async function routeAndQuote(page: Page) {
   await page.getByRole('button', { name: 'See your fare', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Request ride', exact: true })).toBeVisible();
 }
+async function reviewRebooking(page: Page, previousId: string) {
+  let requests = 0;
+  const count = (sent: import('@playwright/test').Request) => {
+    if (sent.method() === 'POST' && sent.url().endsWith('/v1/ride-requests')) requests++;
+  };
+  page.on('request', count);
+  await expect(page.getByText('Ride details', { exact: true }).filter({ visible: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Book this trip again', exact: true }).click();
+  await expect(page).toHaveURL(new RegExp('/book\\?fromRide=' + previousId));
+  await expect(page.getByRole('button', { name: 'Change pickup', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Change destination', exact: true })).toBeVisible();
+  expect(requests).toBe(0);
+  await page.getByRole('button', { name: 'See your fare', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Request ride', exact: true })).toBeVisible();
+  expect(requests).toBe(0);
+  page.off('request', count);
+}
+
 test('rider reviews a quote and explicitly confirms cancellation', async ({ page, request }) => {
   await routeAndQuote(page);
   await page.getByRole('button', { name: 'Request ride', exact: true }).click();
@@ -91,6 +109,7 @@ test('rider reviews a quote and explicitly confirms cancellation', async ({ page
   await page.screenshot({ path: '/tmp/rove-rider-history-figma-web.png', fullPage: true });
   await historyCard.click();
   await expect(page).toHaveURL(new RegExp(`/ride\\?id=${id}`));
+  await reviewRebooking(page, id!);
 });
 test('rider request reaches the driver and both apps follow a completed synthetic trip', async ({
   page,
@@ -292,6 +311,8 @@ test('rider request reaches the driver and both apps follow a completed syntheti
       headers: { Authorization: 'Bearer synthetic-rider' },
     });
     expect((await receipt.json()).capturedAmount).toEqual({ amount: 1185, currency: 'USD' });
+    await page.getByRole('button', { name: 'Back to ride', exact: true }).click();
+    await reviewRebooking(page, id!);
     const earnings = await request.get('http://localhost:4085/v1/drivers/me/earnings/' + id, {
       headers: { Authorization: 'Bearer synthetic-driver' },
     });

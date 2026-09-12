@@ -99,7 +99,7 @@ export function TripMap({
             {driver
               ? `Driver location last reported at ${new Date(driver.sampledAt).toLocaleTimeString()}.`
               : 'Pickup and destination markers.'}
-          </Copy>{' '}
+          </Copy>
         </>
       )}
     </View>

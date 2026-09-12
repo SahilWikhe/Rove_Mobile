@@ -1,3 +1,4 @@
+import { RideRecordHeader, RideRecordRoute } from '../tracking/ride-record';
 import { OpenConversation } from '../messaging/open-conversation';
 import { TrackingHeader, trackingCaptions } from '../tracking/tracking-header';
 import { DriverSummary } from '../tracking/driver-summary';
@@ -30,6 +31,8 @@ export default function Ride() {
   const [loadedRide, setRide] = useState<RideDetails | null>(null);
   const ride = loadedRide?.id === id ? loadedRide : null;
   const trackingCaption = ride ? trackingCaptions[ride.state] : undefined;
+  const ended =
+    !!ride && ['completed', 'cancelled', 'no_driver_found', 'no_show', 'terminated'].includes(ride.state);
   const [error, setError] = useState<string | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -95,8 +98,8 @@ export default function Ride() {
     }
   }
   return (
-    <Screen contentStyle={trackingCaption ? { padding: 20, gap: 16 } : undefined}>
-      <Stack.Screen options={{ title: 'Your ride', headerShown: !trackingCaption }} />
+    <Screen contentStyle={trackingCaption || ended ? { padding: 20, gap: 16 } : undefined}>
+      <Stack.Screen options={{ title: 'Your ride', headerShown: !trackingCaption && !ended }} />
       {trackingCaption && (
         <TrackingHeader
           caption={trackingCaption}
@@ -104,6 +107,7 @@ export default function Ride() {
           onAccount={() => router.push('/account')}
         />
       )}
+      {ended && ride && <RideRecordHeader ride={ride} onBack={() => router.replace('/rides')} />}
       {(error || readError) && <Banner error message={error ?? readError!} />}
       {recoveryError && <Banner error message={recoveryError} />}
       {pending && (
@@ -120,7 +124,9 @@ export default function Ride() {
         <>
           <Copy
             kind="title"
-            style={trackingCaption ? { fontSize: 23, lineHeight: 29, letterSpacing: -0.5 } : undefined}
+            style={
+              trackingCaption || ended ? { fontSize: 23, lineHeight: 29, letterSpacing: -0.5 } : undefined
+            }
           >
             {ride.state === 'searching' && !synthetic && ride.paymentState !== 'authorized'
               ? 'Confirm your payment.'
@@ -129,10 +135,14 @@ export default function Ride() {
           <RiderTripMap key={ride.id} ride={ride} />
           <DriverSummary ride={ride} />
           {ride.driver && <OpenConversation rideId={ride.id} />}
-          <RouteSummary
-            pickup={ride.pickup?.label ?? ride.pickupArea}
-            destination={ride.destination?.label ?? ride.destinationArea}
-          />
+          {ended ? (
+            <RideRecordRoute ride={ride} />
+          ) : (
+            <RouteSummary
+              pickup={ride.pickup?.label ?? ride.pickupArea}
+              destination={ride.destination?.label ?? ride.destinationArea}
+            />
+          )}
           <Card>
             <Money cents={ride.fare.amount} label="FARE" />
             <Copy kind="muted">Payment: {ride.paymentState.replaceAll('_', ' ')}</Copy>
@@ -142,6 +152,13 @@ export default function Ride() {
               title="View receipt"
               variant="secondary"
               onPress={() => router.push({ pathname: '/receipt', params: { id: ride.id } })}
+            />
+          )}
+          {['completed', 'cancelled'].includes(ride.state) && ride.pickup && ride.destination && (
+            <Button
+              title="Book this trip again"
+              disabled={!!readError || !!pending || restoring || !!recoveryError}
+              onPress={() => router.push({ pathname: '/book', params: { fromRide: ride.id } })}
             />
           )}
           {ride.state === 'no_driver_found' && (

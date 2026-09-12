@@ -245,3 +245,21 @@ The initial panel was visually checked on iOS and Android simulators. Booking E2
 cover cancellation, completed synthetic trips, lost responses, actual search expiry/retry,
 and saved-place recovery. These checks do not establish physical-device keyboard or live
 Google Places acceptance.
+
+## Rider ended-trip details and rebooking
+
+Ended rides use the Ride details (`8:20`) header, recorded request time/date, state badge and
+rounded route card. Back and route-connector icons are exact exports under
+`apps/rider/assets/ride-details`. The date is explicitly labeled Requested; it is not an
+invented pickup or completion time. The existing map shows authorized endpoints, not the
+reference's decorative route or fabricated traveled distance. Driver identity remains hidden
+according to the existing ended-assignment contract. Unsupported ratings, certification,
+coverage discounts, tip amounts and recurring schedules are not rendered as sample data.
+
+Completed and cancelled rides with available endpoints expose Book this trip again. This
+opens the existing route-copy flow; a new quote and explicit confirmation are still required.
+Read errors and pending-operation recovery disable this action. Receipt access remains
+separate and displays recorded payment values. Browser lifecycle checks verify rebooking
+from cancellation and completion without automatically submitting another ride. iOS and
+Android cold-launch checks verify the header/route card and the correction of a stray text
+node in the shared native map caption.
