@@ -75,6 +75,7 @@ export function MessageInbox({
         {conversations.map((c) => (
           <Pressable
             key={c.id}
+            testID={`conversation-${c.id}`}
             onPress={() => open(c.id)}
             accessibilityRole="button"
             accessibilityLabel={`${c.name}${c.unread ? ', unread messages' : ''}, ${date(c.rideCreatedAt)} ride`}

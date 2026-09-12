@@ -55,7 +55,7 @@ test('rider and driver exchange persisted messages, recover a lost send, and rep
     });
     expect(accepted.ok()).toBe(true);
     await driver.getByRole('button', { name: 'Messages', exact: true }).click();
-    await driver.getByRole('button', { name: /Alex Rider.*ride/ }).click();
+    await driver.getByTestId(`conversation-${offerId}`).click();
     await expect(driver.getByRole('textbox', { name: 'Message', exact: true })).toBeVisible();
     let drop = true;
     const keys: string[] = [];
@@ -82,7 +82,7 @@ test('rider and driver exchange persisted messages, recover a lost send, and rep
     await page.goto('http://localhost:8091');
     await page.getByRole('button', { name: 'Get started', exact: true }).click();
     await page.getByRole('button', { name: /^Messages/ }).click();
-    await page.getByRole('button', { name: /Jordan Driver.*ride/ }).click();
+    await page.getByTestId(`conversation-${offerId}`).click();
     await expect(page.getByText('I am outside the entrance.', { exact: true })).toBeVisible();
     await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Thank you, coming outside now.');
     await page.getByRole('button', { name: 'Send message', exact: true }).click();
