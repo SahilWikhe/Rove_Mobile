@@ -22,6 +22,13 @@ import { navigationTarget } from './directions';
 import { navigationFailure } from './errors';
 import { GuidanceFooter } from './guidance-footer';
 
+// Optional cloud styling. Unconfigured builds retain Google's default navigation map.
+const navigationMapId =
+  (Platform.OS === 'ios'
+    ? process.env.EXPO_PUBLIC_GOOGLE_NAVIGATION_IOS_MAP_ID
+    : process.env.EXPO_PUBLIC_GOOGLE_NAVIGATION_ANDROID_MAP_ID
+  )?.trim() || undefined;
+
 const terms = { title: 'Navigation terms', companyName: 'Rove', showOnlyDisclaimer: false };
 // SDK session is process-wide. A new screen waits for its predecessor's pending native cleanup.
 let teardown: Promise<void> = Promise.resolve();
@@ -239,6 +246,7 @@ function Directions({ id }: { id: string }) {
       <Stack.Screen options={{ headerShown: false }} />
       {preview ? (
         <NavigationView
+          {...(navigationMapId ? { mapId: navigationMapId } : {})}
           initialCameraPosition={{
             target: { lat: preview.coordinate.latitude, lng: preview.coordinate.longitude },
             zoom: 15,

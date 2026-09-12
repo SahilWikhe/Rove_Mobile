@@ -48,3 +48,31 @@ The backend Places/Routes key does not configure native Navigation SDK access.
   It deliberately does not acknowledge the provider notice or calculate a route.
 - Actual route display, spoken guidance, rerouting, repeated starts/stops and physical-device GPS
   remain native release checks. A successful build or screen-entry smoke test does not prove them.
+
+## Optional cloud navigation map theme
+
+The driver navigation view accepts platform-specific cloud map IDs through
+`EXPO_PUBLIC_GOOGLE_NAVIGATION_IOS_MAP_ID` and
+`EXPO_PUBLIC_GOOGLE_NAVIGATION_ANDROID_MAP_ID`. These are public map identifiers,
+not API keys. Empty values omit the SDK property and retain the default map.
+This wiring alone does not create a cloud style or prove its rendered appearance.
+
+To activate later:
+
+1. In the Rove Google Cloud project, create and publish a cloud map style with a
+   dark navigation variant. Match the existing charcoal background and muted gold
+   roads while preserving road visibility, readable labels and navigation contrast.
+2. Associate that style with an iOS map ID and an Android map ID. Enable its
+   navigation map type as well as road map type; the app forces night navigation.
+3. Set the two public environment variables in the driver app build environment,
+   then rebuild/export the app bundle. Setting Vercel backend variables alone does
+   not configure an already-built mobile app.
+4. Verify actual guidance on both platforms, including route contrast, lane guidance,
+   traffic colors, labels and attribution. Published appearance is not yet verified.
+5. Remove the variables and rebuild to restore default styling.
+
+Google currently describes this as a Preview feature and charges map-ID loads
+against the Dynamic Maps SKU. No cloud map IDs or paid styling loads were created
+by adding this configuration. See Google's
+[iOS styling guide](https://developers.google.com/maps/documentation/navigation/ios-sdk/customize-map-styles)
+and [Android styling guide](https://developers.google.com/maps/documentation/navigation/android-sdk/customize-map-styles).
