@@ -30,6 +30,7 @@ test('send emits generic bounded hints to one fixed authenticated endpoint', asy
     ttl: 60,
     priority: 'high',
     sound: 'default',
+    channelId: 'default',
     collapseId: id,
     tag: id,
   });

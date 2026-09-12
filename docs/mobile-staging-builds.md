@@ -8,7 +8,7 @@ Each app has its own `eas.json`. Run EAS commands from `apps/rider` or `apps/dri
 2. In each project's EAS `preview` environment, set `EXPO_PUBLIC_EAS_PROJECT_ID` to that project's UUID. Configure `EXPO_PUBLIC_GOOGLE_MAPS_IOS_KEY` and `EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY`. The rider also needs its staging `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` beginning with `pk_test_`. These values are embedded in the app; never put Stripe secret keys, database credentials or server Maps keys here.
 3. Restrict each native Maps key to the correct bundle/package identifier. Android restrictions must include the SHA-1 of the actual EAS signing certificate; a local debug certificate does not cover a differently signed build.
 4. For physical iOS devices, configure Apple signing and register test devices with `eas device:create`. Simulator builds do not require device registration. Configure Android signing through EAS credentials. Keep signing files out of Git.
-5. Configure APNs/FCM push credentials for each app before device notification acceptance testing. Match the Expo project UUIDs to the backend notification project settings.
+5. Configure APNs/FCM push credentials for each app before device notification acceptance testing. For Android, set the matching Firebase client file as EAS `preview` secret file variable `GOOGLE_SERVICES_JSON`; the app config consumes its build-time path. FCM service-account private keys belong only in EAS credentials. Match the Expo project UUIDs to the backend notification project settings. See [push setup and acceptance](59-push-notifications.md#android-firebase-file-and-channel-setup).
 
 ## Build commands
 

@@ -36,6 +36,25 @@ Use separate EAS project configuration for rider and driver, and isolate product
 
 Expo recommends checking receipts after about fifteen minutes; receipts are removed after twenty-four hours. Invalid-device responses mean the token should stop receiving sends until registered again. Receipt success means acceptance by APNs/FCM, not guaranteed phone delivery. These semantics and setup come from the [Expo send and receipt documentation](https://docs.expo.dev/push-notifications/sending-notifications/).
 
+## Android Firebase file and channel setup
+
+Both app configs accept `GOOGLE_SERVICES_JSON` as a build-time path to the Firebase **client** `google-services.json`. Configure it as a secret file variable in each app's EAS project, separately for `preview` and `production`. Local builds can supply an absolute path. Leaving it unset preserves existing simulator/synthetic builds, but does not prepare Android push registration. The file must include the matching package: `co.roveride.rider` or `co.roveride.driver`. Do not put the JSON contents in an `EXPO_PUBLIC_*` variable. Common local Firebase filenames are Git-ignored.
+
+The FCM V1 **service-account private key** is a different file: upload it only to the intended app's EAS Android push credentials, never `googleServicesFile`, the app bundle or this repository. The Firebase project in the client file and the FCM credentials must match. Follow [Expo FCM credentials](https://docs.expo.dev/push-notifications/fcm-credentials/) and [EAS file variables](https://docs.expo.dev/eas/environment-variables/manage/). iOS uses APNs credentials through EAS; this Android file is not an iOS requirement.
+
+The notifications plugin now writes `default` as the Android default notification channel, matching the channel created before native permission/token registration. Server sends explicitly select that channel. Rebuild and reinstall after changing native configuration; JavaScript refresh alone cannot add Firebase configuration or manifest metadata. The channel remains user-controlled in Android settings.
+
+Verification: both apps’ Expo config introspection tests check the configured Firebase path, preserved package/project identity, secure-store plugin and generated Android manifest channel. Provider tests verify the fixed channel with generic payload/receipt/error handling. Introspection does not read real Firebase credentials, compile a signed binary or prove device delivery. Keep `EXPO_PUSH_DELIVERY_ENABLED` disabled until the physical-device checks below have passed.
+
+### Deferred setup and device acceptance
+
+1. Link separate rider and driver EAS projects; set each app's public EAS UUID and match it to the backend role-specific project UUID.
+2. In the intended staging Firebase project, register both Android package IDs and obtain each client configuration. Upload the matching file as `GOOGLE_SERVICES_JSON` in its EAS project's `preview` environment. Configure matching FCM V1 credentials in EAS.
+3. Configure APNs signing/push credentials for both iOS bundle IDs and register internal test devices. Rebuild both native apps and install on dedicated test devices.
+4. Enable Expo enhanced push security and put its access token only in backend `EXPO_PUSH_ACCESS_TOKEN`. Keep delivery off while confirming authenticated device registration, project selection and opt-in/revocation.
+5. Enable delivery only in the isolated test backend. Use dedicated staging accounts for a ride offer, milestone and message; inspect durable delivery and receipt states, then verify actual display and authorized taps on both platforms in foreground, background and cold-start states. Receipt acceptance alone is insufficient.
+6. Verify expired offers, sign-out/account switch, revoked registration, denied OS permission and unavailable network. Confirm no private route or message text appears on the lock screen. Repeat with production-isolated configuration before release.
+
 ## Installation registrations
 
 Migration `0022_push_installations.sql`, the domain service, authenticated API routes and shared mobile-client methods are implemented. No production migration has run. `EXPO_RIDER_PROJECT_ID` and `EXPO_DRIVER_PROJECT_ID` must both be valid, distinct EAS project UUIDs to enable registration in the hosted runtime. With both omitted the endpoints return `PUSH_UNAVAILABLE`. This enables registration only, not delivery. Project selection derives from the authenticated role; a request cannot pick a project, environment or owner. Staging and production still require isolated databases and native build configuration.

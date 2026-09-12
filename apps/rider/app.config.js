@@ -8,9 +8,13 @@ module.exports = ({ config }) => ({
         },
       }
     : {}),
+  android: {
+    ...config.android,
+    ...(process.env.GOOGLE_SERVICES_JSON ? { googleServicesFile: process.env.GOOGLE_SERVICES_JSON } : {}),
+  },
   plugins: [
     ...(config.plugins ?? []),
-    'expo-notifications',
+    ['expo-notifications', { defaultChannel: 'default' }],
     'expo-font',
     './plugins/with-font-scale',
     [

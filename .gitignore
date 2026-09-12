@@ -27,3 +27,7 @@ credentials.json
 
 # Generated release evidence
 /release-readiness/
+
+# Local Firebase mobile configuration (supply through EAS file variables)
+google-services.json
+GoogleService-Info.plist

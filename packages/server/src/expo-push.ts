@@ -115,6 +115,7 @@ export class ExpoPushProvider implements PushProvider {
         ttl,
         priority: 'high',
         sound: 'default',
+        channelId: 'default',
         collapseId: message.hint.referenceId,
         tag: message.hint.referenceId,
       }),

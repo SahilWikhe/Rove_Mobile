@@ -33,6 +33,8 @@ For realtime messaging and rider location, set `REALTIME_DATABASE_URL` to the di
 
 Driver payout onboarding additionally uses `STRIPE_CONNECT_ONBOARDING_ENABLED`, `STRIPE_CONNECT_RETURN_ORIGIN`, and a distinct `STRIPE_CONNECT_WEBHOOK_SECRET` for `/webhooks/stripe-connect`. Live activation requires a reviewed Connect model and the exact acknowledgement specified in [payout onboarding](56-driver-payout-onboarding.md). Onboarding readiness is not proof of completed transfers or driver payouts.
 
+For Android notifications, supply each matching Firebase client file through EAS production secret file variable `GOOGLE_SERVICES_JSON`, and configure FCM V1 service-account credentials separately in EAS. Rebuild after configuration; see [push setup](59-push-notifications.md#android-firebase-file-and-channel-setup).
+
 For notifications, set distinct `EXPO_RIDER_PROJECT_ID` and `EXPO_DRIVER_PROJECT_ID` matching the apps. Configure `EXPO_PUSH_ACCESS_TOKEN` and `EXPO_PUSH_DELIVERY_ENABLED=true` only after credentials and device registration are ready. Verify delivery and opening on physical devices.
 
 For document intake/scanning, configure `DOCUMENT_S3_BUCKET`, `DOCUMENT_S3_REGION`, `DOCUMENT_S3_OWNER_ACCOUNT_ID`, `DOCUMENT_AWS_ROLE_ARN` and `DOCUMENT_GUARDDUTY_ROLE_ARN` from the production stack. Enable upload/scanning only after role trust, private access and clean/infected sample processing are verified. See `readDocumentStorage`, `readDocumentScanning` and `readDocumentRole` in the runtime configuration.

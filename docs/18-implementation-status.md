@@ -1,6 +1,14 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `3ddb43a9392d32f1d036fa247a1f8fc13df3d987` plus the active-trip recovery checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `06444960a2046e4a9d24a5b96e0664284e71817a` plus the Android push setup checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Android push build setup — September 12
+
+Closed a native configuration gap: both apps now consume the Firebase client file through build-time `GOOGLE_SERVICES_JSON`, intended as an EAS secret file variable. Package identity and existing Android settings are preserved; an omitted file does not enable Firebase or block synthetic builds. The notifications plugin sets Android's default channel to the existing registration channel `default`, and server sends explicitly select it. Common local Firebase client files are ignored by Git. FCM service-account private keys remain separate EAS credentials and are never bundled.
+
+Both real Expo introspection checks passed for Firebase path, package/project identity, retained secure-store plugin and generated Android manifest channel. All 57 tooling tests and seven Expo provider tests passed, along with workspace/E2E typechecks, changed-source lint, documentation formatting and whitespace checks. The push guide, mobile build guide, production setup and env examples now explain Firebase client versus FCM service-account files, APNs credentials, rebuilds and physical acceptance. No provider sends, credentials uploads, native binary rebuild or production activation occurred. Config introspection does not prove Firebase initialization or device delivery.
+
+Remote main was confirmed at `0644496` before this checkpoint. Hosted CI billing and CodeQL setup remain prerequisites. Next: configure the documented isolated push credentials when the owner is ready, then verify actual registration/display/taps; meanwhile continue the remaining app and release work below.
 
 ## Active-trip storage recovery — September 12
 
