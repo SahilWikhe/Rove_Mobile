@@ -172,3 +172,48 @@ test('message push has no text/identity, targets only recipient and suppresses a
   await db.pool.query('UPDATE rides SET driver_id=$2 WHERE id=$1', [ride, outsider.id]);
   expect(await audience.message(next)).toBeNull();
 });
+
+test('expired sends cannot be replayed to recover hidden text or create another message', async () => {
+  const request = input('Private expired message');
+  const sent = await service.send(rider, offer, request);
+  await db.pool.query("UPDATE trip_messages SET created_at=now()-interval '31 days' WHERE id=$1", [sent.id]);
+  await expect(service.send(rider, offer, request)).rejects.toMatchObject({
+    code: 'CONVERSATION_UNAVAILABLE',
+  });
+  expect((await service.thread(driver, offer)).messages).toEqual([]);
+  expect((await service.list(driver)).conversations[0]).toMatchObject({ latest: null, unread: 0 });
+  expect((await db.pool.query('SELECT id FROM trip_messages')).rowCount).toBe(1);
+  expect((await db.pool.query('SELECT id FROM outbox')).rowCount).toBe(1);
+});
+
+test('conversation pages preserve microsecond ordering without losing or repeating assignments', async () => {
+  const expected = new Set([offer]);
+  for (let i = 0; i < 52; i++) {
+    const quoteId = randomUUID(),
+      rideId = randomUUID(),
+      offerId = randomUUID();
+    expected.add(offerId);
+    await db.pool.query("INSERT INTO quotes(id,rider_id,snapshot,expires_at) VALUES($1,$2,'{}',now())", [
+      quoteId,
+      rider.id,
+    ]);
+    await db.pool.query(
+      "INSERT INTO rides(id,quote_id,rider_id,driver_id,state,fare_cents,earnings_cents,search_deadline,created_at) VALUES($1,$2,$3,$4,'completed',1000,750,now(),'2026-01-01T00:00:00Z'::timestamptz + $5 * interval '1 microsecond')",
+      [rideId, quoteId, rider.id, driver.id, i],
+    );
+    await db.pool.query(
+      "INSERT INTO offers(id,ride_id,driver_id,status,expires_at,snapshot) VALUES($1,$2,$3,'accepted',now(),'{}')",
+      [offerId, rideId, driver.id],
+    );
+  }
+  const first = await service.list(rider);
+  expect(first.conversations).toHaveLength(50);
+  expect(first.nextCursor).not.toBeNull();
+  const second = await service.list(rider, first.nextCursor);
+  expect(second.conversations).toHaveLength(3);
+  expect(second.nextCursor).toBeNull();
+  const ids = [...first.conversations, ...second.conversations].map((c) => c.id);
+  expect(new Set(ids).size).toBe(ids.length);
+  expect(new Set(ids)).toEqual(expected);
+  expect((await service.list(outsider, first.nextCursor)).conversations).toEqual([]);
+});
