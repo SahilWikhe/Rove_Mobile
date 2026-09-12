@@ -25,8 +25,8 @@ export const theme = {
   muted: '#A0A0A0',
   border: 'rgba(255,255,255,0.12)',
   danger: '#FFB3AD',
-  glassGold: 'rgba(207,185,125,0.82)',
-  glassGoldBorder: 'rgba(239,223,179,0.65)',
+  glassGold: 'rgba(207,185,125,0.92)',
+  glassGoldBorder: 'rgba(239,223,179,0.24)',
   glassHighlight: 'rgba(255,255,255,0.2)',
 };
 export function Screen({
@@ -156,7 +156,6 @@ export function Button({
         pressed && { opacity: 0.8 },
       ]}
     >
-      <View pointerEvents="none" accessible={false} style={styles.glassRim} />
       {loading ? (
         <ActivityIndicator color={variant === 'gold' ? theme.background : theme.gold} />
       ) : (
@@ -256,9 +255,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.glassGoldBorder,
     shadowColor: '#000000',
-    shadowOpacity: 0.22,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
     minHeight: 56,
     borderRadius: 18,
     paddingHorizontal: 22,
@@ -266,16 +265,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  secondary: { backgroundColor: theme.surface, borderColor: theme.glassHighlight },
+  secondary: { backgroundColor: theme.surface, borderColor: theme.border },
   dangerButton: { backgroundColor: 'rgba(62,22,24,0.92)', borderColor: 'rgba(255,179,173,0.45)' },
-  glassRim: {
-    position: 'absolute',
-    top: 0,
-    left: 16,
-    right: 16,
-    height: 1,
-    backgroundColor: theme.glassHighlight,
-  },
   buttonText: { fontFamily: 'Manrope_700Bold', fontSize: 16, color: theme.background },
   field: { gap: 8 },
   input: {
