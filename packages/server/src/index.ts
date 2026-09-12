@@ -97,3 +97,5 @@ export { S3DocumentErasure, type DocumentErasureTarget } from './s3-document-era
 export { S3DocumentInventory, type DocumentObjectVersion } from './s3-document-inventory';
 
 export { assertDocumentWritesSettled } from './document-storage-writes';
+
+export { DocumentCleanup, type DocumentCleanupProvider } from './document-cleanup';

@@ -1,3 +1,9 @@
+import {
+  DocumentCleanup,
+  type DocumentCleanupProvider,
+  S3DocumentInventory,
+  S3DocumentErasure,
+} from '@rove/server';
 import { AccountClosures, type IdentityDeletionProvider } from '@rove/server';
 import { Auth0IdentityDeletion } from './identity-deletion';
 import { WalletSessions, StripeWalletProvider, type WalletProvider } from '@rove/server';
@@ -62,6 +68,7 @@ import { oidcIdentity, type VerifyIdentity } from './auth';
 import { readRuntimeConfig, type RuntimeConfig } from './runtime-config';
 
 interface Resources {
+  documentCleanup?: DocumentCleanupProvider & { close?(): void };
   identityDeletion?: IdentityDeletionProvider;
   verificationEmail?: { verifyIdentity: VerifyIdentity; request(subject: string): Promise<void> };
   refundProvider?: RefundProvider;
@@ -89,6 +96,11 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
     throw new Error('Bank payout provider is required.');
   if (config.accountClosure && !resources.identityDeletion)
     throw new Error('Identity deletion provider is required.');
+  if (config.documentCleanup && !resources.documentCleanup)
+    throw new Error('Document cleanup provider is required.');
+  const documentCleanup = config.documentCleanup
+    ? new DocumentCleanup(pool, resources.documentCleanup!, config.documentCleanup.policyReference)
+    : undefined;
   const accountClosures = config.accountClosure
     ? new AccountClosures(pool, resources.identityDeletion!, config.accountClosure.policyReference)
     : undefined;
@@ -160,6 +172,7 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
       ? new PushDelivery(pool, resources.pushProvider, config.pushProjects)
       : undefined;
   const handlers: Record<string, JobHandler> = {
+    ...(documentCleanup ? { 'document.version-delete': documentCleanup.handle } : {}),
     ...(accountClosures ? { 'account.identity-delete': accountClosures.handle } : {}),
     // Foreground messaging works without a push provider; configured delivery wraps this handler.
     ...(captureFees ? { 'capture-fee.reconcile': captureFees.handle } : {}),
@@ -180,6 +193,7 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
   const worker = new OutboxWorker(pool, pushDelivery ? pushDelivery.handlers(handlers) : handlers);
   const app = createApp({
     pool,
+    ...(documentCleanup ? { documentCleanup } : {}),
     ...(accountClosures ? { accountClosures } : {}),
     ...(driverTransfers ? { driverTransfers } : {}),
     ...(refundOperations ? { refundOperations } : {}),
@@ -244,6 +258,7 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
       try {
         await database.close();
       } finally {
+        resources.documentCleanup?.close?.();
         resources.documentScanner?.close?.();
         resources.documentDownloads?.close?.();
       }
@@ -253,6 +268,23 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
 /** Only validated environment configuration can construct the real deployment resources. */
 export function createRuntime(env: Record<string, string | undefined>) {
   const config = readRuntimeConfig(env);
+  // Cleanup never inherits upload credentials or the ambient AWS credential chain.
+  const cleanupCredentials = config.documentCleanup
+    ? awsCredentialsProvider({
+        roleArn: config.documentCleanup.roleArn,
+        clientConfig: {
+          region: config.documentCleanup.storage.region,
+          maxAttempts: 2,
+          ignoreConfiguredEndpointUrls: true,
+        },
+      })
+    : undefined;
+  const inventory = config.documentCleanup
+    ? new S3DocumentInventory(config.documentCleanup.storage, undefined, cleanupCredentials!)
+    : undefined;
+  const erasure = config.documentCleanup
+    ? new S3DocumentErasure(config.documentCleanup.storage, undefined, cleanupCredentials!)
+    : undefined;
   const documentCredentials = config.documentAwsRoleArn
     ? awsCredentialsProvider({
         roleArn: config.documentAwsRoleArn,
@@ -296,6 +328,18 @@ export function createRuntime(env: Record<string, string | undefined>) {
       })
     : undefined;
   return composeRuntime(config, {
+    ...(inventory && erasure
+      ? {
+          documentCleanup: {
+            discover: (id: string) => inventory.discover(id),
+            erase: (target: Parameters<S3DocumentErasure['erase']>[0]) => erasure.erase(target),
+            close: () => {
+              inventory.close();
+              erasure.close();
+            },
+          },
+        }
+      : {}),
     ...(config.accountClosure
       ? { identityDeletion: new Auth0IdentityDeletion(config.accountClosure.identity) }
       : {}),

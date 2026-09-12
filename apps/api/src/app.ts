@@ -1,3 +1,4 @@
+import { DocumentCleanup } from '@rove/server';
 import { RetentionHolds } from '@rove/server';
 import { AccountDeletions, AccountClosures } from '@rove/server';
 import { DriverCoverage, EarningsDateRange } from '@rove/contracts';
@@ -81,6 +82,7 @@ import { getRide, listRides } from './ride-queries';
 type Environment = { Variables: { actor: Actor; subject: string; requestId: string } };
 interface Dependencies {
   accountClosures?: AccountClosures;
+  documentCleanup?: DocumentCleanup;
   refundOperations?: RefundOperations;
   driverTransfers?: DriverTransfers;
   paymentLosses?: PaymentLosses;
@@ -446,6 +448,47 @@ export function createApp(deps: Dependencies) {
       ),
     ),
   );
+  app.post('/v1/staff/documents/:id/cleanup-plans', async (c) => {
+    if (!deps.documentCleanup)
+      throw new DomainError('DOCUMENT_CLEANUP_UNAVAILABLE', 'Document cleanup is not enabled.', 503);
+    await body(c, z.object({}).strict());
+    return c.json(
+      await deps.documentCleanup.prepare(
+        c.var.actor,
+        id(c.req.param('id')),
+        c.req.header('Idempotency-Key') ?? '',
+      ),
+    );
+  });
+  app.get('/v1/staff/document-cleanup-plans/:id', async (c) => {
+    if (!deps.documentCleanup)
+      throw new DomainError('DOCUMENT_CLEANUP_UNAVAILABLE', 'Document cleanup is not enabled.', 503);
+    return c.json(await deps.documentCleanup.inspect(c.var.actor, id(c.req.param('id'))));
+  });
+  app.post('/v1/staff/document-cleanup-plans/:id/approve', async (c) => {
+    if (!deps.documentCleanup)
+      throw new DomainError('DOCUMENT_CLEANUP_UNAVAILABLE', 'Document cleanup is not enabled.', 503);
+    return c.json(
+      await deps.documentCleanup.approve(
+        c.var.actor,
+        id(c.req.param('id')),
+        await body(c, z.unknown()),
+        c.req.header('Idempotency-Key') ?? '',
+      ),
+    );
+  });
+  app.post('/v1/staff/document-cleanup-plans/:id/retry', async (c) => {
+    if (!deps.documentCleanup)
+      throw new DomainError('DOCUMENT_CLEANUP_UNAVAILABLE', 'Document cleanup is not enabled.', 503);
+    await body(c, z.object({}).strict());
+    return c.json(
+      await deps.documentCleanup.retry(
+        c.var.actor,
+        id(c.req.param('id')),
+        c.req.header('Idempotency-Key') ?? '',
+      ),
+    );
+  });
   app.post('/v1/staff/account-deletions/:id/close', async (c) => {
     if (!deps.accountClosures)
       throw new DomainError('ACCOUNT_CLOSURE_UNAVAILABLE', 'Account closure is not enabled.', 503);

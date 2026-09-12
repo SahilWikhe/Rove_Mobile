@@ -126,3 +126,7 @@ Apply migration 0038 and complete the [capture fee acceptance steps](73-capture-
 ## Driver bank-payout history
 
 `PAYMENT_BANK_PAYOUTS_ENABLED` defaults off and requires verified Connect setup. Follow the [read-only bank-payout history acceptance steps](74-bank-payout-history.md) before enabling it. No new database migration is required for this direct provider view. It neither initiates withdrawals nor reconciles bank balance movements.
+
+## Document cleanup activation (still off)
+
+The source includes default-off staff plan/approval/recovery routes and exact-version cleanup jobs. Follow [cleanup configuration and scope](77-document-cleanup-plans.md#pending-runtime-connection-and-approval). Provision a separate limited cleanup role trusted by the intended Vercel deployment identity; configure `DOCUMENT_CLEANUP_AWS_ROLE_ARN` and an owner-approved `DOCUMENT_CLEANUP_POLICY_REFERENCE` alongside the existing document bucket/account/region. Keep `DOCUMENT_CLEANUP_ENABLED=false` until reviewed migrations, upload quiescence, scan-policy/HEAD absence behavior and synthetic hosted recovery checks pass. The current constructor requires Vercel OIDC credentials; other worker platforms need their own reviewed provider. No cloud provisioning or production activation is established by source tests.

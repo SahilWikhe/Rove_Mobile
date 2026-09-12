@@ -1,6 +1,14 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `a6991735ab3b536367abf6ee5036e1d6adcdbfd5` plus the driver account activity checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `1cd316e536846a45354ff7040b5cf82320a8361d` plus the approved cleanup connection checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Approved default-off cleanup connection — September 12
+
+The user explicitly approved the previously blocked staff/runtime connection for approved document versions in the existing private bucket using a separate limited AWS cleanup role, with activation off. Implemented strict enable/policy/storage/role configuration, staff prepare/inspect/approve/retry routes, durable outbox registration and dedicated Vercel OIDC credentials for the existing inventory/erasure adapters. The role must belong to the storage owner and differ from configured upload/scanner roles. Cleanup never falls back to upload/ambient credentials. No real files, cloud permissions, environment settings or hosted migrations changed.
+
+All eleven local application test tasks passed. Four focused config/runtime tests passed, including an authenticated API-to-worker synthetic version removal, invalid approval, MFA/access checks, disabled mode, failed provider recovery and no duplicate removal after replay. Workspace/E2E types, changed-source lint and packaged API build/authentication checks passed. The final focused suite also passed after adding failed-provider recovery coverage. No native rebuild was needed for this backend-only checkpoint; these checks do not establish live IAM or storage acceptance.
+
+Remaining cleanup work includes dedicated role provisioning and scan-tag/HEAD absence-policy acceptance, uncertain uploads/inbox quiescence, residual versions/copies, retained application-data anonymization and backup replay. The existing quarantine read deny can block verification for unclean versions; no broad bypass was added. Complete deletion is not claimed. Remaining Figma journeys, native/provider/physical-device acceptance and production setup remain priorities. See [cleanup routes, configuration and remaining work](77-document-cleanup-plans.md).
 
 ## Driver account activity and refresh — September 12
 
