@@ -887,3 +887,31 @@ export const accountDeletionRequests = pgTable(
     check('account_deletion_consent', sql`${t.consentVersion} = 'account-deletion-v1'`),
   ],
 );
+
+export const accountClosures = pgTable(
+  'account_closures',
+  {
+    requestId: uuid()
+      .primaryKey()
+      .references(() => accountDeletionRequests.id),
+    ownerId: uuid()
+      .notNull()
+      .unique()
+      .references(() => users.id),
+    authorizedBy: uuid()
+      .notNull()
+      .references(() => users.id),
+    policyReference: text().notNull(),
+    reviewReference: text().notNull(),
+    closedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    identityRemovedAt: timestamp({ withTimezone: true }),
+  },
+  (t) => [
+    check('account_closure_policy', sql`length(${t.policyReference}) between 1 and 128`),
+    check('account_closure_review', sql`length(${t.reviewReference}) between 1 and 128`),
+    check(
+      'account_closure_identity_time',
+      sql`${t.identityRemovedAt} is null or ${t.identityRemovedAt} >= ${t.closedAt}`,
+    ),
+  ],
+);

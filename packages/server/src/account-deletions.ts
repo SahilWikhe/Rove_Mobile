@@ -19,7 +19,7 @@ export class AccountDeletions {
       if (!owner.rowCount) throw new DomainError('FORBIDDEN', 'Account is unavailable.', 403);
       const row = (
         await client.query(
-          'SELECT id,support_request_id,consent_version,created_at FROM account_deletion_requests WHERE owner_id=$1',
+          'SELECT r.id,r.support_request_id,r.consent_version,r.created_at,o.closed_at,o.identity_removed_at FROM account_deletion_requests r LEFT JOIN account_closures o ON o.request_id=r.id WHERE r.owner_id=$1',
           [actor.id],
         )
       ).rows[0];
@@ -29,7 +29,7 @@ export class AccountDeletions {
               id: row.id,
               supportRequestId: row.support_request_id,
               consentVersion: row.consent_version,
-              state: 'requested',
+              state: row.identity_removed_at ? 'identity_removed' : row.closed_at ? 'closed' : 'requested',
               createdAt: row.created_at.toISOString(),
             }
           : null,
@@ -41,7 +41,7 @@ export class AccountDeletions {
       await requireStaffPermission(client, actor, 'privacy.read');
       const row = (
         await client.query(
-          'SELECT id,support_request_id,consent_version,created_at FROM account_deletion_requests WHERE id=$1',
+          'SELECT r.id,r.support_request_id,r.consent_version,r.created_at,o.closed_at,o.identity_removed_at FROM account_deletion_requests r LEFT JOIN account_closures o ON o.request_id=r.id WHERE r.id=$1',
           [requestId],
         )
       ).rows[0];
@@ -55,7 +55,7 @@ export class AccountDeletions {
           id: row.id,
           supportRequestId: row.support_request_id,
           consentVersion: row.consent_version,
-          state: 'requested',
+          state: row.identity_removed_at ? 'identity_removed' : row.closed_at ? 'closed' : 'requested',
           createdAt: row.created_at.toISOString(),
         },
       });

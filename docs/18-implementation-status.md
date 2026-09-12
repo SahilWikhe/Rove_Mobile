@@ -1,6 +1,16 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `5a48a8527b7119c33884836809918ea47ce872ac` plus the durable deletion-consent checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `c786850948c57e2c1fe52dc7d2095af4673d5d61` plus the authorized closure checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Authorized account closure and identity worker — September 12
+
+Implemented default-off staff-authorized closure under an explicitly configured policy/review reference. MFA and `privacy.close` are required; active trips, unsettled payment status, nonzero owner ledger balances and queued/review-required refunds/transfers block closure. Payment rows serialize the financial observation with reconciliation. Closure atomically disables the account, clears current driver location, takes the driver offline, removes tracking credentials and saved places, disables/removes push tokens, records immutable approval/audit evidence and queues identity removal.
+
+The runtime now wires the verified Auth0 adapter into the durable outbox worker. Identity removal is independently confirmed and retried; audited staff recovery requeues exhausted jobs without bypassing authorization or interrupting a live lease. Staff progress distinguishes `requested`, `closed` and `identity_removed`; none means full retained-data erasure. Migration 0040 protects closure evidence and disabled identity mappings, prevents closed accounts from becoming online or joining active rides, and preserves the original subject against stale-token re-registration. Onboarding also checks disabled state in its upsert, beyond middleware validation.
+
+All eleven local application test tasks passed at the final checkpoint. Eight focused closure tests and 24 focused API/runtime/config tests passed. They cover actual PostgreSQL consent/closure/outbox sequencing, MFA/permission/policy failures, booking-lock races, retained rider funds and pending payment holds, token/location revocation, stale-token HTTP/onboarding rejection, audit rollback, immutable evidence and dead-letter recovery. Workspace/E2E types, changed-source lint, import boundaries, formatting, documentation checks, schema no-diff verification and packaged API build/authentication verification passed. No new mobile UI/native build acceptance is implied.
+
+No hosted migration, closure activation, real identity deletion or production configuration changed. `ACCOUNT_CLOSURE_ENABLED=false` remains the default; enabling it requires dedicated Auth0 credentials and the approved policy reference on HTTP/worker hosts. Name/history/messages/document storage/payment bindings and other retained records still require policy-driven cleanup. Legal/retention hold management, review/withdrawal UI, full erasure evidence, backup replay and hosted/physical-device acceptance remain open. See [account deletion and closure rollout](75-account-deletion.md). Next priority is those retention and cleanup stages, followed by remaining Figma/native/provider acceptance and production setup; business/retention decisions and paid setup stay at final handoff.
 
 ## Durable account-deletion consent — September 12
 

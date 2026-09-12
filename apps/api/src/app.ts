@@ -1,4 +1,4 @@
-import { AccountDeletions } from '@rove/server';
+import { AccountDeletions, AccountClosures } from '@rove/server';
 import { DriverCoverage, EarningsDateRange } from '@rove/contracts';
 import { WalletSetupRequest, WalletCustomerSession, WalletSetupSession } from '@rove/contracts';
 import type { WalletSessions } from '@rove/server';
@@ -79,6 +79,7 @@ import { getRide, listRides } from './ride-queries';
 
 type Environment = { Variables: { actor: Actor; subject: string; requestId: string } };
 interface Dependencies {
+  accountClosures?: AccountClosures;
   refundOperations?: RefundOperations;
   driverTransfers?: DriverTransfers;
   paymentLosses?: PaymentLosses;
@@ -280,10 +281,11 @@ export function createApp(deps: Dependencies) {
     const input = await body(c, z.object({ name: DisplayName, role: z.enum(['rider', 'driver']) }).strict());
     // Public signup can never grant staff access or driver approval.
     const result = await deps.pool.query<{ id: string; role: Actor['role']; name: string }>(
-      'INSERT INTO users (subject,name,role) VALUES ($1,$2,$3) ON CONFLICT (subject) DO UPDATE SET subject=EXCLUDED.subject RETURNING id,role,name',
+      'INSERT INTO users (subject,name,role) VALUES ($1,$2,$3) ON CONFLICT (subject) DO UPDATE SET subject=EXCLUDED.subject WHERE users.disabled=false RETURNING id,role,name',
       [c.var.subject, input.name, input.role],
     );
-    const user = result.rows[0]!;
+    const user = result.rows[0];
+    if (!user) throw new DomainError('ACCOUNT_DISABLED', 'Account is unavailable.', 403);
     if (user.role === 'driver')
       await deps.pool.query('INSERT INTO drivers (id) VALUES ($1) ON CONFLICT DO NOTHING', [user.id]);
     return c.json(user);
@@ -419,6 +421,35 @@ export function createApp(deps: Dependencies) {
   app.post('/v1/conversations/:id/report', async (c) =>
     c.json(await messaging.report(c.var.actor, id(c.req.param('id')), await body(c, MessageReport))),
   );
+  app.post('/v1/staff/account-deletions/:id/close', async (c) => {
+    if (!deps.accountClosures)
+      throw new DomainError('ACCOUNT_CLOSURE_UNAVAILABLE', 'Account closure is not enabled.', 503);
+    return c.json(
+      await deps.accountClosures.authorize(
+        c.var.actor,
+        id(c.req.param('id')),
+        await body(c, z.unknown()),
+        c.req.header('Idempotency-Key') ?? '',
+      ),
+    );
+  });
+  app.post('/v1/staff/account-deletions/:id/retry-identity', async (c) => {
+    if (!deps.accountClosures)
+      throw new DomainError('ACCOUNT_CLOSURE_UNAVAILABLE', 'Account closure is not enabled.', 503);
+    await body(c, z.object({}).strict());
+    return c.json(
+      await deps.accountClosures.retryIdentity(
+        c.var.actor,
+        id(c.req.param('id')),
+        c.req.header('Idempotency-Key') ?? '',
+      ),
+    );
+  });
+  app.get('/v1/staff/account-deletions/:id/closure', async (c) => {
+    if (!deps.accountClosures)
+      throw new DomainError('ACCOUNT_CLOSURE_UNAVAILABLE', 'Account closure is not enabled.', 503);
+    return c.json(await deps.accountClosures.inspect(c.var.actor, id(c.req.param('id'))));
+  });
   app.get('/v1/account-deletion', async (c) => c.json(await accountDeletions.status(c.var.actor)));
   app.get('/v1/staff/account-deletions/:id', async (c) =>
     c.json(await accountDeletions.inspect(c.var.actor, id(c.req.param('id')))),

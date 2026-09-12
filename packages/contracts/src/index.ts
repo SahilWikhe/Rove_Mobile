@@ -850,8 +850,23 @@ export const AccountDeletionRequest = z
     id: z.uuid(),
     supportRequestId: z.uuid(),
     consentVersion: z.literal('account-deletion-v1'),
-    state: z.literal('requested'),
+    state: z.enum(['requested', 'closed', 'identity_removed']),
     createdAt: z.iso.datetime(),
   })
   .strict();
 export const AccountDeletionStatus = z.object({ request: AccountDeletionRequest.nullable() }).strict();
+
+export const AccountClosureAuthorization = z
+  .object({
+    policyReference: z.string().regex(/^[a-zA-Z0-9._:/-]{1,128}$/),
+    reviewReference: z.string().regex(/^[a-zA-Z0-9._:/-]{1,128}$/),
+  })
+  .strict();
+export const AccountClosure = z
+  .object({
+    requestId: z.uuid(),
+    state: z.enum(['closed', 'identity_removed']),
+    closedAt: z.iso.datetime(),
+    identityRemovedAt: z.iso.datetime().nullable(),
+  })
+  .strict();

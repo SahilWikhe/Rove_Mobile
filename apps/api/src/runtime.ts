@@ -1,3 +1,5 @@
+import { AccountClosures, type IdentityDeletionProvider } from '@rove/server';
+import { Auth0IdentityDeletion } from './identity-deletion';
 import { WalletSessions, StripeWalletProvider, type WalletProvider } from '@rove/server';
 import { awsCredentialsProvider } from '@vercel/oidc-aws-credentials-provider';
 import { createDatabase } from '@rove/database';
@@ -60,6 +62,7 @@ import { oidcIdentity, type VerifyIdentity } from './auth';
 import { readRuntimeConfig, type RuntimeConfig } from './runtime-config';
 
 interface Resources {
+  identityDeletion?: IdentityDeletionProvider;
   verificationEmail?: { verifyIdentity: VerifyIdentity; request(subject: string): Promise<void> };
   refundProvider?: RefundProvider;
   disputeProvider?: DisputeProvider;
@@ -84,6 +87,11 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
   const { pool } = database;
   if (config.bankPayoutsEnabled && !resources.bankPayoutProvider)
     throw new Error('Bank payout provider is required.');
+  if (config.accountClosure && !resources.identityDeletion)
+    throw new Error('Identity deletion provider is required.');
+  const accountClosures = config.accountClosure
+    ? new AccountClosures(pool, resources.identityDeletion!, config.accountClosure.policyReference)
+    : undefined;
   const customers = new PaymentCustomers(pool, payments, config.paymentSource);
   const reconciliation = new PaymentReconciler(
     pool,
@@ -152,6 +160,7 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
       ? new PushDelivery(pool, resources.pushProvider, config.pushProjects)
       : undefined;
   const handlers: Record<string, JobHandler> = {
+    ...(accountClosures ? { 'account.identity-delete': accountClosures.handle } : {}),
     // Foreground messaging works without a push provider; configured delivery wraps this handler.
     ...(captureFees ? { 'capture-fee.reconcile': captureFees.handle } : {}),
     ...(driverTransfers ? { 'transfer.execute': driverTransfers.handle } : {}),
@@ -171,6 +180,7 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
   const worker = new OutboxWorker(pool, pushDelivery ? pushDelivery.handlers(handlers) : handlers);
   const app = createApp({
     pool,
+    ...(accountClosures ? { accountClosures } : {}),
     ...(driverTransfers ? { driverTransfers } : {}),
     ...(refundOperations ? { refundOperations } : {}),
     ...(config.lossAllocationEnabled ? { paymentLosses: new PaymentLosses(pool, config.paymentSource) } : {}),
@@ -286,6 +296,9 @@ export function createRuntime(env: Record<string, string | undefined>) {
       })
     : undefined;
   return composeRuntime(config, {
+    ...(config.accountClosure
+      ? { identityDeletion: new Auth0IdentityDeletion(config.accountClosure.identity) }
+      : {}),
     ...(config.bankPayoutsEnabled && driverPayoutProvider
       ? {
           bankPayoutProvider: new StripeBankPayouts(

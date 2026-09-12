@@ -115,4 +115,4 @@ For protected staff authorization, owned pending-liability reservations, worker 
 
 - [Driver bank-payout history](74-bank-payout-history.md): connected-account status, driver presentation, access controls and rollout.
 
-- [Account deletion fulfillment](75-account-deletion.md): identity-removal adapter, durable workflow requirements and retention/provider setup.
+- [Account deletion fulfillment](75-account-deletion.md): durable consent, access closure, identity worker/recovery and remaining retention/storage setup.

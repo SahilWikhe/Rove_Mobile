@@ -598,3 +598,113 @@ test('bank payout history is opt-in and requires Connect without initiating payo
     await runtime.close();
   }
 });
+
+test('configured closure HTTP routes queue identity removal and block stale tokens from re-onboarding', async () => {
+  await database.pool.query('TRUNCATE users,outbox CASCADE');
+  const env = {
+    ...environment(),
+    OIDC_ISSUER: 'https://synthetic.us.auth0.com/',
+    ACCOUNT_CLOSURE_ENABLED: 'true',
+    ACCOUNT_CLOSURE_POLICY_REFERENCE: 'synthetic-policy',
+    AUTH0_DELETION_CLIENT_ID: 'synthetic',
+    AUTH0_DELETION_CLIENT_SECRET: 'synthetic-secret',
+  };
+  const config = readRuntimeConfig(env);
+  const unused = async () => {
+    throw new Error('Unexpected provider call');
+  };
+  const payments: PaymentProvider & PaymentCustomerProvider & PaymentWebhookVerifier = {
+    createCustomer: unused,
+    create: unused,
+    retrieve: unused,
+    cancel: unused,
+    capture: unused,
+    refund: unused,
+    session: unused,
+    verifyWebhook: () => {
+      throw new Error('Unexpected webhook');
+    },
+  };
+  const resources = {
+    database,
+    maps: { search: async () => [], resolve: unused, route: unused },
+    payments,
+    verifyIdentity: async (subject: string) => ({ subject, mfa: subject === 'staff' }),
+  };
+  expect(() => composeRuntime(config, resources)).toThrow('Identity deletion provider is required');
+  const erase = vi.fn(async () => ({ status: 'absent' as const }));
+  const runtime = composeRuntime(config, { ...resources, identityDeletion: { erase } });
+  const headers = (actor: string, key = randomUUID()) => ({
+    Authorization: 'Bearer ' + actor,
+    'Content-Type': 'application/json',
+    'Idempotency-Key': key,
+  });
+  expect(
+    (
+      await runtime.app.request('/v1/me', {
+        method: 'POST',
+        headers: headers('rider'),
+        body: JSON.stringify({ name: 'Synthetic', role: 'rider' }),
+      })
+    ).status,
+  ).toBe(200);
+  const staff = randomUUID();
+  await database.pool.query(
+    "INSERT INTO users(id,subject,name,role) VALUES($1,'staff','Synthetic','staff')",
+    [staff],
+  );
+  await database.pool.query(
+    "INSERT INTO staff_permissions(staff_id,permission) VALUES($1,'privacy.close'),($1,'privacy.read')",
+    [staff],
+  );
+  expect(
+    (
+      await runtime.app.request('/v1/support-requests', {
+        method: 'POST',
+        headers: headers('rider'),
+        body: JSON.stringify({
+          category: 'account',
+          message: 'Delete this synthetic account.',
+          deletionConsent: 'account-deletion-v1',
+        }),
+      })
+    ).status,
+  ).toBe(200);
+  const status = await runtime.app.request('/v1/account-deletion', { headers: headers('rider') });
+  const id = (await status.json()).request.id;
+  const path = '/v1/staff/account-deletions/' + id + '/close';
+  const authorization = JSON.stringify({
+    policyReference: 'synthetic-policy',
+    reviewReference: 'synthetic-review',
+  });
+  expect(
+    (await runtime.app.request(path, { method: 'POST', headers: headers('rider'), body: authorization }))
+      .status,
+  ).toBe(403);
+  const response = await runtime.app.request(path, {
+    method: 'POST',
+    headers: headers('staff'),
+    body: authorization,
+  });
+  expect(response.status).toBe(200);
+  expect((await response.json()).state).toBe('closed');
+  expect(erase).not.toHaveBeenCalled();
+  expect(await runtime.worker.runOnce()).toEqual({ processed: 1, failed: 0 });
+  expect(erase).toHaveBeenCalledWith('rider');
+  const progress = await runtime.app.request('/v1/staff/account-deletions/' + id + '/closure', {
+    headers: headers('staff'),
+  });
+  expect((await progress.json()).state).toBe('identity_removed');
+  for (const request of [
+    runtime.app.request('/v1/account-deletion', { headers: headers('rider') }),
+    runtime.app.request('/v1/me', {
+      method: 'POST',
+      headers: headers('rider'),
+      body: JSON.stringify({ name: 'Replacement', role: 'rider' }),
+    }),
+  ])
+    expect((await request).status).toBe(403);
+  expect(
+    (await database.pool.query("SELECT name,disabled FROM users WHERE subject='rider'")).rows[0],
+  ).toEqual({ name: 'Synthetic', disabled: true });
+});

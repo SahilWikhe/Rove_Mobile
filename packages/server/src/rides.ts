@@ -49,6 +49,11 @@ export class RideService {
   async request(actor: Actor, quoteId: string, key: string) {
     requireRole(actor, 'rider');
     return command(this.pool, actor.id, key, { action: 'request', quoteId }, async (client) => {
+      const owner = await client.query(
+        "SELECT id FROM users WHERE id=$1 AND role='rider' AND disabled=false FOR SHARE",
+        [actor.id],
+      );
+      if (!owner.rowCount) throw new DomainError('ACCOUNT_DISABLED', 'Account is unavailable.', 403);
       const found = await client.query<{ snapshot: unknown }>(
         'SELECT snapshot FROM quotes WHERE id=$1 AND rider_id=$2 FOR UPDATE',
         [quoteId, actor.id],
