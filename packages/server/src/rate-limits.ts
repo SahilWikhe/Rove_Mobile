@@ -9,6 +9,8 @@ export const requestLimits = {
   quotes: 10,
   paymentSessions: 10,
   signup: 5,
+  verificationEmail: 1,
+  verificationEmailTenant: 30,
   support: 5,
   payoutSetup: 10,
   trackingGrant: 6,

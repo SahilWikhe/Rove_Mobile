@@ -20,7 +20,11 @@ export default function DriverHome() {
       <Card>
         <Copy kind="heading">{session.needsProfile ? 'Let’s get you started.' : 'Drive with Rove.'}</Copy>
         {session.needsEmailVerification ? (
-          <EmailVerificationNotice loading={session.loading} onSignIn={() => void session.signIn()} />
+          <EmailVerificationNotice
+            loading={session.loading}
+            onSignIn={() => void session.signIn()}
+            onResend={() => session.api.requestVerificationEmail()}
+          />
         ) : session.canRetryProfile ? (
           <>
             <Copy kind="muted">Your sign-in is saved. Retry loading your account to continue.</Copy>

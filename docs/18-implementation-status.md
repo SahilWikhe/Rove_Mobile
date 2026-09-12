@@ -2,6 +2,12 @@
 
 Updated: September 12, 2026. Current source baseline: `24c74f6f708a67f5c7591f4e754116c8a5498919`. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## In-app verification-email resend — September 12
+
+Implemented the server Auth0 verification-job adapter, optional server configuration, authenticated recovery endpoint and shared rider/driver resend UI. Only the signed-in subject can be targeted. Shared database limits bound both per-account and total attempts; normal verified-email API protection remains unchanged. The UI handles acceptance and cooldown without treating a request as delivery or marking the account verified.
+
+Verification: 145 API tests passed, including eight new provider/security cases; both browser recovery journeys passed. All workspace/E2E types, lint, boundaries and both apps' iOS/Android/web exports passed. No real emails were sent or cloud configuration changed. The dedicated server credential, hosted resend delivery and native recovery acceptance are deferred setup; see [authentication recovery](46-auth-refresh-recovery.md#deferred-server-setup). Next: hosted account-recovery acceptance when configured, plus the remaining UI and physical-device checks below. This is not a production-ready release.
+
 ## Documentation follow-up — September 12
 
 The comprehensive refresh in `40c82cd` updated the architecture, feature guides, staging and production runbooks, and documentation index. This follow-up advances the source reference to the subsequent driver trip-support change, which is documented below and in the support/design guides. Historical test counts and deployment observations remain dated evidence.
@@ -26,7 +32,7 @@ Both mobile apps and the shared backend support the core synthetic ride journey.
 | --- | --- | --- |
 | Rider UI | Figma-derived Home, route/quote review, matching animation, trip/history, completion, receipts, contextual support, saved places, payment settings and floating navigation | Completion/support journey passed locally; completion inspected on iOS and Android. Full Figma, accessibility and large-text acceptance remains open. |
 | Driver UI | Floating translucent navigation/cards, draggable map sheet, offers/trips, earnings/date filters, profile, vehicle/documents, payout setup, messaging and coverage settings | Native previews and synthetic journeys exercised; this is not a complete physical-device acceptance pass. |
-| Authentication | Auth0 PKCE, refresh/revocation, scoped SecureStore, callback routing, stale-response guards and verified-email recovery UI | Staging protocol and iOS/Android simulator login/session paths have evidence. Email claim Action and one manual verified-email delivery were checked; runtime email enforcement and in-app resend remain release work. |
+| Authentication | Auth0 PKCE, refresh/revocation, scoped SecureStore, callback routing, stale-response guards and verified-email recovery UI | Staging protocol and iOS/Android simulator login/session paths have evidence. Email claim Action and one manual verified-email delivery were checked; in-app resend now has local implementation/tests; hosted resend setup, runtime enforcement and native acceptance remain release work. |
 | Messaging | Assignment-scoped inbox/thread, reports, unread state, durable idempotent sends and authenticated WebSockets | Dedicated Auth0 staging accounts exchanged messages with retry/read/reconnect checks. Push and permanent deletion are separate unfinished work. |
 | Driver location | Native location-only grants, requested three-second delivery and rider WebSocket invalidations with authorized HTTPS reads | Local cross-instance and moving-location tests passed. Five-second rider polling is fallback only. Locked-phone, battery, permission and network behavior still needs physical devices. |
 | Matching | Eligible online drivers, timed offers, concurrency protection, configurable 1–100 mile radius (default 25), plus route-time limit | Radius/retry/race tests passed; field dispatch latency and operating policies remain launch checks. |

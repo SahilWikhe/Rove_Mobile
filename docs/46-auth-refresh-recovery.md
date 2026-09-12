@@ -89,8 +89,23 @@ The staging Action was built, deployed and bound to post-login, with its audienc
 Rove staging. One owner-approved resend job completed; the owner confirmed receipt and clicked
 the link, and a subsequent Auth0 read returned `email_verified: true`. This establishes that the
 manual resend path worked for that account; the original missing signup email remains unexplained.
-The runtime gate is not yet activated in staging. In-app resend remains outstanding.
+The runtime gate is not yet activated in staging. The in-app resend implementation below is newer than this manual delivery evidence; its hosted configuration and delivery have not yet been verified.
 
 API regression suite: 125 passing tests. Shared mobile-core suite: 140 passing tests. Rider and
 driver browser verification/re-login tests both passed, as did all package and E2E type checks,
 changed-code lint and formatting. These checks do not substitute for native interactive acceptance.
+
+## In-app verification-email resend — September 12
+
+Both apps now offer Resend verification email on the verification notice. `POST /auth/v1/verification-email` accepts only an empty JSON object and an ordinary API access token. A dedicated verifier checks signature, issuer, audience and lifetime while allowing an unverified email solely for this route. Normal `/v1/*` access retains its configured verification gate. The recipient is derived from the verified subject; the client cannot choose an email, user ID, redirect or tenant. A Rove profile is not required, but an existing disabled profile is rejected.
+
+Shared Postgres counters allow one attempt per subject per 60 seconds and 30 overall per 60 seconds. Failed attempts still consume the budget. The provider adapter caches short-lived Management API credentials in server memory, shares concurrent token acquisition, rejects redirects and uses five-second request timeouts. It never automatically retries an email job; a lost response can mean that Auth0 accepted the job. The UI therefore tells users to check their inbox before retrying and imposes a one-minute cooldown. Acceptance does not clear the verification gate: a fresh sign-in must produce the verified claim.
+
+### Deferred server setup
+
+1. Create a dedicated Auth0 machine-to-machine client in the same environment tenant, authorized for the Management API with only `update:users`. This grant belongs to the server, never either mobile app. See [Auth0 resend documentation](https://auth0.com/docs/manage-users/user-accounts/resend-verification-emails).
+2. Set server-only `AUTH0_VERIFICATION_CLIENT_ID` and `AUTH0_VERIFICATION_CLIENT_SECRET` together. Omit both to leave resend unavailable; partial/invalid configuration fails startup. The adapter derives the Management API URL from `OIDC_ISSUER` and currently supports standard Auth0 tenant domains, including regional domains. Custom-domain issuers require explicit tenant/domain mapping work before activation. Database identities (`auth0|…`) are supported; external identity providers retain their own verification flow.
+3. Enable the verification-email template and configure the tenant email provider. Auth0 requires the template to be enabled; a returned job is not proof of inbox delivery. See [verification-job reference](https://auth0.com/docs/api/management/v2/jobs/post-verification-email).
+4. Deploy to staging, use a dedicated unverified staging account to request one email, verify actual receipt/link handling and fresh-login recovery on both native platforms, then activate the staging email gate after acceptance. No credentials, provider settings or real email sends were changed in this implementation turn.
+
+Verification: all 145 API tests passed, including signed-JWT route isolation, malformed/foreign identity rejection, recipient injection, disabled accounts, concurrent shared limits, tenant budget and adapter failure handling. Both rider and driver browser resend/cooldown/re-login journeys passed with intercepted synthetic provider responses. Workspace/E2E types, lint, boundaries and both apps' iOS/Android/web exports passed. Hosted delivery and physical-device acceptance remain separate checks.

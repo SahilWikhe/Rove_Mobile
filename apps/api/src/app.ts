@@ -75,6 +75,7 @@ interface Dependencies {
   documentTransfers?: DriverDocumentTransfers;
   documentDownloads?: DocumentDownloads;
   verifyIdentity: VerifyIdentity;
+  verificationEmail?: { verifyIdentity: VerifyIdentity; request(subject: string): Promise<void> };
   rides: RideService;
   quotes: QuoteService;
   maps: MapsProvider;
@@ -202,6 +203,29 @@ export function createApp(deps: Dependencies) {
     c.json(await tracking.location(trackingToken(c), await body(c, BackgroundLocation))),
   );
   app.delete('/tracking/v1/session', async (c) => c.json(await tracking.revoke(trackingToken(c))));
+  app.post('/auth/v1/verification-email', async (c) => {
+    const match = /^Bearer ([^\s]+)$/.exec(c.req.header('Authorization') ?? '');
+    if (!match?.[1] || match[1].length > 16_384)
+      throw new DomainError('UNAUTHENTICATED', 'Please sign in.', 401);
+    if (!deps.verificationEmail)
+      throw new DomainError(
+        'VERIFICATION_EMAIL_UNAVAILABLE',
+        'Email resend is not available yet. Please contact support.',
+        503,
+      );
+    // This verifier validates the same JWT signature/issuer/audience/lifetime, but permits an
+    // unverified email solely for requesting its verification. Normal API access stays gated.
+    const identity = await deps.verificationEmail.verifyIdentity(match[1]);
+    await body(c, z.object({}).strict());
+    const user = (await deps.pool.query('SELECT disabled FROM users WHERE subject=$1', [identity.subject]))
+      .rows[0];
+    if (user?.disabled) throw new DomainError('ACCOUNT_DISABLED', 'This account is disabled.', 403);
+    await limiter.consume(identity.subject, 'verificationEmail');
+    await limiter.consume('verification-email-provider', 'verificationEmailTenant');
+    await deps.verificationEmail.request(identity.subject);
+    c.header('Cache-Control', 'no-store');
+    return c.json({ requested: true }, 202);
+  });
   app.use('/v1/*', async (c, next) => {
     const match = /^Bearer ([^\s]+)$/.exec(c.req.header('Authorization') ?? '');
     if (!match?.[1] || match[1].length > 16_384)

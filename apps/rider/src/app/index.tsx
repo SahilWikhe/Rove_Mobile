@@ -20,7 +20,11 @@ export default function Home() {
             {session.needsProfile ? 'Let’s get to know you.' : 'Your next stop starts here.'}
           </Copy>
           {session.needsEmailVerification ? (
-            <EmailVerificationNotice loading={session.loading} onSignIn={() => void session.signIn()} />
+            <EmailVerificationNotice
+              loading={session.loading}
+              onSignIn={() => void session.signIn()}
+              onResend={() => session.api.requestVerificationEmail()}
+            />
           ) : session.canRetryProfile ? (
             <>
               <Copy kind="muted">Your sign-in is saved. Retry loading your account to continue.</Copy>

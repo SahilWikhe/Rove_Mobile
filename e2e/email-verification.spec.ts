@@ -20,11 +20,28 @@ for (const [role, port] of [
         }),
       });
     });
+    let resendCount = 0;
+    await page.route('**/auth/v1/verification-email', async (route) => {
+      resendCount += 1;
+      expect(route.request().postDataJSON()).toEqual({});
+      await route.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        body: JSON.stringify({ requested: true }),
+      });
+    });
     await page.goto(`http://localhost:${port}`);
     await page.getByRole('button', { name: 'Get started', exact: true }).click();
     await expect(page.getByText('Verify your email', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Retry loading account', exact: true })).toHaveCount(0);
     await expect(page.getByRole('textbox', { name: 'Your name', exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Resend verification email', exact: true }).click();
+    await expect(page.getByText('Email request accepted.', { exact: false })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Wait a minute before resending', exact: true }),
+    ).toBeDisabled();
+    expect(resendCount).toBe(1);
+    await expect(page.getByText('Verify your email', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'I verified my email — sign in', exact: true }).click();
     await expect(page.getByText('Verify your email', { exact: true })).toBeVisible();
     // The button is not proof of verification: only a successful API response grants access.

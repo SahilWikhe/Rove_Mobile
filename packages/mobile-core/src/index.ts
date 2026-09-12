@@ -66,6 +66,12 @@ export class ApiError extends Error {
 }
 export type Transport = (url: string, options: RequestInit) => Promise<Response>;
 export class ApiClient {
+  requestVerificationEmail() {
+    return this.request('/auth/v1/verification-email', z.object({ requested: z.literal(true) }).strict(), {
+      method: 'POST',
+      body: {},
+    });
+  }
   private messageRealtime?: MessageRealtime;
   subscribeMessages(changed: () => void, connection: (connected: boolean) => void) {
     this.messageRealtime ??= new MessageRealtime(this.baseUrl, this.token);

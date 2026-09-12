@@ -32,3 +32,7 @@ A Vercel preview cannot select production configuration. A Vercel production dep
 Synthetic-mode flags are rejected by deployment configuration. The existing local synthetic server remains a separate entrypoint with disposable PostgreSQL and fixture providers.
 
 Validation errors include only field names. Do not log parsed configuration, original environment values or raw schema errors. Six regression tests cover missing settings, malformed JSON, secret redaction, TLS downgrade/ambiguity, HTTPS/CORS constraints, pricing/area validation and production-preview mistakes.
+
+## Optional Auth0 verification resend
+
+`AUTH0_VERIFICATION_CLIENT_ID` and `AUTH0_VERIFICATION_CLIENT_SECRET` enable server-only verification-email jobs. Both must be present together; omitting both leaves resend unavailable without weakening the email gate. The client must belong to the standard Auth0 tenant identified by `OIDC_ISSUER` and have the Management API `update:users` grant. Do not expose these through `EXPO_PUBLIC_*`. Configuration, domain limitations and the required hosted acceptance steps are in [authentication recovery](46-auth-refresh-recovery.md#deferred-server-setup).

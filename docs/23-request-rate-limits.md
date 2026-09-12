@@ -48,3 +48,7 @@ Real disposable PostgreSQL tests prove concurrent-instance enforcement, expiry r
 Payment-session requests now have a separate shared budget of ten per minute per authenticated subject. See [payment sessions](29-payment-session-creation.md) for ownership checks and provider-call protection.
 
 Additional PostgreSQL tests verify concurrent background-upload enforcement, rotation resistance, independent drivers, expiry reset, invalid-grant counter exclusion revocation after exhaustion, revocation racing budget consumption and fail-closed behavior when limiter storage is unavailable. HTTP tests verify `429`, positive `Retry-After`, no-store responses and independent account access. Mocked native task tests verify the persisted pause, fresh-only retry and immediate stop/revocation; physical-device delivery is still unverified.
+
+## Verification-email recovery budget
+
+The separately authenticated `/auth/v1/verification-email` route consumes `verificationEmail` (one attempt per subject per 60 seconds) and `verificationEmailTenant` (30 attempts across subjects per 60 seconds) before invoking Auth0. Its JWT verifier permits unverified email only for recovery; signature, issuer, audience and expiry remain mandatory. Invalid bodies and disabled accounts do not call the provider. Provider failures retain their consumed counters to bound retries. These policies use the existing counter table and require no new migration. See [authentication recovery](46-auth-refresh-recovery.md).

@@ -40,10 +40,12 @@ import {
   type PaymentWebhookVerifier,
 } from '@rove/server';
 import { createApp } from './app';
+import { Auth0VerificationEmail } from './verification-email';
 import { oidcIdentity, type VerifyIdentity } from './auth';
 import { readRuntimeConfig, type RuntimeConfig } from './runtime-config';
 
 interface Resources {
+  verificationEmail?: { verifyIdentity: VerifyIdentity; request(subject: string): Promise<void> };
   wallet?: WalletProvider;
   documentScanner?: DocumentScanner;
   documentTransfers?: DriverDocumentTransfers;
@@ -86,6 +88,7 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
   const worker = new OutboxWorker(pool, pushDelivery ? pushDelivery.handlers(handlers) : handlers);
   const app = createApp({
     pool,
+    ...(resources.verificationEmail ? { verificationEmail: resources.verificationEmail } : {}),
     ...(resources.documentDownloads ? { documentDownloads: resources.documentDownloads } : {}),
     ...(resources.documentTransfers ? { documentTransfers: resources.documentTransfers } : {}),
     ...(resources.payoutWebhookVerifier
@@ -155,10 +158,25 @@ export function createRuntime(env: Record<string, string | undefined>) {
     jwksUrl: config.oidcJwksUrl,
     requireVerifiedEmail: config.oidcRequireVerifiedEmail,
   });
+  const verificationProvider = config.verificationEmail
+    ? new Auth0VerificationEmail(config.verificationEmail)
+    : undefined;
+  const verificationEmail = verificationProvider
+    ? {
+        verifyIdentity: oidcIdentity({
+          issuer: config.oidcIssuer,
+          audience: config.oidcAudience,
+          jwksUrl: config.oidcJwksUrl,
+          requireVerifiedEmail: false,
+        }),
+        request: (subject: string) => verificationProvider.request(subject),
+      }
+    : undefined;
   const database = createDatabase(config.databaseUrl);
   // pg emits idle-client errors outside queries. Keep the process alive; never log driver error details.
   database.pool.on('error', () => console.error('Database connection interrupted.'));
   return composeRuntime(config, {
+    ...(verificationEmail ? { verificationEmail } : {}),
     wallet: new StripeWalletProvider({ ...config.payments, live: config.payments.mode === 'live' }),
     ...(config.documentScanning
       ? {

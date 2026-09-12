@@ -1,3 +1,4 @@
+import { readVerificationEmailConfig } from './verification-email';
 import { realtimeDatabaseUrl } from './realtime-config';
 import { S3DocumentConfig, GuardDutyScanConfig } from '@rove/server';
 import { z } from 'zod';
@@ -154,8 +155,10 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
   const documentAwsRoleArn = capture(() => readDocumentRole(env));
   const documentStorage = capture(() => readDocumentStorage(env));
   const documentScanning = capture(() => readDocumentScanning(env));
+  const verificationEmail = capture(() => readVerificationEmailConfig(env));
   if (problems.length || !api || !payments) throw new ConfigurationError([...new Set(problems)]);
   return {
+    ...(verificationEmail ? { verificationEmail } : {}),
     ...api,
     ...(documentAwsRoleArn ? { documentAwsRoleArn } : {}),
     ...push,
