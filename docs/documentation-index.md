@@ -92,3 +92,7 @@ Secrets, ignored environment files, temporary test outputs and generated depende
 ## Refund tracking
 
 [Refund tracking and recovery](66-refund-tracking.md) covers immutable observations, webhook hints, fair recovery, rider receipt states and staged enablement.
+
+## Staff refund operations
+
+[Staff-authorized refund operations](67-refund-operations.md) documents permissions, durable reservations, provider retries, rollout and remaining financial review/accounting work.

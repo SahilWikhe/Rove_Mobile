@@ -33,3 +33,7 @@ References: [Vercel queue SDK](https://vercel.com/docs/queues/sdk), [queue consu
 ## Refund recovery
 
 The optional refund reconciliation service runs its bounded recovery sweep before outbox consumption. Configure the same `PAYMENT_REFUNDS_ENABLED` value as the API only after migration 0031. This adds read-only provider traffic, not refund creation. See [rollout and recovery limits](66-refund-tracking.md).
+
+## Refund execution
+
+The separately flagged `refund.execute` handler processes durable staff authorizations with a stable provider key and a 23-hour uncertain-retry cutoff. Disabling it requires deliberate handling of queued jobs. See [refund operations](67-refund-operations.md).

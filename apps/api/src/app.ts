@@ -10,6 +10,7 @@ import { secureHeaders } from 'hono/secure-headers';
 import { cors } from 'hono/cors';
 import { z } from 'zod';
 import {
+  RefundAuthorization,
   DriverDocumentReservation,
   DriverDocumentReviewDecision,
   DriverDocumentUploadCompletion,
@@ -36,6 +37,7 @@ import {
   ProfileNameUpdate,
 } from '@rove/contracts';
 import {
+  RefundOperations,
   DriverDocumentService,
   DocumentReviewService,
   DriverEligibilityService,
@@ -70,6 +72,7 @@ import { getRide, listRides } from './ride-queries';
 
 type Environment = { Variables: { actor: Actor; subject: string; requestId: string } };
 interface Dependencies {
+  refundOperations?: RefundOperations;
   refundsEnabled?: boolean;
   walletSessions?: Pick<WalletSessions, 'customerSession' | 'setupSession'>;
   pool: Pool;
@@ -407,6 +410,23 @@ export function createApp(deps: Dependencies) {
       ),
     ),
   );
+  app.post('/v1/staff/rides/:id/refunds', async (c) => {
+    if (!deps.refundOperations)
+      throw new DomainError('REFUNDS_UNAVAILABLE', 'Refund operations are not enabled.', 503);
+    return c.json(
+      await deps.refundOperations.authorize(
+        c.var.actor,
+        id(c.req.param('id')),
+        await body(c, RefundAuthorization),
+        c.req.header('Idempotency-Key') ?? '',
+      ),
+    );
+  });
+  app.get('/v1/staff/rides/:id/refunds', async (c) => {
+    if (!deps.refundOperations)
+      throw new DomainError('REFUNDS_UNAVAILABLE', 'Refund operations are not enabled.', 503);
+    return c.json(await deps.refundOperations.list(c.var.actor, id(c.req.param('id'))));
+  });
   app.post('/v1/staff/support-requests/:id/resolve', async (c) =>
     c.json(
       await support.resolve(

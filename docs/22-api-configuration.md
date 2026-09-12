@@ -40,3 +40,7 @@ Validation errors include only field names. Do not log parsed configuration, ori
 ## Refund tracking flag
 
 `PAYMENT_REFUNDS_ENABLED` accepts only `true` or `false` and defaults off. Enable only after migration 0031 and compatible rider rollout. API and worker must share the setting; see [refund tracking rollout](66-refund-tracking.md).
+
+## Refund mutation flag
+
+`PAYMENT_REFUND_OPERATIONS_ENABLED=true` requires `PAYMENT_REFUNDS_ENABLED=true`. It enables staff-authorized provider mutations and requires migration 0032. It defaults off independently of read-only refund tracking. See [setup and remaining acceptance](67-refund-operations.md).

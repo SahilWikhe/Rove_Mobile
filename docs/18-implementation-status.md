@@ -1,6 +1,14 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `1792c87f62a13a0e157613462fcb7d360c450226` plus the durable refund-tracking checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `a4feb0992a617e8915493f14113c9290694910a3` plus the staff refund-operation checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Staff-authorized refund execution — September 12
+
+Added migration 0032, shared authorization/operation contracts, MFA-protected staff API routes, explicit database permission, durable reservations and `refund.execute` worker handling. The authorization/audit/command/outbox commit is atomic. Verified capture and fresh refund history bound the amount; concurrent or uncertain operations block a second refund decision. Stable provider keys recover lost responses and database failures after provider success. Unknown outcomes older than 23 hours enter review without a new mutation. Receipt success remains based on separate provider reconciliation, not the creation response.
+
+The separate `PAYMENT_REFUND_OPERATIONS_ENABLED` flag defaults off and requires refund tracking. All eleven application test tasks passed, including nine new refund-operation database tests. The final focused API/runtime run passed 24 tests, including permission denial, disabled capability, durable replay and real runtime composition with no startup provider calls. Workspace/E2E types, source lint excluding generated reports, boundaries, formatting, documentation checks and packaged API build verification passed. Tests use disposable PostgreSQL and mocked Stripe; no hosted migrations, real refunds, permissions or provider settings changed.
+
+Remaining before production mutation enablement: controlled ambiguous-outcome resolution, balanced refund accounting, operational review, provider sandbox acceptance and approved commercial policies. Next implementation priority remains financial completion: resolve uncertain operations and implement accounting/disputes/driver settlement, then deletion fulfillment and release/device acceptance. See [staff refund operations](67-refund-operations.md). No full-app or production completion is claimed.
 
 ## Durable refund tracking — September 12
 

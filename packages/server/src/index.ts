@@ -62,3 +62,5 @@ export { StripeWalletProvider } from './stripe-wallet';
 export * from './messaging';
 
 export * from './refund-reconciliation';
+
+export { RefundOperations } from './refund-operations';

@@ -51,3 +51,7 @@ The subsequent durable checkpoint below adds observations, webhook/recovery orch
 ## Durable refund tracking
 
 The provider history boundary is now consumed by the flagged durable worker and rider receipt path. See [refund tracking](66-refund-tracking.md) for migration, recovery and rollout. Refund creation authorization, adjustment journals, disputes and transfers remain unfinished.
+
+## Staff refund authorization
+
+A separate disabled-by-default mutation capability now journals staff-authorized refund operations and executes them through the durable worker. See [refund operations](67-refund-operations.md). This adds creation authorization and bounded retry recovery; accounting adjustments, ambiguous-outcome resolution, disputes and settlement remain release work.

@@ -7,6 +7,7 @@ import {
   developmentRates,
   transaction,
   type MapsProvider,
+  RefundOperations,
   RefundReconciler,
   PaymentWebhookInbox,
   StripePaymentProvider,
@@ -70,9 +71,10 @@ beforeEach(async () => {
   );
   app = buildApp();
 });
-function buildApp(refundsEnabled = false) {
+function buildApp(refundsEnabled = false, refundOperations?: RefundOperations) {
   return createApp({
     refundsEnabled,
+    ...(refundOperations ? { refundOperations } : {}),
     ...(refundsEnabled
       ? {
           paymentWebhooks: new PaymentWebhookInbox(
@@ -97,7 +99,7 @@ function buildApp(refundsEnabled = false) {
       east: -77,
     }),
     maps,
-    verifyIdentity: async (token) => ({ subject: token }),
+    verifyIdentity: async (token) => ({ subject: token, mfa: token === 'staff' }),
     flags: async () => ({ scheduling: false, weekly: false, monthly: false }),
   });
 }
@@ -260,4 +262,63 @@ test('signed refund webhooks reconcile through durable jobs into only the owner 
   expect((await database.pool.query('SELECT * FROM payment_refund_observations')).rowCount).toBe(2);
   app = buildApp(false);
   expect((await (await request()).json()).refunds).toBeUndefined();
+});
+
+test('staff refund HTTP endpoints require MFA permission, explicit enablement, and durable idempotency', async () => {
+  const staff = (await database.pool.query("SELECT id FROM users WHERE subject='staff'")).rows[0].id;
+  const endpoint = `/v1/staff/rides/${ride}/refunds`;
+  const call = (subject: string, key = 'fixture-refund-key') =>
+    app.request(endpoint, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${subject}`,
+        'content-type': 'application/json',
+        'Idempotency-Key': key,
+      },
+      body: JSON.stringify({ amountCents: 300, reason: 'customer_request', policyReference: 'fixture-v1' }),
+    });
+  expect((await call('staff')).status).toBe(503);
+  const reconciliation = new RefundReconciler(
+    database.pool,
+    {
+      refunds: async (reference) => ({
+        payment: { ...reference, status: 'succeeded', capturableCents: 0, receivedCents: 1050 },
+        refunds: [],
+      }),
+    },
+    'acct_private:test',
+  );
+  const ops = new RefundOperations(
+    database.pool,
+    {
+      refund: async () => {
+        throw new Error('HTTP must never call provider');
+      },
+    },
+    reconciliation,
+    'acct_private:test',
+  );
+  app = buildApp(true, ops);
+  expect((await call('rider')).status).toBe(403);
+  expect((await call('staff')).status).toBe(403);
+  await database.pool.query(
+    "INSERT INTO staff_permissions(staff_id,permission) VALUES($1,'payments.refund')",
+    [staff],
+  );
+  await capture(1050);
+  await reconciliation.reconcile('pi_private');
+  const response = await call('staff');
+  expect(response.status).toBe(200);
+  const body = await response.json();
+  expect(body).toMatchObject({ state: 'queued', amountCents: 300 });
+  expect(await (await call('staff')).json()).toEqual(body);
+  const listed = await app.request(endpoint, { headers: { authorization: 'Bearer staff' } });
+  expect(await listed.json()).toMatchObject({ operations: [body] });
+  expect(
+    (
+      await database.pool.query("SELECT * FROM outbox WHERE topic='refund.execute' AND aggregate_id=$1", [
+        body.id,
+      ])
+    ).rowCount,
+  ).toBe(1);
 });

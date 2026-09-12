@@ -684,3 +684,24 @@ export const paymentRefundObservations = pgTable(
     check('refund_observation_amount', sql`${t.receivedCents} >= 0 AND ${t.receivedCents} <= 99999999`),
   ],
 );
+
+export const refundOperations = pgTable(
+  'refund_operations',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    attemptId: uuid()
+      .notNull()
+      .references(() => paymentAttempts.id),
+    authorizedBy: uuid()
+      .notNull()
+      .references(() => users.id),
+    amountCents: integer().notNull(),
+    reason: text().notNull(),
+    policyReference: text().notNull(),
+    state: text().notNull().default('queued'),
+    providerRefundId: text().unique(),
+    firstAttemptAt: timestamp({ withTimezone: true }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('refund_operations_attempt').on(t.attemptId)],
+);

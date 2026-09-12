@@ -445,3 +445,33 @@ test('real refund-enabled runtime composes the reader and recovery service witho
     await runtime.close();
   }
 });
+
+test('refund mutations require their own explicit flag and enabled tracking', () => {
+  expect(readRuntimeConfig(environment()).refundOperationsEnabled).toBeUndefined();
+  expect(() => readRuntimeConfig({ ...environment(), PAYMENT_REFUND_OPERATIONS_ENABLED: 'true' })).toThrow(
+    'payments.refundOperationsEnabled',
+  );
+  expect(() => readRuntimeConfig({ ...environment(), PAYMENT_REFUND_OPERATIONS_ENABLED: 'yes' })).toThrow(
+    'payments.refundOperationsEnabled',
+  );
+  expect(
+    readRuntimeConfig({
+      ...environment(),
+      PAYMENT_REFUNDS_ENABLED: 'true',
+      PAYMENT_REFUND_OPERATIONS_ENABLED: 'true',
+    }).refundOperationsEnabled,
+  ).toBe(true);
+});
+
+test('real mutation-enabled runtime loads with no startup refund calls', async () => {
+  const runtime = createRuntime({
+    ...environment(),
+    PAYMENT_REFUNDS_ENABLED: 'true',
+    PAYMENT_REFUND_OPERATIONS_ENABLED: 'true',
+  });
+  try {
+    expect((await runtime.app.request('/health/live')).status).toBe(200);
+  } finally {
+    await runtime.close();
+  }
+});

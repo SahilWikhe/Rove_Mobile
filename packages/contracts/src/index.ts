@@ -639,3 +639,19 @@ export const ConversationThread = z
 export type ConversationThread = z.infer<typeof ConversationThread>;
 export const MessageRead = z.object({ through: z.number().int().positive() }).strict();
 export const MessageReport = z.object({ reason: z.enum(['harassment', 'unsafe', 'spam', 'other']) }).strict();
+
+export const RefundAuthorization = z
+  .object({
+    amountCents: z.number().int().min(1).max(99_999_999),
+    reason: z.enum(['customer_request', 'service_issue', 'duplicate_payment']),
+    policyReference: z.string().trim().min(1).max(128),
+  })
+  .strict();
+export const RefundOperation = z
+  .object({
+    id: z.uuid(),
+    state: z.enum(['queued', 'submitted', 'review_required']),
+    amountCents: z.number().int().positive(),
+    createdAt: z.iso.datetime(),
+  })
+  .strict();

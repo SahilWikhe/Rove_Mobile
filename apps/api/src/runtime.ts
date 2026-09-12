@@ -29,6 +29,7 @@ import {
   OutboxDrain,
   PaymentCustomers,
   PaymentReconciler,
+  RefundOperations,
   RefundReconciler,
   type RefundProvider,
   PaymentSessions,
@@ -72,6 +73,10 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
   const refundReconciliation = config.refundsEnabled
     ? new RefundReconciler(pool, resources.refundProvider!, config.paymentSource)
     : undefined;
+  const refundOperations =
+    config.refundOperationsEnabled && refundReconciliation
+      ? new RefundOperations(pool, payments, refundReconciliation, config.paymentSource)
+      : undefined;
   const matching = new MatchingService(pool, maps);
   const searchExpiry = new SearchExpiry(pool);
   const payoutReconciliation = resources.driverPayoutProvider
@@ -83,6 +88,7 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
       : undefined;
   const handlers: Record<string, JobHandler> = {
     // Foreground messaging works without a push provider; configured delivery wraps this handler.
+    ...(refundOperations ? { 'refund.execute': refundOperations.handle } : {}),
     'message.created': async () => {},
     ...reconciliation.handlers(),
     ...(refundReconciliation ? { 'refund.reconcile': refundReconciliation.handle } : {}),
@@ -97,6 +103,7 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
   const worker = new OutboxWorker(pool, pushDelivery ? pushDelivery.handlers(handlers) : handlers);
   const app = createApp({
     pool,
+    ...(refundOperations ? { refundOperations } : {}),
     ...(refundReconciliation ? { refundsEnabled: true } : {}),
     ...(resources.verificationEmail ? { verificationEmail: resources.verificationEmail } : {}),
     ...(resources.documentDownloads ? { documentDownloads: resources.documentDownloads } : {}),

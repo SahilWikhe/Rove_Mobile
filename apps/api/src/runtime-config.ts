@@ -154,6 +154,16 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
       throw new ConfigurationError(['payments.refundsEnabled']);
     return env.PAYMENT_REFUNDS_ENABLED === 'true';
   });
+  const refundOperationsEnabled = capture(() => {
+    if (
+      env.PAYMENT_REFUND_OPERATIONS_ENABLED !== undefined &&
+      !['true', 'false'].includes(env.PAYMENT_REFUND_OPERATIONS_ENABLED)
+    )
+      throw new ConfigurationError(['payments.refundOperationsEnabled']);
+    if (env.PAYMENT_REFUND_OPERATIONS_ENABLED === 'true' && !refundsEnabled)
+      throw new ConfigurationError(['payments.refundOperationsEnabled']);
+    return env.PAYMENT_REFUND_OPERATIONS_ENABLED === 'true';
+  });
   const payments = capture(() => readPaymentConfig(env));
   const connect = capture(() => readConnectConfig(env));
   const push = capture(() => readPushConfig(env));
@@ -168,6 +178,7 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
     ...(documentAwsRoleArn ? { documentAwsRoleArn } : {}),
     ...push,
     payments,
+    ...(refundOperationsEnabled ? { refundOperationsEnabled: true as const } : {}),
     ...(refundsEnabled ? { refundsEnabled: true as const } : {}),
     ...(documentScanning ? { documentScanning } : {}),
     ...(documentStorage ? { documentStorage } : {}),
