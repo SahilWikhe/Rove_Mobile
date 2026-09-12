@@ -70,6 +70,16 @@ test('rider and driver exchange persisted messages, recover a lost send, and rep
     await driver.getByTestId(`conversation-${offerId}`).click();
     await expect(driver.getByRole('textbox', { name: 'Message', exact: true })).toBeVisible();
     await expect.poll(() => socketEvents.get(driver)).toContain('ready');
+    await expect(driver.getByRole('button', { name: 'Send message', exact: true })).toBeDisabled();
+    await driver.getByRole('button', { name: 'I’m outside now', exact: true }).click();
+    await expect(driver.getByRole('textbox', { name: 'Message', exact: true })).toHaveValue(
+      'I’m outside now',
+    );
+    await expect(driver.getByRole('button', { name: 'Send message', exact: true })).toBeEnabled();
+    await expect(driver.getByRole('button', { name: 'Report conversation', exact: true })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
     let drop = true;
     const keys: string[] = [];
     await driver.route('**/v1/conversations/*/messages', async (route) => {
@@ -92,6 +102,7 @@ test('rider and driver exchange persisted messages, recover a lost send, and rep
       await request.get(api + '/v1/conversations/' + offerId, { headers: riderHeaders })
     ).json();
     expect(stored.messages).toHaveLength(1);
+    await expect(driver.getByLabel(/^You: I am outside the entrance\./)).toHaveCount(1);
     await page.goto('http://localhost:8091');
     await page.getByRole('button', { name: 'Get started', exact: true }).click();
     await page.getByRole('button', { name: 'My rides', exact: true }).click();
@@ -108,6 +119,8 @@ test('rider and driver exchange persisted messages, recover a lost send, and rep
     await contact.click();
     await expect(page.getByText('I am outside the entrance.', { exact: true })).toBeVisible();
     await expect.poll(() => socketEvents.get(page)).toContain('ready');
+    await expect(page.getByLabel(/^[^:]+: I am outside the entrance\./)).toHaveCount(1);
+    await expect(page.getByLabel(/^You: I am outside the entrance\./)).toHaveCount(0);
     const driverEventsBeforeReply = socketEvents.get(driver)!.length;
     await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Thank you, coming outside now.');
     await page.getByRole('button', { name: 'Send message', exact: true }).click();
@@ -121,6 +134,10 @@ test('rider and driver exchange persisted messages, recover a lost send, and rep
     await draft.fill('Unsent pickup instructions');
     await driver.getByRole('button', { name: 'Report conversation', exact: true }).click();
     await expect(draft).toHaveCount(0);
+    await expect(driver.getByRole('button', { name: 'Report conversation', exact: true })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
     const keep = driver.getByRole('button', { name: 'Keep conversation', exact: true });
     await keep.scrollIntoViewIfNeeded();
     const bounds = await keep.boundingBox();

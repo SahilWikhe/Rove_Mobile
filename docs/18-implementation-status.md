@@ -1,6 +1,12 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `dfa6dc96d2010cd70c4acc55aa93b47df1a449e4` plus the Android font-scale checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `f2c61057dbec44a759422a410643851833d05849` plus the messaging accessibility checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Messaging accessibility — September 12
+
+Shared rider/driver message bubbles now identify the sender and localized date/time through accessible labels. Inbox controls expose previews/unread status; quick replies explain draft behavior; send and report controls expose their current state. The complete synthetic messaging browser journey passed, including bidirectional persisted exchange, lost-send retry, WebSocket invalidation, compact report controls and the new accessibility assertions. Workspace/E2E typechecks, lint, boundaries, both apps’ iOS/Android/web exports and documentation lint also passed. The initial test caught an unsupported web state mapping; cross-platform ARIA props fixed it while retaining native React Native mapping.
+
+This is implemented source and browser evidence, not completed VoiceOver/TalkBack device acceptance. No hosted provider calls or production activation occurred. Next: remaining native screen-reader, keyboard and full-device acceptance, with owner/provider setup deferred as listed below.
 
 ## Android font-scale route retention — September 12
 

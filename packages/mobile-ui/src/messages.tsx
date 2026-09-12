@@ -16,6 +16,7 @@ import { Banner, Button, Copy, EmptyState, Screen, theme } from './index';
 import avatar from '../assets/messages/avatar.png';
 const time = (value: string) =>
   new Date(value).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+const spokenTime = (value: string) => new Date(value).toLocaleString();
 const date = (value: string) =>
   new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 function Avatar({ unread = false }: { unread?: boolean }) {
@@ -79,7 +80,8 @@ export function MessageInbox({
             testID={`conversation-${c.id}`}
             onPress={() => open(c.id)}
             accessibilityRole="button"
-            accessibilityLabel={`${c.name}${c.unread ? ', unread messages' : ''}, ${date(c.rideCreatedAt)} ride`}
+            accessibilityLabel={`${c.name}, ${c.unread} unread messages, ${date(c.rideCreatedAt)} ride. ${c.latest ? `${c.latest.mine ? 'You' : c.name}: ${c.latest.text}` : 'No messages yet'}.${!c.canSend ? ' Read-only conversation.' : ''}`}
+            accessibilityHint="Opens this conversation"
             style={styles.inboxRow}
           >
             <Avatar unread={c.unread > 0} />
@@ -172,6 +174,7 @@ export function MessageThreadView({
               style={styles.circle}
               accessibilityRole="button"
               accessibilityLabel="Report conversation"
+              aria-expanded={reporting}
               onPress={() => {
                 Keyboard.dismiss();
                 setReporting((v) => !v);
@@ -246,7 +249,12 @@ export function MessageThreadView({
             </Copy>
           )}
           {data?.messages.map((m) => (
-            <View key={m.id} style={[styles.bubble, m.mine ? styles.outgoing : styles.incoming]}>
+            <View
+              key={m.id}
+              accessible
+              accessibilityLabel={`${m.mine ? 'You' : (c?.name ?? 'Other participant')}: ${m.text}. ${spokenTime(m.createdAt)}${m.mine ? '. Sent' : ''}`}
+              style={[styles.bubble, m.mine ? styles.outgoing : styles.incoming]}
+            >
               <Copy style={[styles.body, m.mine && { color: '#17140C' }]}>{m.text}</Copy>
               <Copy style={[styles.small, { color: m.mine ? '#51452B' : theme.muted }]}>
                 {time(m.createdAt)}
@@ -271,6 +279,8 @@ export function MessageThreadView({
                     onPress={() => setText(reply)}
                     disabled={busy}
                     accessibilityRole="button"
+                    aria-disabled={busy}
+                    accessibilityHint="Fills your message draft. Review it, then choose Send message."
                   >
                     <Copy style={{ fontSize: 13, color: theme.gold }}>{reply}</Copy>
                   </Pressable>
@@ -292,6 +302,8 @@ export function MessageThreadView({
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Send message"
+                  aria-disabled={busy || !text.trim()}
+                  aria-busy={busy}
                   disabled={busy || !text.trim()}
                   onPress={send}
                   style={[styles.send, (busy || !text.trim()) && { opacity: 0.5 }]}

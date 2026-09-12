@@ -23,6 +23,12 @@ The interface directs emergencies to local emergency services. This is not a mon
 emergency channel or an automated moderation service. Text only: no attachments,
 phone numbers, calls, delivery/read promises or post-trip direct contact are added.
 
+## Accessibility
+
+Each message bubble exposes its sender, full message text, localized date/time and, for outgoing messages, Sent as one accessible label. Sent means accepted by the server; it does not promise delivery or reading. Inbox buttons include unread count, latest message preview and read-only status. Quick replies explain that they fill a draft rather than send immediately. Send exposes disabled/busy state, and the report control exposes whether its menu is expanded.
+
+The synthetic two-person browser journey verifies outgoing versus incoming labels, empty/draft send eligibility, report expansion, persisted exchange, lost-response retry and WebSocket updates. Native VoiceOver/TalkBack reading order, pronunciation and keyboard interaction still require device acceptance; browser assertions do not prove those behaviors.
+
 ## API and persistence
 
 Migration `0027_trip_messaging` adds message, read-cursor and report tables. No new
