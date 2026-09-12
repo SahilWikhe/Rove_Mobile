@@ -1,6 +1,14 @@
 # Neon staging setup
 
-## Current environment
+Updated: September 12, 2026.
+
+## Current environment selection
+
+Hosted provider staging uses `rove-provider-staging`, endpoint `ep-lucky-bar-ax4k1m1t.c-4.us-east-2.aws.neon.tech`, and ignored `.staging-provider/.env.neon.staging`. It has 31 migration entries through `0030_driver_location_notifications`; the realtime location trigger was verified after migration. It now contains dedicated staging integration records, so the original empty-table observation is historical. Normal API queries use the pooled restricted `rove_staging_app` role; realtime uses a direct connection with that same role/database.
+
+The root `.env.neon.staging` and `pnpm db:staging:migrate`, `db:staging:role`, `db:staging:smoke` commands target the **older synthetic branch below**, not provider staging. Use the explicit provider command under [clean provider-integration branch](#clean-provider-integration-branch). No production schema migration is recorded.
+
+## Original synthetic environment
 
 Created and verified on September 8, 2026:
 
@@ -71,7 +79,7 @@ Synthetic provider state exists only during the smoke process. Its persisted out
 
 ## Remaining deployment work
 
-Vercel hosting, managed authentication, real Stripe sandbox credentials/webhooks, maps and notifications remain separate integrations. A deployed backend should receive only the pooled runtime URL; migration credentials belong in a separately controlled migration job. Real production setup, backups/recovery rehearsal, load/cold-start behavior and physical-device journeys are still unverified.
+Vercel, Auth0, Maps and Stripe sandbox are configured for the separate provider branch. Push delivery and full device/provider acceptance remain open. Normal runtime queries receive the pooled restricted URL; realtime receives a direct restricted URL. Migration credentials belong in a separately controlled operation. Real production setup, backups/recovery rehearsal, load/cold-start behavior and physical-device journeys are still unverified.
 
 ## Clean provider-integration branch
 
@@ -81,7 +89,7 @@ On September 8, 2026, created a second schema-only staging branch for real sandb
 - Same project: `square-frost-35273983`.
 - Direct endpoint: `ep-lucky-bar-ax4k1m1t.c-4.us-east-2.aws.neon.tech`.
 - Fixed 0.25 CU, default idle suspension; no plan upgrade.
-- All 24 migrations applied. Verified journal count and all 26 public tables empty.
+- At creation, 24 migrations and 26 empty public tables were verified. Current provider staging has 31 migration entries through 0030 and is no longer empty.
 - Separate `rove_staging_app` password and verified pooled TLS. Role has no superuser, role/database creation, bypass-RLS, schema CREATE or table TRUNCATE permission.
 
 Credentials are in `.staging-provider/.env.neon.staging` (ignored, mode 600) with the same four keys described above. This separate working directory allows the existing role-provisioning script to operate without replacing the original synthetic environment. Existing `.neon` context, local phone backend and root `.env.neon.staging` remain unchanged.
@@ -98,7 +106,7 @@ To refresh role grants after migrations, load this file and run the existing rol
 node --env-file=.staging-provider/.env.neon.staging --import tsx --input-type=module -e 'const moduleUrl = new URL("./packages/database/src/staging-role.ts", "file://" + process.cwd() + "/"); process.chdir(".staging-provider"); await import(moduleUrl.href);'
 ```
 
-Do not run the synthetic ride smoke against this branch. It is reserved for managed-auth accounts and actual sandbox-provider IDs once configured. No payment/provider calls, application rows or Vercel environment upload were made during provisioning. The empty-table check is a provisioning observation, not a permanent invariant after provider testing begins.
+Do not run the synthetic ride smoke against this branch. It is reserved for managed-auth staging accounts and actual sandbox-provider IDs. No payment/provider calls, application rows or Vercel environment upload were made during the original September 8 provisioning; subsequent provider integration and deployment supersede that initial state. The empty-table check is a provisioning observation, not a permanent invariant after provider testing begins.
 
 ## Repeatable read-only readiness check
 

@@ -1,6 +1,8 @@
 # Recovery of interrupted mobile operations
 
-Bookings, rider cancellation and driver trip transitions now use an account/API-scoped operation journal. This complements the server's actor-scoped idempotency table; it does not replace transactions, resource authorization or active-ride constraints.
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
+Bookings, driver offer acceptance, rider cancellation and driver trip transitions now use an account/API-scoped operation journal. This complements the server's actor-scoped idempotency table; it does not replace transactions, resource authorization or active-ride constraints.
 
 ## Request lifecycle
 
@@ -26,7 +28,7 @@ final authority when the trip changes between reading and confirming.
 
 ## Privacy and storage
 
-The entry contains only a random key and either a quote identifier or a ride identifier/state/version. It contains no address, coordinates, bearer token, card data or quote snapshot. Keys are scoped using a SHA-256 digest of API URL, account identifier and synthetic-mode status.
+The entry contains only a random key and a quote identifier, offer identifier or ride identifier/state/version. It contains no address, coordinates, bearer token, card data or quote snapshot. Keys are scoped using a SHA-256 digest of API URL, account identifier and synthetic-mode status.
 
 Native entries use Expo SecureStore with `WHEN_UNLOCKED_THIS_DEVICE_ONLY`. The web development preview uses tab-scoped session storage; it can survive a reload but does not provide durable recovery after closing the tab. Storage failures block new operations rather than silently falling back to memory. Reinstalling an app or clearing its storage may lose the device journal; server history and active-ride constraints remain necessary recovery paths.
 
@@ -36,4 +38,4 @@ Sign-out does not delete an uncertain operation. Another account receives a sepa
 
 Eight journal tests cover save-before-send, simulated restart, exact payload/key reuse, different-operation rejection, storage failures, definitive versus uncertain errors, corrupt entries, duplicate taps and transition-version preservation. A real PostgreSQL test confirms committed booking replay after quote expiry while a new key is rejected.
 
-Native process-death/keychain behavior still needs device testing. Offer acceptance/decline, availability changes, payment setup and future scheduling commands still need to adopt durable recovery. API contract and command retention changes must preserve replay compatibility across supported app versions. No payment integration or real-provider verification is implied by this change.
+Native process-death/keychain behavior still needs device testing. Offer acceptance now uses this journal. Decline and availability are not journaled here; payment setup has its own server-side durable sessions. Audit remaining operation recovery separately rather than assuming every mutation uses this journal. API contract and command retention changes must preserve replay compatibility across supported app versions. No payment integration or real-provider verification is implied by this change.

@@ -1,8 +1,10 @@
 # Push notifications
 
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
 ## Current checkpoint
 
-The Expo transport, registration API/native opt-in, authenticated tap routing, recipient resolver and durable delivery/receipt worker are implemented. Hosted delivery is explicitly disabled by default. No real Expo credentials, device tokens or external sends were used for this checkpoint. Configure and verify sandbox delivery before enabling it. Unrelated review/payment-notification event types still require their own consumers; the worker handles only the ride/offer topics listed below.
+The Expo transport, registration API/native opt-in, authenticated tap routing, recipient resolver and durable delivery/receipt worker are implemented. Hosted delivery is explicitly disabled by default. No real Expo credentials, device tokens or external sends were used for this checkpoint. Configure and verify sandbox delivery before enabling it. Unrelated review/payment-notification event types still require their own consumers; the worker handles the ride/offer topics listed below plus `message.created` for authorized conversation hints.
 
 ## Payload and transport
 
@@ -50,7 +52,7 @@ Owner and installation locks serialize initial writes and transfers. Revisions f
 
 Enabled tokens are unique within a project, checked under a token-specific lock before a write and protected by a unique database index. One account may have at most ten active registrations. Receipt invalidation requires the internal registration ID and exact revision captured before sending. It increments the revision and clears retry metadata, so an old receipt or delayed registration cannot undo a refresh or account transfer. Revoked rows remain as fencing records; automatic row deletion could permit stale requests to recreate them and is not implemented.
 
-An installation that loses its secret cannot silently reclaim a binding. Account device-management/recovery and a reviewed token-retention policy still need implementation. The API is not proof of physical device possession or an attestation mechanism: authenticated clients must securely obtain and protect their own native Expo tokens. Configure database logging/access so bound tokens and proof bodies are not captured in logs.
+An installation that loses its secret cannot silently reclaim a binding. Account device listing/revocation and repair with intact proof are implemented; lost-proof recovery and token-retention operations remain incomplete. The API is not proof of physical device possession or an attestation mechanism: authenticated clients must securely obtain and protect their own native Expo tokens. Configure database logging/access so bound tokens and proof bodies are not captured in logs.
 
 Verification: six disposable-Postgres registration tests cover retries, concurrency, transfers, invalid proof, stale logout/receipts, duplicate tokens, limits and disabled/forged roles. API tests cover authentication, strict fields, no-store output and proof checks. Runtime tests cover omitted, incomplete and conflicting project settings; mobile-client tests cover exact bodies and caller-owned retry identifiers. All 350 workspace tests, workspace type/lint/import checks and packaged API verification pass. The subsequent native integration is described below; real token/provider verification remains outstanding.
 
@@ -102,7 +104,7 @@ Three new PostgreSQL tests cover minimal owned lists, revision-aware/idempotent 
 
 Migration `0023_push_deliveries.sql` adds delivery state and shared send-rate windows. It has only been applied to disposable local databases; normal application startup/builds do not migrate a production database. The worker stores one unique delivery per event/installation/revision and atomically enqueues its send job. Queued payloads contain no destination token or personal information. Foreign keys retain the original event and registration needed to audit the delivery.
 
-When enabled, `PushDelivery.handlers` composes with existing financial handlers for terminal ride events. It handles `offer.created`, `ride.matched`, `ride.en_route`, `ride.arrived`, `ride.in_progress`, `ride.completed`, `ride.cancelled`, `ride.no_driver_found`, `ride.no_show`, `ride.interrupted` and `ride.terminated`. It does not replace payment reconciliation, matching or polling. Unknown topics are not silently acknowledged as delivered.
+When enabled, `PushDelivery.handlers` composes with existing financial handlers for terminal ride events. It handles `offer.created`, `ride.matched`, `ride.en_route`, `ride.arrived`, `ride.in_progress`, `ride.completed`, `ride.cancelled`, `ride.no_driver_found`, `ride.no_show`, `ride.interrupted` `ride.terminated` and `message.created`. It does not replace payment reconciliation, matching or polling. Unknown topics are not silently acknowledged as delivered.
 
 Each send acquires a sixty-second database lease before resolving the current recipient. Completion is conditional on that exact lease. Concurrent invocations cannot send through a live lease; an old invocation cannot overwrite a newer result. A shared PostgreSQL window permits at most one hundred sends per second per configured project in this database. Use separate EAS projects for isolated deployment environments; independent databases do not share rate windows. Rate-limit/transient/unconfirmed failures use the existing outbox backoff, bounded by the event/offer TTL.
 

@@ -1,5 +1,7 @@
 # Support request intake
 
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
 Implemented September 8, 2026 for signed-in riders and drivers. This includes request intake, private read access and one staff response with resolution. It is not a staffed support service or emergency channel. Assignment, notification delivery and the separate dashboard queue remain outstanding.
 
 ## Mobile behavior

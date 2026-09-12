@@ -1,5 +1,7 @@
 # Session lifecycle and stale auth responses
 
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
 Implemented September 8, 2026 for both mobile apps. This closes local credential/profile races; it is not completion of managed-provider or native authentication verification.
 
 ## Problem and resulting behavior
@@ -28,11 +30,11 @@ Browser verification with the synthetic local API exercised rider sign-in → au
 
 ## Remaining requirements
 
-- Real managed-provider login, refresh rotation, revocation, cancellation and native deep-link callbacks on iOS/Android.
+- Repeat the exercised Auth0 protocol/simulator paths on physical iOS/Android, including cancellation and active-trip recovery; see [provider evidence](62-provider-setup-handoff.md).
 - Device keychain failure/restart behavior and rendered provider-level race tests beyond the controller tests.
 - Transient versus invalid-grant handling is now implemented; see [refresh recovery](46-auth-refresh-recovery.md). Actual provider behavior still needs native end-to-end verification.
 - Driver operational recovery when an account is disabled or credentials expire during active work; this must not silently abandon trips or leave availability misleading.
 - Provider-wide session revocation and cross-device logout policy. Local deletion does not prove a remote token was revoked; a refresh already accepted by the provider may need provider-specific cleanup.
-- Environment-scoped persistence identity review and the remaining authentication threat model.
+- Environment-scoped persistence is implemented; complete physical-device storage and remaining authentication threat-model acceptance.
 
 Already-authorized HTTP mutations may still finish on the server after a user signs out. Generation checks prevent stale local auth/profile application; they are not a rollback mechanism. Resource permissions, idempotency, active-trip constraints and server authorization remain necessary.

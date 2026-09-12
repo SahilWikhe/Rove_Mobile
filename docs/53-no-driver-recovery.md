@@ -1,5 +1,7 @@
 # Recovery after an unmatched search
 
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
 The rider's `no_driver_found` state now offers three explicit actions: try a new search with the previous route, change the route from scratch, or return home. It extends the existing finding-ride state using shared cards/buttons, as specified in [the mobile design contract](16-mobile-design-contract.md).
 
 ## New booking boundary

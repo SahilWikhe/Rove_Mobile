@@ -1,5 +1,7 @@
 # Captured funds and earnings subledger
 
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
 ## Implemented accounting records
 
 Migration `0010_funny_wallow.sql` introduces append-only journals and postings. This operational subledger currently uses integer USD cents only. Positive postings are debits; negative postings are credits. Provider authorization holds do not create captured-money entries.

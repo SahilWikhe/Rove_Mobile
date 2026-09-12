@@ -1,5 +1,7 @@
 # Abandoned booking and search expiration
 
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
 ## Durable deadline
 
 Ride creation atomically records a `ride.search_expire` outbox job with `available_at` equal to the persisted search deadline. Command retries reuse the ride and deadline job. This uses the current three-minute booking/search window; it does not introduce a separate scheduling product or cancellation fee.

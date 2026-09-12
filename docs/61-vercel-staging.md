@@ -1,64 +1,43 @@
-# Vercel staging preparation
+# Vercel staging
 
-Updated: September 8, 2026.
+Updated: September 12, 2026.
 
 ## Scope and current state
 
-Prepare a separate `rove-api-staging` project in `team-7536` (`team_lNgElVK3RUXfpIY43YCvpbCS`). The existing `rove` project is the marketing website. Created the backend project and verified its settings with a separate API read on September 8, 2026. Project ID: `prj_rLOcpNrXI7eftPgzzRebQbgfCkMC`. [Open staging project](https://vercel.com/team-7536/rove-api-staging). Confirmed zero deployments, no Git connection and no environment variables. Nothing is deployed. Do not upgrade the plan or start a deployment as part of this preparation.
+The separate `rove-api-staging` project in `team-7536` (`team_lNgElVK3RUXfpIY43YCvpbCS`) is deployed and Git-connected to `Rove_Mobile` main. Project ID: `prj_rLOcpNrXI7eftPgzzRebQbgfCkMC`. The marketing project remains separate. [Open staging project](https://vercel.com/team-7536/rove-api-staging).
 
-## Verified project settings
+On September 12, the stable alias [rove-api-staging.vercel.app](https://rove-api-staging.vercel.app) resolved to READY deployment `dpl_38Me36WZxPomkGGw4Bv7tjp7XwEZ`, source `31f7e42199448b4686be82a3e9738947752b324d` on main. This is a point-in-time read, not proof of every provider journey or the next deployment's health.
 
-- Root directory: `apps/api`.
-- Include source files outside the root directory for shared workspace packages.
-- Framework: Other, matching `framework: null` in `apps/api/vercel.json`.
-- Node.js: 24.x.
-- Install: `pnpm install --frozen-lockfile`.
-- Build: `pnpm build`.
-- Output directory: `public`.
-- Runtime region: `iad1`, defined by the committed Vercel configuration.
-- Initially leave Git disconnected to prevent automatic deployment before provider/environment setup is complete.
+## Project settings and release boundary
 
-This project's eventual Vercel Production target is still application **staging**, with `ROVE_ENVIRONMENT=staging`. It must never receive the real production database or live Stripe credentials. Preview environments need deliberate database/provider isolation before enabling branch deployments.
+- Root directory: `apps/api`, with shared workspace files available outside that root.
+- Framework: Other; Node.js 24.x; frozen pnpm install; build `pnpm build`; static output `public`.
+- Runtime/queue region: `iad1`, as defined in `apps/api/vercel.json`. Neon provider staging is in AWS US East 2; these regions are not identical.
+- Main pushes can automatically deploy staging independently of GitHub CI. Check exact-source CI and deployment separately.
+- Vercel's **Production target here is logical staging**, using `ROVE_ENVIRONMENT=staging` and sandbox payments. Do not add real production data or live Stripe credentials to this project.
+- Preview deployments need explicitly isolated credentials/data; never assume they inherit safe staging isolation automatically.
 
 ## Environment readiness
 
-See [provider account setup](62-provider-setup-handoff.md) for exact auth, server/mobile maps and Stripe sandbox configuration, source-code mappings and outstanding owner decisions.
+Runtime configuration is installed for provider staging: restricted pooled database access, Auth0 OIDC, server Maps, Stripe sandbox and worker configuration. Realtime additionally uses `REALTIME_DATABASE_URL`, a direct connection to the same database and restricted role. See [provider handoff](62-provider-setup-handoff.md), [Neon setup](60-neon-staging.md) and [realtime](realtime-messaging.md). `apps/api/.env.example` and the runtime validators are the authoritative variable inventory.
 
-No environment variables have been uploaded to Vercel yet.
+The original ignored `.env.vercel.staging.partial` was a provisioning artifact, not a current deployable configuration or evidence that Vercel lacks variables. Never print or commit secret values. GitHub provider-check secrets are separate from Vercel environment variables. Native Maps keys and the rider publishable Stripe key belong in the corresponding mobile build environment, not only in Vercel.
 
-The ignored, permission-600 `.env.vercel.staging.partial` holds only a partial local configuration: staging mode, empty browser origins, synthetic rate/service-area fixtures, disabled Connect/push, Stripe test mode/account identifier and a generated recovery secret. It is not an import-ready complete runtime environment. Never commit or print its values.
-
-The clean `rove-provider-staging` database branch is now migrated and its restricted runtime URL is saved locally; see [database setup](60-neon-staging.md#clean-provider-integration-branch). It has not been uploaded to Vercel. Still needed: OIDC issuer/audience/JWKS from the chosen provider; Google Maps credentials; Stripe sandbox API credentials, an appropriate payment-method configuration and webhook signing secret. Provider connections in the assistant do not supply runtime credentials to the backend automatically.
-
-Do not attach real payment workers to the existing synthetic Neon branch. Its outbox/payment records belong to process-local mock providers; see [Neon staging](60-neon-staging.md).
+Do not attach real workers to the older synthetic Neon branch. Its provider references belong to process-local mocks. Keep schema-owner migration credentials out of hosted runtime.
 
 ## Offline configuration preflight
-
-From the repository root:
 
 ```sh
 pnpm staging:preflight /path/to/ignored-staging.env
 ```
 
-The command reads exactly that file, not ambient provider credentials. It uses the same API/payment/optional-integration validation as hosted runtime and the same recovery-secret validation as hosted startup. Missing/invalid configuration exits nonzero with field names only. It requires application staging mode and rejects live payments. It neither connects to providers/database nor deploys, migrates or changes settings.
+This reads that explicit file through runtime validators, requires staging mode and rejects live payments. It reports field names only and performs no provider calls, migrations or deployment. Passing validates configuration shape, not credential permissions, data isolation or provider behavior. Re-run after environment changes.
 
-Validation follows the runtime parser order, so fix reported fields and rerun to reveal later payment/integration errors. A passing result proves configuration shape only: syntactically valid fixtures can pass. It does not prove credentials work, pricing is approved, the database branch is isolated, the role is restricted or the hosting plan supports the configured schedule.
+## Deployment verification and remaining release checks
 
-The existing partial file was checked and correctly rejected for missing database, maps and OIDC fields. Its remaining Stripe credentials must still be supplied after those fields are resolved. Do not treat that initial error list as the entire deployment checklist.
+Verify HTTPS health, exact source SHA, authenticated and unauthorized requests, schema compatibility, queue/recovery behavior, Stripe sandbox processing and the relevant end-to-end journey after changes. `/health/live` is process liveness, not comprehensive readiness. Migrations run explicitly before compatible deployment, never during build/startup.
 
-## Deployment gate and verification
-
-The current recovery cron runs once per minute. Keep that recovery design intact; the current Hobby plan cannot run that schedule. The user will handle the upgrade later.
-
-After configuration and deployment authorization: verify build output, HTTPS health, authenticated and unauthorized requests, restricted database access, queue delivery/retries, recovery cron authentication, Stripe sandbox webhook reconciliation and a complete test ride. Migrations run explicitly against the intended branch, never during API startup/build. Mobile previews remain local until the hosted environment is verified.
-
-## Status maintenance
-
-Every commit/push must include an accurate checkpoint in [implementation status](18-implementation-status.md), with completed work, actual checks, blockers and next steps. Update this runbook when cloud settings or readiness change. Cloud creation and successful local builds do not constitute deployed verification.
-
-## API references
-
-Project creation and verification follow the official [create project](https://vercel.com/docs/rest-api/projects/create-a-new-project) and [project settings](https://vercel.com/docs/rest-api/projects/update-an-existing-project) API documentation. Creating the project does not build or deploy the repository.
+The committed recovery cron runs once per minute; the hosting plan must support that frequency. Do not weaken recovery to accommodate an unsuitable plan. Current deployment readiness does not prove latency/load, dead-letter recovery, physical-device behavior or real production readiness. See [worker hosting](36-worker-hosting.md) and [production setup](production-setup.md).
 
 ## Running native apps against staging
 

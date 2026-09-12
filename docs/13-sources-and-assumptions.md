@@ -49,12 +49,12 @@ Some documentation endpoints returned fetch errors during review. Do not infer a
 ## Explicit planning assumptions
 
 - Core product: self-service consumer ride-hailing with automated driver matching; a small controlled market can limit rollout without replacing the on-demand flow.
-- Three product repositories: `Rove_Mobile` owns mobile/backend/database and operational API policy; separate not-yet-created repositories own internal staff UI and optional institutional UI. Their names are TBD. The existing marketing repository is the fourth repository overall. This supersedes the prior internal `apps/ops` placement.
+- Three product repositories: `Rove_Mobile` owns mobile/backend/database and operational API policy; separate repositories own internal staff UI and optional institutional UI; their implementation status is outside this checkout. The existing marketing repository is the fourth repository overall. This supersedes the prior internal `apps/ops` placement.
 - Platform rider/driver identity, global market-scoped availability and trip ownership; institutions are optional associations, not mandatory account tenants.
 - Consumer rider app and separate driver app, both iOS and Android; caregiver, recurrence and care workflows are extensions.
 - A single transaction-capable backend/database is adequate until measurements show otherwise.
 - Authentication provider, encrypted offline store, matching executor/deadlines and consumer fare/payment/driver-earnings policies require acceptance gates. Sponsor funding is decided separately if B2B is built.
-- Vercel/Neon are the proposed host/database; no AWS account or migration is required by this plan.
+- Vercel/Neon are the implemented staging host/database; AWS document-storage/scanning adapters and an infrastructure template also exist. See current setup guides for evidence; production provisioning is separate.
 - Polling/upload intervals, coverage percentages, recovery targets and latency targets are initial engineering targets to validate.
 - No signed contract, production rider dataset, HIPAA status, store approval or paid provider readiness is asserted.
 

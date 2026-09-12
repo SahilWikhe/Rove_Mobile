@@ -1,5 +1,7 @@
 # Payout account events and eligibility freshness
 
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
 ## Current-state reconciliation
 
 Stripe account notifications now enter a dedicated `POST /webhooks/stripe-connect` endpoint. This accepts Accounts v2 thin events, separate from the existing payment snapshot endpoint. The installed SDK verifies the raw payload, signing secret and five-minute signature tolerance. The adapter validates test/live mode and extracts only event ID/type/time and account ID. It never follows a webhook-supplied resource URL or copies raw identity/bank details into storage.

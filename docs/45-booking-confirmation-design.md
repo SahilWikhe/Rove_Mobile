@@ -1,5 +1,7 @@
 # Booking confirmation design
 
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
 Implemented September 8, 2026 against the supplied rider Figma frame `5:89`. Design context, generated reference styles and the rendered reference were inspected before implementation.
 
 ## Visual implementation

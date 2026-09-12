@@ -6,7 +6,7 @@ Rove is a consumer ride-hailing product: a rider requests a ride, the platform f
 
 This repository contains the architecture plans and an in-progress implementation of the rider/driver apps, shared API, database and automated tests. See the [implementation ledger](docs/18-implementation-status.md) for verified behavior and remaining work, and [local development](docs/19-local-development.md) to run the synthetic integration environment. **This is not a production-ready release.** Planned controls are requirements until implementation and verification evidence exists. The consumer-first scope supersedes the original care-pilot-first architecture; see [the decision history](docs/12-decisions.md).
 
-The proposed technical baseline is React Native + Expo for mobile, a Hono/TypeScript API on Vercel, and Postgres on Neon. A small Next.js staff console in a separate repository supports Rove operations; a third product repository holds the optional B2B dashboard. Both dashboards consume the shared API. Use a modular backend with one transactional ride database before considering separate services.
+The implemented technical baseline is React Native + Expo for mobile, a Hono/TypeScript API on Vercel, and Postgres on Neon. A small Next.js staff console in a separate repository supports Rove operations; a third product repository holds the optional B2B dashboard. Both dashboards consume the shared API. Use a modular backend with one transactional ride database before considering separate services.
 
 Driver background tracking details and remaining device checks are recorded in [driver location lifecycle](docs/20-driver-location.md).
 
@@ -32,29 +32,31 @@ Driver background tracking details and remaining device checks are recorded in [
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) before implementing a feature. Coding agents should also follow [AGENTS.md](AGENTS.md).
 
+For a complete documentation map, see the [documentation index](docs/documentation-index.md).
+
 For staging account configuration and remaining owner decisions, read [provider setup handoff](docs/62-provider-setup-handoff.md).
 
-## First useful milestone
+## Full-device acceptance milestone
 
-Using synthetic data on real iOS and Android devices: a rider gets a quote and requests a ride; an online eligible driver receives a time-limited offer, accepts, picks up and completes the trip; payment settles once in sandbox and the rider receives a receipt. Also prove no-driver, cancellation, payment-failure and lost-connectivity behavior. This must work with no institution, sponsor or B2B dashboard configured.
+The synthetic browser journey is implemented and tested. Remaining acceptance on real iOS and Android devices: a rider gets a quote and requests a ride; an online eligible driver receives a time-limited offer, accepts, picks up and completes the trip; payment settles once in sandbox and the rider receives a receipt. Also prove no-driver, cancellation, payment-failure and lost-connectivity behavior. This must work with no institution, sponsor or B2B dashboard configured.
 
 ## Product repositories
 
 | Repository | Responsibility |
 | --- | --- |
 | `Rove_Mobile` (this repository) | Rider/driver apps, matching, ride execution, consumer payments, database/migrations, staff authorization and operational API use cases |
-| Internal dashboard repository (name TBD; not created) | Rove staff UI for approvals, support, safety and finance; staff sessions/API proxy |
-| B2B repository (name TBD; not created) | Institution dashboard, organization administration, sponsored booking UI, reports and optional thin web session/API proxy |
+| Internal dashboard repository (managed separately) | Rove staff UI for approvals, support, safety and finance; staff sessions/API proxy |
+| Optional B2B repository (managed separately) | Institution dashboard, organization administration, sponsored booking UI, reports and optional thin web session/API proxy |
 | `Rove` (existing) | Marketing website |
 
 There are three product repositories, plus the existing website repository: four repositories total. Both dashboards use versioned APIs; neither gets direct core database access or its own competing matching/payment engine. See [repository boundaries](docs/15-repository-boundaries.md).
 
 ## Repository boundary
 
-The initial Neon setup was performed in a separate local research directory named `Rove`. Its `.env.local`, `.neon`, installed packages, and credentials do not belong in this documentation commit. The product now has an isolated synthetic Neon staging branch with applied migrations and a verified backend smoke flow; see [Neon staging](docs/60-neon-staging.md). Local previews remain on disposable PostgreSQL, and this is not a deployed production backend. See the [environment plan](docs/08-cicd-and-environments.md) before linking application environments.
+The initial Neon setup was performed in a separate local research directory named `Rove`. Its `.env.local`, `.neon`, installed packages, and credentials do not belong in this documentation commit. The product has separate synthetic and provider-integration Neon staging branches and a deployed Git-connected Vercel staging API; see [Neon staging](docs/60-neon-staging.md). Local previews remain on disposable PostgreSQL, and this is not a deployed production backend. See the [environment plan](docs/08-cicd-and-environments.md) before linking application environments.
 
 The architecture documents include future components. The root `pnpm test`, `pnpm typecheck` and `pnpm docs:check` commands are implemented; production deployment is not yet configured.
 
 ## Mobile design implementation baseline
 
-Use the supplied Figma screens and theme with the approved changes recorded in [mobile design contract](docs/16-mobile-design-contract.md). It maps existing frames and specifies missing rider/driver journeys. [Scheduling feature flags](docs/17-scheduling-feature-flags.md) defines the default-off advance/weekly/monthly rollout, recommended Vercel integration, backend enforcement and existing-booking protection. Consumer-funded rides remain primary; the Pro subscription and 100%-fare promises are removed. These specifications are not implemented apps or configured flags.
+Use the supplied Figma screens and theme with the approved changes recorded in [mobile design contract](docs/16-mobile-design-contract.md). It maps existing frames and specifies missing rider/driver journeys. [Scheduling feature flags](docs/17-scheduling-feature-flags.md) defines the default-off advance/weekly/monthly rollout, recommended Vercel integration, backend enforcement and existing-booking protection. Consumer-funded rides remain primary; the Pro subscription and 100%-fare promises are removed. Both apps implement substantial parts of this contract, including messaging, translucent floating navigation and subtle gold gradients; full visual parity remains open. The API capabilities endpoint exists and scheduling remains off; the scheduling provider/recurrence rollout is future work.

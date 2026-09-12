@@ -1,6 +1,6 @@
 # System architecture
 
-Status: target design, not deployed infrastructure. Owner: engineering lead. Consumer on-demand rides are the core; internal staff and optional institution dashboards each have a separate frontend repository.
+Status: implemented core architecture with planned extensions; hosted staging is deployed. Current evidence and launch gaps are in [implementation status](18-implementation-status.md). Owner: engineering lead. Consumer on-demand rides are the core; internal staff and optional institution dashboards each have a separate frontend repository.
 
 ## Baseline choices
 
@@ -12,11 +12,11 @@ Status: target design, not deployed infrastructure. Owner: engineering lead. Con
 | HTTP API | Hono on Node.js, deployed on Vercel | Small transport layer, independently deployable API |
 | Domain | Plain TypeScript modules on the server | Rules can be tested without React, HTTP, or vendor SDKs |
 | Database | Neon Postgres + Drizzle | Relational constraints, migrations, transactions, portable SQL |
-| Validation/contracts | Zod and generated OpenAPI | Runtime validation plus explicit versioned wire contracts |
-| Client server-state | TanStack Query | Requests, invalidation, refresh and retry policies in one place |
-| Background jobs | Postgres outbox + durable executor adapter | Durable matching/notification/payment intents; benchmark deadline execution before choosing the adapter |
-| Maps | Google Maps/Places/Routes adapters | Map display, addresses, routes; native navigation handoff first |
-| Authentication | Managed provider; selection gate before feature work | Avoid custom passwords/OTP; prove native and admin requirements |
+| Validation/contracts | Zod schemas in `packages/contracts` | Runtime validation; cross-repository OpenAPI/client publication remains a release task |
+| Client server-state | Shared typed API client, focus polling and WebSocket controllers in `mobile-core` | Authorized reads, cancellation, invalidation and recovery |
+| Background jobs | Postgres outbox + Vercel Queues and recovery cron | Durable matching/payment/notification work; field latency and operational recovery remain acceptance gates |
+| Maps | Google Maps/Places/Routes adapters | Map display, addresses, routes; in-app Navigation SDK on the driver app |
+| Authentication | Auth0, Expo AuthSession PKCE and backend OIDC | Native staging clients configured; physical-device and staff MFA acceptance remain separate |
 
 These are architecture choices, not instructions to install every latest package. During bootstrap, pin a stable Node LTS, pnpm version, Expo SDK, and compatible React/React Native versions. Prefer the stable supported versions over release candidates. Record the tested matrix and upgrade it deliberately.
 
@@ -44,33 +44,30 @@ All durable ride and financial truth resides in Postgres. Client caches, push no
 
 The backend is a **modular monolith**: one application with enforceable internal boundaries, not a collection of independently deployed services. Jobs reuse its application use cases. Split services only when measured load, team ownership, compliance boundaries, or independent availability justify the cost.
 
-## Proposed layout
+## Implemented layout
 
 ```text
 apps/
-  rider/                     # Expo consumer quote, request, trip and payment features
-  driver/                    # Expo routes and driver features
-  api/                       # Hono routes, bootstrapping, job entrypoints
+  rider/          # Expo rider routes and features
+  driver/         # Expo driver routes, navigation and native tracking
+  api/            # Hono HTTP, realtime and worker hosts
 packages/
-  contracts/                 # Public DTO schemas, API errors, OpenAPI generation
-  api-client/                # Generated/typed client with transport hooks
-  server/                    # Domain modules, use cases, ports, integration adapters
-  database/                  # Drizzle schema, SQL repositories, migrations
-  mobile-ui/                 # Shared native primitives, when real reuse exists
-  design-tokens/             # Platform-neutral branding tokens
-  config/                    # TypeScript, lint and test configuration
-  test-support/              # Synthetic factories and contract fixtures
+  contracts/      # Runtime-validated wire schemas
+  server/         # Domain services and provider adapters
+  database/       # Drizzle schema and versioned SQL migrations
+  mobile-core/    # Typed API client, auth, polling, sockets and recovery
+  mobile-ui/      # Shared native components and theme
+infra/aws/        # Driver-document infrastructure template
+e2e/              # Synthetic browser journeys
 docs/
 ```
 
-Do not create empty abstraction packages solely to match the diagram. Add a package when its boundary or reuse has a concrete purpose. Do not try to share DOM components with native screens. Share tokens, validation, and native components where behavior matches.
-
-Both dashboards are outside this tree, each in its own repository with name TBD. Each imports a pinned released API client/schema, not local workspace files, and never imports `server` or `database`. Publish the contract/client for the internal dashboard before its first integration; B2B later uses the same distribution approach. See [repository boundaries](15-repository-boundaries.md). Core API/domain/database ownership remains here. See [B2B product boundary](14-b2b-product-boundary.md).
+The staff and optional institutional dashboards are outside this checkout. Neither receives core database credentials or imports server modules. Cross-repository contract publication/version compatibility remains part of release engineering; do not describe an ungenerated client as an existing artifact.
 
 ## Dependency rules
 
-- `contracts` and `design-tokens` must remain platform-neutral and safe for public bundles.
-- Mobile and browser code may import `contracts`, `api-client`, and suitable UI packages. They must not import `server`, `database`, payment-secret SDKs, or environment loaders containing secrets.
+- `contracts` and shared theme values must remain platform-neutral and safe for public bundles.
+- Mobile and browser code may import `contracts`, `mobile-core`, and suitable UI packages. They must not import `server`, `database`, payment-secret SDKs, or environment loaders containing secrets.
 - `api` composes `server`, `database`, and provider adapters. `database` implements repository ports defined by the relevant server module; type-only port imports must not create runtime cycles.
 - `server` owns domain invariants and repository/provider interfaces. Its pure domain layer cannot import Hono, React, Drizzle, or a provider SDK. Concrete adapters live in explicitly named infrastructure directories.
 - The separate internal-dashboard server code verifies Rove staff sessions and forwards scoped requests to `api`; it does not run its own ride mutations or access the database directly. The separate B2B web proxy follows the same rule with institution-scoped capabilities and cannot use staff credentials.
@@ -116,9 +113,9 @@ The consumer critical path is quote -> request -> matching -> time-limited offer
 
 Second-scale offer deadlines require a measured executor wakeup/latency budget. Do not use a minute-level cron sweep as the main matching timer. Benchmark Vercel Workflow or a suitable delayed-job executor before locking the provider; database deadline checks enforce expiry even when jobs run late. Monitoring must detect time-to-match regressions.
 
-First synthetic prototype: HTTPS location ingestion plus bounded polling by active viewers. Test active-trip upload every 10 seconds, visible map refresh every 15 seconds, and faster foreground refresh or realtime delivery for time-limited offers. These are test parameters, not launch SLAs. Online unassigned drivers also need heartbeats/discovery location with an explicit retention and battery policy. Go-offline stops discovery collection; stale sessions are ineligible for matching.
+Native GPS requests three-second delivery; the rider reloads authorized coordinates on WebSocket invalidation and falls back to five-second polling. Driver offers and ride-state screens retain foreground polling. These are implementation intervals, not launch SLAs. Online unassigned drivers also need heartbeats/discovery location with an explicit retention and battery policy. Go-offline stops discovery collection; stale sessions are ineligible for matching.
 
-Trip messaging uses native Vercel WebSockets with transaction-bound Postgres notifications across instances and authorized HTTPS reads for durable state. Reconnect reloads missed history; polling is a transport-failure fallback. See [real-time messaging](realtime-messaging.md) for authentication, direct-session configuration, limits and deployment verification. Ride-location and offer refresh still use their existing bounded polling; messaging transport does not by itself replace those flows.
+Trip messaging uses native Vercel WebSockets with transaction-bound Postgres notifications across instances and authorized HTTPS reads for durable state. Reconnect reloads missed history; polling is a transport-failure fallback. See [real-time messaging](realtime-messaging.md) for authentication, direct-session configuration, limits and deployment verification. Rider location shares this socket with capability-aware fallback. Offer/ride-state refresh remains bounded polling; native GPS sampling is a separate OS-controlled channel.
 
 The first backend and database should share the Ohio region where practical (Neon `us-east-2`, Vercel `cle1`). Verify actual project settings before deployment. Auth, maps and notification dependencies have independent failure modes and data locations.
 

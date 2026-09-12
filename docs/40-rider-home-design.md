@@ -1,5 +1,7 @@
 # Rider home Figma alignment
 
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
 Implemented September 8, 2026. This is an intermediate visual checkpoint, not completion of the mobile apps.
 
 ## Source and approved adaptations
@@ -13,8 +15,8 @@ Consumer overrides remain in effect:
 - The promo opens booking and describes reviewing a fare; it promises no coverage, return, discount or driver guarantee.
 - The trip card displays the latest owned ride from the existing newest-first history endpoint, with its real lifecycle state and request date. It does not label a completed trip as paid or invent an ETA. Details open the existing ride route using only its ID.
 - A confirmed empty history shows an empty state; loading and failed refreshes have explicit text. A failed refresh retains the last response with a visible warning. This screen is not the authoritative active-trip controller.
-- Saved places are still unimplemented and are not replaced with fake medical shortcuts. Messages remains absent until implemented, as permitted by the design contract. These remain future feature work, not completed capabilities.
-- Navigation has visible labels and at least 48-unit targets. A footer inside the safe area reserves its own space, so it stays reachable on short screens without overlaying scroll content.
+- Home/Work saved places and Messages are implemented. Shortcuts resolve owned places into route review, and the Messages tab opens authorized assignment conversations.
+- Navigation uses a floating translucent-black pill with visible labels and at least 48-unit targets. Measured footer clearance keeps final content reachable above it.
 
 ## Implementation and lifecycle
 
@@ -31,4 +33,4 @@ The shared Screen accepts an optional footer and content style; existing callers
 - Browser checks at 390×844 and 320×568 confirmed text wrapping and scrolling layout. Booking entry points, My rides and Account navigation were exercised. [Web screenshot](screenshots/rider-home-web.png) records the reference-width layout.
 - A browser-only intercepted history failure showed the refresh warning. Removing interception and reconnecting restored the normal empty state. No production database or real ride was changed for these checks.
 
-Remaining visual acceptance includes Android screenshots, large native text settings, screen-reader traversal, higher-resolution illustration export and the rest of the rider/driver frames. Saved places, Messages and other missing journeys still need implementation. Do not infer completed provider integration, payments or production readiness from these screenshots.
+Remaining visual acceptance includes Android screenshots, large native text settings, screen-reader traversal, higher-resolution illustration export and the rest of the rider/driver frames. Saved places and Messages now have their own implemented guides; the remaining frame/accessibility audit is still open. Do not infer completed provider integration, payments or production readiness from these screenshots.

@@ -1,5 +1,7 @@
 # Driver in-app navigation
 
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
 The active driver trip offers **Directions to pickup** while matched, approaching or waiting,
 and **Directions to destination** while in progress. Completed, cancelled, searching and
 interrupted trips offer no navigation action. Directions open inside the native driver app.
@@ -46,8 +48,9 @@ The backend Places/Routes key does not configure native Navigation SDK access.
   milestones. It does not calculate a Google route.
 - `native-smoke/driver-navigation.yaml` verifies screen entry and return on an active pickup trip.
   It deliberately does not acknowledge the provider notice or calculate a route.
-- Actual route display, spoken guidance, rerouting, repeated starts/stops and physical-device GPS
-  remain native release checks. A successful build or screen-entry smoke test does not prove them.
+- Actual Google route display has been observed in the iOS simulator. Spoken guidance, rerouting,
+  repeated starts/stops and physical-device GPS still need full release acceptance. A build or the
+  screen-entry smoke alone does not prove those behaviors.
 
 ## Optional cloud navigation map theme
 

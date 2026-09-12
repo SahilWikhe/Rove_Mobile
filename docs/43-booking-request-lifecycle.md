@@ -1,5 +1,7 @@
 # Booking lookup and route-edit lifecycle
 
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
 Implemented September 8, 2026. This changes booking behavior; complete Figma styling remains unfinished.
 
 ## Correctness changes

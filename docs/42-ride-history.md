@@ -1,12 +1,14 @@
 # Mobile ride history browsing
 
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
 Implemented September 8, 2026 for the rider My rides and driver Trips routes.
 
 ## Behavior
 
 Both routes now consume the existing history continuation cursor. Older trips moves to the next page; Newer trips returns one page; Back to latest trips clears the cursor stack. Each page remains bounded to the API's 20 records, rather than accumulating every trip in memory. Trip dates help distinguish repeated destinations. Selecting a trip continues to use the existing role-specific detail route.
 
-The shared `useRidePage` hook refreshes while the screen is focused and the app is foregrounded, using the existing abortable polling controller and backoff. Returning from trip details triggers a fresh read. Refresh/Retry deliberately restarts the subscription and aborts the previous read. Loading is separate from a confirmed empty result. Failed reads clear the visible page and show an error rather than continuing to display potentially revoked data.
+The shared `useRidePage` hook refreshes while the screen is focused and the app is foregrounded, using the existing abortable polling controller and backoff. Returning from trip details triggers a fresh read. Native pull-to-refresh and error Retry deliberately restart the subscription and aborts the previous read. Loading is separate from a confirmed empty result. Failed reads clear the visible page and show an error rather than continuing to display potentially revoked data.
 
 The routes key the browser by account ID and each page by cursor. Signing out or changing accounts removes the prior account's page and navigation stack. Signed-out routes issue no history requests. Backend authorization remains authoritative; frontend state clearing is not a permission check.
 

@@ -1,6 +1,8 @@
 # API deployment configuration
 
-`apps/api/src/config.ts` validates explicit environment input without reading ambient credentials. `apps/api/.env.example` lists required keys without secrets or approved business values. This module is implemented and tested; the production HTTP entrypoint/provider composition is still unfinished. It does not deploy an API, connect to Neon or enable real bookings by itself.
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
+`apps/api/src/config.ts` validates explicit environment input without reading ambient credentials. `apps/api/.env.example` lists required keys without secrets or approved business values. This module is implemented and tested; the real-adapter HTTP/worker/realtime composition is implemented and staging is deployed; production environment setup remains unfinished. It does not deploy an API, connect to Neon or enable real bookings by itself.
 
 ## Required settings
 

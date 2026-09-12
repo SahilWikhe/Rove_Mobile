@@ -1,5 +1,7 @@
 # Driver sign-out and tracking cleanup
 
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
 The driver Account screen now includes “Go offline and sign out.” It uses the existing backend availability command rather than only hiding the online UI or deleting local credentials.
 
 The ordered flow is:
@@ -17,4 +19,4 @@ The screen prevents repeated taps while the operation is pending. Profile editin
 
 Five controller tests cover sequencing, active-trip rejection, uncertain confirmation, a stale offline response and native-stop failure followed by an explicit retry. Existing real PostgreSQL matching tests verify that an assigned driver cannot go offline; tracking tests verify offline grant revocation and rejected later uploads. Both apps continue to share the existing OIDC credential provider.
 
-A native driver Debug build compiled and launched on the local iOS 26.5 simulator, and the synthetic driver home screen was visually inspected. This does not prove sign-out on a physical device or all OIDC callback/refresh races. The separate full authentication-session race audit, expired/disabled-account recovery, physical-device background cleanup and Android native verification remain outstanding. No production identity or location data was used.
+A native driver Debug build compiled and launched on the local iOS 26.5 simulator, and the synthetic driver home screen was visually inspected. This does not prove sign-out on a physical device or all OIDC callback/refresh races. Session race guards and refresh recovery are now implemented, and Android Auth0 session acceptance has been exercised. Full physical-device background cleanup and active-trip recovery remain outstanding; see the current authentication guides. No production identity or location data was used.

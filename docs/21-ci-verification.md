@@ -1,11 +1,15 @@
 # Continuous integration and dependency safety
 
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
 ## Current pipeline
 
 `.github/workflows/ci.yml` runs on pull requests, pushes to main, merge queues, manual dispatch and a weekly schedule. All suites run for every change while this repository is small. This deliberately avoids path filters silently skipping shared-contract or workflow regressions.
 
 - `quality`: frozen dependency install, peer compatibility, formatting, ESLint/React hooks, package import boundaries, tooling regression tests, all workspace types, Markdown and migration snapshot drift.
 - `tests`: behavior and concurrency suites against disposable local PostgreSQL, without cloud credentials or production data.
+- `browser`: serial Playwright journeys across both Expo web apps and disposable PostgreSQL, with simulated external providers.
+- `infrastructure`: CloudFormation template lint, without AWS credentials or deployment.
 - `mobile`: Expo dependency alignment and rider/driver exports for iOS, Android and web.
 - `native-android`: rider and driver debug and release binaries compiled for x86_64 on Ubuntu with Java 21. The release APK must contain a nonempty JavaScript bundle.
 - `native-ios`: rider and driver unsigned debug and release simulator binaries compiled on macOS 26. The release app must contain a nonempty JavaScript bundle. Both native jobs regenerate projects from Expo config and the frozen patched dependencies; no provider keys or signing credentials are used.
@@ -31,9 +35,9 @@ Dependabot groups routine minor/patch JavaScript updates and Actions updates wee
 
 ## Evidence and limits
 
-Local verification covers 63 application tests plus seven tooling tests, all workspace types, lint, import boundaries, Expo dependency checks and both apps' platform exports. An export compiles JavaScript/Hermes assets; it does not prove native compilation, permissions, background execution or store acceptance. Real-device and provider integration tests remain required before launch. A clean vulnerability scan means no known findings in that scan, not a guarantee against attacks.
+The executable workflow is the source of truth for jobs; [implementation status](18-implementation-status.md) records exact-SHA results. Test totals below are historical checkpoint counts, not today's suite inventory. Use `pnpm test:e2e --list` for browser inventory and inspect a completed CI run for its actual results.
 
-GitHub runner execution must also be inspected after each pipeline change. Native end-to-end testing and production-provider smoke tests remain separate unfinished delivery work; see [implementation status](18-implementation-status.md).
+Native jobs compile debug and standalone release simulator/emulator binaries for both roles. They do not boot a physical device, log into Auth0 or perform a Stripe payment. Manual [staging provider checks](staging-provider-ci.md) call real providers but are not full native E2E. A clean scan or export is limited evidence, not a security or release certification.
 
 ## September 9 dependency gate repair
 

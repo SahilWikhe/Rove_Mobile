@@ -1,5 +1,7 @@
 # Native trip maps
 
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
 Rider ride details and driver accepted-trip details now share an endpoint map. It renders only when the authorized ride response contains both precise endpoints. The driver offer screen has no map import or exact endpoint markers; after the assignment ends, the driver's response omits those endpoints and the map is removed.
 
 The native implementation uses the Expo SDK's compatible `react-native-maps` version, 1.27.2. It shows labeled pickup/destination markers, retains the map provider's attribution and provides the existing textual route below. It does not request another location permission, draw a guessed route polyline, fabricate a driver marker or imply an ETA. Rider-visible location now uses the assignment-authorized API and freshness handling described in [live driver location](55-live-driver-location.md).

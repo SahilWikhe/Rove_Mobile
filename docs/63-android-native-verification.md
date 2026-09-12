@@ -1,5 +1,9 @@
 # Android native verification
 
+## Current checkpoint
+
+Reviewed September 12, 2026. Android rider/driver Auth0 callback/session acceptance and subsequent synthetic UI previews have been exercised. CI now compiles both debug and standalone release binaries for each role on Android and iOS; it does not run device journeys. The dated evidence below describes earlier builds and their limitations, not a current list of missing UI features. Full physical-device payment, navigation, locked GPS, push and store acceptance remain open. See [current status](18-implementation-status.md).
+
 ## Local toolchain
 
 Use a full JDK 21, not the JRE used by Maestro. Install Android command-line tools, platform-tools, platform 36, build-tools 36.0.0, NDK 27.1.12297006 and CMake 3.22.1. These versions come from the installed React Native/Expo native configuration; reassess them when upgrading Expo. The generated Gradle wrapper currently uses 9.3.1. Google's [SDK download page](https://developer.android.com/studio) and [SDK manager documentation](https://developer.android.com/tools/sdkmanager) describe installation.
@@ -35,6 +39,6 @@ Retesting with separate synthetic identities passed for both apps: hosted login,
 
 Port forwarding was observed to be absent between separate Maestro runs. Check `adb reverse --list` and reinstate the API and app-specific Metro mappings before every run and before manual testing. An absent mapping can produce a script-loading or connection-interrupted error even while host services are healthy. Use `/health/live` for the local API health check; `/health` is not a registered endpoint.
 
-All 99 mobile-core tests, relevant typechecks, changed-source lint and module-boundary checks passed. Broader journeys, native maps/payment, background location, release signing and the iOS rebuild/retest remain outstanding.
+All 99 mobile-core tests, relevant typechecks, changed-source lint and module-boundary checks passed. At that checkpoint, broader journeys, native maps/payment, background location, release signing and the iOS rebuild/retest were outstanding. Subsequent native previews and builds supersede the initial build-only status; full physical-device acceptance remains open.
 
 Both temporary Android Auth0 identities were blocked with independent readback after acceptance. Their private fixture files and credential-bearing Maestro run folders were removed. The founder’s manual rider identity was preserved.

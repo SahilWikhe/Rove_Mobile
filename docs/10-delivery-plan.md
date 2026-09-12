@@ -1,6 +1,6 @@
 # Delivery plan: core ride-hailing, then optional B2B
 
-Status: ordered implementation plan reflecting the user's revised direction. No source, provider activation or deployment is created by this document. Milestone estimates follow confirmed scope and feasibility, not a promised app-launch date.
+Status: milestone acceptance plan. Foundation and substantial M2–M4 features are implemented and staging is deployed; milestone exit requires the remaining device/provider/operational evidence. Use [implementation status](18-implementation-status.md) for completed work, rather than interpreting every step below as still unstarted. Milestone estimates follow confirmed scope and feasibility, not a promised app-launch date.
 
 ## Ownership and priorities
 
@@ -24,7 +24,7 @@ Exit: clean install, local API startup, development mobile builds on both platfo
 
 Evaluate managed authentication for consumer/driver sessions and staff MFA. Implement platform ownership/capabilities with no mandatory organization tenant. Prove driver online/offline heartbeat and background discovery/trip tracking on physical devices, including locked screen, native navigation, reconnect and revoked permission.
 
-Benchmark timed-offer delivery and durable executor wakeups under realistic delays. Pick polling/realtime and the job adapter based on matching deadlines, battery and cost. Resolve offline storage before real data. Use fake offers/trips and payment sandbox accounts.
+Benchmark timed-offer delivery and durable executor wakeups under realistic delays. The selected transports are WebSockets for messages/rider location and bounded polling for offers/ride state; jobs use Vercel Queues with database outbox/recovery. Validate them against matching deadlines, battery and cost. Resolve offline storage before real data. Use fake offers/trips and payment sandbox accounts.
 
 Exit: tested iOS/Android auth and background behavior; stale/offline drivers leave the candidate set; expiry remains valid despite late worker/push; chosen provider decisions and limits recorded.
 

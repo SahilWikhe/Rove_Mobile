@@ -32,7 +32,7 @@ Reason: consumer-only operation must work with no institution present. Consequen
 
 ## ADR-005: Managed authentication
 
-**Selected September 9, 2026; integration verification still gates M2.** Use Auth0, configured directly through its dashboard or authenticated CLI. Create an isolated staging tenant with two public Native clients (rider and driver) and one shared API audience/user directory. Production will use a separate tenant. Rove retains consumer/driver/staff authorization in its backend; institution roles remain distinct from staff capabilities.
+**Selected September 9, 2026; staging integration exercised, physical-device and staff acceptance still gates launch.** Use Auth0, configured directly through its dashboard or authenticated CLI. Create an isolated staging tenant with two public Native clients (rider and driver) and one shared API audience/user directory. Production will use a separate tenant. Rove retains consumer/driver/staff authorization in its backend; institution roles remain distinct from staff capabilities.
 
 Reason: the existing Expo AuthSession PKCE flow and Hono OIDC validation fit direct native-client/API configuration. Vercel continues hosting the backend and Neon remains the application database. Marketplace provisioning is unnecessary for this setup. Neon Auth is not the selected identity authority. Provider selection does not prove native integration, authorize a paid plan or activate production.
 
@@ -40,21 +40,21 @@ Acceptance: native callbacks/PKCE, refresh/revocation, recovery, staff MFA, acco
 
 ## ADR-006: Durable jobs and short matching deadlines
 
-**Selected durability pattern; provisional executor.** Persist intents with state changes, execute idempotently and reconcile retries. Vercel Workflow is a candidate for durable execution, but short timed offers require measured wakeup and delivery latency before choosing the matching executor in M2/M3.
+**Selected: Postgres outbox, Vercel Queues and authenticated minute recovery.** Persist intents with state changes, execute idempotently and reconcile retries. The queue host is implemented; short timed offers still require measured cloud wakeup and delivery latency before launch. See [worker hosting](36-worker-hosting.md).
 
 Reason: jobs survive failure while server-clock expiry and transactions protect correctness. Alternative: minute-level cron or in-memory timers as the sole matching engine. Consequence: persisted attempts/offers, deadline validation, bounded retry and old-generation rejection. Provider delay must not extend a valid acceptance window.
 
 ## ADR-007: Availability and trip transport
 
-**Selected for messaging; provisional for tracking/offers.** Trip messaging uses native Vercel WebSockets plus Postgres LISTEN/NOTIFY on one direct session per active instance. Message bodies and access decisions stay in the existing HTTPS/Postgres path; sockets carry invalidations and reconnect reloads durable state. This reuses existing infrastructure without adding a realtime vendor, but requires connection-capacity and hosted acceptance checks. See [real-time messaging](realtime-messaging.md). Benchmark transport for short driver offers and live tracking before launch; push alone is not sufficient. Discovery locations are private to matching; rider-visible tracking starts only with authorized accepted work.
+**Selected for messaging and rider location; polling retained for offers/ride state.** Trip messaging uses native Vercel WebSockets plus Postgres LISTEN/NOTIFY on one direct session per active instance. Message bodies, coordinates and access decisions stay in the existing HTTPS/Postgres path; sockets carry invalidations and reconnect reloads durable state. This reuses existing infrastructure without adding a realtime vendor, but requires connection-capacity and hosted acceptance checks. See [real-time messaging](realtime-messaging.md). Rider location uses `driver.location.changed`, authorized HTTPS reads and a five-second fallback; driver native GPS requests three-second delivery. Benchmark short driver offers and physical tracking before launch; push alone is not sufficient. Discovery locations are private to matching; rider-visible tracking starts only with authorized accepted work.
 
 Acceptance: real-device background behavior, freshness, online expiry, offline/revoked access, reconnect/resync, fanout, cost and battery. Vercel's current guidance describes native WebSockets with lifetime/reconnect considerations; confirm the actual runtime in the spike. [Vercel WebSocket guidance](https://vercel.com/kb/guide/do-vercel-serverless-functions-support-websocket-connections)
 
 ## ADR-008: Maps and native navigation
 
-**Selected initial direction.** Google map/address/route adapters with validated key restrictions and terms; native navigation handoff first. Proximity shortlists drivers, and bounded ETA calculations rank candidates; straight-line distance is not driving time.
+**Selected, revised to in-app navigation at the owner's request.** Google Maps/Places/Routes adapters plus Google Navigation SDK in the driver app, with platform-restricted keys. Directions remain inside the app. Proximity shortlists drivers, and bounded ETA calculations rank candidates; straight-line distance is not driving time.
 
-Reason: workable discovery/quote/pickup flow without building embedded navigation initially. Consequence: budgets for quote searches and candidate ETA calls as well as map display. Revisit provider for coverage, terms or measured cost issues.
+Reason: consistent in-app pickup/destination guidance without launching an external maps app. Foreground guidance is implemented; background/locked guidance and optional cloud style acceptance remain open. Consequence: budgets for quote searches and candidate ETA calls as well as map display. Revisit provider for coverage, terms or measured cost issues.
 
 ## ADR-009: Consumer payments first
 

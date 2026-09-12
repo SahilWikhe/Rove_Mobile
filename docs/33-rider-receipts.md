@@ -1,5 +1,7 @@
 # Rider payment receipts
 
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
 ## Behavior
 
 `GET /v1/rides/:id/receipt` returns an authenticated rider's own captured-payment record. The receipt contains a ledger journal reference, ride reference, recorded timestamp, quoted fare, captured amount and current ride/payment states. It excludes processor identifiers, customer identifiers, payment secrets and driver earnings. The timestamp describes when the ledger recorded the capture, not a provider capture timestamp.
@@ -18,4 +20,4 @@ The screen explicitly labels captured and quoted amounts and shows pending/error
 
 Six real PostgreSQL/API tests cover missing ledger records, correct amounts and safe serialization, authorization boundaries, partial/cancelled captures, duplicate journals and mismatched customer ownership. Shared strict response validation applies in the mobile client. Native bundle exports verify compilation; physical-device layout and real-provider receipt verification remain outstanding.
 
-This is an in-app payment record, not an emailed/downloadable receipt or a tax invoice. Refund, dispute, fee/tax breakdown and tipping views remain to be implemented. The local synthetic API's paid fixture has no financial ledger and therefore correctly shows a pending receipt; it must not fabricate a capture to make this screen look complete.
+This is an in-app payment record, not an emailed/downloadable receipt or a tax invoice. Refund, dispute, fee/tax breakdown and tipping views remain to be implemented. The local synthetic worker now records captures and allocations through the shared ledger service. A paid fixture without ledger records still correctly returns pending; the UI must never fabricate a receipt.

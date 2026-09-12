@@ -1,6 +1,6 @@
 # CI/CD, environments, and release controls
 
-Status: CI is implemented and verified on GitHub runners; see [current pipeline](21-ci-verification.md). The deployment, native validation and release workflows below remain a blueprint. No production release is implied.
+Status: CI is implemented and verified on GitHub runners; see [current pipeline](21-ci-verification.md). Staging Git deployment and native compile matrix jobs are implemented; controlled production promotion, store release and physical-device E2E remain unfinished. No production release is implied.
 
 ## Environment topology
 
@@ -17,23 +17,19 @@ Existing setup fact: Neon was linked in the local research folder, with `defineC
 
 ## Vercel and Expo projects
 
-Plan Vercel project `rove-api` rooted at `apps/api` in `Rove_Mobile`. The proposed `rove-ops` Vercel project connects to the separate internal-dashboard repository (name and root path TBD), not a workspace in this repository. The institutional dashboard uses another project connected to its separate repository (name TBD), only when that add-on is built. Configure workspace access/build commands after source exists. Match the Ohio backend/database region unless an ADR changes it. Marketing retains its own repository/project. References to admin below mean the internal staff surface unless explicitly labeled B2B.
+The deployed staging project is `rove-api-staging`, rooted at `apps/api` in `Rove_Mobile`; see [staging configuration](61-vercel-staging.md). The proposed `rove-ops` Vercel project connects to the separate internal-dashboard repository (name and root path TBD), not a workspace in this repository. The institutional dashboard uses another project connected to its separate repository (name TBD), only when that add-on is built. Core workspace/build settings exist. The API/queue region is `iad1`; Neon staging is AWS US East 2, so the regions differ and latency must be measured. Marketing retains its own repository/project. References to admin below mean the internal staff surface unless explicitly labeled B2B.
 
 Create separate Expo projects for rider and driver. Each has development, preview/staging and production build profiles, app identifiers, update channels and signing credentials. API base URLs are explicit per build environment. Store releases are independent from API deployment; a GitHub merge does not automatically install a new mobile binary on users' devices. [Expo monorepo builds](https://docs.expo.dev/build-reference/build-with-monorepos/)
 
-## Proposed workflow inventory
+## Workflow inventory
 
-| Workflow | Trigger | Purpose |
+| Workflow | Trigger | Implemented scope |
 | --- | --- | --- |
-| `ci` | PR, push to main, merge group if enabled | Always-visible quality gate, affected test/build jobs |
-| `security` | PR and schedule | Secrets, dependencies, code scanning as supported |
-| `preview-smoke` | Trusted preview ready | Authenticate preview, verify API/admin critical routes and isolation |
-| `native-validation` | Relevant PR/manual run | iOS/Android build and selected mobile E2E |
-| `release` | Explicit authorized dispatch/tag | Pin tested SHA, release and smoke the owning service; only core release migrates |
-| `mobile-release` | Explicit authorized dispatch | Store/internal builds and submission as separately configured |
-| `maintenance` | Schedule/manual | Full suite, disposable resource cleanup, dependency updates |
+| `.github/workflows/ci.yml` | PR, main push, merge group, manual, weekly | Quality, tests, browser, mobile exports, four native compile jobs, infrastructure lint, security, CodeQL and aggregate gate |
+| `.github/workflows/staging-providers.yml` | Manual main dispatch with billing acknowledgement | Real provider health/configuration and bounded Maps requests; no login/payment transaction |
+| Vercel Git integration | Main push | Staging deployment, independent of CI completion |
 
-These are proposed names. Add required status checks only after actual jobs exist and have reported. Do not configure fictitious required checks that permanently block merges.
+Production promotion, preview acceptance automation and store submission workflows remain planned. `pnpm release:check` validates evidence for a specific SHA; it does not deploy anything. Require only existing checks, and verify effective branch/environment protections separately.
 
 ## Required gate without skipped-check traps
 
@@ -84,11 +80,11 @@ Use internal distribution/TestFlight/Play testing before public releases. Record
 
 Keep signing keys in the build platform's protected credentials management. Public configuration is part of the bundle; database or payment secrets must never be present. Production submission is an explicit release action, not a side effect of every PR or merge.
 
-## Future script contract
+## Working commands
 
-Foundation will implement `pnpm lint`, `pnpm typecheck`, `pnpm test:unit`, `pnpm test:integration`, `pnpm test:contracts`, `pnpm test:e2e:mobile`, `pnpm check:boundaries`, `pnpm docs:check` and workspace-specific build/migration commands. Each dashboard repository supplies its own web component/build checks and `pnpm test:e2e:web`; core CI retains backend policy and contract tests. Commands must fail when an expected suite/configuration is missing. Mobile E2E commands may require a prepared build/device and must explain that prerequisite clearly.
+The root package supplies `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm test:e2e`, `pnpm tooling:test`, `pnpm boundaries:check`, `pnpm docs:check` and `pnpm build:mobile`. API package build/smoke and native compilation run separately in CI. There are no root `test:unit`, `test:integration`, `test:contracts` or `test:e2e:mobile` scripts; do not copy the old proposed names into automation.
 
-Do not use these as working commands until the scaffold supplies them. [Vercel monorepo configuration](https://vercel.com/docs/monorepos)
+`pnpm release:check`, `pnpm production:preflight` and `pnpm db:production:migrate` exist, with explicit environment/evidence inputs described in [production setup](production-setup.md) and [migrations](production-migrations.md). These commands do not create production infrastructure or a full release pipeline.
 
 ## Feature flag release controls
 

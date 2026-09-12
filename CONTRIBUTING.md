@@ -15,7 +15,7 @@ Current scope is consumer ride-hailing. The institutional dashboard is an option
 7. Review the diff for credentials, private data, generated output and unrelated changes.
 8. Open a PR with a clear problem/behavior description, validation results and rollout limitations.
 
-The initial documentation bootstrap is a one-time first commit. The future default is PR review into protected `main`. Follow explicit user authorization for commit/push/deploy actions; permission to edit or commit is not permission to deploy production.
+PR review into protected `main` is the repository workflow recommendation; verify actual repository protections rather than assuming this guide configures them. Follow explicit user authorization for commit/push/deploy actions; permission to edit or commit is not permission to deploy production.
 
 ## Review checklist
 

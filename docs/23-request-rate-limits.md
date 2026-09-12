@@ -1,5 +1,7 @@
 # Authenticated API rate limits
 
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
 The API now applies shared PostgreSQL counters after signature verification and before user lookup or billable provider operations. Counters use an atomic upsert and the database clock, so separate API instances share the same limits. Local process memory is not the source of truth.
 
 ## Current policy

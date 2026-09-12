@@ -1,50 +1,45 @@
 # API contracts and domain behavior
 
-Status: proposed API contract. Paths illustrate the first version and must be implemented with schema validation and authorization tests.
+Status: implemented core API with explicitly planned extensions. `apps/api/src/app.ts`, `packages/contracts` and `packages/mobile-core/src/index.ts` are authoritative for routes, payloads and the typed client. This overview is not generated OpenAPI.
 
 ## Contract rules
 
-Use HTTPS JSON REST under `/v1`. Publish OpenAPI from the canonical schemas in `packages/contracts`; generate the API client and verify that checked-in generated output is current. Contracts describe transport values, not Drizzle table types. This avoids exposing internal columns or coupling mobile releases to schema changes.
+Use HTTPS JSON REST under `/v1`. The current typed client validates responses using canonical schemas in `packages/contracts`. Publishing versioned OpenAPI/client artifacts for external repositories remains release work. Contracts describe transport values, not Drizzle table types. This avoids exposing internal columns or coupling mobile releases to schema changes.
 
-Use consistent status codes: 400 malformed input, 401 invalid/missing authentication, 403 denied capability, 404 missing or deliberately concealed inaccessible resource, 409 state/version/idempotency conflict, 422 invalid business input, 429 rate limit, and 503 retryable dependency/service unavailability. Error responses include a stable code, safe message, request id and optional field errors; never SQL, tokens, or provider internals.
+Use consistent status codes: 400 malformed input, 401 invalid/missing authentication, 403 denied capability, 404 missing or deliberately concealed inaccessible resource, 409 state/version/idempotency conflict, 422 invalid business input, 429 rate limit, and 503 retryable dependency/service unavailability. Error responses include a stable code, safe message, request id; never SQL, tokens, or provider internals.
 
-For example, an assignment conflict returns `{"error":{"code":"RIDE_VERSION_CONFLICT","message":"This ride changed. Refresh before trying again.","requestId":"example-request"}}`. Clients branch on `code`, never translated text. Choose and test one resource-concealment policy consistently across tenants.
+For example, a stale trip transition returns `{"error":{"code":"STALE_RIDE","message":"Your trip has changed. Refresh to continue.","requestId":"example-request"}}`. Clients branch on `code`, never translated text. Choose and test one resource-concealment policy consistently across tenants.
 
-## Initial consumer and platform endpoints
+## Implemented route groups
 
-| Endpoint | Authorized actor | Important behavior |
+The following map summarizes actual routes; consult `apps/api/src/app.ts` for complete schemas, methods and optional-service availability.
+
+| Routes | Actor/boundary | Current behavior |
 | --- | --- | --- |
-| `GET /v1/me` | Authenticated user | Platform profile/roles; optional memberships, never required |
-| `POST /v1/quotes` | Consumer rider | Server pricing/service area, route inputs and expiry |
-| `POST /v1/payment-method-sessions` | Consumer rider | Provider-hosted/tokenized setup; no raw card details in Rove |
-| `PUT /v1/drivers/me/availability` | Eligible driver | Online/offline session; reject unsafe state changes during active work |
-| `POST /v1/drivers/me/heartbeat` | Online driver | Freshness and discovery session; not public location access |
-| `GET /v1/drivers/me/offers` | Offered driver | Only live offers; limited pre-acceptance information |
-| `POST /v1/offers/:id/accept` | Offered driver | Atomic ride/driver claim; expiry/generation/payment checks |
-| `POST /v1/offers/:id/decline` | Offered driver | Idempotent decline, next candidate within search deadline |
-| `GET /v1/riders/:id` | Rider, scoped delegate/operator | Redacted role-specific representation |
-| `POST /v1/caregiver-invitations` | Authorized inviter | Expiring, single-use grant invitation; abuse limits |
-| `DELETE /v1/caregiver-grants/:id` | Authorized revoker | Immediate database revocation; notification/session access reconciled |
-| `POST /v1/ride-requests` | Consumer rider; authorized extensions later | Valid quote/payment readiness; idempotent automatic matching; no institution required |
-| `GET /v1/rides` | Scoped actor | Filters within permitted scope; cursor pagination |
-| `GET /v1/rides/:id` | Scoped actor | Version, coverage state, leg relationship and freshness |
-| `POST /v1/rides/:id/cancel` | Authorized requester/operator | Expected version, reason, linked-return disposition |
-| `POST /v1/rides/:id/assignments` | Rove staff override only | Audited exception; same capacity/eligibility/acceptance rules as matching |
-| `POST /v1/rides/:id/transitions` | Assigned driver/operator | Named transition, expected version, evidence and audit |
-| `POST /v1/journeys/:id/return-ready` | Rider, delegate, coordinator | Idempotent readiness timestamp; trigger coverage review |
-| `POST /v1/schedules` | Authorized requester/operator | Preview dates, bounded recurrence, funding/coverage distinction |
-| `PATCH /v1/schedules/:id` | Authorized requester/operator | Single occurrence vs future scope explicitly selected |
-| `POST /v1/location-sessions/:id/samples` | Owner of valid online-discovery or accepted-trip session | Purpose-specific authorization; bounded batch, sequence, accuracy and age checks |
-| `GET /v1/rides/:id/location` | Authorized matched-ride viewer | Minimal latest position; unmatched driver discovery never exposed |
-| `GET /v1/rides/:id/receipt` | Rider / authorized finance actor | Final fare, payment state and adjustments |
-| `GET /v1/drivers/me/earnings` | Driver | Own payables/payout state, not platform-wide finance |
-| `POST /v1/webhooks/:provider` | Verified provider | Signature, timestamp and duplicate checks |
-| `GET /health/live` | Health probe | Process health only; safe response |
-| `GET /health/ready` | Controlled probe | Bounded database/schema readiness check |
+| `/v1/me`, `/v1/me/capabilities` | Authenticated profile | Registration/read/edit; all-off scheduling capabilities |
+| `/v1/places`, `/v1/quotes`, `/v1/ride-requests` | Rider | Place resolution, owned expiring quote and idempotent booking |
+| `/v1/saved-places` and `/:kind` | Rider | Owned Home/Work slots |
+| `/v1/rides`, `/v1/rides/:id` | Authorized participant | Bounded history and current ride |
+| `POST /v1/rides/:id/transitions` | Role/state policy | Expected-version transitions, including rider cancellation; no separate cancel route |
+| `/v1/drivers/me`, `/availability`, `/heartbeat`, `/coverage`, `/offers` | Driver | Eligibility, location freshness, 1–100 mile coverage and redacted offers |
+| `POST /v1/offers/:id/accept` and `/decline` | Offered driver | Atomic acceptance or idempotent decline |
+| `POST /v1/drivers/me/tracking-session`, `/tracking/v1/location`, `/tracking/v1/session` | Driver then location-only grant | Issue, upload and revoke native tracking |
+| `GET /v1/rides/:id/driver-location` | Owning rider with active assignment | Minimal expiring location; refreshed through socket invalidations |
+| `/v1/conversations`, `/v1/conversations-unread`, `/v1/rides/:id/conversation`, `/v1/conversations/:id` and message/read/report actions | Current participant | Assignment-scoped text messaging and reporting |
+| `/v1/realtime` | Authenticated WebSocket | Invalidations; message/location data remains on authorized HTTPS routes |
+| `/v1/wallet/customer-session`, `/v1/wallet/setup-session`, `/v1/rides/:id/payment-session` | Rider | Stripe-owned native collection; no raw card data |
+| `/v1/rides/:id/receipt`, `/v1/drivers/me/earnings` and `/:id` | Owner | Ledger-backed receipt/recorded earnings |
+| `/v1/drivers/me/payout-setup` | Driver | Optional Connect onboarding; not money movement |
+| `/v1/drivers/me/vehicle-submission`, `/v1/drivers/me/documents` and upload/complete actions | Driver | Vehicle/evidence submission |
+| `/v1/support-requests` | Signed-in account | Intake and private history; deletion requests do not execute account deletion |
+| `/v1/me/notification-devices`, `/v1/push-installations` and `/status` | Account plus installation proof where required | Optional notification registration, repair and revocation |
+| `/v1/staff/...` support, vehicle, document and eligibility routes | Staff capability plus MFA | Audited operational API; dashboard source is separate |
+| `/webhooks/stripe`, `/webhooks/stripe-connect` | Provider signature | Durable reconciliation hints |
+| `/health/live` | Public | Process liveness only |
 
-Avoid a universal `PATCH /rides/:id` that lets clients assign themselves, set fares, or overwrite state. Each use case owns an allowlist of writable fields. An admin proxy cannot bypass API authorization using a blanket service token. The separate internal-dashboard repository consumes versioned staff endpoints; authorization, operational mutations and audit writes remain here in the core API. Both dashboard clients pin released contracts; see [repository boundaries](15-repository-boundaries.md).
+`/v1/realtime` is handled by the separate realtime host. Optional services fail unavailable when not configured; a listed route does not prove provider activation. There is no implemented `/health/ready` endpoint. Caregiver grants, organization booking, schedules, return-ready and generic staff assignment routes from the original design remain future extensions, not callable endpoints.
 
-Caregiver invitations/grants, schedules and return-ready endpoints above are optional extensions, implemented after the core loop. B2B endpoints use explicit organization scope such as `/v1/organizations/:id/ride-requests`, validate membership/program/payer, then call the same booking/matching use cases. They cannot supply a privileged fare or bypass driver acceptance. Version their contracts for the separate dashboard repository; see [B2B boundary](14-b2b-product-boundary.md).
+Clients cannot set fares, assign themselves or overwrite ride history. All mutation policy remains in the core backend. The separate dashboards must consume versioned contracts without receiving database credentials.
 
 ## Matching and quote behavior
 
@@ -54,9 +49,9 @@ The worker shortlists online, fresh, eligible drivers in the allowed market, ran
 
 Decline/expiry advances to the next candidate within the search deadline. When exhausted, mark `no_driver_found`, release payment holds under policy and show an explicit retry action. Restarting search requires a new matching generation and current quote/payment validation. Worker delay never extends an expired offer. Benchmark delivery/wakeup latency for short deadlines; a periodic repair sweep is not the main matching timer.
 
-## Ride and assignment state machines
+## Ride and assignment state machines (including target exception paths)
 
-Keep independent concerns separate: ride execution state, assignment/coverage state, return readiness, and payment state. A paid ride is not necessarily completed; an accepted driver does not mean the passenger was picked up.
+The diagram includes planned operator/rematch exception paths; the implemented transition allowlist in `packages/server/src/policy.ts` is authoritative. Do not infer an existing endpoint from an arrow. Keep independent concerns separate: ride execution state, assignment/coverage state, return readiness, and payment state. A paid ride is not necessarily completed; an accepted driver does not mean the passenger was picked up.
 
 ```mermaid
 stateDiagram-v2
@@ -121,7 +116,7 @@ See [testing](07-testing-strategy.md) for verification and [operations](11-opera
 
 ## Mobile capabilities and offer privacy
 
-Proposed `GET /v1/me/capabilities` exposes effective scheduling booleans and expiry only; the backend re-evaluates new scheduling mutations and rejects unavailable features with `FEATURE_UNAVAILABLE`. Accepted work remains viewable, executable and cancellable. See [flag contract](17-scheduling-feature-flags.md).
+Implemented `GET /v1/me/capabilities` exposes effective scheduling booleans and expiry only; the runtime returns scheduling disabled. Scheduling mutation/recurrence endpoints are not implemented; their future admission contract must fail closed. Accepted work remains viewable, executable and cancellable. See [flag contract](17-scheduling-feature-flags.md).
 
 Use different allowlisted offer and accepted-assignment DTOs. Before acceptance exclude exact addresses/coordinates, identifying rider details/history and medical/payer data, including indirect leaks through map polylines, push and errors. The offer retains coarse areas, ETA/distance, earnings/terms, expiry and necessary service capability. Assigned exact-route access requires committed acceptance and current assignment permission. See [design contract](16-mobile-design-contract.md).
 

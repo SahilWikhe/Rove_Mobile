@@ -1,6 +1,6 @@
 # Engineering standards
 
-These standards apply when implementation begins. Prefer explicit, testable modules over maximum abstraction. Modularity means a change has a clear owner and limited consequences, not that every function needs an interface and separate package.
+These standards apply to the current implementation and future changes. Prefer explicit, testable modules over maximum abstraction. Modularity means a change has a clear owner and limited consequences, not that every function needs an interface and separate package.
 
 The core consumer product lives in `Rove_Mobile`; the optional institution dashboard is a separate repository using versioned contracts. Core matching, trips, payments, permissions and database migrations have one owner here. Internal Rove staff UI lives in its own third product repository, separate from both this repository and institution customer tooling. Staff policy, mutations and audit persistence stay in the shared backend here. Consumer use cases must run with the B2B module disabled and without fabricated organization records.
 

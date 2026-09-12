@@ -1,6 +1,6 @@
 # Testing strategy and acceptance evidence
 
-Status: specification for future tests. **There are no executable test suites in the initial documentation commit.** Add working checks with each implementation milestone; never report an empty or skipped suite as evidence that a feature works.
+Status: executable workspace, browser, tooling and native compilation checks exist. See [CI inventory](21-ci-verification.md), [browser journeys](51-browser-ci.md) and [manual provider checks](staging-provider-ci.md). The scenario matrix below includes remaining acceptance requirements, not a claim that every scenario is covered. Never count skipped or empty suites as evidence.
 
 ## Principles
 
@@ -8,18 +8,18 @@ Test observable behavior and failure recovery. Prefer real database integration 
 
 A bug fix includes a regression test where repeatable. Tests must fail for the behavior they protect: changing a permission, allowing a duplicate settlement, or weakening a uniqueness constraint should be detectable. Avoid tests that simply restate implementation constants, massive snapshots, or mocks that pretend the database enforces a constraint it does not have.
 
-## Proposed toolchain
+## Test toolchain and acceptance requirements
 
 | Layer | Tool / environment | Coverage |
 | --- | --- | --- |
 | Static | TypeScript strict, ESLint, formatting, dependency graph check | Invalid types, unsafe patterns, forbidden imports |
-| Domain | Vitest | State transitions, recurrence, eligibility, money policies |
-| Native components | Jest with Expo-compatible preset + React Native Testing Library | Accessibility, forms, pending/error states, scoped context |
+| Domain | Vitest | Implemented transitions, eligibility, financial and concurrency behavior; recurrence remains future scope |
+| Native components | Controller tests plus simulator/manual inspection | Full rendered accessibility/physical-device suite remains unfinished; Jest/RNTL is not an installed CI suite |
 | Web components (dashboard repositories) | Vitest + React Testing Library | Operator interactions and accessibility |
 | Database/API | Vitest + disposable PostgreSQL | Real constraints, transactions, authorization, migrations |
-| Web end to end (dashboard repositories) | Playwright | Dispatch/session/role flows in browser |
+| Core web end to end | Playwright + both Expo web apps + local PostgreSQL | Booking, trips, recovery, settings and messaging; providers simulated |
 | Mobile end to end | Maestro on iOS/Android builds | Rider and driver journey and deep links |
-| Device field tests | Physical iPhone + representative Android devices | GPS, battery, termination, permissions and navigation handoff |
+| Device field tests | Physical iPhone + representative Android devices | GPS, battery, termination, permissions and in-app navigation |
 | Security | Secret scan, dependency audit/review, CodeQL where available | Leaked credentials and vulnerable/unsafe dependencies/code |
 
 Use a PostgreSQL service container with matching major version/extensions for unprivileged CI. Add a Neon-specific integration lane against an isolated synthetic branch for trusted runs to verify connection/pooling behavior; local Postgres alone does not validate Neon configuration. External provider credentials are never required to run core tests.
@@ -71,7 +71,7 @@ Inject clock and identifier/provider interfaces where behavior needs determinism
 
 ## Coverage policy
 
-Initial proposed thresholds once source exists: 90% line and branch coverage for pure scheduling, permission, ride-state and financial-policy modules; 80% for other testable application logic. Review thresholds after the first complete feature establishes a meaningful baseline. Thresholds supplement, rather than replace, the scenario matrix and concurrency tests.
+Proposed coverage targets (not enforced percentage gates in current CI): 90% line and branch coverage for pure scheduling, permission, ride-state and financial-policy modules; 80% for other testable application logic. Review thresholds after the first complete feature establishes a meaningful baseline. Thresholds supplement, rather than replace, the scenario matrix and concurrency tests.
 
 Exclude generated clients, declarations and platform-generated code with documented patterns. Do not exclude difficult business rules to make a number pass. A focused exemption needs a reason and follow-up test plan. Changed security/financial behavior always requires explicit tests even when aggregate coverage is high.
 

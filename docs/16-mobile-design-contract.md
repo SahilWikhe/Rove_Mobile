@@ -1,6 +1,6 @@
 # Mobile design contract and approved Figma changes
 
-Status: founder-approved direction recorded September 7, 2026; detailed screen extensions below are proposed implementation specifications. No application or Figma frames were changed by this document. Follow this contract together with [mobile architecture](05-mobile-apps.md), [scope](01-product-scope.md) and [feature flags](17-scheduling-feature-flags.md).
+Status: founder-approved direction from September 7, with implemented amendments through September 12, 2026. Source frame mappings and future requirements are distinct from the implementation notes below; full Figma parity is not claimed. Follow this contract together with [mobile architecture](05-mobile-apps.md), [scope](01-product-scope.md) and [feature flags](17-scheduling-feature-flags.md).
 
 ## Design authority and reference files
 
@@ -34,7 +34,7 @@ Tips, ratings and messaging exist in the references. Preserve their design refer
 - Preserve Manrope typography, clear large headings, rounded search fields/cards, outlined secondary actions, pill-shaped bottom navigation, simple line icons and restrained separators. Use the driver's map-plus-bottom-sheet composition for offers and active trips.
 - Preserve the rider Home greeting/search hierarchy and its gold route illustration style. Replace medical-only shortcuts with the rider's own saved places, such as Home or Work. Medical destinations remain possible ordinary destinations, not default payer eligibility.
 - With scheduling off, remove schedule chips, standing-ride promotions and scheduled-only summaries. Close the layout gaps. A proposed replacement for the gold Home card is “Your next stop starts here” with “Choose a destination,” leading to the same booking flow, without discounts or service guarantees.
-- Rider navigation retains Ride, My rides, Messages (when implemented) and Account in the same visual family. My rides retains personal history with scheduling off. Driver navigation uses Drive, Trips, Earnings, Messages (when implemented) and Account; the existing Schedule tab becomes Trips/history with optional Upcoming content when eligible.
+- Rider navigation retains Ride, My rides, Messages and Account in the same visual family. My rides retains personal history with scheduling off. Driver navigation uses Drive, Trips, Earnings, Messages and Account; the existing Schedule tab becomes Trips/history with optional Upcoming content when eligible.
 - Native safe areas, keyboard avoidance, scrolling, dynamic text and accessibility take priority over copying fixed screenshot dimensions. Use minimum 48×48 logical-unit touch areas as the proposed shared target and visible labels for icon actions. Verify text contrast, screen readers and large-font layouts before accepting tokens.
 - Loading, errors and disabled states reuse existing surfaces. Gold means primary action, not every status. Danger/error requires text/icon distinction. Honor reduced motion; operational states and countdowns are never decorative animations or fabricated progress.
 
@@ -168,7 +168,7 @@ route geometry. Pickup/drop-off text comes from the strict broad-area offer cont
 Figma route connector SVG is retained in assets/offers with its transparent PNG render. Rider
 identity, rating/history, medical funding, standing-ride labels and 100%-fare claims remain excluded.
 Standard or accessible service is shown from the actual offer. Shared Rove buttons retain their
-existing solid gold treatment; a complete gradient/motion parity pass remains outstanding.
+subtle gold gradient and restrained translucent treatment; full visual/motion acceptance remains outstanding.
 
 The original acceptance journal and lost-response recovery remain intact. Browser checks cover a
 completed synthetic trip with lost acceptance response, long area labels at 320-pixel width,
@@ -188,7 +188,7 @@ endpoints or rider identity, using the server's redacted response.
 Maps show authorized endpoint markers with a manual reframe control. No fabricated turn-by-turn
 route, ETA, remaining distance, rider notes, contact service or progress percentage is introduced.
 The new optional shared-map fill layout leaves rider inline maps unchanged. Real route geometry,
-compact rider-contact presentation and full Figma motion/gradient parity remain outstanding.
+compact rider-contact presentation and subtle gold gradients are now implemented; full Figma/motion acceptance remains outstanding.
 
 Android native verification exercised accepted-trip map display and a confirmed pickup transition.
 iOS verification exercised arrival, start and completion, with exact addresses and rider identity
@@ -345,6 +345,8 @@ publication. The earlier separate staging database was not changed.
 Matching tests verify miles conversion, persisted narrowing/widening, validation, replay and
 concurrent changes. The full repository tests passed. The browser settings flow verifies a
 lost-save response and reuse of the same operation key; iOS and Android previews were checked.
+
+## Real-time rider tracking
 
 Rider location refresh is now driven by the shared authenticated WebSocket. Each committed
 GPS update invalidates only the assigned rider's location view; the app immediately fetches

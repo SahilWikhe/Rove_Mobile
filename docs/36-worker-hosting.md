@@ -1,5 +1,7 @@
 # Vercel worker hosting
 
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
 ## Delivery path
 
 Successful booking, offer, ride-transition, payment-session and Stripe-webhook requests publish a minimal `{ version: 1 }` wakeup after the response through `waitUntil`. Read requests, location heartbeats, rejected requests and unrelated POSTs do not publish. A publishing failure does not replace a committed booking response with an error: durable PostgreSQL jobs remain available for recovery.
@@ -16,7 +18,7 @@ The HTTP function has explicit rewrites for health, v1, tracking, webhooks and i
 
 Set an independent random base64url `CRON_SECRET` of 32–128 characters for each environment. Vercel supplies the cron authorization header. Queue SDK authentication uses Vercel's identity; no queue token belongs in either mobile app. All existing database, OIDC, maps and Stripe environment requirements still apply.
 
-Minute-level recovery requires a plan supporting that cron frequency. Cron does not automatically run for preview deployments: invoke the protected recovery endpoint explicitly in preview testing or supply a separate authorized scheduler. Never point a preview at the production database. Paid setup is deferred to final provisioning, as requested.
+Minute-level recovery requires a plan supporting that cron frequency. Cron does not automatically run for preview deployments: invoke the protected recovery endpoint explicitly in preview testing or supply a separate authorized scheduler. Never point a preview at the production database. Production hosting setup is separate from the currently deployed staging project.
 
 ## Verification and limitations
 

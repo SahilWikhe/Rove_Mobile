@@ -1,5 +1,7 @@
 # Payment reconciliation and settlement workers
 
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
 ## Implemented boundary
 
 `PaymentReconciler` connects verified webhook hints and terminal ride events to current provider state. Migration `0007_brave_forge.sql` adds server-owned customer bindings and mapped payment attempts. Bindings are unique per rider/provider source and per provider customer/source. Mapped attempts are unique per ride and provider intent/source, carry the immutable quoted amount and a reconciliation revision, and reference the customer binding. These are internal records, never client-selected payment references.
@@ -37,4 +39,4 @@ Fourteen reconciliation tests and one pickup-authorization test use disposable P
 
 ## Remaining work
 
-The [payment-session service](29-payment-session-creation.md) now journals intent creation before provider calls, preserves retry keys and exposes an owner-only endpoint with an idempotency-retention cutoff. Durable customer provisioning is implemented in docs/30-payment-customer-provisioning.md; review tooling remains outstanding. Never add an unjournaled create-then-insert path. Native PaymentSheet is now wired (docs/31-native-rider-payments.md), and balanced capture/earnings-allocation journals are implemented (docs/32-captured-funds-ledger.md). Remaining work includes native/sandbox verification, saved methods, receipts, earnings UI and payouts, refund controls, periodic reconciliation, review resolution and real sandbox acceptance tests remain outstanding. Launch requires the actual runtime, accounts, pricing/cancellation policies and monitoring to be configured and verified.
+Customer provisioning, durable payment sessions, native PaymentSheet/CustomerSheet, saved methods, capture/allocation ledger, receipts, earnings and runtime/worker composition are implemented; see [native payments](31-native-rider-payments.md), [ledger](32-captured-funds-ledger.md), [earnings](37-driver-earnings.md) and [runtime](34-backend-runtime.md). Remaining: complete physical-device PaymentSheet/3DS and sandbox journey acceptance, refund/dispute authorization and journals, actual driver transfers/settlement, periodic reconciliation/review operations, retention and approved production policies. Staging evidence is not production activation.

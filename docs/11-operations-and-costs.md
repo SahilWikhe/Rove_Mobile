@@ -8,7 +8,7 @@ Status: proposed operating requirements. Targets below are planning targets to v
 | --- | --- |
 | Core API availability | 99.9% monthly for correctly authorized core requests, with dependency-caused failures visible |
 | Core request latency | p95 under 1 second for ordinary reads/mutations at pilot load, excluding explicitly asynchronous work |
-| Location freshness | Show sample age; prototype stale marker at 30 seconds; no claim of continuous updates |
+| Location freshness | Show sample age; current rider pin expires within 60 seconds; requested three-second GPS is not guaranteed delivery |
 | Outbox delay | Healthy queue oldest-due age below 60 seconds; investigate sustained increase |
 | Matching deadlines | Offer delivery/executor latency must be well below the chosen offer TTL; measure before setting a launch target |
 | Matching health | Time-to-match, no-driver rate, stale availability, acceptance races and rematch rate by market |
@@ -61,11 +61,11 @@ Test a release rollback separately from a database restore. Define backup retent
 
 Do not describe the product as free. Use a budget worksheet with volume assumptions and current provider pricing before provisioning paid services. Include hosting, database compute/storage/backups/egress, mobile builds/accounts, maps, authentication/SMS, notifications, files/scanning, logging, payment fees, verification providers and support operations. Insurance and driver compensation are business costs outside cloud hosting.
 
-Estimate tracking volume explicitly. For an illustrative synthetic scenario of 20 active drivers, four tracked hours per driver-day and one upload per 10 seconds: `20 * 4 * 3600 / 10 = 28,800` samples per day before batching/retries. Retained samples, DB writes, API calls and viewer reads are different billing dimensions. Adjust for actual concurrency and active legs rather than assuming every registered driver tracks all day.
+Estimate tracking volume explicitly. For an illustrative synthetic scenario of 20 active drivers, four tracked hours per driver-day and one upload per requested 3 seconds: `20 * 4 * 3600 / 3 = 96,000` samples per day before batching/retries. Retained samples, DB writes, API calls and viewer reads are different billing dimensions. Adjust for actual concurrency and active legs rather than assuming every registered driver tracks all day.
 
 On-demand dispatch also needs online-unassigned driver location/heartbeats. Add that volume separately; it may exceed active-trip traffic when utilization is low. Budget quote requests, candidate ETA lookups, timed offers, failed searches, payment authorizations/releases and realtime fanout. Cap candidate route lookups per search rather than calculating an unbounded fleet matrix.
 
-For viewer polling, estimate `concurrent_viewers * visible_seconds / poll_interval`. Route recalculation should be substantially less frequent than GPS uploads and triggered by meaningful changes. Budget Places search/autocomplete, route matrices and geocoding separately from native map display. [Google Maps pricing](https://developers.google.com/maps/billing-and-pricing/pricing)
+For fallback viewer polling, estimate `concurrent_viewers * visible_seconds / poll_interval`. Route recalculation should be substantially less frequent than GPS uploads and triggered by meaningful changes. Budget WebSocket reconnections, authorized reads per location invalidation and direct database listeners as well. Staging is not automatically free. Budget Places search/autocomplete, route matrices and geocoding separately from native map display. [Google Maps pricing](https://developers.google.com/maps/billing-and-pricing/pricing)
 
 Set spending alerts, provider quotas, rate limits, retention limits and usage dashboards. An alert is not always a hard cap. A hard cap on a critical live-trip dependency can cause an outage, so define degraded behavior and operator escalation before enabling it. Keep nonessential features separate from core ride execution.
 

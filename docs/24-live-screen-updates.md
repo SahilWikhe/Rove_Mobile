@@ -1,5 +1,7 @@
 # Live mobile screen updates
 
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
 Rider ride details, driver active trips and the driver availability screen share `pollWhileForeground`, backed by the independently tested `createPoller` controller. The screen's Expo Router focus effect owns the subscription; blur, unmount or API/session dependency replacement disposes it.
 
 ## Behavior
@@ -18,4 +20,4 @@ The API client exposes bounded numeric `Retry-After` metadata and forwards cance
 
 Five controller tests cover paused starts, sequential requests, cancellation, stale response suppression, disposal, backoff and duplicate lifecycle events. Two native-adapter tests cover AppState events and focus cleanup with mocked native subscriptions. API-client tests cover abort propagation and bounded retry metadata. These tests do not prove actual iOS/Android process lifecycle behavior; physical-device background/foreground checks remain required.
 
-This change covers the three live screens named above. Offer countdown, history/account refresh, push/realtime subscriptions, process-death recovery and provider-backed native end-to-end verification remain separate delivery work. Background driver location is intentionally owned by the driver app layout and its scoped native task, not by a screen polling controller.
+This change covers the three live screens named above. Offer countdown, history/account refresh and operation journals are implemented in their respective modules. Messages and rider location use [WebSockets](realtime-messaging.md) with fallback; these three ride-state/offer screens still poll. Physical-device process-death and provider acceptance remain open. Background driver location is intentionally owned by the driver app layout and its scoped native task, not by a screen polling controller.

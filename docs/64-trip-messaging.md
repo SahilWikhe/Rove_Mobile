@@ -48,8 +48,7 @@ This is authenticated server-stored messaging, not end-to-end encryption.
 
 ## Refresh, notifications and failure behavior
 
-Threads refresh every three seconds, inboxes/unread counts every ten seconds, only while
-focused and foregrounded. Failure backs off; private content is removed when a read fails,
+Authenticated WebSocket invalidations refresh threads, inboxes and unread counts while focused and foregrounded. Healthy sockets stop message polling. When disconnected, threads fall back to three-second polling and inboxes/unread counts to ten seconds; see [realtime transport](realtime-messaging.md). Failure backs off; private content is removed when a read fails,
 the screen loses focus, the app backgrounds or the account changes. Drafts remain only in
 screen memory. A send with a lost response can be retried with the same UUID while the
 screen remains open. A new composed message is a new action. Reading a conversation marks

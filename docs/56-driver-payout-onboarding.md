@@ -1,5 +1,7 @@
 # Driver payout onboarding
 
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
 ## Implemented scope
 
 Driver Account now has a Payout setup screen with status refresh, hosted onboarding launch and support access. Identity documents and bank account fields remain on Stripe's hosted pages; the app does not collect them. Typed contracts restrict returned links to HTTPS on `accounts.stripe.com` or `connect.stripe.com`, without URL credentials or custom ports. Links are single-use secrets: do not persist them in application state storage, analytics, logs or command-result tables.

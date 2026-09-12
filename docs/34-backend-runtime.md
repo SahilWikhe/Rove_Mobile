@@ -1,12 +1,14 @@
 # Backend runtime and deployment boundary
 
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
 ## Implemented composition
 
 `apps/api/index.ts` composes the Hono HTTP application; `apps/api/src/http-function.ts` exports its Web Request handler for the Node serverless runtime, preserving raw request bodies for Stripe signature verification. The deployed `apps/api/api/index.mjs` entrypoint imports the esbuild-generated `dist/http-function.mjs` bundle with an explicit extension; build verification imports this same deployed entrypoint to catch startup/module-resolution failures. It constructs one runtime per module instance and exports the application without listening on a port, starting polling timers, seeding fixtures or migrating the database. The runtime uses the existing Google Places/Routes adapter, signed OIDC verification, PostgreSQL pool and Stripe adapter. Rider payment sessions automatically provision the server-owned customer binding. Webhook ingress persists reconciliation work rather than trusting webhook payment state.
 
 `src/runtime.ts` separates composition from resource creation. HTTP and worker hosts share the same domain services and configuration. `createRuntime` only constructs real adapters; synthetic identities/maps/payments are confined to `src/local.ts`. `composeRuntime` accepts explicit resources so integration tests can exercise the complete wiring against disposable PostgreSQL without reaching cloud accounts.
 
-The returned worker consumes payment reconciliation, capture/release, terminal ride events and matching ticks. A ride request never sets its own payment authorization. Notification and financial-review topics have no production consumers yet; they remain visible dead letters rather than being acknowledged by empty callbacks.
+The returned worker consumes payment reconciliation, capture/release, terminal ride events and matching ticks. A ride request never sets its own payment authorization. Optional notification handlers are implemented and require explicit provider configuration; financial-review operations remain incomplete. Unsupported topics remain visible dead letters rather than being acknowledged by empty callbacks.
 
 ## Configuration
 
@@ -30,7 +32,7 @@ The public function uses the Hono Node request adapter. The original single-func
 
 Keep preview/staging databases and test payment credentials separate from production. The existing Neon project can supply an isolated development branch. Apply reviewed migrations as a separate controlled operation, using migration credentials; the runtime must use a restricted database role. No migration belongs in Vercel build/startup.
 
-This configuration has not yet been built or deployed by Vercel. Local bundling is evidence of Node/module compatibility, not proof of Vercel packaging, credentials or live connectivity.
+This configuration is deployed to provider staging; see [Vercel staging](61-vercel-staging.md) for exact-source evidence. Local bundling alone does not establish deployed connectivity or full provider acceptance.
 
 ## Worker and launch gaps
 
@@ -48,6 +50,6 @@ Four runtime tests cover required secret-safe configuration, environment separat
 
 ## Bounded worker invocations
 
-The runtime now exposes `drain.run()`, which processes at most ten jobs and checks a twenty-second budget between jobs. In-flight provider requests retain their own timeouts; the budget is not a hard interruption deadline. Its result reports processed/failed counts and the next wakeup delay from persisted availability and lease expiry. Completed/dead-letter work is excluded. A future queue callback should publish that wakeup and propagate publishing failures; a periodic recovery trigger must cover a crash between database commit and publishing.
+The runtime now exposes `drain.run()`, which processes at most ten jobs and checks a twenty-second budget between jobs. In-flight provider requests retain their own timeouts; the budget is not a hard interruption deadline. Its result reports processed/failed counts and the next wakeup delay from persisted availability and lease expiry. Completed/dead-letter work is excluded. The queue callback publishes that wakeup and propagates publishing failures; a periodic recovery trigger must cover a crash between database commit and publishing.
 
 Three real PostgreSQL tests cover bounded batches, delayed work, crashed-worker lease recovery, slow-job budgets and retry backoff. Vercel queue publishing/callbacks and recovery cron are now wired in code; their cloud delivery verification is still outstanding.

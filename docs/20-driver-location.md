@@ -1,5 +1,7 @@
 # Driver location lifecycle
 
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
 Status: implemented server grant boundary and native task integration; physical-device/background delivery verification remains outstanding.
 
 ## Ownership and access

@@ -1,5 +1,7 @@
 # Saved places
 
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
 Backend, mobile client, booking controls and Home-screen shortcuts implemented September 8, 2026. The shortcut flow is verified in a synthetic browser and iOS simulator; full native management and real-provider verification remain pending.
 
 ## Storage and API

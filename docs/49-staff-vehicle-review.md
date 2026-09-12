@@ -1,5 +1,7 @@
 # Staff vehicle review API
 
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
 Implemented September 8, 2026 in the shared backend. The internal dashboard remains a separate repository; no staff UI or production staff account was provisioned here.
 
 ## Permissions and endpoints
@@ -8,7 +10,7 @@ Migration `0014_staff_vehicle_review.sql` adds explicit staff permissions and im
 
 GET `/v1/staff/drivers/:id/vehicle-submission` reads the current submission and records an access audit. POST `/v1/staff/drivers/:id/vehicle-review` requires an Idempotency-Key plus the submission revision, approved/rejected decision, a reason and (for approval) the verified service. Review reasons are stored privately and are not exposed as rider/driver messages. Rejections now require one or more approved correction categories; see the driver guidance below. Shared authentication, no-store responses and database request limits apply.
 
-The reviewer must inspect current evidence before deciding. This API records a human decision; it does not verify registration, insurance, identity, background checks or accessible equipment on its own. Secure evidence upload and document review are still outstanding.
+The reviewer must inspect current evidence before deciding. This API records a human decision; it does not verify registration, insurance, identity, background checks or accessible equipment on its own. Private evidence upload and document review are implemented; the review must still establish real eligibility and operating requirements.
 
 ## Verified MFA evidence
 
@@ -40,4 +42,8 @@ The driver reads only categories joined to their own current submission revision
 
 Verification includes rejection/resubmission with a real disposable Postgres database, private-note omission, owner isolation, preserved historical categories and invalid decision payloads. A synthetic rejected response was rendered at 390×844 in the driver web preview; this is layout evidence, not a native or hosted-provider review. Driver exports for iOS, Android and web were checked. Existing mobile contracts default missing correction arrays to empty; older clients with strict schemas predate this field, so coordinate backend/app rollout before any external release.
 
-Support contact and secure document upload are still outstanding. The screen does not pretend a registration problem can be fixed by repeatedly submitting unchanged fields, and it does not offer a nonfunctional upload action.
+Authenticated support intake and secure document upload are now implemented; staffed response and full provider acceptance remain release work. The screen does not pretend a registration problem can be fixed by repeatedly submitting unchanged fields, and it does not offer a nonfunctional upload action.
+
+## Document pipeline
+
+See [driver document upload and review](65-driver-documents.md) for the implemented quarantine/scanning/review boundary and remaining hosted acceptance. Vehicle submission alone never establishes document approval.

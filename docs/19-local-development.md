@@ -1,5 +1,7 @@
 # Local development and synthetic ride testing
 
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
 The local environment exercises both apps, API, domain services and PostgreSQL together. It deliberately does not make real payments, send notifications or route real customers.
 
 ## Requirements

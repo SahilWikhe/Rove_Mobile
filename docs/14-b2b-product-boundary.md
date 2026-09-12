@@ -1,6 +1,6 @@
 # Optional B2B product and cross-repository contract
 
-Status: planned boundary; a B2B repository has not been created and its name is not decided. The internal staff dashboard also has its own planned repository; the website is the fourth repository overall. See [repository boundaries](15-repository-boundaries.md).
+Status: optional product boundary; B2B is not implemented in this checkout. Staff and institution UIs are owned by separate repositories, whose current status must be checked there; marketing is also separate. See [repository boundaries](15-repository-boundaries.md).
 
 ## Product independence
 

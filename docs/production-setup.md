@@ -11,7 +11,7 @@ This is the setup sequence for the existing Rove code. It does not provision res
 | Auth0           | Production tenant/API and separate native clients for rider and driver; configure native callbacks/logout, email delivery and verification | OIDC validation and mobile callback/session recovery                                               |
 | Stripe          | Approved live platform account, payment-method configuration, separate payment and Connect webhook secrets                                 | Payment authorization/capture, payment records, Connect onboarding and capability reconciliation   |
 | Google Maps     | Production project/quotas and separate server, iOS and Android keys with appropriate restrictions                                          | Server Places/Routes integration, native maps and in-app navigation                                |
-| AWS documents   | Production stack with private storage, malware scanning and scoped application role                                                        | `infra/aws/driver-documents.template.json`; [document storage setup](62-provider-setup-handoff.md) |
+| AWS documents   | Production stack with private storage, malware scanning and scoped application role                                                        | `infra/aws/driver-documents.template.json`; [document storage setup](65-driver-documents.md) |
 | Expo and stores | Rider and driver Expo project IDs, production build environments, signing and APNs/FCM credentials                                         | App-specific EAS profiles and [native build setup](mobile-staging-builds.md)                       |
 
 Confirm provider plans, quotas and budgets before activation. Staging is an environment name, not a guarantee that provider usage is free. No prices or paid resources are approved by this document.
@@ -28,6 +28,8 @@ Required core settings:
 - `RATE_POLICY_JSON`, `RATE_POLICY_APPROVED_VERSION` and `SERVICE_AREA_JSON` with approved operating geography and prices. The approved version must match the rate policy. Synthetic/test rate versions are rejected.
 - `ALLOWED_ORIGINS_JSON` containing only intended web origins, and a fresh `CRON_SECRET` matching the configured recovery-secret rules.
 - `STRIPE_MODE=live`, `STRIPE_ACCOUNT_ID`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and `STRIPE_PAYMENT_METHOD_CONFIGURATION`. Register the payment endpoint at `/webhooks/stripe`; verify account, mode, signing and durable processing.
+
+For realtime messaging and rider location, set `REALTIME_DATABASE_URL` to the direct, non-pooled URL for the same database and restricted runtime role as `DATABASE_URL`, with `sslmode=verify-full`. Apply migrations through 0030 before enabling the endpoint and verify authenticated WSS delivery/reconnect. Without this setting the apps fall back to polling; see [realtime setup](realtime-messaging.md).
 
 Driver payout onboarding additionally uses `STRIPE_CONNECT_ONBOARDING_ENABLED`, `STRIPE_CONNECT_RETURN_ORIGIN`, and a distinct `STRIPE_CONNECT_WEBHOOK_SECRET` for `/webhooks/stripe-connect`. Live activation requires a reviewed Connect model and the exact acknowledgement specified in [payout onboarding](56-driver-payout-onboarding.md). Onboarding readiness is not proof of completed transfers or driver payouts.
 
@@ -84,7 +86,7 @@ Optional navigation styling uses published Google Cloud styles and the two `EXPO
 
 Do not enable public rides just because the services are configured. Outstanding release work includes:
 
-- Complete refund/dispute operations and accounting, actual driver money movement, and operational reconciliation; the local synthetic refund adapter and Connect onboarding are not those workflows.
+- Complete refund/dispute operations and accounting, actual driver money movement, and operational reconciliation; the refund adapter and Connect onboarding are not those workflows.
 - Fulfill account deletion requests with the approved retention policy and identity/storage handling; the app currently submits requests to support.
 - Repeat [realtime messaging acceptance](realtime-messaging.md) against the production configuration before launch. Staging authenticated WebSocket delivery, retry, read updates and reconnect recovery passed with dedicated test accounts; permanent message deletion policy remains separate from visibility expiry.
 - Verify physical-device background location, notifications, native authentication and complete rider/driver trip/payment recovery on both platforms.

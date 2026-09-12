@@ -1,12 +1,14 @@
-# Provider setup before staging deployment
+# Provider configuration and handoff
 
-Updated: September 9, 2026. This is an account-setup handoff, not evidence of activated providers. Read [staging preparation](61-vercel-staging.md) first. No purchases or deployment are authorized by this document.
+Updated: September 12, 2026. Hosted staging is configured and deployed; read [current staging](61-vercel-staging.md) and [implementation status](18-implementation-status.md). The setup instructions below describe configuration requirements for maintaining staging or provisioning an isolated production environment. They do not authorize production launch.
+
+Current evidence: Auth0 protocol and native simulator login/session acceptance passed; Google native maps and in-app navigation have simulator evidence; Stripe iOS CustomerSheet save/reopen/remove passed in sandbox; authenticated hosted messaging passed with dedicated test accounts. These are distinct checks, not a complete real-device ride/payment acceptance pass. Historical dated sections at the end preserve the earlier provisioning sequence.
 
 ## Authentication decision and account setup
 
-ADR-005 selects Auth0 with direct dashboard/CLI configuration, as accepted by the owner on September 9. The existing Expo AuthSession authorization-code/PKCE flow, explicit API audience and refresh-token handling remain the implementation baseline. Native provider integration is still unverified. Use one staging identity directory for both apps and a separate production tenant later.
+ADR-005 selects Auth0 with direct dashboard/CLI configuration, as accepted by the owner on September 9. The existing Expo AuthSession authorization-code/PKCE flow, explicit API audience and refresh-token handling remain the implementation baseline. Native iOS/Android simulator login/session paths have been exercised; full physical-device acceptance remains open. Use one staging identity directory for both apps and a separate production tenant later.
 
-Setup sequence:
+Configuration checklist (staging resources already exist):
 
 1. Create an isolated development tenant and a custom API identifier for Rove staging. Record the identifier exactly; both apps and the backend must agree on it.
 2. Create two public Native applications: Rove Rider Staging and Rove Driver Staging. Each receives its own client ID. Do not put a client secret in either app.
@@ -23,7 +25,7 @@ Source: [Auth0 PKCE flow](https://auth0.com/docs/get-started/authentication-and-
 | `OIDC_AUDIENCE` | Registered custom API identifier |
 | `OIDC_JWKS_URL` | Discovery `jwks_uri` |
 
-Each app sets `EXPO_PUBLIC_AUTH_ISSUER`, `EXPO_PUBLIC_AUTH_AUDIENCE` and its own `EXPO_PUBLIC_AUTH_CLIENT_ID`. `EXPO_PUBLIC_API_URL` is the verified staging API origin when deployment is approved; `EXPO_PUBLIC_SYNTHETIC` must not be `true`. Public identity configuration is not a database credential. API roles and driver approval remain owned by Rove's database, not client-supplied claims or organization membership.
+Each app sets `EXPO_PUBLIC_AUTH_ISSUER`, `EXPO_PUBLIC_AUTH_AUDIENCE` and its own `EXPO_PUBLIC_AUTH_CLIENT_ID`. `EXPO_PUBLIC_API_URL` is `https://rove-api-staging.vercel.app` for hosted staging; `EXPO_PUBLIC_SYNTHETIC` must not be `true`. Public identity configuration is not a database credential. API roles and driver approval remain owned by Rove's database, not client-supplied claims or organization membership.
 
 ### Auth0 through Vercel Marketplace
 
@@ -35,10 +37,10 @@ The Auth0 plugin 2.1.1 is present locally and supplies setup skills. No Auth0 MC
 
 ## Google Maps setup
 
-The server adapter calls Places API (New) Text Search/Place Details and Routes API. The mobile maps use native SDK configuration. Prepare a Google Cloud project with billing only when the owner authorizes that account setup; no calls or spending are needed for this handoff.
+The server adapter calls Places API (New) Text Search/Place Details and Routes API. The mobile maps use native SDK configuration. Staging keys and APIs are configured. Maintenance of this document requires no billable diagnostics. Production needs its own deliberate key/billing/quota configuration.
 
 - Server: enable Places API (New) and Routes API; issue a separate server key as `GOOGLE_MAPS_API_KEY`, restricted to those APIs. Keep it off the device.
-- Mobile: enable Maps SDK for Android/iOS. Use separate keys per app/platform with Android package/signing-certificate restrictions or iOS bundle restrictions. Both apps use `EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY` and `EXPO_PUBLIC_GOOGLE_MAPS_IOS_KEY` in their own build environments.
+- Mobile: enable Maps SDK for Android/iOS and Navigation SDK for driver in-app directions; include the required SDKs in each applicable key's API restrictions. Use separate keys per app/platform with Android package/signing-certificate restrictions or iOS bundle restrictions. Both apps use `EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY` and `EXPO_PUBLIC_GOOGLE_MAPS_IOS_KEY` in their own build environments.
 - Rider identifiers: `co.roveride.rider`; driver identifiers: `co.roveride.driver`. Obtain Android signing fingerprints from the actual development/release signing identities; do not invent them.
 - Server IP restrictions require a verified stable outbound address. Do not apply browser-referrer restrictions to server requests or guess Vercel egress IPs. Select a supported egress strategy before launch. Configure API quotas and billing alerts; alerts alone are not a spending cap.
 - Verify real place IDs, service-area rejection, driving ETA and native rendering separately. Rebuild binaries when native map keys change.
@@ -75,18 +77,13 @@ This endpoint rejects connected-account events. Keep Connect onboarding disabled
 
 ## Configuration assembly and remaining decisions
 
-Keep existing secret files intact. When credentials are available, assemble a new ignored staging runtime file from the known partial configuration plus the clean provider branch's restricted pooled `DATABASE_URL` and provider values. The direct migration-owner URL must not enter the hosted runtime. Run `pnpm staging:preflight /path/to/that-file`; it performs no network validation.
+Keep secrets in ignored local files and the intended hosted environment. The schema-owner URL must never enter API or realtime runtime. Run `pnpm staging:preflight /path/to/file` for offline validation and the explicitly authorized provider checks separately. Staging main is Git-connected and deploys; the original undeployed/partial configuration checkpoint is obsolete.
 
-Before uploading configuration, inspect current Vercel state again. The last confirmed project state was undeployed and Git-disconnected. Apply staging credentials only to the intended staging project's target; do not automatically share them across Preview environments. The once-per-minute recovery cron still requires a suitable plan and explicit deployment approval.
+Still needed before release: physical-device Auth0/payment/navigation/location acceptance; production tenant/keys/data separation; push EAS/APNs/FCM/signing setup and delivery; verified-email enforcement and in-app resend; approved fares, compensation, refund/payout policies, retention and support coverage. CustomerSheet and PaymentSheet permissions differ; see [native payments](31-native-rider-payments.md). Production promotion and store release remain explicit operations.
 
-Owner decisions/setup still needed:
+## Historical provider evidence
 
-1. Complete real native Auth0 login/refresh/revocation and recovery verification; tenant/API/client setup is complete.
-2. Authorize Google Cloud billing/key setup when ready, with quota and egress decisions.
-3. Make sandbox runtime Stripe credentials available through ignored local storage or the Vercel secret UI, and confirm the payment-method configuration.
-4. Upgrade hosting when ready and approve the first staging deployment after configuration review.
-
-Real pricing, driver compensation, production Connect responsibilities, launch operations and mobile store releases remain later decisions. Synthetic rate fixtures are suitable only for testing and are not approved fares.
+The dated records below retain their original test scope, limitations and setup observations. Statements such as “not deployed” or “native pending” apply to that date only; use the current checkpoint above for today's status.
 
 ## September 9 Stripe connection verification
 

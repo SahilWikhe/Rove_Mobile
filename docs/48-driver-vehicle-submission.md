@@ -1,6 +1,8 @@
 # Driver vehicle submission
 
-Backend, client and driver vehicle form implemented September 8, 2026. Document uploads and provider verification remain outstanding; the backend [staff review API](49-staff-vehicle-review.md) is now implemented. This is not a completed onboarding flow.
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
+Backend, client and driver vehicle form implemented September 8, 2026. Private document intake/upload/scanning/review code is now implemented; full hosted/provider acceptance remains separate; the backend [staff review API](49-staff-vehicle-review.md) is now implemented. This is not a completed onboarding flow.
 
 ## Behavior and boundaries
 
@@ -35,3 +37,7 @@ The running synthetic driver preview was exercised through Account, empty form v
 ## Next steps
 
 Refine the driver form against native device behavior. Add secure document intake and an audited staff review API, retaining immutable review history. Real eligibility rules, registration jurisdictions, vehicle-age limits, accessible equipment standards and payout/document provider setup remain launch decisions. Complete native offline/tracking and onboarding end-to-end verification before accepting real drivers.
+
+## Document pipeline
+
+See [driver document upload and review](65-driver-documents.md) for the implemented quarantine/scanning/review boundary and remaining hosted acceptance. Vehicle submission alone never establishes document approval.

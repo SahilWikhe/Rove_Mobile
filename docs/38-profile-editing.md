@@ -1,5 +1,7 @@
 # Rider and driver profile names
 
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
 Both account screens now offer the same name editor, using the shared Manrope typography, card, field, banner and gold action components. This is an extension of the profile/settings flow in [the design contract](16-mobile-design-contract.md), not a legal-identity or driver-document workflow. Exact Figma layout and native appearance verification remain outstanding.
 
 ## API and ownership

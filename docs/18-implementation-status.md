@@ -1,20 +1,56 @@
 # Implementation status
 
-Updated: September 10, 2026. This is an implementation ledger, not a production-readiness claim.
+Updated: September 12, 2026. Current source baseline: `31f7e42199448b4686be82a3e9738947752b324d`. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
-## Current checkpoint — staging infrastructure
+## Current checkpoint
 
-This section is the current summary; dated entries below are historical implementation evidence, not a list of work still missing today.
+Both mobile apps and the shared backend support the core synthetic ride journey. Hosted provider staging exists. The product is not ready for public launch; a local test, native compile, hosted provider check and physical-device journey establish different things.
 
-- **Product:** rider and driver apps plus shared backend are implemented in part. Synthetic local journeys work; this is not a launch-ready service. Both apps still use the local preview backend.
-- **Database:** isolated Neon `rove-staging` exists with all 24 migrations and a restricted runtime role. The synthetic backend smoke passed over verified TLS. A separate clean `rove-provider-staging` branch is now migrated for real sandbox integration; all 26 application tables were verified empty and restricted-role pooled TLS passed. Production data/schema were not changed. See [Neon setup](60-neon-staging.md).
-- **Vercel:** direct API access to `team-7536` was verified. Created `rove-api-staging` (`prj_rLOcpNrXI7eftPgzzRebQbgfCkMC`) and independently read back all intended build settings. Confirmed zero deployments, no Git connection and no environment variables. The marketing project remains separate.
-- **Authentication:** Auth0 selected for direct configuration; two Native clients and one shared staging API audience. Tenant/API/client setup, discovery, real PKCE token exchange, backend JWT validation, refresh rotation and revocation passed. Rider iOS callback, saved-session recovery, profile creation, relaunch and sign-out now have native evidence; driver iOS acceptance also passed as recorded below; Android rider/driver acceptance also passed after the callback-routing fix below. See ADR-005 and [provider setup](62-provider-setup-handoff.md).
-- **Configuration:** an ignored local partial staging environment file is prepared. It is not complete deployable configuration and contains the verified public Auth0 OIDC configuration but still lacks a database URL and real Maps/payment API credentials.
-- **Current scope:** prepare `rove-api-staging` under that team. No deployment or paid-plan upgrade at this checkpoint. Broad mobile feature work remains paused while staging infrastructure is prepared.
-- **Verification baseline:** the prior notification checkpoint passed 397 workspace tests. The later Neon change passed seven database tests, relevant typechecks/lint/docs/boundary/build checks and the Neon smoke. The entire workspace suite was not rerun for that later checkpoint.
+| Area | Implemented now | Evidence and remaining boundary |
+| --- | --- | --- |
+| Rider UI | Figma-derived Home, route/quote review, matching animation, trip/history, completion, receipts, contextual support, saved places, payment settings and floating navigation | Completion/support journey passed locally; completion inspected on iOS and Android. Full Figma, accessibility and large-text acceptance remains open. |
+| Driver UI | Floating translucent navigation/cards, draggable map sheet, offers/trips, earnings/date filters, profile, vehicle/documents, payout setup, messaging and coverage settings | Native previews and synthetic journeys exercised; this is not a complete physical-device acceptance pass. |
+| Authentication | Auth0 PKCE, refresh/revocation, scoped SecureStore, callback routing, stale-response guards and verified-email recovery UI | Staging protocol and iOS/Android simulator login/session paths have evidence. Email claim Action and one manual verified-email delivery were checked; runtime email enforcement and in-app resend remain release work. |
+| Messaging | Assignment-scoped inbox/thread, reports, unread state, durable idempotent sends and authenticated WebSockets | Dedicated Auth0 staging accounts exchanged messages with retry/read/reconnect checks. Push and permanent deletion are separate unfinished work. |
+| Driver location | Native location-only grants, requested three-second delivery and rider WebSocket invalidations with authorized HTTPS reads | Local cross-instance and moving-location tests passed. Five-second rider polling is fallback only. Locked-phone, battery, permission and network behavior still needs physical devices. |
+| Matching | Eligible online drivers, timed offers, concurrency protection, configurable 1–100 mile radius (default 25), plus route-time limit | Radius/retry/race tests passed; field dispatch latency and operating policies remain launch checks. |
+| Maps/navigation | Native Google maps and in-app Navigation SDK, pickup/destination guidance and compact controls | Simulator guidance has been displayed. Physical spoken/reroute/background acceptance and optional published cloud style are not established. |
+| Payments | Stripe sandbox adapter, PaymentSheet/CustomerSheet, durable sessions, webhooks, capture/allocation ledger, receipts and earnings | iOS sandbox CustomerSheet save/reopen/remove passed. Full native PaymentSheet/3DS, refunds/disputes, driver transfers and settlement are not complete. |
+| Documents/support | Private document intake/upload/scanning/review code, staff authorization, support intake/resolution, account-deletion request intake | Intake is not completed deletion fulfillment, staffed support or proof of every hosted document/provider path. |
+| Notifications | Registration/revocation, owned device list, tap authorization, durable delivery/receipt worker and repair when installation proof survives | Real APNs/FCM/Expo delivery remains disabled pending setup and physical-device checks. Lost proof cannot be silently repaired. |
 
-Checkpoint verification: project settings readback and empty deployment/environment lists passed at project creation. Added `pnpm staging:preflight` to validate one explicit environment file with runtime validators and shared recovery-secret validation. It does not use ambient credentials or perform network calls. Twelve targeted preflight/worker tests passed, plus API typecheck, changed-source lint, boundaries, API build and packaged smoke verification. The actual local partial file correctly failed for missing database/maps/OIDC fields. Documentation lint and diff whitespace checks passed. The subsequent database provisioning checkpoint verified 24 migration journal entries, 26 empty application tables, restricted role privileges, pooled TLS and ignored credentials storage. No runtime code changed in that provisioning checkpoint, so application tests were not rerun. Documentation lint and whitespace checks passed. No cloud API deployment was performed.
+## Hosted staging and deployment
+
+- Neon remains the database. Provider staging is `rove-provider-staging` (`br-super-leaf-axpo6edu`) in project `square-frost-35273983`, with 31 migration entries through `0030_driver_location_notifications` applied and the location notification trigger checked. The restricted application role serves runtime traffic; direct realtime and pooled query connections use the same role/database. The older synthetic branch is separate; see [Neon staging](60-neon-staging.md).
+- [Staging API](https://rove-api-staging.vercel.app) is Git-connected to `main`. On September 12, Vercel reported deployment `dpl_38Me36WZxPomkGGw4Bv7tjp7XwEZ` READY at source `31f7e42199448b4686be82a3e9738947752b324d`, region `iad1`. Vercel's **Production target in this staging project is still application staging**. This is not a real production launch.
+- Local previews can still use disposable PostgreSQL and simulated providers. `pnpm dev:staging:rider` / `pnpm dev:staging:driver` select the hosted staging API and Auth0; neither command builds native binaries. See [mobile builds](mobile-staging-builds.md).
+- Main pushes may deploy staging independently of CI. A controlled production promotion workflow is not configured. Production resources, credentials, migrations and app-store distribution remain separate work.
+
+## Recent completed work and verification
+
+Recent source commits include real-time rider location (`dda0cb8`), three-second native GPS scheduling (`694f326`), notification storage repair (`bf0911c`) and rider completion/contextual support (`31f7e42`). Earlier work added coverage radius (`f63338e`), driver-following camera, matching animation, floating rider navigation and subtle gold gradients. These are completed changes, not items to repeat in the next backlog.
+
+For `31f7e42`, the targeted browser booking-to-completion journey passed, including moving driver location, receipt read failure/recovery, contextual support submission, denied ride access and rebooking. Rider completion screenshots were inspected on iOS and Android. Workspace/E2E typechecks, lint and both apps' iOS/Android/web exports passed. Exports do not prove native runtime behavior.
+
+[CI run 34681478308](https://github.com/SahilWikhe/Rove_Mobile/actions/runs/34681478308) is the exact-source CI reference. At the September 12 audit read, tests, browser, quality, mobile, infrastructure, security and CodeQL had passed; the four native matrix jobs were still running. Do not infer a full green gate from these partial results. Inspect the run and use `pnpm release:check` for a release candidate; evidence for one SHA does not certify a later SHA.
+
+This documentation refresh reconciles the current guides, infrastructure handoff, architecture decisions and historical checkpoints against that baseline. Documentation validation passed: Markdown lint across 74 root/guide files, local file/heading links across 82 Markdown files (340 links), and diff whitespace checks. The refresh does not rerun paid provider checks or claim a new product acceptance pass.
+
+## Remaining work
+
+1. Finish rider/driver Figma and cross-platform acceptance, including smaller screens, dynamic type, screen readers, keyboard and failure states.
+2. Run full physical iOS/Android journeys: Auth0, PaymentSheet/3DS/recovery, navigation, GPS with screen locked, permission changes, reconnect/relaunch and battery behavior.
+3. Configure isolated Expo/APNs/FCM and signing, then verify notification registration, delivery, receipts, taps and cold starts. Complete lost-installation-proof recovery/retention operations.
+4. Finish refund/dispute controls and journals, actual driver transfers/payout settlement, reconciliation/review operations and approved financial policies. Recorded earnings are not withdrawable funds.
+5. Fulfill account deletion with identity/storage/retention handling; approve and implement permanent message deletion. The 30-day message visibility window is not deletion.
+6. Provision isolated production services; rehearse controlled migrations/promotion, monitoring, restore, load and operational support. Prepare store distribution and review.
+7. Resolve deferred owner decisions: launch area/hours, fares/fees, driver compensation, cancellation/refund rules, retention and support coverage. Scheduling remains off; B2B is optional.
+
+Next engineering step after this documentation update: resume the outstanding UI/device acceptance and resolve concrete failures, keeping release setup and owner decisions explicit. No overall completion percentage is asserted without a fixed, accepted scope and acceptance checklist.
+
+## Historical implementation ledger
+
+The entries below preserve their original checkpoint context. Their test totals, deployment observations, “remaining” lists and “next” actions were true or proposed **at that checkpoint**, not current status. Use the sections above and current feature guides for today's behavior. Historical screenshots likewise show the build they captured.
 
 ### Android native Auth0 callback and session acceptance — September 10
 

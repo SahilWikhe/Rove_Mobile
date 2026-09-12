@@ -1,6 +1,6 @@
 # Three product repositories and one marketing repository
 
-Status: selected by the founder on September 7, 2026. This replaces the earlier plan to keep the internal staff dashboard in `Rove_Mobile`. Both dashboard repository names remain TBD; this change documents the split without creating repositories or deploying applications.
+Status: selected by the founder on September 7, 2026. This replaces the earlier plan to keep the internal staff dashboard in `Rove_Mobile`. Dashboard ownership remains separate; this document does not audit their current names, deployments or completion. Core staging deployment is recorded in [implementation status](18-implementation-status.md).
 
 ## Ownership
 

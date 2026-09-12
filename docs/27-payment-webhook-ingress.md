@@ -1,5 +1,7 @@
 # Durable payment webhook ingress
 
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
 ## Implemented behavior
 
 `POST /webhooks/stripe` accepts the exact raw body and Stripe signature without a mobile bearer token. A configured `PaymentWebhookInbox` verifies the signature before database access. The Stripe adapter rejects tampering, stale/future signatures, the wrong test/live mode and connected-account events: this endpoint currently supports platform PaymentIntents only.
@@ -22,4 +24,4 @@ Only this exact webhook path allows up to 1 MiB. Other API requests retain their
 
 Six integration tests use independently generated HMAC signatures, the real Stripe SDK verifier, Hono HTTP requests and disposable PostgreSQL. They cover twelve concurrent duplicate deliveries, tampering/mode/account rejection, injected enqueue failure with rollback and successful redelivery, late events, conflicting references, unsupported events, disabled configuration and request limits. The tests do not call Stripe or alter a real account.
 
-Mapped payment attempts/customer bindings and reconciliation/settlement handlers are now implemented; see [payment reconciliation](28-payment-reconciliation.md). Still required: safe customer/intent creation, cumulative refund controls/ledger, scheduled provider reconciliation, dead-letter recovery, authenticated owner-only native payment sessions, sandbox network acceptance tests and deployment/perimeter configuration. This migration is committed for normal deployment tooling; it was applied only to disposable test databases during verification.
+Customer provisioning, durable payment sessions, native PaymentSheet/CustomerSheet, saved methods, capture/allocation ledger, receipts, earnings and runtime/worker composition are implemented; see [native payments](31-native-rider-payments.md), [ledger](32-captured-funds-ledger.md), [earnings](37-driver-earnings.md) and [runtime](34-backend-runtime.md). Remaining: complete physical-device PaymentSheet/3DS and sandbox journey acceptance, refund/dispute authorization and journals, actual driver transfers/settlement, periodic reconciliation/review operations, retention and approved production policies. Staging evidence is not production activation.

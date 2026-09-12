@@ -1,5 +1,7 @@
 # Recorded driver earnings
 
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
 ## Source and permissions
 
 `GET /v1/drivers/me/earnings` returns allocations from the signed-in driver's `driver_payable` ledger postings. The endpoint inherits authenticated database roles, disabled-account enforcement, read-rate limiting and no-store headers. The query independently rejects rider/staff roles. The owner ID comes from the authenticated actor, never a request parameter.
@@ -10,7 +12,7 @@ A completed trip or estimated driver fare does not itself create earnings. Only 
 
 The Drive screen now has separate Trips and Earnings actions. The new Earnings screen uses the shared dark cards, Manrope typography, gold money display and existing status banners. It refreshes while focused/foregrounded and clears records on account change or loading failure. Empty accounts show a truthful explanation rather than estimated or fabricated earnings.
 
-Payout status is explicitly `not_configured`: this is a recorded allocation total, not an available balance, a bank transfer or net income after later adjustments. No cash-out button, payout date, tip or earnings chart is fabricated.
+Payout status is explicitly `not_configured`: this is a recorded allocation total, not an available balance, a bank transfer or net income after later adjustments. The chart reflects recorded allocations; no cash-out balance, payout date or tip is fabricated.
 
 ## Verification and remaining work
 

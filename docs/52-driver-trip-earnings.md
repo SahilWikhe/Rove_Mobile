@@ -1,5 +1,7 @@
 # Driver trip earnings
 
+Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
+
 The driver trip-complete screen now shows a trip-specific earnings summary. It extends the existing charcoal card, gold amount and muted explanatory text used by the shared mobile components. This implements the consumer adaptation of driver Figma frame `2:262` described in [the design contract](16-mobile-design-contract.md); it does not reinstate a 100%-fare or guaranteed payout claim.
 
 ## Source and access
@@ -12,7 +14,7 @@ The recorded amount comes from that driver's `driver_payable` postings in alloca
 
 A focused completed-trip summary polls every ten seconds while foregrounded, cancels reads when unfocused, and clears its displayed amount on a read failure. It links to the existing paginated earnings history. Synthetic sessions label both views as test earnings with no payout.
 
-Payout status remains `not_configured`: no available-withdrawal amount or payout date is promised. Stripe Connect onboarding, transfers/payouts, refunds, adjustments and provider reconciliation still require their own implementation and verification. This summary is gross recorded trip earnings before subsequent adjustments, not a bank balance.
+Payout status remains `not_configured`: no available-withdrawal amount or payout date is promised. Stripe Connect onboarding and eligibility reconciliation are implemented separately; actual transfers/payout settlement, refunds and adjustments still require implementation and verification. This summary is gross recorded trip earnings before subsequent adjustments, not a bank balance.
 
 ## Verification
 

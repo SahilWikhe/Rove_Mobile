@@ -1,6 +1,6 @@
 # Data model, consistency, and migrations
 
-Status: conceptual schema. No tables are created by this document. Use SQL constraints to protect invariants even when two requests arrive simultaneously.
+Status: conceptual model and invariants, not a literal inventory of installed tables. The executable schema is `packages/database/src/schema.ts` and versioned SQL is in `packages/database/migrations`; provider staging has migrations through 0030. Names below include future organization/caregiver/scheduling entities and must not be treated as deployed tables. Use SQL constraints to protect invariants even when two requests arrive simultaneously.
 
 ## Conventions
 
@@ -8,7 +8,7 @@ Use UUID identifiers, `timestamptz` for actual instants, and explicit IANA time 
 
 Consumer accounts, vehicles, quotes and rides are platform-owned records with explicit rider/driver ownership; they do not require `organization_id`. Do not create a fake default institution for consumers. Optional B2B-owned records carry `organization_id` and composite ownership constraints. An explicit `ride_sponsorships` association grants limited institution scope without exposing the rider's personal trips. A guessed UUID is never authorization. Record timestamps and use an integer `version` for mutable aggregates.
 
-## Entity inventory
+## Conceptual entity inventory (includes future extensions)
 
 | Entity | Important fields / relationships | Required invariants |
 | --- | --- | --- |

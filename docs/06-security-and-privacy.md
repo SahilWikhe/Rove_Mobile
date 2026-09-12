@@ -1,6 +1,6 @@
 # Security and privacy architecture
 
-Status: required controls to implement. This document is not a security certification, legal determination, or guarantee against attacks. Owner: engineering lead, with the founder responsible for operational/vendor decisions.
+Status: required controls and threat model; several are implemented and tested, while operational/provider controls remain launch requirements. See [current evidence](18-implementation-status.md). This document is not a security certification, legal determination, or guarantee against attacks. Owner: engineering lead, with the founder responsible for operational/vendor decisions.
 
 ## Assets and trust boundaries
 

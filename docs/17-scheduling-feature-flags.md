@@ -1,6 +1,6 @@
 # Scheduling feature flags and rollout plan
 
-Status: scheduling behind flags is approved September 7, 2026. Vercel Flags is the recommended initial provider, pending a working Hono/Node integration proof and account/budget verification. No service, flag, package or environment variable has been provisioned by this plan.
+Status: scheduling behind flags is approved September 7, 2026. Vercel Flags is the recommended initial provider, pending a working Hono/Node integration proof and account/budget verification. The authenticated capabilities endpoint and deterministic all-off runtime behavior are implemented. Hosted flag evaluation and scheduling/recurrence remain future work; no scheduling rollout is claimed.
 
 ## Research and provider choice
 
@@ -29,7 +29,7 @@ One-time advance booking is included behind the master flag as the conservative 
 ## API and native integration
 
 1. Define a server FeatureAccess port with a deterministic fake for tests and a Vercel adapter for deployment. Domain recurrence code consumes a validated decision, not provider SDK objects.
-2. Proposed authenticated `GET /v1/me/capabilities` returns only effective booleans for schedule creation/weekly/monthly, a contract version, evaluated timestamp and expiry. No rules, credentials, cohort lists, addresses or medical traits are returned. Apply `private, no-store` to prevent shared caching.
+2. Implemented authenticated `GET /v1/me/capabilities` returns only effective booleans for schedule creation/weekly/monthly, a contract version, evaluated timestamp and expiry. No rules, credentials, cohort lists, addresses or medical traits are returned. Apply `private, no-store` to prevent shared caching.
 3. Native apps keep an actor/environment-scoped in-memory capability snapshot. Refresh on sign-in, foreground/resume and entering a scheduling flow. Proposed maximum UI age is 60 seconds; expired/missing values disable new scheduling entry. Logout clears it. A stale true value can never authorize a write.
 4. Re-evaluate access on every new schedule/series or expansion mutation. Unknown flag, provider failure, invalid response or unavailable configuration returns disabled for new work. Return a stable `FEATURE_UNAVAILABLE` domain code (proposed HTTP 403) with safe recovery instructions. Fetch failures also have a visible retry state.
 5. After approval, persist the accepted schedule rule/version, timezone, funding authorization references and admission decision with the transaction. Provider calls occur outside database locks. Constrain database writes by current resource state, idempotency and uniqueness inside the transaction.
