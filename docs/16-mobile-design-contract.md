@@ -269,5 +269,11 @@ Pickup/Ride/Arrive stage indicator below the card as in `6:20`. Message driver o
 authorized conversation instead of rendering the reference's unsupported telephone action.
 The contact component is keyed by ride so pending lookup state cannot transfer between trips.
 The 320-pixel browser contact layout and two-way persisted messaging flow passed, along with
-the completed-trip lifecycle and identity removal. This latest card grouping has not yet had
-a separate native-device visual verification.
+the completed-trip lifecycle and identity removal. The card grouping and opening its authorized conversation also passed on iOS and Android
+simulators using a local synthetic assignment; physical-device acceptance remains separate.
+
+The rider confirmation (`5:89`) now inherits the approved shared subtle gold button treatment
+instead of overriding it with the original gradient. Quote validity is displayed from the
+server expiry timestamp. Expiry changes the action to Review updated fare and preserves the
+route for a fresh quote; no refresh automatically creates a ride. Foreground return rechecks
+expiry, while the existing submit-time and server checks remain authoritative.

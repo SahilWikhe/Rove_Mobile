@@ -224,6 +224,7 @@ function BookingForm({ fromRide, savedKind }: { fromRide?: string; savedKind?: S
       {error && <Banner error message={error} />}
       {quote ? (
         <QuoteConfirmation
+          key={quote.id}
           quote={quote}
           synthetic={synthetic}
           loading={loading}

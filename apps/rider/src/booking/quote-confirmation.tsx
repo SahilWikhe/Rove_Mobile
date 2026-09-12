@@ -1,17 +1,12 @@
-import { Image, Platform, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
+import { useEffect, useState } from 'react';
+import { AppState, Image, Pressable, StyleSheet, View } from 'react-native';
 import type { Quote } from '@rove/contracts';
-import { Button, Card, Copy, theme } from '@rove/mobile-ui';
+import { Banner, Button, Card, Copy, theme } from '@rove/mobile-ui';
 import { serviceLabels } from './service-picker';
 import back from '../../assets/confirmation/back.png';
 import pickup from '../../assets/confirmation/pickup.png';
 import destination from '../../assets/confirmation/destination.png';
 // Rider Figma 5:89; consumer quote data replaces scheduling and coverage examples.
-const gradient =
-  'linear-gradient(171.54930110639793deg, rgb(232,208,154) 14.142%, rgb(214,178,109) 45.962%, rgb(191,150,69) 84.854%)';
-const gradientStyle = Platform.select({
-  web: { backgroundImage: gradient } as ViewStyle,
-  default: { experimental_backgroundImage: gradient } as ViewStyle,
-});
 export function QuoteConfirmation({
   quote,
   synthetic,
@@ -25,6 +20,25 @@ export function QuoteConfirmation({
   onEdit: () => void;
   onConfirm: () => void;
 }) {
+  const deadline = Date.parse(quote.expiresAt);
+  const [expired, setExpired] = useState(() => !(deadline > Date.now()));
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const refresh = () => {
+      clearTimeout(timer);
+      const remaining = deadline - Date.now();
+      setExpired(!(remaining > 0));
+      if (remaining > 0) timer = setTimeout(refresh, Math.min(remaining, 2_147_483_647));
+    };
+    refresh();
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') refresh();
+    });
+    return () => {
+      clearTimeout(timer);
+      subscription.remove();
+    };
+  }, [deadline]);
   const fare = new Intl.NumberFormat('en-US', { style: 'currency', currency: quote.fare.currency }).format(
     quote.fare.amount / 100,
   );
@@ -67,11 +81,20 @@ export function QuoteConfirmation({
         A quote does not reserve a driver. You’ll see the matching status after requesting. Trip time
         estimates do not include the wait for pickup.
       </Copy>
+      {expired && (
+        <Banner message="This fare has expired. Review an updated fare before requesting your ride." />
+      )}
+      {!expired && (
+        <Copy style={styles.description}>
+          Fare valid until{' '}
+          {new Date(deadline).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}.
+        </Copy>
+      )}
       <Button
-        title="Request ride"
-        onPress={onConfirm}
+        title={expired ? 'Review updated fare' : 'Request ride'}
+        onPress={expired ? onEdit : onConfirm}
         loading={loading}
-        style={[styles.primary, gradientStyle]}
+        style={styles.primary}
         textStyle={styles.primaryText}
       />
       <Button
@@ -125,7 +148,7 @@ const styles = StyleSheet.create({
   description: { fontFamily: 'Manrope_400Regular', fontSize: 13, lineHeight: 20, color: theme.muted },
   test: { fontSize: 10, lineHeight: 16, color: theme.muted },
   primary: { marginTop: 8, minHeight: 52, borderRadius: 26, paddingVertical: 14 },
-  primaryText: { fontSize: 15, color: '#120D02' },
+  primaryText: { fontSize: 15 },
   secondary: { minHeight: 52, borderRadius: 26, paddingVertical: 14 },
   secondaryText: { fontSize: 14 },
 });
