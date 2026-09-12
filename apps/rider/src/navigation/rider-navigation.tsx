@@ -31,7 +31,7 @@ export function HomeNavigation({
   return (
     <View
       style={styles.navigationWrap}
-      pointerEvents={focused ? 'auto' : 'none'}
+      pointerEvents={focused ? 'box-none' : 'none'}
       accessibilityElementsHidden={!focused}
       importantForAccessibility={focused ? 'auto' : 'no-hide-descendants'}
     >
@@ -90,9 +90,14 @@ const styles = StyleSheet.create({
     maxWidth: 420,
     flexDirection: 'row',
     gap: 6,
-    backgroundColor: 'rgba(18,18,18,0.94)',
+    backgroundColor: 'rgba(12,12,12,0.78)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.14)',
+    shadowColor: '#000000',
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
     borderRadius: 999,
     padding: 8,
   },

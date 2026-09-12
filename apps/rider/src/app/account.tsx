@@ -51,6 +51,7 @@ export default function Account() {
   }
   return (
     <Screen
+      floatingFooter
       contentStyle={accountContent}
       footer={profile ? <HomeNavigation active="/account" disabled={busy} /> : undefined}
     >

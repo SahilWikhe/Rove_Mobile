@@ -59,7 +59,7 @@ export function RiderHome({ name }: { name: string }) {
   );
   const book = () => router.push('/book');
   return (
-    <Screen contentStyle={styles.content} footer={<HomeNavigation />}>
+    <Screen floatingFooter contentStyle={styles.content} footer={<HomeNavigation />}>
       <Copy style={styles.greeting}>Where to, {name.trim().split(/\s+/)[0]}?</Copy>
       <Pressable
         accessibilityRole="button"

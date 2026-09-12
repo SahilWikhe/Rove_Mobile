@@ -297,3 +297,9 @@ The layout was visually verified on iOS and Android simulators and at 320 pixels
 browser. Browser checks passed for expanded details, cancellation, failed-read and stale
 version recovery, and a complete synthetic rider/driver trip. Physical-device acceptance
 remains separate.
+
+The rider navigation now uses the approved driver-style translucent black fill, fine border
+and subtle shadow. Ride, My rides and Account use the shared floating footer layout;
+Messages already did. Safe-area placement and measured footer clearance keep final content
+scrollable above the bar. The wrapper lets touches outside the pill reach underlying content.
+Rider type/lint checks passed, with native previews inspected on iOS and Android.

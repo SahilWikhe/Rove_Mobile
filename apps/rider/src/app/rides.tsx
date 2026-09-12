@@ -41,6 +41,7 @@ function HistoryPage({
   useFocusEffect(focus);
   return (
     <Screen
+      floatingFooter
       contentStyle={accountContent}
       refreshing={refreshing}
       onRefresh={profile ? refresh : undefined}
