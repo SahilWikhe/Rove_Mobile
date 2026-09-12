@@ -31,7 +31,8 @@
     "documents:staging:smoke": "node --import tsx packages/server/src/document-storage-smoke-cli.ts",
     "maps:staging:check": "node --import tsx packages/server/src/maps-staging-readiness-cli.ts",
     "dev:staging:rider": "node scripts/mobile-staging.mjs rider",
-    "dev:staging:driver": "node scripts/mobile-staging.mjs driver"
+    "dev:staging:driver": "node scripts/mobile-staging.mjs driver",
+    "db:production:migrate": "node --import tsx packages/database/src/production-migrate-cli.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

@@ -45,7 +45,7 @@ It reads only that file, validates the same runtime configuration as the API, an
 
 ## 3. Prepare the database and release controls
 
-The current `db:staging:*` scripts are intentionally staging-specific. Do not point them at production or weaken their environment checks. A production migration runner and controlled release workflow still need implementation and validation against an isolated rehearsal database.
+The current `db:staging:*` scripts are intentionally staging-specific. Do not point them at production or weaken their environment checks. Use the [production migration runner](production-migrations.md) for explicit planning and application. It is rehearsed against disposable local databases; the controlled production deployment workflow and provider-specific rehearsal remain outstanding.
 
 Before production migration, verify the destination project/endpoint, migration-role permissions, backup/restore evidence and existing migration journal. Serialize migrations on a direct database session. Review compatible expansion changes before deploying code; never migrate during application startup or a Vercel build. Do not use a runtime role with schema-owner privileges.
 
@@ -78,7 +78,7 @@ Do not enable public rides just because the services are configured. Outstanding
 
 - Complete refund/dispute operations and accounting, actual driver money movement, and operational reconciliation; the local synthetic refund adapter and Connect onboarding are not those workflows.
 - Fulfill account deletion requests with the approved retention policy and identity/storage handling; the app currently submits requests to support.
-- Complete hosted messaging activation and authenticated verification using [the realtime setup](realtime-messaging.md); settle permanent message deletion policy separately from visibility expiry.
+- Repeat [realtime messaging acceptance](realtime-messaging.md) against the production configuration before launch. Staging authenticated WebSocket delivery, retry, read updates and reconnect recovery passed with dedicated test accounts; permanent message deletion policy remains separate from visibility expiry.
 - Verify physical-device background location, notifications, native authentication and complete rider/driver trip/payment recovery on both platforms.
 - Complete the remaining Figma/UI acceptance and store-release review.
 - Implement and rehearse controlled production migrations/releases, monitoring, support ownership and incident recovery.
