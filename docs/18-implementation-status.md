@@ -1,6 +1,16 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `1ecff837d2ea7bb77adfdd47cf84592f371c14bb` plus the document inventory checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `b9cd1eef809f23e2f583463aeea4b503d572a88b` plus the storage-write settlement checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Durable storage-write settlement — September 12
+
+Server quarantine uploads now commit an exact-key write intent and audit before provider I/O, after rechecking active driver ownership and reservation expiry under closure-compatible locks. Verified version receipts and settlement audits commit before attaching the document. Closure can proceed during provider I/O without losing confirmed write evidence; a later attachment rejection does not hide the orphaned stored version. Timeouts, crashes, malformed receipts and failed settlement transactions stay unsettled rather than becoming proof of no write.
+
+Migration 0043 makes dispatch/result evidence immutable and rejects new writes for disabled accounts or mismatched reservations/paths. The new cleanup barrier requires a closed disabled account, expired upload reservations and no unsettled recorded writes. This is necessary but not sufficient for complete quiescence: accepted presigned inbox requests and legacy processes must still be accounted for. No arbitrary grace period is treated as proof that an external request has finished.
+
+Twenty-four focused upload/storage tests passed, covering committed dispatch, closure races, disabled-owner rejection, replay, uncertain outcomes, immutable records, reservation expiry and both dispatch/settlement audit rollback. All eleven local application test tasks, workspace/E2E types, changed-source lint, docs, formatting, boundaries, schema no-diff verification and packaged API build/authentication checks passed. No hosted migration, real upload, cloud permissions or deletion activation changed.
+
+Next is uncertain-write/inbox reconciliation and the durable approved cleanup manifest/worker using full version discovery, retention hold checks and dispatch/absence evidence. Retained application data, restore replay, remaining Figma/native/provider acceptance and production setup remain incomplete. Apply migration 0043 before deploying these upload paths and drain older upload processes before relying on the write ledger. See [storage-write settlement and rollout](75-account-deletion.md#storage-write-settlement-barrier). Final policy and paid setup decisions stay at handoff.
 
 ## Complete document-version discovery boundary — September 12
 

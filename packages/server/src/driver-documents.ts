@@ -1,3 +1,4 @@
+import { trackedDocumentStore } from './document-storage-writes';
 import { z } from 'zod';
 import { createHash } from 'node:crypto';
 import { quarantineDriverDocument, type DocumentQuarantineStore } from './document-intake';
@@ -179,7 +180,7 @@ export class DriverDocumentService {
         expectedSha256: row.expected_sha256,
       },
       body,
-      store,
+      trackedDocumentStore(this.pool, actor, id, store),
     );
     // Recheck account state and expiry transactionally after network I/O.
     return this.recordQuarantine(actor, receipt);

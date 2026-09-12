@@ -86,3 +86,5 @@ Enforce the [offer data boundary](16-mobile-design-contract.md) in server respon
 ## Implemented retention controls
 
 Durable consumer-account holds now require staff MFA and separate placement/release permissions, block account closure and new identity-removal dispatches, and retain immutable audited evidence. Review dates never automatically release holds. Provider calls already dispatched cannot be recalled; first-dispatch and confirmed-removal timestamps distinguish uncertain outcomes. See [retention holds](76-retention-holds.md). Policy-driven application/storage erasure, backup replay and final deletion fulfillment remain open; these controls do not choose a legal retention policy.
+
+Quarantine upload dispatch and settlement are now recorded durably before/after storage I/O. Unknown outcomes block document cleanup; a closed account cannot dispatch a new tracked write. Previously accepted inbox uploads and legacy processes still require reconciliation before full cleanup. See [storage-write settlement](75-account-deletion.md#storage-write-settlement-barrier) for migration 0043 and the remaining erasure integration.

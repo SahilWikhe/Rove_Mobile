@@ -948,3 +948,25 @@ export const retentionHolds = pgTable(
     ),
   ],
 );
+
+export const documentStorageWrites = pgTable(
+  'document_storage_writes',
+  {
+    objectKey: text().primaryKey(),
+    documentId: uuid()
+      .notNull()
+      .references(() => driverDocuments.id),
+    startedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    settledAt: timestamp({ withTimezone: true }),
+    objectVersion: text(),
+  },
+  (t) => [
+    index('document_storage_writes_pending')
+      .on(t.documentId)
+      .where(sql`${t.settledAt} is null`),
+    check(
+      'document_storage_write_result',
+      sql`(${t.settledAt} is null and ${t.objectVersion} is null) or (${t.settledAt} is not null and ${t.settledAt}>=${t.startedAt} and ${t.objectVersion} is not null and length(${t.objectVersion}) between 1 and 1024 and ${t.objectVersion}<>'null')`,
+    ),
+  ],
+);
