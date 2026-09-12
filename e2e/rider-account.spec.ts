@@ -6,7 +6,7 @@ test('Rider Account exposes working profile editing and selected navigation', as
   await page.getByRole('button', { name: 'Account', exact: true }).click();
   await expect(
     page.getByRole('button', { name: 'Account', exact: true }).getByText('Account', { exact: true }),
-  ).toHaveCSS('color', 'rgb(214, 178, 109)');
+  ).toHaveCSS('color', 'rgb(207, 185, 125)');
   await expect(page.getByText('Alex Rider', { exact: true })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Your name', exact: true })).toHaveCount(0);
   await page.screenshot({ path: '/tmp/rove-account-figma-web.png', fullPage: true });
@@ -23,7 +23,7 @@ test('Rider Account exposes working profile editing and selected navigation', as
   await expect(page.getByText('Your journeys.', { exact: true })).toBeVisible();
   await expect(
     page.getByRole('button', { name: 'My rides', exact: true }).getByText('My rides', { exact: true }),
-  ).toHaveCSS('color', 'rgb(214, 178, 109)');
+  ).toHaveCSS('color', 'rgb(207, 185, 125)');
   await page.getByRole('button', { name: 'Account', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Edit profile', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Ride', exact: true }).click();

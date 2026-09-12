@@ -6,13 +6,13 @@ test('Driver Account navigation opens trips and earnings with a route back', asy
   await expect(page.getByRole('button', { name: 'Open your account', exact: true })).toBeVisible();
   await expect(
     page.getByRole('button', { name: 'Drive', exact: true }).getByText('Drive', { exact: true }),
-  ).toHaveCSS('color', 'rgb(214, 178, 109)');
+  ).toHaveCSS('color', 'rgb(207, 185, 125)');
   await expect(page.getByRole('button', { name: 'Go online', exact: true })).toBeEnabled();
   await page.screenshot({ path: '/tmp/rove-driver-drive-figma-web.png', fullPage: true });
   await page.getByRole('button', { name: 'Open your account', exact: true }).click();
   await expect(
     page.getByRole('button', { name: 'Account', exact: true }).getByText('Account', { exact: true }),
-  ).toHaveCSS('color', 'rgb(214, 178, 109)');
+  ).toHaveCSS('color', 'rgb(207, 185, 125)');
   await page.screenshot({ path: '/tmp/rove-driver-account-figma-web.png', fullPage: true });
   await page.getByRole('button', { name: 'Trips', exact: true }).click();
   await expect(page.getByText('Your rides and their latest status', { exact: true })).toBeVisible();
