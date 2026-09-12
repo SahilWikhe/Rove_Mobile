@@ -39,3 +39,16 @@ Both apps apply `plugins/with-font-scale.js` during Expo prebuild. It adds `font
 For local Android builds, build the rider and driver sequentially in a shared checkout. Their pnpm native dependencies share generated build files; concurrent builds can race in code generation and package the wrong Expo module registry. CI jobs with separate checkouts do not share those outputs.
 
 Acceptance procedure: cold-launch a trip link, navigate to another screen, change Android text size from 100% to 200%, and confirm both the retained screen and visibly larger body text. Background the app, restore 100%, resume the existing task and confirm that the screen is still retained and text shrinks. Restore the original device setting after testing. Repeat on both apps; this does not replace physical-device or process-death recovery checks.
+
+## Standalone iOS CI launch smoke
+
+After compiling a Release simulator app and checking its JavaScript bundle, each iOS job installs checksum-pinned Maestro 2.10.0 and runs `scripts/ios-release-smoke.mjs`. The runner creates its own iPhone 17 Pro simulator on the newest available iOS runtime, validates the app bundle identifier, installs the artifact, and checks Get started after a launch and relaunch. It then removes only its own simulator. CI retains JUnit results and a successful-launch screenshot for seven days.
+
+To exercise an existing local Release artifact with Java 21 and Maestro available:
+
+```sh
+node scripts/ios-release-smoke.mjs rider /path/to/Rove.app
+node scripts/ios-release-smoke.mjs driver /path/to/RoveDriver.app
+```
+
+`MAESTRO_BINARY` optionally selects the installed CLI path. No Metro session, account login, provider secret or payment request is needed for this welcome-only check. Local cached release artifacts validate the runner against those artifacts; only a successful CI run validates the corresponding newly built commit. This is not full authentication, keyboard, map, payment, notification or physical-device acceptance. Android CI still compiles and checks the bundled JavaScript without an automated emulator launch.

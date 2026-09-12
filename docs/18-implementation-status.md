@@ -1,6 +1,12 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `1544da0522ab5aaa8710fa885412ad0cb70b8350` plus the CI permission correction below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `10df048a91e476d77edb0eac97714adab893a6a6` plus the native launch checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Standalone iOS launch smoke infrastructure — September 12
+
+Added a checksum-pinned Maestro welcome/relaunch test to both iOS CI jobs after Release compilation. The runner creates a dedicated simulator, validates bundle identity and JavaScript presence, installs the app, asserts Get started on two launches, captures JUnit/screenshot evidence and deletes its simulator. It does not use Metro or log into an account. Both existing local rider and driver Release artifacts passed on fresh iOS 26.5 simulators; screenshots were inspected. These cached artifacts validate the runner, not a rebuild of current source. Hosted launch acceptance remains outstanding. Lint, formatting, workflow YAML parsing and documentation checks passed.
+
+Corrected CI run `34706864852` progressed beyond the previous workflow-metadata permission error, then GitHub rejected CodeQL upload because code scanning is not enabled for this private repository. That is now an explicit deferred owner setup item in [production setup](production-setup.md#github-code-scanning-prerequisite); no entitlement purchase, feature activation or gate bypass occurred. Android automated launch, full native journeys and physical-device acceptance remain open. Next: verify the new hosted smoke jobs and continue remaining app/device acceptance while preserving the security prerequisite.
 
 ## Full regression checkpoint and CodeQL permission correction — September 12
 

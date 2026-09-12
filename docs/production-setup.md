@@ -63,6 +63,10 @@ pnpm release:check SahilWikhe/Rove_Mobile <full-commit-sha> <ci-run-id> <staging
 
 This read-only command requires successful CI and staging-provider workflows on main for the exact commit, including every required job from the recorded run attempt. Missing, skipped, stale or failed evidence exits nonzero. It does not deploy, grant production approval, or replace hosted mobile acceptance, migration review and backup verification. The command rechecks both workflow attempts after collecting jobs and rejects an intervening rerun or status change. Run it again immediately before a release; its output is a point-in-time check, not an authorization token.
 
+### GitHub code-scanning prerequisite
+
+The private repository currently returns Code scanning is not enabled when CodeQL uploads analysis (run `34706864852`, September 12). Its workflow metadata permission is fixed; feature availability is a separate owner setup step. Enable code scanning for this repository under an eligible GitHub Code Security/Advanced Security entitlement, then rerun CI and confirm both analysis upload and the local findings gate pass. If the current account cannot enable it, resolve the repository/account eligibility before release. No plan purchase or feature activation has been performed. Do not bypass CodeQL or treat query execution alone as a green security job.
+
 ### Manual GitHub release-readiness report
 
 In GitHub Actions, choose **Release readiness → Run workflow**, select `main`, and enter the full candidate commit SHA plus its successful CI and staging-provider run IDs. The candidate must belong to the selected main history. This uses GitHub's read-only workflow token; no additional secret or production service setup is needed.

@@ -208,6 +208,24 @@ jobs:
       - name: Verify iOS release includes JavaScript
         run: test -s "$RUNNER_TEMP/rove-native-build/Build/Products/Release-iphonesimulator/${{ matrix.scheme }}.app/main.jsbundle"
 
+      - name: Install pinned native UI test tool
+        run: |
+          curl --fail --location --retry 3 https://github.com/mobile-dev-inc/Maestro/releases/download/cli-2.10.0/maestro.zip -o "$RUNNER_TEMP/maestro.zip"
+          echo "29b675e10cc12080e445e9bfb2e2b4e4dfb9c0f2e30d5884120d258b5e1cd991  $RUNNER_TEMP/maestro.zip" | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/maestro.zip" -d "$RUNNER_TEMP/maestro-cli"
+      - name: Launch standalone iOS release and verify account entry
+        env:
+          MAESTRO_BINARY: ${{ runner.temp }}/maestro-cli/maestro/bin/maestro
+        run: node scripts/ios-release-smoke.mjs ${{ matrix.role }} "$RUNNER_TEMP/rove-native-build/Build/Products/Release-iphonesimulator/${{ matrix.scheme }}.app"
+      - name: Retain native launch evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ios-release-smoke-${{ matrix.role }}
+          path: reports/native-smoke/
+          retention-days: 7
+          if-no-files-found: ignore
+
   security:
     name: security
     runs-on: ubuntu-24.04

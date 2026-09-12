@@ -2,7 +2,7 @@
 
 ## Current checkpoint
 
-Reviewed September 12, 2026. Android rider/driver Auth0 callback/session acceptance and subsequent synthetic UI previews have been exercised. CI now compiles both debug and standalone release binaries for each role on Android and iOS; it does not run device journeys. The dated evidence below describes earlier builds and their limitations, not a current list of missing UI features. Full physical-device payment, navigation, locked GPS, push and store acceptance remain open. See [current status](18-implementation-status.md).
+Reviewed September 12, 2026. Android rider/driver Auth0 callback/session acceptance and subsequent synthetic UI previews have been exercised. CI compiles both debug and standalone release binaries for each role on Android and iOS. The iOS jobs additionally have a fresh-simulator welcome/relaunch smoke test; full device journeys and Android automated launch acceptance remain separate. The dated evidence below describes earlier builds and their limitations, not a current list of missing UI features. Full physical-device payment, navigation, locked GPS, push and store acceptance remain open. See [current status](18-implementation-status.md).
 
 ## Local toolchain
 
