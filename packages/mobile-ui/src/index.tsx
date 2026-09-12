@@ -20,13 +20,13 @@ export const theme = {
   background: '#000000',
   surface: 'rgba(15,15,15,0.9)',
   raised: 'rgba(10,10,10,0.94)',
-  gold: '#D6B26D',
+  gold: '#CFB97D',
   text: '#F4F0E8',
   muted: '#A0A0A0',
   border: 'rgba(255,255,255,0.12)',
   danger: '#FFB3AD',
-  glassGold: 'rgba(214,178,109,0.82)',
-  glassGoldBorder: 'rgba(255,225,164,0.65)',
+  glassGold: 'rgba(207,185,125,0.82)',
+  glassGoldBorder: 'rgba(239,223,179,0.65)',
   glassHighlight: 'rgba(255,255,255,0.2)',
 };
 export function Screen({
