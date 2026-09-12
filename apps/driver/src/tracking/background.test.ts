@@ -7,12 +7,14 @@ const mocks = vi.hoisted(() => {
   return {
     store: new Map<string, string>(),
     started: false,
+    options: {} as Record<string, unknown>,
     callback: null as TaskManagerTaskExecutor | null,
     request: vi.fn(async () => ({ accepted: true })),
     backgroundPermission: vi.fn(async () => ({ status: 'granted' })),
     foregroundPermission: vi.fn(async () => ({ status: 'granted' })),
-    start: vi.fn(async (_name: string, _options: unknown) => {
+    start: vi.fn(async (_name: string, options: unknown) => {
       mocks.started = true;
+      mocks.options = options as Record<string, unknown>;
     }),
     stop: vi.fn(async () => {
       mocks.started = false;
@@ -23,6 +25,7 @@ vi.mock('react-native', () => ({ Platform: { OS: 'ios' } }));
 vi.mock('expo-task-manager', () => ({
   isTaskDefined: () => false,
   isAvailableAsync: async () => true,
+  getTaskOptionsAsync: async () => mocks.options,
   defineTask: (_name: string, callback: TaskManagerTaskExecutor) => {
     mocks.callback = callback;
   },
@@ -221,4 +224,46 @@ test('a throttled session can still stop and revoke immediately', async () => {
   expect(mocks.request).toHaveBeenLastCalledWith('/tracking/v1/session', expect.anything(), {
     method: 'DELETE',
   });
+});
+
+test('upgrades an already running slow task without rotating its grant', async () => {
+  await synchronize();
+  mocks.options = { timeInterval: 10_000, deferredUpdatesInterval: 10_000 };
+  await synchronize();
+  await synchronize();
+  expect(mocks.start).toHaveBeenCalledTimes(2);
+  expect(mocks.stop).not.toHaveBeenCalled();
+  expect(api.trackingSession).toHaveBeenCalledOnce();
+  expect(mocks.options).toMatchObject({ timeInterval: 3000, deferredUpdatesInterval: 3000 });
+});
+
+test('bounds rapid native fixes and uploads only the fresh sample after three seconds', async () => {
+  let time = Date.now();
+  vi.spyOn(Date, 'now').mockImplementation(() => time);
+  await synchronize();
+  await deliver();
+  for (let i = 0; i < 5; i++) {
+    time += 500;
+    await deliver();
+  }
+  expect(mocks.request).toHaveBeenCalledOnce();
+  expect(JSON.parse(mocks.store.get('rove.driver.location-grant.v1')!)).not.toHaveProperty('coordinate');
+  time += 500;
+  await deliver();
+  expect(mocks.request).toHaveBeenCalledTimes(2);
+  expect(mocks.request).toHaveBeenLastCalledWith(
+    '/tracking/v1/location',
+    expect.anything(),
+    expect.objectContaining({ body: expect.objectContaining({ sampledAt: new Date(time).toISOString() }) }),
+  );
+});
+
+test('a backwards clock correction cannot stall uploads behind the old cadence deadline', async () => {
+  let time = Date.now();
+  vi.spyOn(Date, 'now').mockImplementation(() => time);
+  await synchronize();
+  await deliver();
+  time -= 60_000;
+  await deliver();
+  expect(mocks.request).toHaveBeenCalledTimes(2);
 });

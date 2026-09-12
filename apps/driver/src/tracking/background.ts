@@ -7,6 +7,7 @@ import { TrackingGrant } from '@rove/contracts';
 import { ApiClient, ApiError } from '@rove/mobile-core';
 import { newestLocation } from '@rove/mobile-core/location-sample';
 
+const UPDATE_INTERVAL_MS = 3_000;
 const TASK = 'rove.driver.location.v1';
 const KEY = 'rove.driver.location-grant.v1';
 const BLOCKED = 'rove.driver.location-blocked.v1';
@@ -14,6 +15,7 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL ?? '';
 const StoredGrant = TrackingGrant.extend({
   driverId: z.uuid(),
   apiUrl: z.string(),
+  nextUploadAt: z.number().int().nonnegative().optional(),
   retryAt: z.number().int().nonnegative().optional(),
 });
 type StoredGrant = z.infer<typeof StoredGrant>;
@@ -66,8 +68,16 @@ if (Platform.OS !== 'web' && !TaskManager.isTaskDefined(TASK)) {
           return;
         }
         if (error || !data?.locations || (grant.retryAt ?? 0) > Date.now()) return;
+        // Native callbacks may arrive faster than the requested interval (especially on iOS).
+        // Persist only a deadline so a new headless process observes the same upload bound.
+        const now = Date.now();
+        if ((grant.nextUploadAt ?? 0) > now && (grant.nextUploadAt ?? 0) <= now + UPDATE_INTERVAL_MS) return;
         const sample = newestLocation(data.locations, Date.now());
         if (!sample) return;
+        grant.nextUploadAt = now + UPDATE_INTERVAL_MS;
+        await SecureStore.setItemAsync(KEY, JSON.stringify(grant), {
+          keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
+        });
         try {
           await client(grant).request('/tracking/v1/location', z.object({ accepted: z.boolean() }), {
             method: 'POST',
@@ -147,12 +157,20 @@ export function synchronizeBackgroundTracking(api: ApiClient, driverId: string) 
         keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
       });
     }
-    if (!(await Location.hasStartedLocationUpdatesAsync(TASK))) {
+    const started = await Location.hasStartedLocationUpdatesAsync(TASK);
+    const options = started
+      ? await TaskManager.getTaskOptionsAsync<Location.LocationTaskOptions>(TASK)
+      : null;
+    if (
+      !started ||
+      options?.timeInterval !== UPDATE_INTERVAL_MS ||
+      options?.deferredUpdatesInterval !== UPDATE_INTERVAL_MS
+    ) {
       await Location.startLocationUpdatesAsync(TASK, {
         accuracy: Location.Accuracy.High,
-        timeInterval: 10_000,
+        timeInterval: UPDATE_INTERVAL_MS,
         distanceInterval: 0,
-        deferredUpdatesInterval: 10_000,
+        deferredUpdatesInterval: UPDATE_INTERVAL_MS,
         pausesUpdatesAutomatically: false,
         activityType: Location.ActivityType.AutomotiveNavigation,
         showsBackgroundLocationIndicator: true,
