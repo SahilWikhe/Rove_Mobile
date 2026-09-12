@@ -1,6 +1,12 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `06444960a2046e4a9d24a5b96e0664284e71817a` plus the Android push setup checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `34a7a07090a5bbef1b6336706bc00db49ed553e1` plus the Firebase release validation checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Android Firebase release validation — September 12
+
+The EAS pre-install checker now validates supplied Android Firebase files before a native build: readable bounded regular file, client rather than service-account data, and the matching rider/driver package. Production Android requires this file and an exact project match to the explicit `ANDROID_FIREBASE_PROJECT_ID` approval in `config/mobile-production.json`. These approvals remain empty until production infrastructure is selected. Staging can still omit Firebase while push is deferred, and iOS does not require Android configuration. Errors name settings only, never file content or paths.
+
+Eight focused build-check tests passed, including both apps/platforms, production environment separation, absent/wrong-package/wrong-project Firebase configuration, private-key rejection, malformed/oversized files and iOS independence. All 58 tooling tests, changed-script lint, documentation lint across 74 files and diff whitespace checks passed. This validates the release guard, not Firebase credential authorization or a native signed build. Setup and push guides explain the new approval and file requirements. No cloud resources, credentials or payments were changed. Next: remaining device acceptance and release infrastructure, with owner/provider setup deferred as documented below.
 
 ## Android push build setup — September 12
 

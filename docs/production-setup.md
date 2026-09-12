@@ -33,6 +33,8 @@ For realtime messaging and rider location, set `REALTIME_DATABASE_URL` to the di
 
 Driver payout onboarding additionally uses `STRIPE_CONNECT_ONBOARDING_ENABLED`, `STRIPE_CONNECT_RETURN_ORIGIN`, and a distinct `STRIPE_CONNECT_WEBHOOK_SECRET` for `/webhooks/stripe-connect`. Live activation requires a reviewed Connect model and the exact acknowledgement specified in [payout onboarding](56-driver-payout-onboarding.md). Onboarding readiness is not proof of completed transfers or driver payouts.
 
+Populate each app’s approved `ANDROID_FIREBASE_PROJECT_ID` in `config/mobile-production.json` before a production Android build. The pre-install check rejects an omitted/mismatched Firebase client file or a service-account private key. This project ID is build approval data, not a secret.
+
 For Android notifications, supply each matching Firebase client file through EAS production secret file variable `GOOGLE_SERVICES_JSON`, and configure FCM V1 service-account credentials separately in EAS. Rebuild after configuration; see [push setup](59-push-notifications.md#android-firebase-file-and-channel-setup).
 
 For notifications, set distinct `EXPO_RIDER_PROJECT_ID` and `EXPO_DRIVER_PROJECT_ID` matching the apps. Configure `EXPO_PUSH_ACCESS_TOKEN` and `EXPO_PUSH_DELIVERY_ENABLED=true` only after credentials and device registration are ready. Verify delivery and opening on physical devices.

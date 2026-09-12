@@ -1,6 +1,31 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+function firebaseClient(path, role, expectedProject) {
+  try {
+    if (typeof path !== 'string' || !path) return false;
+    const file = statSync(path);
+    if (!file.isFile() || file.size > 1024 * 1024) return false;
+    const client = JSON.parse(readFileSync(path, 'utf8'));
+    // A service-account key is a server credential, never mobile build configuration.
+    if (client.type === 'service_account' || client.private_key || client.private_key_id) return false;
+    const project = client.project_info;
+    if (!project || typeof project.project_id !== 'string' || !project.project_id.trim()) return false;
+    if (expectedProject && project.project_id !== expectedProject) return false;
+    return (
+      Array.isArray(client.client) &&
+      client.client.some(
+        (entry) =>
+          entry?.client_info?.android_client_info?.package_name === `co.roveride.${role}` &&
+          typeof entry.client_info.mobilesdk_app_id === 'string' &&
+          entry.client_info.mobilesdk_app_id.includes(':android:'),
+      )
+    );
+  } catch {
+    return false;
+  }
+}
 
 export function checkMobileBuild(role, env, productionConfiguration) {
   if (!['rider', 'driver'].includes(role)) throw new Error('Choose rider or driver.');
@@ -66,6 +91,16 @@ export function checkMobileBuild(role, env, productionConfiguration) {
   const publishablePattern = production ? /^pk_live_[a-zA-Z0-9]+$/ : /^pk_test_[a-zA-Z0-9]+$/;
   if (role === 'rider' && !publishablePattern.test(env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ''))
     invalid.push('EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY');
+  if (env.EAS_BUILD_PLATFORM === 'android') {
+    const expectedProject = production ? approved?.ANDROID_FIREBASE_PROJECT_ID : undefined;
+    if (production && (typeof expectedProject !== 'string' || !expectedProject.trim()))
+      invalid.push('ANDROID_FIREBASE_PROJECT_ID');
+    if (
+      (production || env.GOOGLE_SERVICES_JSON) &&
+      !firebaseClient(env.GOOGLE_SERVICES_JSON, role, expectedProject)
+    )
+      invalid.push('GOOGLE_SERVICES_JSON');
+  }
   if (invalid.length)
     throw new Error(
       `Invalid ${production ? 'production' : 'staging'} build settings: ${[...new Set(invalid)].join(', ')}`,

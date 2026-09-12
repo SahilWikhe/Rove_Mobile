@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { checkMobileBuild } from './mobile-build-check.mjs';
 function fixture(role, platform) {
   return {
@@ -64,7 +66,9 @@ test('production builds require an explicitly populated release configuration', 
     assert.throws(() => checkMobileBuild(role, env), /Invalid production build settings/);
   }
 });
-test('production profiles are store builds without inherited staging configuration', () => {
+test('production profiles are store builds without inherited staging configuration', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'rove-firebase-build-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
   for (const role of ['rider', 'driver']) {
     const profile = JSON.parse(readFileSync(new URL(`../apps/${role}/eas.json`, import.meta.url))).build
       .production;
@@ -75,6 +79,12 @@ test('production profiles are store builds without inherited staging configurati
     assert.deepEqual(profile.env, { EXPO_PUBLIC_SYNTHETIC: 'false' });
     for (const platform of ['ios', 'android']) {
       const { env, configuration } = productionFixture(role, platform);
+      if (platform === 'android') {
+        const file = join(root, `${role}.json`);
+        writeFileSync(file, JSON.stringify(firebase(role)));
+        env.GOOGLE_SERVICES_JSON = file;
+        configuration[role].ANDROID_FIREBASE_PROJECT_ID = 'rove-production';
+      }
       checkMobileBuild(role, env, configuration);
     }
   }
@@ -131,4 +141,56 @@ test('a production manifest cannot approve staging identity, staging API or inse
       /EXPO_PUBLIC_API_URL/,
     );
   }
+});
+
+function firebase(role, project = 'rove-production') {
+  return {
+    project_info: { project_id: project },
+    client: [
+      {
+        client_info: {
+          mobilesdk_app_id: '1:1234567890:android:0123456789abcdef',
+          android_client_info: { package_name: `co.roveride.${role}` },
+        },
+      },
+    ],
+  };
+}
+test('Android validates Firebase package and approved production project without exposing file data', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'rove-firebase-validation-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const file = join(root, 'private-config.json');
+  const { env, configuration } = productionFixture('rider', 'android');
+  configuration.rider.ANDROID_FIREBASE_PROJECT_ID = 'rove-production';
+  assert.throws(() => checkMobileBuild('rider', env, configuration), /GOOGLE_SERVICES_JSON/);
+  env.GOOGLE_SERVICES_JSON = file;
+  for (const value of [
+    firebase('driver'),
+    firebase('rider', 'private-staging-project'),
+    { type: 'service_account', private_key: 'private-do-not-print' },
+    { ...firebase('rider'), private_key_id: 'private-do-not-print' },
+    {},
+    null,
+    'private-invalid-content',
+  ]) {
+    writeFileSync(file, JSON.stringify(value));
+    assert.throws(
+      () => checkMobileBuild('rider', env, configuration),
+      (error) => error.message.includes('GOOGLE_SERVICES_JSON') && !error.message.includes('private'),
+    );
+  }
+  writeFileSync(file, 'private-malformed-json');
+  assert.throws(() => checkMobileBuild('rider', env, configuration), /GOOGLE_SERVICES_JSON/);
+  writeFileSync(file, 'x'.repeat(1024 * 1024 + 1));
+  assert.throws(() => checkMobileBuild('rider', env, configuration), /GOOGLE_SERVICES_JSON/);
+  writeFileSync(file, JSON.stringify(firebase('rider')));
+  checkMobileBuild('rider', env, configuration);
+  delete configuration.rider.ANDROID_FIREBASE_PROJECT_ID;
+  assert.throws(() => checkMobileBuild('rider', env, configuration), /ANDROID_FIREBASE_PROJECT_ID/);
+  const staging = { ...fixture('rider', 'android'), GOOGLE_SERVICES_JSON: file };
+  checkMobileBuild('rider', staging);
+  writeFileSync(file, JSON.stringify(firebase('driver')));
+  assert.throws(() => checkMobileBuild('rider', staging), /GOOGLE_SERVICES_JSON/);
+  // iOS uses APNs, and does not consume an Android client file.
+  checkMobileBuild('rider', { ...fixture('rider', 'ios'), GOOGLE_SERVICES_JSON: '/missing-private-file' });
 });

@@ -22,7 +22,7 @@ eas build --platform ios --profile staging-simulator
 
 The Android staging artifact is an APK. The iOS staging profile is for internal device distribution; `staging-simulator` is for an iOS simulator. These builds use the existing app identifiers and replace another build of the same app on a device. They are not separate side-by-side app variants.
 
-The `eas-build-pre-install` hook checks the selected profile, native platform, exact staging endpoint/auth settings, synthetic flag, Expo project UUID and required public keys. Errors list field names only. The check validates configuration shape and environment selection, not key authorization, signing or service availability.
+The `eas-build-pre-install` hook checks the selected profile, native platform, exact staging endpoint/auth settings, synthetic flag, Expo project UUID and required public keys. Errors list field names only. On Android, a supplied `GOOGLE_SERVICES_JSON` must be a readable Firebase client file containing the app package. Production Android additionally requires that file and an exact project match to `ANDROID_FIREBASE_PROJECT_ID` in `config/mobile-production.json`. Missing approval, a wrong app/project or a service-account private-key file fails before building. Staging may omit the file while push setup is deferred; iOS continues to use APNs. The check validates configuration shape and environment selection, not key authorization, signing or service availability.
 
 ## Acceptance before distribution
 
