@@ -1,3 +1,4 @@
+import { realtimeDatabaseUrl } from './realtime-config';
 import { S3DocumentConfig, GuardDutyScanConfig } from '@rove/server';
 import { z } from 'zod';
 import { ConfigurationError, readApiConfig } from './config';
@@ -145,6 +146,7 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
       return undefined;
     }
   }
+  capture(() => realtimeDatabaseUrl(env));
   const api = capture(() => readApiConfig(env));
   const payments = capture(() => readPaymentConfig(env));
   const connect = capture(() => readConnectConfig(env));

@@ -11,21 +11,25 @@ type Request = {
   resolvedAt?: string | null;
   createdAt: string;
 };
+const deletionMessage =
+  'Please delete my Rove account and personal data. Contact me about any outstanding trips, payments or records that must be retained.';
 const categories: Category[] = ['account', 'vehicle', 'trip', 'payment', 'other'];
 /** Mount with account-ID key. Messages are held only in screen memory, never analytics. */
 export function SupportForm({
   list,
   submit,
   newKey,
+  accountDeletion = false,
 }: {
   list: () => Promise<{ requests: Request[] }>;
   submit: (input: { category: Category; message: string }, key: string) => Promise<Request>;
   newKey: () => string;
+  accountDeletion?: boolean;
 }) {
   const [requests, setRequests] = useState<Request[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [category, setCategory] = useState<Category>('account');
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState(accountDeletion ? deletionMessage : '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<string | null>(null);
@@ -100,11 +104,28 @@ export function SupportForm({
   }
   return (
     <Screen underHeader refreshing={busy} onRefresh={() => void run(false)}>
-      <Copy kind="title">How can we help?</Copy>
-      <Copy>
-        For immediate danger, contact local emergency services. Support requests are not an emergency channel.
-      </Copy>
-      <Copy kind="muted">Do not include payment card numbers, passwords or medical details.</Copy>
+      <Copy kind="title">{accountDeletion ? 'Request account deletion' : 'How can we help?'}</Copy>
+      {accountDeletion ? (
+        <>
+          <Copy>Send a request to delete your Rove account and personal data.</Copy>
+          <Copy kind="muted">
+            Your account remains active while the request is reviewed. This does not cancel an active trip or
+            change a payment. Finish or cancel outstanding trips through the trip screen.
+          </Copy>
+          <Copy kind="muted">
+            Outstanding payments and driver earnings need to be resolved. Some transaction or safety records
+            may need to be retained; support will explain the outcome in your request.
+          </Copy>
+        </>
+      ) : (
+        <>
+          <Copy>
+            For immediate danger, contact local emergency services. Support requests are not an emergency
+            channel.
+          </Copy>
+          <Copy kind="muted">Do not include payment card numbers, passwords or medical details.</Copy>
+        </>
+      )}
       {error && <Banner error message={error} />}
       {receipt && <Banner message={`Request saved. Reference: ${receipt}`} />}
       {!loaded && busy && <Copy kind="muted">Loading your requests…</Copy>}
@@ -118,26 +139,33 @@ export function SupportForm({
       )}
       {loaded && (
         <>
-          <Copy kind="heading">New request</Copy>
-          {categories.map((value) => (
-            <Button
-              key={value}
-              title={`${value[0]!.toUpperCase()}${value.slice(1)}${category === value ? ' · Selected' : ''}`}
-              variant="secondary"
-              disabled={busy}
-              onPress={() => setCategory(value)}
+          <Copy kind="heading">{accountDeletion ? 'Confirm your request' : 'New request'}</Copy>
+          {!accountDeletion &&
+            categories.map((value) => (
+              <Button
+                key={value}
+                title={`${value[0]!.toUpperCase()}${value.slice(1)}${category === value ? ' · Selected' : ''}`}
+                variant="secondary"
+                disabled={busy}
+                onPress={() => setCategory(value)}
+              />
+            ))}
+          {accountDeletion ? (
+            <Copy>{deletionMessage}</Copy>
+          ) : (
+            <Field
+              label="What do you need help with?"
+              value={message}
+              editable={!busy}
+              maxLength={2000}
+              onChangeText={setMessage}
             />
-          ))}
-          <Field
-            label="What do you need help with?"
-            value={message}
-            editable={!busy}
-            maxLength={2000}
-            onChangeText={setMessage}
-          />
-          <Copy kind="muted">At least 10 characters. Check existing requests before sending another.</Copy>
+          )}
+          {!accountDeletion && (
+            <Copy kind="muted">At least 10 characters. Check existing requests before sending another.</Copy>
+          )}
           <Button
-            title="Send support request"
+            title={accountDeletion ? 'Send deletion request' : 'Send support request'}
             disabled={busy || message.trim().length < 10}
             onPress={() => void run(true)}
           />

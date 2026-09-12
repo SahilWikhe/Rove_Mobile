@@ -8,6 +8,18 @@ test('rider and driver exchange persisted messages, recover a lost send, and rep
   const driverContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const driver = await driverContext.newPage();
   const uiErrors: string[] = [];
+  const socketEvents = new Map([
+    [page, [] as string[]],
+    [driver, [] as string[]],
+  ]);
+  for (const surface of [page, driver])
+    surface.on('websocket', (socket) => {
+      if (!socket.url().endsWith('/v1/realtime')) return;
+      socket.on('framereceived', ({ payload }) => {
+        const event = JSON.parse(payload.toString()) as { type: string };
+        socketEvents.get(surface)!.push(event.type);
+      });
+    });
   for (const surface of [page, driver])
     surface.on('console', (message) => {
       if (
@@ -57,6 +69,7 @@ test('rider and driver exchange persisted messages, recover a lost send, and rep
     await driver.getByRole('button', { name: 'Messages', exact: true }).click();
     await driver.getByTestId(`conversation-${offerId}`).click();
     await expect(driver.getByRole('textbox', { name: 'Message', exact: true })).toBeVisible();
+    await expect.poll(() => socketEvents.get(driver)).toContain('ready');
     let drop = true;
     const keys: string[] = [];
     await driver.route('**/v1/conversations/*/messages', async (route) => {
@@ -84,10 +97,15 @@ test('rider and driver exchange persisted messages, recover a lost send, and rep
     await page.getByRole('button', { name: /^Messages/ }).click();
     await page.getByTestId(`conversation-${offerId}`).click();
     await expect(page.getByText('I am outside the entrance.', { exact: true })).toBeVisible();
+    await expect.poll(() => socketEvents.get(page)).toContain('ready');
+    const driverEventsBeforeReply = socketEvents.get(driver)!.length;
     await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Thank you, coming outside now.');
     await page.getByRole('button', { name: 'Send message', exact: true }).click();
     await driver.bringToFront();
     await expect(driver.getByText('Thank you, coming outside now.', { exact: true })).toBeVisible();
+    await expect
+      .poll(() => socketEvents.get(driver)!.slice(driverEventsBeforeReply))
+      .toContain('messages.changed');
     await driver.setViewportSize({ width: 320, height: 480 });
     const draft = driver.getByRole('textbox', { name: 'Message', exact: true });
     await draft.fill('Unsent pickup instructions');

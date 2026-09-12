@@ -118,7 +118,7 @@ Second-scale offer deadlines require a measured executor wakeup/latency budget. 
 
 First synthetic prototype: HTTPS location ingestion plus bounded polling by active viewers. Test active-trip upload every 10 seconds, visible map refresh every 15 seconds, and faster foreground refresh or realtime delivery for time-limited offers. These are test parameters, not launch SLAs. Online unassigned drivers also need heartbeats/discovery location with an explicit retention and battery policy. Go-offline stops discovery collection; stale sessions are ineligible for matching.
 
-Before the pilot, compare this baseline with native Vercel WebSockets or a managed realtime provider. Authentication, resubscription, token revocation, fanout across instances, reconnect limits, and costs must be demonstrated. Do not assume a separate WebSocket host is required; equally, do not assume a single function's memory can coordinate a fleet. See [decisions](12-decisions.md).
+Trip messaging uses native Vercel WebSockets with transaction-bound Postgres notifications across instances and authorized HTTPS reads for durable state. Reconnect reloads missed history; polling is a transport-failure fallback. See [real-time messaging](realtime-messaging.md) for authentication, direct-session configuration, limits and deployment verification. Ride-location and offer refresh still use their existing bounded polling; messaging transport does not by itself replace those flows.
 
 The first backend and database should share the Ohio region where practical (Neon `us-east-2`, Vercel `cle1`). Verify actual project settings before deployment. Auth, maps and notification dependencies have independent failure modes and data locations.
 

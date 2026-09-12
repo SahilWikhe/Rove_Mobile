@@ -80,6 +80,17 @@ test('rider reviews a quote and explicitly confirms cancellation', async ({ page
     headers: { Authorization: 'Bearer synthetic-rider' },
   });
   expect((await saved.json()).state).toBe('cancelled');
+  await page.goto('http://localhost:8091');
+  await page.getByRole('button', { name: 'Get started', exact: true }).click();
+  await page.getByRole('button', { name: 'My rides', exact: true }).click();
+  const historyCard = page.getByTestId(`rider-history-${id}`);
+  await expect(historyCard).toBeVisible();
+  await expect(historyCard.getByText('cancelled', { exact: true })).toBeVisible();
+  await expect(historyCard.getByText(/^Requested /)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Refresh', exact: true })).toHaveCount(0);
+  await page.screenshot({ path: '/tmp/rove-rider-history-figma-web.png', fullPage: true });
+  await historyCard.click();
+  await expect(page).toHaveURL(new RegExp(`/ride\\?id=${id}`));
 });
 test('rider request reaches the driver and both apps follow a completed synthetic trip', async ({
   page,
@@ -250,6 +261,33 @@ test('rider request reaches the driver and both apps follow a completed syntheti
       page.getByText('Synthetic payment record · no money was charged.', { exact: true }),
     ).toHaveCount(0);
     await expect(page.getByText('Payment: paid', { exact: true }).filter({ visible: true })).toBeVisible();
+    const receiptUrl = 'http://localhost:4085/v1/rides/' + id + '/receipt';
+    await page.route(receiptUrl, (route) =>
+      route.fulfill({
+        status: 403,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          error: {
+            code: 'FORBIDDEN',
+            message: 'Receipt access unavailable.',
+            requestId: 'synthetic-receipt',
+          },
+        }),
+      }),
+    );
+    await expect(page.getByText('Receipt access unavailable.', { exact: true })).toBeVisible({
+      timeout: 20000,
+    });
+    await expect(page.getByText('Receipt reference', { exact: true }).filter({ visible: true })).toHaveCount(
+      0,
+    );
+    await expect(page.getByText('AMOUNT CAPTURED', { exact: true }).filter({ visible: true })).toHaveCount(0);
+    await page.unroute(receiptUrl);
+    await page.getByRole('button', { name: 'Retry receipt', exact: true }).click();
+    await expect(
+      page.getByText('Receipt reference', { exact: true }).filter({ visible: true }),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Retry receipt', exact: true })).toHaveCount(0);
     const receipt = await request.get('http://localhost:4085/v1/rides/' + id + '/receipt', {
       headers: { Authorization: 'Bearer synthetic-rider' },
     });

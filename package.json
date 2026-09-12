@@ -22,6 +22,7 @@
     "db:staging:migrate": "node --env-file=.env.neon.staging --import tsx packages/database/src/staging-migrate.ts",
     "db:staging:role": "node --env-file=.env.neon.staging --import tsx packages/database/src/staging-role.ts",
     "db:staging:smoke": "node --env-file=.env.neon.staging --import tsx apps/api/src/staging-smoke.ts",
+    "production:preflight": "node --import tsx apps/api/src/production-preflight-cli.ts",
     "staging:preflight": "node --import tsx apps/api/src/staging-preflight-cli.ts",
     "db:staging:check": "node --import tsx packages/database/src/staging-readiness-cli.ts",
     "auth:staging:check": "node scripts/auth0-staging-check.mjs",

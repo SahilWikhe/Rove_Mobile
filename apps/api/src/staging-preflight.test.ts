@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { developmentRates } from '@rove/server';
 import { inspectStagingEnvironment } from './staging-preflight';
+import { inspectEnvironment } from './environment-preflight';
 
 function fixture() {
   return {
@@ -117,3 +118,68 @@ test('independent missing integrations are reported together rather than masked 
     ],
   });
 });
+
+function productionFixture() {
+  return {
+    ...fixture(),
+    ROVE_ENVIRONMENT: 'production',
+    STRIPE_MODE: 'live',
+    STRIPE_SECRET_KEY: 'rk_live_fixture',
+    RATE_POLICY_JSON: JSON.stringify({ ...developmentRates, version: 'launch-v1' }),
+    RATE_POLICY_APPROVED_VERSION: 'launch-v1',
+  };
+}
+
+test('production preflight rejects test payments, synthetic flags, unapproved rates and disabled verification', () => {
+  expect(inspectEnvironment(productionFixture(), 'production')).toEqual({ valid: true, problems: [] });
+  for (const change of [
+    { ROVE_ENVIRONMENT: 'staging' },
+    { STRIPE_MODE: 'test', STRIPE_SECRET_KEY: 'rk_test_fixture' },
+    { RATE_POLICY_APPROVED_VERSION: 'different' },
+    { RATE_POLICY_JSON: JSON.stringify(developmentRates) },
+    { OIDC_REQUIRE_VERIFIED_EMAIL: 'false' },
+    { ROVE_SYNTHETIC: 'true' },
+    { VERCEL_ENV: 'preview' },
+    { CRON_SECRET: 'PRIVATE-short' },
+    { STRIPE_CONNECT_ONBOARDING_ENABLED: 'true' },
+  ]) {
+    const result = inspectEnvironment({ ...productionFixture(), ...change }, 'production');
+    expect(result.valid).toBe(false);
+    expect(JSON.stringify(result)).not.toContain('PRIVATE');
+  }
+});
+
+test('production CLI reads only its explicit file and returns safe failures', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'rove-production-preflight-'));
+  const path = join(dir, 'input.env');
+  const cli = fileURLToPath(new URL('./production-preflight-cli.ts', import.meta.url));
+  const run = (args: string[]) =>
+    spawnSync(process.execPath, ['--import', 'tsx', cli, ...args], {
+      encoding: 'utf8',
+      timeout: 10000,
+      env: { ...productionFixture(), PATH: process.env.PATH },
+    });
+  try {
+    writeFileSync(path, 'ROVE_ENVIRONMENT=production\nCRON_SECRET=PRIVATE-INVALID\n', { mode: 0o600 });
+    const incomplete = run([path]);
+    expect(incomplete.status).toBe(1);
+    expect(incomplete.stderr).toContain('databaseUrl');
+    expect(incomplete.stderr).not.toContain('PRIVATE');
+    writeFileSync(
+      path,
+      Object.entries(productionFixture())
+        .map(([key, value]) => `${key}='${value}'`)
+        .join('\n'),
+    );
+    const valid = run([path]);
+    expect(valid.status).toBe(0);
+    expect(valid.stdout).toContain('Production configuration shape passed');
+    expect(valid.stdout + valid.stderr).not.toContain('rk_live_fixture');
+    expect(run([]).status).toBe(1);
+    const absent = run([join(dir, 'PRIVATE-FILENAME')]);
+    expect(absent.status).toBe(1);
+    expect(absent.stderr).not.toContain('PRIVATE-FILENAME');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}, 45_000);

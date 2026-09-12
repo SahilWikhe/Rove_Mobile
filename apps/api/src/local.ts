@@ -1,8 +1,11 @@
+import { Server } from 'node:http';
 /** Disposable local integration environment. Never imported by the production entrypoint. */
 import { localAuthConfig } from './local-auth';
 import { oidcIdentity } from './auth';
 import { LocalPayments } from './local-payments';
 import { randomUUID } from 'node:crypto';
+import { MessageEvents } from './message-events';
+import { attachMessageWebSocket } from './message-websocket';
 import { serve } from '@hono/node-server';
 import { testDatabase } from '@rove/database/testing';
 import { users, drivers } from '@rove/database';
@@ -158,6 +161,17 @@ const server = serve({ fetch: app.fetch, port, hostname: '127.0.0.1' }, (address
     `Local Rove API: http://localhost:${address.port}. ${authConfig ? 'Real staging Auth0 identity' : 'Synthetic identity'}; disposable data, simulated maps/payments, no notifications.`,
   );
 });
+if (!(server instanceof Server)) throw new Error('WebSockets require the HTTP/1 server.');
+const realtime = attachMessageWebSocket(server, {
+  events: new MessageEvents(database.pool),
+  allowedOrigins: e2e
+    ? ['http://localhost:8091', 'http://localhost:8092']
+    : ['http://localhost:8081', 'http://localhost:8082', 'http://localhost:8083'],
+  authenticate: async (token) => {
+    const response = await app.request('/v1/me', { headers: { Authorization: 'Bearer ' + token } });
+    return response.ok ? response.json() : null;
+  },
+});
 let stopped = false;
 let timer: ReturnType<typeof setTimeout>;
 let inFlight: Promise<void>;
@@ -181,6 +195,7 @@ function drain() {
     clearTimeout(timer);
     draining = (async () => {
       await inFlight;
+      await realtime.close();
       await database.close();
     })();
   }
@@ -191,6 +206,7 @@ function stop() {
   return (shutdown ??= (async () => {
     stopped = true;
     clearTimeout(timer);
+    await realtime.close();
     await new Promise<void>((resolve, reject) => {
       server.close((error) => (error ? reject(error) : resolve()));
     });

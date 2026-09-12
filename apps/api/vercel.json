@@ -16,9 +16,16 @@
           "topic": "rove-worker-wake"
         }
       ]
+    },
+    "api/realtime.mjs": {
+      "maxDuration": 120
     }
   },
   "rewrites": [
+    {
+      "source": "/v1/realtime",
+      "destination": "/api/realtime"
+    },
     {
       "source": "/health/:path*",
       "destination": "/api/index"

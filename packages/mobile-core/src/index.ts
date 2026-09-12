@@ -1,3 +1,4 @@
+import { MessageRealtime } from './message-realtime';
 import {
   Conversation,
   ConversationList,
@@ -65,6 +66,11 @@ export class ApiError extends Error {
 }
 export type Transport = (url: string, options: RequestInit) => Promise<Response>;
 export class ApiClient {
+  private messageRealtime?: MessageRealtime;
+  subscribeMessages(changed: () => void, connection: (connected: boolean) => void) {
+    this.messageRealtime ??= new MessageRealtime(this.baseUrl, this.token);
+    return this.messageRealtime.subscribe({ changed, connection });
+  }
   unreadMessages(signal?: AbortSignal) {
     return this.request(
       '/v1/conversations-unread',

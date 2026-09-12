@@ -1,13 +1,27 @@
-import { useRef, useState } from 'react';
-import { router, Stack } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
+import { router, Stack, useFocusEffect } from 'expo-router';
 import { View } from 'react-native';
 import { AccountProfile, AccountRow, accountContent, accountTitle } from '@rove/mobile-ui/account-layout';
+import { pollWhileForeground } from '@rove/mobile-core/foreground-polling';
 import { HomeNavigation } from '../navigation/rider-navigation';
 import chevron from '../../assets/account/chevron.png';
 import { useSession } from '@rove/mobile-core/session';
 import { Banner, Button, Copy, Screen } from '@rove/mobile-ui';
 export default function Account() {
   const { profile, api, notifications, signOut, cleanupRequired } = useSession();
+  const [savedCount, setSavedCount] = useState<{ owner: string; count: number } | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      if (!profile?.id) return;
+      setSavedCount(null);
+      return pollWhileForeground({
+        load: (signal) => api.savedPlaces(signal),
+        onData: ({ places }) => setSavedCount({ owner: profile.id, count: places.length }),
+        onError: () => setSavedCount(null),
+        intervalMs: 60000,
+      });
+    }, [api, profile?.id]),
+  );
   const pending = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +74,7 @@ export default function Account() {
           <AccountRow
             icon={chevron}
             label="Saved places"
+            detail={savedCount?.owner === profile?.id ? String(savedCount?.count) : undefined}
             disabled={busy}
             onPress={() => router.push('/saved-places')}
           />
@@ -75,6 +90,18 @@ export default function Account() {
             label="Manage notification devices"
             disabled={busy}
             onPress={() => router.push('/notification-devices')}
+          />
+          <AccountRow
+            icon={chevron}
+            label="Request account deletion"
+            disabled={busy}
+            onPress={() => router.push('/account-deletion')}
+          />
+          <AccountRow
+            icon={chevron}
+            label="About Rove"
+            disabled={busy}
+            onPress={() => router.push('/about')}
           />
           <AccountRow
             icon={chevron}

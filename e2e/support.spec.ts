@@ -13,6 +13,11 @@ for (const [app, port] of [
       if (entry.type() === 'error' && entry.text().includes('same key')) keyWarnings.push(entry.text());
     });
     const message = `Synthetic ${app} browser support question`;
+    const existingResponse = await request.get('http://localhost:4085/v1/support-requests', {
+      headers: { Authorization: `Bearer synthetic-${app}` },
+    });
+    expect(existingResponse.ok()).toBe(true);
+    const existing: { id: string; message: string }[] = (await existingResponse.json()).requests;
     await page.goto(`http://localhost:${port}`);
     await page.getByRole('button', { name: 'Get started', exact: true }).click();
     await page.getByRole('button', { name: 'Account', exact: true }).click();
@@ -24,7 +29,11 @@ for (const [app, port] of [
     await page.getByRole('link', { name: 'Go back', exact: true }).click();
     expect(keyWarnings).toEqual([]);
     await page.getByRole('button', { name: 'Help & support', exact: true }).click();
-    await expect(page.getByText('No requests yet.', { exact: true })).toBeVisible();
+    if (existing.length === 0)
+      await expect(page.getByText('No requests yet.', { exact: true })).toBeVisible();
+    else
+      for (const entry of existing)
+        await expect(page.getByText(entry.message, { exact: true })).toBeVisible();
     const submit = page.getByRole('button', { name: 'Send support request', exact: true });
     await expect(submit).toBeDisabled();
     await page.getByRole('textbox', { name: 'What do you need help with?', exact: true }).fill(message);
@@ -50,9 +59,12 @@ for (const [app, port] of [
     });
     expect(result.ok()).toBe(true);
     const body = await result.json();
-    expect(body.requests).toHaveLength(1);
-    expect(body.requests[0].message).toBe(message);
-    expect(body.requests[0].status).toBe('open');
+    expect(body.requests).toHaveLength(existing.length + 1);
+    for (const entry of existing)
+      expect(body.requests).toEqual(expect.arrayContaining([expect.objectContaining(entry)]));
+    const created = body.requests.filter((entry: { message: string }) => entry.message === message);
+    expect(created).toHaveLength(1);
+    expect(created[0].status).toBe('open');
   });
 }
 

@@ -46,7 +46,7 @@ Reason: jobs survive failure while server-clock expiry and transactions protect 
 
 ## ADR-007: Availability and trip transport
 
-**Provisional.** HTTPS plus bounded polling can validate synthetic flows. Benchmark realtime or faster foreground refresh for short driver offers before launch; push alone is not sufficient. Discovery locations are private to matching; rider-visible tracking starts only with authorized accepted work.
+**Selected for messaging; provisional for tracking/offers.** Trip messaging uses native Vercel WebSockets plus Postgres LISTEN/NOTIFY on one direct session per active instance. Message bodies and access decisions stay in the existing HTTPS/Postgres path; sockets carry invalidations and reconnect reloads durable state. This reuses existing infrastructure without adding a realtime vendor, but requires connection-capacity and hosted acceptance checks. See [real-time messaging](realtime-messaging.md). Benchmark transport for short driver offers and live tracking before launch; push alone is not sufficient. Discovery locations are private to matching; rider-visible tracking starts only with authorized accepted work.
 
 Acceptance: real-device background behavior, freshness, online expiry, offline/revoked access, reconnect/resync, fanout, cost and battery. Vercel's current guidance describes native WebSockets with lifetime/reconnect considerations; confirm the actual runtime in the spike. [Vercel WebSocket guidance](https://vercel.com/kb/guide/do-vercel-serverless-functions-support-websocket-connections)
 

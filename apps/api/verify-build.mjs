@@ -21,6 +21,10 @@ const result = spawnSync(
   import app from './dist/index.mjs';
   import handler from './api/index.mjs';
   import consumer from './api/worker.mjs';
+  import realtime from './api/realtime.mjs';
+  import { Server } from 'node:http';
+  assert.ok(realtime instanceof Server);
+  assert.equal(realtime.listeners('upgrade').length, 1);
   import { createHmac } from 'node:crypto';
   assert.equal(typeof consumer, 'function');
   const response = await handler.fetch(new Request('https://api.example.test/health/live'));

@@ -3,7 +3,7 @@ import { AppState } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import type { ConversationList, ConversationThread } from '@rove/contracts';
 import { ApiError, type ApiClient } from './index';
-import { pollWhileForeground } from './foreground-polling';
+import { watchMessagesWhileForeground } from './message-watch';
 
 type Cursor = NonNullable<ConversationList['nextCursor']>;
 export function useMessageInbox(api: ApiClient, signedIn: boolean, cursor?: Cursor) {
@@ -16,7 +16,7 @@ export function useMessageInbox(api: ApiClient, signedIn: boolean, cursor?: Curs
     const subscription = AppState.addEventListener('change', (state) => {
       if (state !== 'active') setData(null);
     });
-    const stop = pollWhileForeground({
+    const stop = watchMessagesWhileForeground(api, {
       load: (signal) => api.conversations(cursor, signal),
       intervalMs: 10000,
       onData: (result) => {
@@ -72,7 +72,7 @@ export function useMessageThread(api: ApiClient, id: string, signedIn: boolean) 
         setText('');
       }
     });
-    const stop = pollWhileForeground({
+    const stop = watchMessagesWhileForeground(api, {
       load: (signal) => api.conversation(id, signal),
       intervalMs: 3000,
       onData: (result) => {
@@ -187,7 +187,7 @@ export function useMessageUnread(api: ApiClient, accountId: string | undefined) 
     const subscription = AppState.addEventListener('change', (state) => {
       if (state !== 'active') setValue(null);
     });
-    const stop = pollWhileForeground({
+    const stop = watchMessagesWhileForeground(api, {
       load: (signal) => api.unreadMessages(signal),
       intervalMs: 10000,
       onData: (data) => setValue({ accountId, unread: data.unread }),

@@ -4,6 +4,7 @@ const result = await build({
   entryPoints: {
     index: 'index.ts',
     'http-function': 'src/http-function.ts',
+    'realtime-function': 'src/realtime-function.ts',
     'queue-function': 'src/queue-function.ts',
   },
   outdir: 'dist',

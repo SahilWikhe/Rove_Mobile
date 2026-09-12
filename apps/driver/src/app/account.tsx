@@ -103,6 +103,12 @@ export default function Account() {
             />
             <AccountRow
               icon={chevron}
+              label="Request account deletion"
+              disabled={busy}
+              onPress={() => router.push('/account-deletion')}
+            />
+            <AccountRow
+              icon={chevron}
               label="Help & support"
               disabled={busy}
               onPress={() => router.push('/support')}

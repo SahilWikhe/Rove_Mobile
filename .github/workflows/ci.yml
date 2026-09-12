@@ -150,6 +150,14 @@ jobs:
       - name: Compile Android debug binary
         working-directory: apps/${{ matrix.role }}/android
         run: ./gradlew :app:assembleDebug -PreactNativeArchitectures=x86_64 --console=plain
+      - name: Compile standalone Android release binary
+        working-directory: apps/${{ matrix.role }}/android
+        run: ./gradlew :app:assembleRelease -PreactNativeArchitectures=x86_64 --console=plain
+      - name: Verify Android release includes JavaScript
+        working-directory: apps/${{ matrix.role }}/android
+        run: |
+          unzip -p app/build/outputs/apk/release/app-release.apk assets/index.android.bundle > "$RUNNER_TEMP/android-release.bundle"
+          test -s "$RUNNER_TEMP/android-release.bundle"
 
   native-ios:
     name: native-ios (${{ matrix.role }})
@@ -190,6 +198,15 @@ jobs:
           -scheme ${{ matrix.scheme }} -configuration Debug -sdk iphonesimulator
           -destination 'generic/platform=iOS Simulator'
           -derivedDataPath "$RUNNER_TEMP/rove-native-build" CODE_SIGNING_ALLOWED=NO build
+      - name: Compile standalone iOS release simulator binary
+        working-directory: apps/${{ matrix.role }}/ios
+        run: >-
+          xcodebuild -workspace ${{ matrix.scheme }}.xcworkspace
+          -scheme ${{ matrix.scheme }} -configuration Release -sdk iphonesimulator
+          -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath "$RUNNER_TEMP/rove-native-build" CODE_SIGNING_ALLOWED=NO build
+      - name: Verify iOS release includes JavaScript
+        run: test -s "$RUNNER_TEMP/rove-native-build/Build/Products/Release-iphonesimulator/${{ matrix.scheme }}.app/main.jsbundle"
 
   security:
     name: security

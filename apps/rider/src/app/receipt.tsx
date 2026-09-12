@@ -7,9 +7,16 @@ import { Banner, Button, Card, Copy, Money, Screen } from '@rove/mobile-ui';
 export default function Receipt() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { profile } = useSession();
-  return <ReceiptContent key={`${profile?.id ?? 'signed-out'}:${id}`} id={id} />;
+  const [retry, setRetry] = useState(0);
+  return (
+    <ReceiptContent
+      key={`${profile?.id ?? 'signed-out'}:${id}:${retry}`}
+      id={id}
+      retry={() => setRetry((value) => value + 1)}
+    />
+  );
 }
-function ReceiptContent({ id }: { id: string }) {
+function ReceiptContent({ id, retry }: { id: string; retry: () => void }) {
   const { api, profile } = useSession();
   const [receipt, setReceipt] = useState<RideReceipt | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -22,8 +29,10 @@ function ReceiptContent({ id }: { id: string }) {
           setReceipt(value);
           setError(null);
         },
-        onError: (failure) =>
-          setError(failure instanceof Error ? failure.message : 'Your receipt could not be loaded.'),
+        onError: (failure) => {
+          setReceipt(null);
+          setError(failure instanceof Error ? failure.message : 'Your receipt could not be loaded.');
+        },
         intervalMs: 10000,
       });
     }, [api, id, profile?.id]),
@@ -32,7 +41,12 @@ function ReceiptContent({ id }: { id: string }) {
     <Screen>
       <Stack.Screen options={{ title: 'Your receipt' }} />
       <Copy kind="title">Your payment record.</Copy>
-      {error && <Banner message={error} />}
+      {error && (
+        <>
+          <Banner error message={error} />
+          <Button title="Retry receipt" variant="secondary" onPress={retry} />
+        </>
+      )}
       {receipt ? (
         <>
           <Card>
