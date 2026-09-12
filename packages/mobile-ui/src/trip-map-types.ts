@@ -11,5 +11,7 @@ export interface TripMapProps {
   /** Overlay compact controls over a full-screen map. */
   floating?: boolean;
   bottomInset?: number;
+  /** Keep a fresh driver marker in view until the rider pans or shows the full trip. */
+  followDriver?: boolean;
   driver?: { coordinate: { latitude: number; longitude: number }; sampledAt: string };
 }

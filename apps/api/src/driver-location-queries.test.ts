@@ -85,3 +85,23 @@ test('ending or removing an assignment immediately revokes further reads', async
   await db.pool.query("UPDATE rides SET state='searching',driver_id=NULL WHERE id=$1", [ride]);
   await expect(read()).rejects.toMatchObject({ code: 'NOT_FOUND' });
 });
+
+test('moving driver samples remain available during pickup and in the vehicle', async () => {
+  for (const [index, state] of ['en_route', 'arrived', 'in_progress'].entries()) {
+    const point = { latitude: 35.78 + index * 0.01, longitude: -78.64 + index * 0.01 };
+    const sampledAt = new Date(now.getTime() + (index + 1) * 10000);
+    await db.pool.query('UPDATE rides SET state=$2 WHERE id=$1', [ride, state]);
+    await db.pool.query('UPDATE drivers SET location=$2,location_sampled_at=$3 WHERE id=$1', [
+      driver,
+      point,
+      sampledAt,
+    ]);
+    const result = await read(sampledAt);
+    expect(result.location?.coordinate).toEqual(point);
+    expect(result.location?.sampledAt).toBe(sampledAt.toISOString());
+    expect((await read(new Date(sampledAt.getTime() + 60000))).location).toBeNull();
+    await expect(
+      getDriverLocation(db.pool, { id: other, role: 'rider' }, ride, sampledAt),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  }
+});

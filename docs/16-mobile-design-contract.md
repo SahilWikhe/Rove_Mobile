@@ -303,3 +303,21 @@ and subtle shadow. Ride, My rides and Account use the shared floating footer lay
 Messages already did. Safe-area placement and measured footer clearance keep final content
 scrollable above the bar. The wrapper lets touches outside the pill reach underlying content.
 Rider type/lint checks passed, with native previews inspected on iOS and Android.
+
+## Rider live driver location
+
+The assigned rider receives fresh driver coordinates while matched, approaching pickup,
+arrived, and in progress (also during an interrupted active trip). The native rider map
+now follows those coordinates automatically. Panning or Show full trip stops camera
+following; Follow driver restores it. The driver marker is drawn above endpoint markers.
+Locations are last-reported GPS samples, not interpolated or invented vehicle movement.
+
+The existing driver background task requests high-accuracy updates around every ten seconds;
+the foreground rider refreshes every five seconds. OS scheduling and connectivity can delay
+updates. Samples expire after sixty seconds, failed reads remove the marker, and ending the
+assignment revokes location access. Only the assigned rider can read these coordinates.
+Server tests cover moving samples during pickup and travel, expiry and unauthorized readers.
+The browser lifecycle test now uploads changing coordinates in both phases and verifies the
+rider receives them. iOS and Android simulator maps were inspected before and after a moved
+sample during an in-progress synthetic trip. Physical-device background/locked-screen GPS
+acceptance is still required before production release.

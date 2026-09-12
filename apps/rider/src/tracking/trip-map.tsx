@@ -53,6 +53,7 @@ export function RiderTripMap({ ride }: { ride: RideDetails }) {
   return (
     <>
       <TripMap
+        followDriver
         pickup={ride.pickup.coordinate}
         destination={ride.destination.coordinate}
         synthetic={synthetic}

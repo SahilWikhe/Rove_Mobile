@@ -175,6 +175,40 @@ test('rider request reaches the driver and both apps follow a completed syntheti
     await expect(page.getByText('YOUR DRIVER', { exact: true })).toBeVisible();
     await expect(page.getByText('Plate: DEMO', { exact: true })).toBeVisible();
     await expect(page.getByText(/Driver location last reported at/)).toBeVisible();
+    // Stop the browser's fixed synthetic GPS from overwriting the moving samples below.
+    await driver.route('**/v1/drivers/me/heartbeat', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ accepted: true }),
+      }),
+    );
+    async function verifyMovingLocation(latitude: number, longitude: number) {
+      const headers = { Authorization: 'Bearer synthetic-driver' };
+      const profileResponse = await request.get('http://localhost:4085/v1/drivers/me', { headers });
+      const profile = await profileResponse.json();
+      const sample = {
+        coordinate: { latitude, longitude },
+        sampledAt: new Date().toISOString(),
+        accuracyMeters: 5,
+        sequence: profile.locationSequence + 1,
+      };
+      const uploaded = await request.post('http://localhost:4085/v1/drivers/me/heartbeat', {
+        headers,
+        data: sample,
+      });
+      expect(uploaded.ok()).toBe(true);
+      const update = page.waitForResponse(
+        async (response) =>
+          response.url() === locationUrl &&
+          response.ok() &&
+          (await response.json()).location?.coordinate.latitude === latitude,
+      );
+      await page.bringToFront();
+      await update;
+      await expect(page.getByText(/Driver location last reported at/)).toBeVisible();
+    }
+
     // A location read failure must remove the previously visible report.
     await page.route(locationUrl, (route) => route.abort('failed'));
     await expect(
@@ -193,6 +227,8 @@ test('rider request reaches the driver and both apps follow a completed syntheti
     });
     for (const action of ['Head to pickup', 'I’ve arrived', 'Start trip', 'Complete trip']) {
       if (action === 'I’ve arrived') {
+        await verifyMovingLocation(35.785, -78.642);
+        await driver.bringToFront();
         await expect(driver.getByText('Alex Rider', { exact: true })).toBeVisible();
         await expect(driver.getByText('Home · synthetic pickup', { exact: true })).toBeVisible();
         await driver.screenshot({ path: '/tmp/rove-active-pickup-web.png', fullPage: true });
@@ -203,6 +239,7 @@ test('rider request reaches the driver and both apps follow a completed syntheti
         await driver.screenshot({ path: '/tmp/rove-active-dropoff-web.png', fullPage: true });
         await page.bringToFront();
         await expect(page.getByText('Ride · now', { exact: true })).toBeVisible();
+        await verifyMovingLocation(35.81, -78.635);
         await page.screenshot({ path: test.info().outputPath('rider-tracking.png'), fullPage: true });
         await driver.bringToFront();
       }

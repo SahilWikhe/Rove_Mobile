@@ -1,5 +1,5 @@
 import { darkMapStyle } from './map-style';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Button, Card, Copy } from './index';
@@ -11,6 +11,7 @@ export function TripMap({
   iosEnabled,
   synthetic,
   driver,
+  followDriver = false,
   fill = false,
   topInset = 0,
   floating = false,
@@ -18,8 +19,17 @@ export function TripMap({
 }: TripMapProps) {
   const map = useRef<MapView>(null);
   const [ready, setReady] = useState(false);
+  const [following, setFollowing] = useState(followDriver);
+  const latitude = driver?.coordinate.latitude;
+  const longitude = driver?.coordinate.longitude;
+  useEffect(() => {
+    if (ready && followDriver && following && latitude !== undefined && longitude !== undefined) {
+      map.current?.setCamera({ center: { latitude, longitude }, zoom: 15 });
+    }
+  }, [ready, followDriver, following, latitude, longitude]);
   const initialTilesLoaded = useRef(false);
   const showFullTrip = () => {
+    setFollowing(false);
     map.current?.fitToCoordinates([pickup, destination, ...(driver ? [driver.coordinate] : [])], {
       edgePadding: { top: 56 + topInset, right: 48, bottom: 56, left: 48 },
       animated: false,
@@ -46,16 +56,19 @@ export function TripMap({
           ref={map}
           onMapReady={() => {
             setReady(true);
-            showFullTrip();
+            if (!followDriver || !driver) showFullTrip();
+            if (followDriver) setFollowing(true);
           }}
           onMapLoaded={() => {
             // Google can report ready before its initial camera/tiles settle.
             // Fit once after loading, without snapping back after user gestures.
             if (!initialTilesLoaded.current) {
               initialTilesLoaded.current = true;
-              showFullTrip();
+              if (!followDriver || !driver) showFullTrip();
+              if (followDriver) setFollowing(true);
             }
           }}
+          onPanDrag={() => setFollowing(false)}
           provider={applePreview ? undefined : PROVIDER_GOOGLE}
           style={StyleSheet.absoluteFill}
           initialRegion={region}
@@ -77,7 +90,12 @@ export function TripMap({
           <Marker coordinate={pickup} title="Pickup" pinColor="#D6B26D" />
           <Marker coordinate={destination} title="Destination" pinColor="#F4F0E8" />
           {driver && (
-            <Marker coordinate={driver.coordinate} title="Driver last reported location" pinColor="#68B5FA" />
+            <Marker
+              coordinate={driver.coordinate}
+              title="Driver last reported location"
+              pinColor="#68B5FA"
+              zIndex={10}
+            />
           )}
         </MapView>
       </View>
@@ -94,6 +112,14 @@ export function TripMap({
       ) : (
         <>
           <Button title="Show full trip" variant="secondary" disabled={!ready} onPress={showFullTrip} />
+          {followDriver && driver && (
+            <Button
+              title={following ? 'Following driver' : 'Follow driver'}
+              variant="secondary"
+              disabled={!ready || following}
+              onPress={() => setFollowing(true)}
+            />
+          )}
           <Copy kind="muted">
             {synthetic ? 'Synthetic route endpoints. ' : ''}
             {driver
