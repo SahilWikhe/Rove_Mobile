@@ -23,7 +23,7 @@ export default function Book() {
 }
 function BookingForm({ fromRide, savedKind }: { fromRide?: string; savedKind?: SavedPlaceKind }) {
   const { api, profile, synthetic } = useSession();
-  const { pending, restoring, recoveryError, execute } = useOperations();
+  const { pending, restoring, recoveryError, execute, refresh } = useOperations();
   const [service, setService] = useState<Quote['service']>('standard');
   const [pickup, setPickup] = useState<Place | null>(null);
   const [destination, setDestination] = useState<Place | null>(null);
@@ -175,7 +175,13 @@ function BookingForm({ fromRide, savedKind }: { fromRide?: string; savedKind?: S
   if (recoveryError)
     return (
       <Screen>
+        <Stack.Screen options={{ title: 'Recover your request' }} />
+        <Copy kind="title">Check your previous request</Copy>
+        <Copy>We need to read your saved request before you can book another ride.</Copy>
         <Banner error message={recoveryError} />
+        <Button title="Retry reading request" loading={loading} onPress={() => void perform(refresh)} />
+        <Button title="Contact support" variant="secondary" onPress={() => router.push('/support')} />
+        <Button title="Back home" variant="secondary" onPress={() => router.replace('/')} />
       </Screen>
     );
   if (pending)

@@ -1,6 +1,12 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `cfacf1309c269bb72272e5f0d4661b34f2bb35dd` plus the documentation and Android launch checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `33ce18dde8ad1ada75a9a1a10f34b119cb437732` plus the booking recovery checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Rider booking storage recovery — September 12
+
+Reviewed the actual rider Figma `4:20` design context and existing route-entry components. The normal header/route/place-result hierarchy already follows that frame with approved consumer and scheduling deviations. Fixed a recovery gap: unreadable saved-operation storage previously left booking on an error-only screen. It now offers read-only retry, support and home navigation using the shared gold/secondary controls. A still-unreadable journal blocks new booking; a recovered saved operation requires explicit confirmation and is never submitted by retry.
+
+Both targeted synthetic browser cases passed: recovery to an empty booking form and recovery to an existing operation without a booking POST. Repeated read failure remained blocked. The final 390×844 recovery screenshot was inspected. Workspace/E2E typechecks, changed-source lint and import boundaries passed. Both apps’ iOS/Android/web exports and documentation checks passed. This is browser evidence, not physical keychain failure acceptance or complete Figma parity. No provider calls or production setup changed. Next: remaining rider UI/device acceptance and the release requirements below.
 
 ## Documentation reconciliation and Android launch smoke — September 12
 
