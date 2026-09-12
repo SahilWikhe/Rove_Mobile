@@ -368,3 +368,7 @@ repository suite. Physical-device locked-screen GPS testing remains a release re
 Rider Figma `6:107` was retrieved on September 12, 2026. The completed-ride view now uses its centered 64-point outlined gold check badge, 22-point heading and destination label, followed by the existing recorded route and fare cards. The exact exported check asset is committed. Completion is shown only for the server's completed state; paid, review-required and updating payment states use distinct copy. The app does not invent trip duration, a driver identity after its visibility window, a covered fare, a return booking, rating or tip controls.
 
 Completed/ended rides link to trip support and receipts link to payment support. The support screen verifies the requested ride with the account-authorized API before attaching its reference and selecting a category. It never submits a request automatically. A failed or unauthorized ride lookup offers retry or general support without attaching the unverified reference. The user's description remains required, and the reference plus description fit the existing request size limit.
+
+### Driver trip support consistency
+
+Driver trip details now include the existing outlined secondary Get help with this trip action. Both apps reuse the same verified-context support form and shared dark surfaces, typography and gold actions. The form requires the user's description and does not represent intake as a refund, trip change or staffed response.

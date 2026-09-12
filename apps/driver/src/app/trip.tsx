@@ -191,6 +191,14 @@ function TripContent({ id }: { id: string }) {
             disabled={busy || !!readError || !!pending || restoring || !!recoveryError}
           />
           {ride.state === 'completed' && <TripEarningsSummary key={ride.id} rideId={ride.id} />}
+          <Button
+            title="Get help with this trip"
+            variant="secondary"
+            disabled={busy || !!readError}
+            onPress={() =>
+              router.push({ pathname: '/support', params: { rideId: ride.id, category: 'trip' } })
+            }
+          />
           {!action && (
             <Button
               title="Back to driving"

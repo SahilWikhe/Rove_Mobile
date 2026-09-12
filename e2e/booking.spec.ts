@@ -307,6 +307,32 @@ test('rider request reaches the driver and both apps follow a completed syntheti
     await expect(driver.getByRole('button', { name: 'Back to driving', exact: true })).toBeVisible();
     await expect(driver.getByText('TRIP MAP', { exact: true })).toHaveCount(0);
     await expect(driver.getByRole('button', { name: /Directions to/ })).toHaveCount(0);
+    await driver.getByRole('button', { name: 'Get help with this trip', exact: true }).click();
+    await expect(driver.getByText(`Ride reference: ${id}`, { exact: true })).toBeVisible();
+    await expect(
+      driver.getByRole('textbox', { name: 'What do you need help with?', exact: true }),
+    ).toHaveValue('');
+    await expect(driver.getByRole('button', { name: 'Send support request', exact: true })).toBeDisabled();
+    await driver
+      .getByRole('textbox', { name: 'What do you need help with?', exact: true })
+      .fill('Please review my recorded trip earnings.');
+    await driver.getByRole('button', { name: 'Send support request', exact: true }).click();
+    await expect(driver.getByText('Request saved. Reference:', { exact: false })).toBeVisible();
+    const driverRequests = await request.get('http://localhost:4085/v1/support-requests', {
+      headers: { Authorization: 'Bearer synthetic-driver' },
+    });
+    expect(driverRequests.status()).toBe(200);
+    expect((await driverRequests.json()).requests).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: 'trip',
+          message: `Ride reference: ${id} · Please review my recorded trip earnings.`,
+        }),
+      ]),
+    );
+    await driver.goBack();
+    await expect(driver.getByRole('button', { name: 'Back to driving', exact: true })).toBeVisible();
+
     await page.bringToFront();
     await expect(page.getByText('You’ve arrived.', { exact: true })).toBeVisible();
     await expect(page.getByText('YOUR DRIVER', { exact: true })).toHaveCount(0);

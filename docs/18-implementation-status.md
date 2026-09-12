@@ -2,6 +2,14 @@
 
 Updated: September 12, 2026. Current source baseline: `31f7e42199448b4686be82a3e9738947752b324d`. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Driver trip support — September 12
+
+Driver trip details now offer Get help with this trip during active or ended work. Both apps share the same support-context component: it reads the requested trip through the signed-in account's API, attaches only a matching verified reference, requires a user-written description and offers general support when verification fails. Account/route-keyed mounts and aborted obsolete reads prevent a late result from changing another account's form. This does not submit automatically, alter a ride or move money.
+
+Verification: the full synthetic browser booking/completion journey passed in 50.4 seconds, including a driver request persisted with the exact trip reference/category and the existing rider support, denied-read recovery, receipt and rebooking assertions. All eight workspace typechecks plus E2E types, lint, import boundaries and both apps' iOS/Android/web exports passed. No new native dependency was added. Physical-device acceptance and the remaining release work below are unchanged.
+
+The preceding documentation commit `40c82cdc3d9ae55be152bce2477a65996c3e4e39` passed every required CI job, including all four native debug/release builds, in [run 34682282758](https://github.com/SahilWikhe/Rove_Mobile/actions/runs/34682282758). That CI result predates this support change; it is not evidence that this new commit's CI has already passed.
+
 ## Current checkpoint
 
 Both mobile apps and the shared backend support the core synthetic ride journey. Hosted provider staging exists. The product is not ready for public launch; a local test, native compile, hosted provider check and physical-device journey establish different things.

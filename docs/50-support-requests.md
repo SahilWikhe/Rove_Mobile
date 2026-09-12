@@ -51,3 +51,9 @@ The response includes a nullable `nextCursor` with `afterCreatedAt` and `afterId
 Migration `0018_support_queue.sql` adds the status/creation-time/ID index. The query reads 51 rows to determine whether another page exists and returns 50. Every successful queue read writes an audit event with filter and returned count; the audit does not copy customer messages. Invalid, incomplete or unsupported query fields are rejected. Queue results are live, not a historical snapshot: refresh the first page for new work or state changes.
 
 Tests use 55 synthetic records with tied and sub-millisecond timestamps and resolve the cursor row between pages. They verify no missing/duplicated IDs, separate resolved filtering, omitted private fields, audit records, denied requests without permission or MFA, disabled staff and invalid query rejection. API checks verify no-store responses and pagination validation. No staff dashboard UI or production permissions were created.
+
+## Trip context in both mobile apps
+
+Rider trip/receipt help and driver trip help use the shared `TripSupportForm`. It verifies the trip through the current authenticated API before attaching a reference and selecting Trip or Payment. Description starts empty and remains required; the combined reference and description fit the server's existing message limit. A failed, malformed or inaccessible trip reference cannot enter the form; retry or general support remains available. Opening help neither submits a request nor changes the trip/payment.
+
+The complete synthetic booking journey verifies the driver's persisted Trip request and rider contextual support plus denied-read fallback. This is browser/API evidence; it does not establish staffed response or a physical-device accessibility pass.
