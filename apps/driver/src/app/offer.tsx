@@ -15,7 +15,7 @@ export default function Offer() {
 }
 function OfferContent({ id }: { id: string }) {
   const { api, synthetic } = useSession();
-  const { pending, restoring, recoveryError, execute } = useOperations();
+  const { pending, restoring, recoveryError, execute, refresh } = useOperations();
   const epoch = useRef(0);
   const sending = useRef(false);
   const trackingError = useTrackingError();
@@ -75,12 +75,31 @@ function OfferContent({ id }: { id: string }) {
       if (generation === epoch.current) setBusy(false);
     }
   }
+  async function retrySavedRequest() {
+    if (sending.current) return;
+    sending.current = true;
+    const generation = epoch.current;
+    setBusy(true);
+    try {
+      await refresh();
+    } finally {
+      sending.current = false;
+      if (generation === epoch.current) setBusy(false);
+    }
+  }
   if (restoring || recoveryError || pending)
     return (
       <Screen>
         <Stack.Screen options={{ title: 'Confirm previous request' }} />
         {recoveryError ? (
-          <Banner error message={recoveryError} />
+          <>
+            <Copy kind="heading">Check your previous request</Copy>
+            <Copy>We could not read your saved request. Retry before accepting or declining a ride.</Copy>
+            <Banner error message={recoveryError} />
+            <Button title="Retry reading request" loading={busy} onPress={() => void retrySavedRequest()} />
+            <Button title="Contact support" variant="secondary" onPress={() => router.push('/support')} />
+            <Button title="Back to driving" variant="secondary" onPress={() => router.replace('/drive')} />
+          </>
         ) : restoring ? (
           <Copy>Checking previous requests…</Copy>
         ) : (

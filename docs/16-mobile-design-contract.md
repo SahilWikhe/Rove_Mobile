@@ -383,3 +383,7 @@ The signed-out recovery layout was visually inspected on the Android emulator wi
 ## Booking storage recovery
 
 Reviewed rider Figma `4:20` design context on September 12: the existing booking header, route card and place-result hierarchy follow the reference, subject to the approved consumer/scheduling overrides above. This is a review of that frame, not full rider parity. When the saved-operation journal cannot be read, booking now offers Retry reading request, Contact support and Back home using shared controls. Retry only reads storage: an existing operation still requires explicit confirmation, and unreadable storage continues to block new booking. This fills the contract's failure/recovery requirement without adding a second booking or clearing an uncertain request.
+
+## Driver offer storage recovery
+
+The offer failure state now uses the same gold retry and secondary support/back controls as rider booking recovery. An unreadable journal blocks responses; retry reads storage only, and a saved acceptance requires explicit result confirmation. This implements the existing recovery-state extension without changing the normal offer layout or pre-acceptance privacy boundary. The 390×844 browser screenshot was inspected and recovery/expiry scenarios passed; physical-device acceptance remains open.

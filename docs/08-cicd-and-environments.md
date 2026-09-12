@@ -90,3 +90,7 @@ The root package supplies `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm test
 ## Feature flag release controls
 
 Default scheduling flags off in each environment. Core CI uses deterministic fake evaluation and tests the full prerequisite matrix; trusted staging validates the Vercel/Hono adapter. Record flag changes separately from code deployments, limit management access and review impact before enabling cohorts. Never copy production targeting or provider keys into untrusted previews. Already accepted scheduling commitments survive flag rollback and normal API compatibility rules apply to older apps. See [flag plan](17-scheduling-feature-flags.md).
+
+## Hosted runner billing prerequisite — September 12
+
+CI run `34708488268` at `ad16b3c` failed before any job started. GitHub reports failed recent account payments or a spending limit requiring attention in account Billing & plans. The owner must resolve the reported account condition before rerunning CI for the intended candidate. This is separate from the private-repository CodeQL entitlement prerequisite; neither is bypassed by local tests or a successful Git push.

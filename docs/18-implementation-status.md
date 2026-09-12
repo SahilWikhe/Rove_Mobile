@@ -1,6 +1,14 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `33ce18dde8ad1ada75a9a1a10f34b119cb437732` plus the booking recovery checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `ad16b3c354f687cbc56704ae96addd9260b9ae3b` plus the driver offer recovery checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Driver offer storage recovery — September 12
+
+Driver offer storage failures now provide Retry reading request, Contact support and Back to driving using existing shared controls. Retry only reloads the journal. Accept/decline stay unavailable while it cannot be read, and a recovered saved acceptance still requires explicit Check acceptance result. No operation is discarded or automatically replayed.
+
+Three focused browser cases passed: repeated failure and empty-journal recovery, saved-acceptance recovery with no mutation, and existing offer layout/expiry behavior. The recovery screenshot was inspected at 390×844. Workspace/E2E typechecks, changed-source lint, package boundaries and driver iOS/Android/web exports passed. These do not establish native SecureStore failure acceptance or full Figma parity. Next: remaining trip recovery and cross-platform UI/device acceptance.
+
+Remote main was verified at `ad16b3c`. Its CI run `34708488268` completed without starting any jobs: GitHub's annotation reports failed account payments or a spending limit requiring attention in Billing & plans. Resolve that account prerequisite and rerun exact-source checks; local passes do not replace hosted CI. Earlier run `34707309751` ultimately cancelled, superseding its partial in-progress observation below. CodeQL entitlement remains a separate prerequisite. No cloud configuration or paid provider requests were changed in this checkpoint.
 
 ## Rider booking storage recovery — September 12
 
