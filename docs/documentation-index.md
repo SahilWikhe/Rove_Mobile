@@ -106,3 +106,5 @@ Secrets, ignored environment files, temporary test outputs and generated depende
 [Dispute verification, accounting and staff review](69-disputes.md) covers signed events, current-provider observations, financial journals, staff queue, refund holds and setup/acceptance requirements.
 
 For audited refund/dispute responsibility decisions, see [payment loss allocation](70-payment-loss-allocation.md).
+
+For the unactivated Stripe transfer adapter and required settlement orchestration, see [driver transfer provider boundary](71-driver-transfer-provider.md).

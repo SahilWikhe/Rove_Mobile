@@ -68,3 +68,10 @@ export { RefundOperations } from './refund-operations';
 export { DisputeReconciler, type DisputeProvider } from './disputes';
 
 export { PaymentLosses } from './payment-losses';
+
+export { StripeDriverTransfers } from './stripe-driver-transfers';
+export type {
+  DriverTransferProvider,
+  DriverTransferReference,
+  DriverTransferSnapshot,
+} from './driver-transfer-provider';

@@ -1,6 +1,12 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `c685ec63bdd50d758b806020b309de0a9596b7cb` plus the driver net-earnings checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `0abe8371e0df4624ac802ca2680ce46416ea22ea` plus the driver-transfer provider checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Driver transfer provider boundary — September 12
+
+Added a server-only Stripe transfer adapter for verified captured-fare funding, Accounts v2 recipient readiness, deterministic operation correlation, bounded same-key retries and read-only lost-response recovery. It validates actual transfer/reversal balance movements and rejects ambiguous, incomplete or mismatched histories. New mutations stop after 23 hours from the persisted first attempt; recovery remains available. Automatic destination/on-behalf-of payment models are rejected to avoid mixing money flows.
+
+Twelve focused mocked-transport tests and all eleven local application test tasks passed, including 467 server tests. Workspace/E2E types, source lint excluding generated reports, import boundaries, formatting, documentation checks and packaged API build/health/authentication checks passed. This checkpoint has no mobile/native changes; no new device acceptance is claimed. No real provider request, hosted migration or runtime activation occurred. The adapter is not yet connected to an endpoint/worker: durable driver reservations, authorization, refund/dispute holds, transfer journals and settlement reconciliation remain the next concrete task. This is not a completed driver payout feature or bank-payout proof. Commercial policy and paid setup remain final handoff decisions; GitHub billing/CI recovery is deferred by the user while local development continues. See [provider boundary and remaining orchestration](71-driver-transfer-provider.md).
 
 ## Driver gross, adjustments and net earnings — September 12
 
