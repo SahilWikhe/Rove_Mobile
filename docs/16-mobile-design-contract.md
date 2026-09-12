@@ -263,3 +263,11 @@ separate and displays recorded payment values. Browser lifecycle checks verify r
 from cancellation and completion without automatically submitting another ride. iOS and
 Android cold-launch checks verify the header/route card and the correction of a stray text
 node in the shared native map caption.
+
+The rider tracking contact action is grouped inside the assigned-driver card, with the committed
+Pickup/Ride/Arrive stage indicator below the card as in `6:20`. Message driver opens the existing
+authorized conversation instead of rendering the reference's unsupported telephone action.
+The contact component is keyed by ride so pending lookup state cannot transfer between trips.
+The 320-pixel browser contact layout and two-way persisted messaging flow passed, along with
+the completed-trip lifecycle and identity removal. This latest card grouping has not yet had
+a separate native-device visual verification.

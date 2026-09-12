@@ -133,8 +133,7 @@ export default function Ride() {
               : titles[ride.state]}
           </Copy>
           <RiderTripMap key={ride.id} ride={ride} />
-          <DriverSummary ride={ride} />
-          {ride.driver && <OpenConversation rideId={ride.id} />}
+          <DriverSummary ride={ride} contact={<OpenConversation key={ride.id} rideId={ride.id} />} />
           {ended ? (
             <RideRecordRoute ride={ride} />
           ) : (

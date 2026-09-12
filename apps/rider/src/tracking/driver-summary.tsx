@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import type { RideDetails } from '@rove/contracts';
 import { Card, Copy, theme } from '@rove/mobile-ui';
@@ -12,30 +13,33 @@ const status = {
 } as const;
 
 /** Rider Figma 6:70. Stages come from committed state, never an invented percentage. */
-export function DriverSummary({ ride }: { ride: RideDetails }) {
+export function DriverSummary({ ride, contact }: { ride: RideDetails; contact?: ReactNode }) {
   const caption = status[ride.state as keyof typeof status];
   if (!caption || !ride.driver) return null;
   const onboard = ride.state === 'in_progress';
   return (
-    <Card style={styles.card}>
-      <View style={styles.identity}>
-        <Image source={avatar} style={styles.avatar} accessible={false} />
-        <View style={styles.details}>
-          <Copy kind="label">YOUR DRIVER</Copy>
-          <Copy style={styles.name}>{ride.driver.name}</Copy>
-          <Copy style={styles.caption}>{caption}</Copy>
-          {ride.driver.vehicle ? (
-            <>
-              <Copy style={styles.caption}>
-                {ride.driver.vehicle.color} · {ride.driver.vehicle.make} {ride.driver.vehicle.model}
-              </Copy>
-              <Copy style={styles.plate}>Plate: {ride.driver.vehicle.plate}</Copy>
-            </>
-          ) : (
-            <Copy style={styles.caption}>Vehicle details unavailable.</Copy>
-          )}
+    <>
+      <Card style={styles.card}>
+        <View style={styles.identity}>
+          <Image source={avatar} style={styles.avatar} accessible={false} />
+          <View style={styles.details}>
+            <Copy kind="label">YOUR DRIVER</Copy>
+            <Copy style={styles.name}>{ride.driver.name}</Copy>
+            <Copy style={styles.caption}>{caption}</Copy>
+            {ride.driver.vehicle ? (
+              <>
+                <Copy style={styles.caption}>
+                  {ride.driver.vehicle.color} · {ride.driver.vehicle.make} {ride.driver.vehicle.model}
+                </Copy>
+                <Copy style={styles.plate}>Plate: {ride.driver.vehicle.plate}</Copy>
+              </>
+            ) : (
+              <Copy style={styles.caption}>Vehicle details unavailable.</Copy>
+            )}
+          </View>
         </View>
-      </View>
+        {contact}
+      </Card>
       {ride.state !== 'interrupted' && (
         <View style={styles.stages} accessibilityLabel={`Trip stage: ${onboard ? 'Ride' : 'Pickup'}`}>
           {['Pickup', 'Ride', 'Arrive'].map((label, index) => {
@@ -53,7 +57,7 @@ export function DriverSummary({ ride }: { ride: RideDetails }) {
           })}
         </View>
       )}
-    </Card>
+    </>
   );
 }
 const styles = StyleSheet.create({
@@ -64,7 +68,7 @@ const styles = StyleSheet.create({
   name: { fontFamily: 'Manrope_700Bold', fontSize: 14, lineHeight: 21 },
   plate: { fontFamily: 'Manrope_700Bold', fontSize: 14, lineHeight: 21, color: theme.gold },
   caption: { color: theme.muted, fontSize: 12, lineHeight: 18 },
-  stages: { flexDirection: 'row', gap: 8, paddingTop: 12, borderTopWidth: 1, borderColor: theme.border },
+  stages: { flexDirection: 'row', gap: 8, paddingHorizontal: 4 },
   stage: { flex: 1, minWidth: 0, gap: 8 },
   line: { height: 3, borderRadius: 999, backgroundColor: theme.border },
   reached: { backgroundColor: theme.gold },
