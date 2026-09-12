@@ -820,3 +820,12 @@ test('messaging HTTP validates input, scopes conversations and acknowledges only
   expect((await request(path + '/report', { reason: 'spam' }, 'driver')).status).toBe(200);
   expect((await request(path + '/messages', { text: 'blocked', requestId: randomUUID() })).status).toBe(409);
 });
+
+test('driver activity requires authenticated driver access and returns only aggregate fields', async () => {
+  expect((await app.request('/v1/drivers/me/activity')).status).toBe(401);
+  expect((await request('/v1/drivers/me/activity')).status).toBe(403);
+  await request('/v1/me', { name: 'Synthetic driver', role: 'driver' }, 'driver');
+  const result = await request('/v1/drivers/me/activity', undefined, 'driver');
+  expect(result.status).toBe(200);
+  expect(await result.json()).toEqual({ completedTrips: 0, acceptedOffers: 0, joinedAt: expect.any(String) });
+});

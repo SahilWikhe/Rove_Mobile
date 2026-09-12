@@ -1,3 +1,4 @@
+import { ActivityCards } from '../account/activity-cards';
 import { useAccountDetails } from '../account/use-account-details';
 import avatar from '../../assets/account/avatar.png';
 import { DriverNavigation } from '../navigation/driver-navigation';
@@ -42,6 +43,8 @@ export default function Account() {
   }
   return (
     <Screen
+      onRefresh={profile && !busy ? details.refresh : undefined}
+      refreshing={details.refreshing}
       floatingFooter
       contentStyle={accountContent}
       footer={profile ? <DriverNavigation active="/account" disabled={busy} /> : undefined}
@@ -51,6 +54,13 @@ export default function Account() {
       {profile ? (
         <>
           <AccountProfile name={profile.name} subtitle="Rove driver" avatar={avatar} />
+          {details.activity ? (
+            <ActivityCards activity={details.activity} />
+          ) : (
+            <Copy kind="muted">
+              {details.refreshing ? 'Loading activity…' : 'Activity unavailable. Pull down to try again.'}
+            </Copy>
+          )}
           <View style={{ paddingTop: 6 }}>
             <AccountRow
               icon={chevron}

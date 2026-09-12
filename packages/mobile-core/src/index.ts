@@ -50,6 +50,7 @@ import {
   Place,
   Capabilities,
   DriverProfile,
+  DriverActivity,
   DriverOffer,
   type Coordinate,
   type Heartbeat,
@@ -399,6 +400,9 @@ export class ApiClient {
   }
   driverPayoutLink() {
     return this.request('/v1/drivers/me/payout-setup', DriverPayoutLink, { method: 'POST', body: {} });
+  }
+  driverActivity(signal?: AbortSignal) {
+    return this.request('/v1/drivers/me/activity', DriverActivity, signal ? { signal } : {});
   }
   driverProfile(signal?: AbortSignal) {
     return this.request('/v1/drivers/me', DriverProfile, signal ? { signal } : {});

@@ -1,0 +1,2 @@
+CREATE INDEX "accepted_offers_by_driver" ON "offers" USING btree ("driver_id") WHERE "offers"."status" = 'accepted';--> statement-breakpoint
+CREATE INDEX "completed_rides_by_driver" ON "rides" USING btree ("driver_id") WHERE "rides"."state" = 'completed';

@@ -411,3 +411,9 @@ The rider receipt uses the existing Manrope, dark cards, gold amount typography 
 ## Driver earnings adjustments — September 12
 
 The existing gold/charcoal earnings cards now distinguish gross trip earnings, signed adjustments and net earnings. Activity rows label refund/dispute deductions and reversals; date filters apply to the recorded date of each event. Daily charts remain gross and say so. Home metrics and completed-trip totals use net earnings when supplied. Older-server responses remain explicitly gross-only, with unavailable adjustment detail explained. No available-withdrawal or bank-payment claim is added. This extends the approved transparent-compensation requirement; it does not claim new Figma extraction or full screen parity. See [financial allocation and driver display](70-payment-loss-allocation.md).
+
+## Driver account activity review — September 12
+
+Driver Account `4:106` was reviewed through Figma design context. The profile, account rows and new three-card activity row reuse the existing shared surfaces, avatar, typography and user-approved floating navigation. Activity cards use 14px padding, 16px corners, 18px bold values and wrapping 10px labels; they may wrap into additional rows for accessibility instead of clipping fixed Figma widths.
+
+The implementation shows factual completed-trip and accepted-offer totals plus registration month. The mockup's rating and percentage metrics are not populated with example values or presented as verified performance. Rating support and acceptance/completion metric definitions remain unresolved; this checkpoint is not full account-frame parity. Counts include retained records only, are independent of payout settlement, and refresh on screen focus or pull-down. Loading/failure states never fabricate zero totals.

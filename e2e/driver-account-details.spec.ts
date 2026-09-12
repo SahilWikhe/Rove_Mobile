@@ -4,6 +4,14 @@ test('Account shows current vehicle and review details and refreshes on return',
   page,
 }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
+  let activityUnavailable = false;
+  await page.route('**/v1/drivers/me/activity', (route) =>
+    activityUnavailable
+      ? route.abort()
+      : route.fulfill({
+          json: { completedTrips: 1240, acceptedOffers: 1300, joinedAt: '2025-01-15T00:00:00Z' },
+        }),
+  );
   let payout = 'needs_information';
   let vehicleUnavailable = false;
   await page.route('**/v1/drivers/me/vehicle-submission', async (route) => {
@@ -51,14 +59,23 @@ test('Account shows current vehicle and review details and refreshes on return',
   const vehicle = page.getByRole('button', { name: 'Vehicle & review status', exact: true });
   const documents = page.getByRole('button', { name: 'Documents & credentials', exact: true });
   const payouts = page.getByRole('button', { name: 'Payout setup', exact: true });
+  await expect(page.getByText('TRIPS COMPLETED', { exact: true })).toBeVisible();
+  await expect(page.getByText('1,240', { exact: true })).toBeVisible();
+  await expect(page.getByText('1,300', { exact: true })).toBeVisible();
+  await expect(page.getByText('Jan 2025', { exact: true })).toBeVisible();
   await expect(vehicle).toContainText('Toyota Sienna · TEST123');
   await expect(documents).toContainText('1 needs attention');
   await expect(payouts).toContainText('Action needed');
   await page.screenshot({ path: testInfo.outputPath('driver-account-details.png'), fullPage: true });
   await page.getByRole('button', { name: 'Edit profile', exact: true }).click();
+  activityUnavailable = true;
   vehicleUnavailable = true;
   payout = 'ready';
   await page.goBack();
+  await expect(
+    page.getByText('Activity unavailable. Pull down to try again.', { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText('1,240', { exact: true })).toHaveCount(0);
   await expect(vehicle).toContainText('Unable to load');
   await expect(vehicle).not.toContainText('Toyota');
   await expect(payouts).toContainText('Details ready');

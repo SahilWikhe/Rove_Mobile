@@ -628,6 +628,7 @@ export function createApp(deps: Dependencies) {
       ),
     ),
   );
+  app.get('/v1/drivers/me/activity', async (c) => c.json(await drivers.activity(c.var.actor)));
   app.get('/v1/drivers/me', async (c) => c.json(await drivers.profile(c.var.actor)));
   app.put('/v1/drivers/me/coverage', async (c) => {
     const input = await body(c, DriverCoverage);

@@ -1,6 +1,16 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `43bd17ac812d3ae052d7e7daeb427ae04711fc1b` plus the native smoke diagnostics checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `a6991735ab3b536367abf6ee5036e1d6adcdbfd5` plus the driver account activity checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Driver account activity and refresh — September 12
+
+Reviewed driver Figma Account `4:106` and added the missing activity-card composition using shared dark surfaces and Manrope. Cards show recorded completed trips, accepted offers and registration month. These are factual totals, not the mockup's unimplemented rating or acceptance/completion percentages; those performance definitions remain unresolved. Account status now supports pull-to-refresh, cancels obsolete reads on focus/session changes, and removes prior activity values when refresh fails.
+
+Added authenticated driver-only `GET /v1/drivers/me/activity`, strict shared/client contracts and a single-snapshot aggregate query scoped to the active driver. No rider identities, endpoints or other drivers' values are returned. Migration 0045 adds partial driver indexes for completed rides and accepted offers; no hosted migration was run. Deploy the API before the mobile screen; older APIs produce an honest unavailable state.
+
+All eleven local application test tasks passed, including the new database totals/isolation/access tests and authenticated HTTP check. Three driver browser journeys passed, covering activity display, stale-value removal, account navigation and existing online controls. The 390px screenshot was visually inspected with readable, unclipped cards. Final focused database tests passed with migration 0045; workspace/E2E types, changed-source lint and packaged API build/authentication verification passed. This is synthetic local/browser evidence, not physical-device acceptance or full Figma parity.
+
+Hosted run 34722464477 completed: general checks and both Android jobs passed; both iOS jobs failed. Native diagnostics were added in the later baseline above, so their value requires a later run. Cleanup runtime approval remains pending, with no destructive connection or activation added. Next: remaining rider/driver journeys, native/provider acceptance, retained-data cleanup and final production/policy setup.
 
 ## Native smoke diagnostics and local reproduction — September 12
 

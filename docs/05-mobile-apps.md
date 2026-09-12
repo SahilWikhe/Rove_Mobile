@@ -84,3 +84,9 @@ Build and release mechanics are described in [CI/CD](08-cicd-and-environments.md
 ## Detailed screen contract
 
 The [mobile design contract](16-mobile-design-contract.md) is the frame-by-frame handoff for both supplied Figma files, shared visual components, approved copy/scope changes and proposed auth/payment/onboarding/error/start-trip screens. Follow its consumer-funded default and remove Pro subscription/100%-fare content. Scheduling UI and backend admission use [default-off scheduling flags](17-scheduling-feature-flags.md), including a capabilities response and grandfathered existing-work views. Scheduled service requirements do not permit sensitive pre-acceptance disclosure.
+
+## Driver account activity
+
+`GET /v1/drivers/me/activity` returns the authenticated driver's `completedTrips`, `acceptedOffers` and `joinedAt`. It rejects other roles and disabled/missing driver accounts. Counts use retained completed rides assigned to that driver and retained accepted offers, including accepted offers whose trip later cancelled; they are not ratings, response rates or payment totals. No subject, rider information or exact route is returned.
+
+Account loads this alongside vehicle/document/payout summaries and refreshes on focus or pull-down. Failed activity reads remove prior values and display an unavailable message. Registration month uses UTC. Deploy migration 0045 (partial aggregate indexes) and the API before the mobile release; an older API remains usable with activity unavailable. No hosted migration or physical-device acceptance is established by local tests.

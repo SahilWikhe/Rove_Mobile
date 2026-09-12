@@ -1,5 +1,5 @@
 import type { Pool } from 'pg';
-import { Coordinate, DriverOffer, DriverCoverage } from '@rove/contracts';
+import { Coordinate, DriverOffer, DriverCoverage, DriverActivity } from '@rove/contracts';
 import { DomainError } from './errors';
 import { command } from './transactions';
 import type { Actor } from './rides';
@@ -12,6 +12,25 @@ export class DriverService {
     private pool: Pool,
     private now: () => Date = () => new Date(),
   ) {}
+  async activity(actor: Actor) {
+    driverOnly(actor);
+    const row = (
+      await this.pool.query(
+        `SELECT u.created_at,
+         (SELECT count(*) FROM rides WHERE driver_id=d.id AND state='completed') AS completed,
+         (SELECT count(*) FROM offers WHERE driver_id=d.id AND status='accepted') AS accepted
+       FROM drivers d JOIN users u ON u.id=d.id
+       WHERE d.id=$1 AND NOT u.disabled`,
+        [actor.id],
+      )
+    ).rows[0];
+    if (!row) throw new DomainError('NOT_FOUND', 'Driver profile not found.', 404);
+    return DriverActivity.parse({
+      completedTrips: Number(row.completed),
+      acceptedOffers: Number(row.accepted),
+      joinedAt: row.created_at.toISOString(),
+    });
+  }
   async profile(actor: Actor) {
     driverOnly(actor);
     const row = (

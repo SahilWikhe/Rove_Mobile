@@ -91,6 +91,9 @@ export const rides = pgTable(
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
+    index('completed_rides_by_driver')
+      .on(t.driverId)
+      .where(sql`${t.state} = 'completed'`),
     check('positive_ride_money', sql`${t.fareCents} >= 0 and ${t.earningsCents} >= 0`),
     check('positive_ride_version', sql`${t.version} > 0`),
     uniqueIndex('one_active_ride_per_rider')
@@ -116,6 +119,9 @@ export const offers = pgTable(
     snapshot: jsonb().notNull(),
   },
   (t) => [
+    index('accepted_offers_by_driver')
+      .on(t.driverId)
+      .where(sql`${t.status} = 'accepted'`),
     check('valid_offer_status', sql`${t.status} in ('pending','accepted','declined','expired','revoked')`),
     uniqueIndex('one_pending_offer_per_ride')
       .on(t.rideId)
