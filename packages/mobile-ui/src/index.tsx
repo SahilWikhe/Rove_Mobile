@@ -1,6 +1,7 @@
 import { useState, type PropsWithChildren, type ReactNode } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -29,6 +30,14 @@ export const theme = {
   glassGoldBorder: 'rgba(239,223,179,0.24)',
   glassHighlight: 'rgba(255,255,255,0.2)',
 };
+// A low-contrast tint over the translucent gold base, without a glossy highlight band.
+const goldGradient =
+  'linear-gradient(160deg, rgba(244,226,179,0.18) 0%, rgba(207,185,125,0.04) 45%, rgba(149,118,53,0.16) 100%)';
+const goldGradientStyle = Platform.select({
+  web: { backgroundImage: goldGradient } as ViewStyle,
+  default: { experimental_backgroundImage: goldGradient } as ViewStyle,
+});
+
 export function Screen({
   children,
   scroll = true,
@@ -158,6 +167,7 @@ export function Button({
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
+        variant === 'gold' && goldGradientStyle,
         variant !== 'gold' && styles.secondary,
         variant === 'danger' && styles.dangerButton,
         style,

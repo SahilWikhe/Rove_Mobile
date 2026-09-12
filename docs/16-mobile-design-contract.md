@@ -277,3 +277,8 @@ instead of overriding it with the original gradient. Quote validity is displayed
 server expiry timestamp. Expiry changes the action to Review updated fare and preserves the
 route for a fresh quote; no refresh automatically creates a ride. Foreground return rechecks
 expiry, while the existing submit-time and server checks remain authoritative.
+
+The founder requested a subtle gold gradient after reviewing the flat confirmation button.
+Shared primary buttons now add a low-contrast diagonal gold tint over their translucent base
+on web, iOS and Android. Secondary and danger variants retain their existing fills. The effect
+uses no bright highlight band or additional raised shadow.
