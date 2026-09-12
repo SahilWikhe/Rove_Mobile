@@ -347,6 +347,35 @@ test('filtered earnings forwards the range and refuses an unfiltered older-serve
     api.earnings(undefined, undefined, { from: '2026-09-01', through: '2026-09-07' }),
   ).rejects.toMatchObject({ code: 'INCOMPATIBLE_RESPONSE' });
   expect(fetcher.mock.calls[0]?.[0]).toBe(
-    'https://api.example/v1/drivers/me/earnings?from=2026-09-01&through=2026-09-07',
+    'https://api.example/v1/drivers/me/earnings?details=adjustments&from=2026-09-01&through=2026-09-07',
   );
+});
+
+test('adjusted earnings reject incomplete or inconsistent totals instead of displaying false net amounts', async () => {
+  const base = {
+    recordedTotal: { amount: 790, currency: 'USD' },
+    adjustmentTotal: { amount: -200, currency: 'USD' },
+    netTotal: { amount: 590, currency: 'USD' },
+    entries: [],
+    hasMore: false,
+    nextCursor: null,
+    payoutStatus: 'not_configured',
+  };
+  for (const response of [
+    { ...base, netTotal: { amount: 790, currency: 'USD' } },
+    { ...base, adjustmentTotal: undefined },
+  ]) {
+    const api = new ApiClient(
+      'https://api.example',
+      async () => 'fixture',
+      async () => new Response(JSON.stringify(response)),
+    );
+    await expect(api.earnings()).rejects.toMatchObject({ code: 'INCOMPATIBLE_RESPONSE' });
+  }
+  const api = new ApiClient(
+    'https://api.example',
+    async () => 'fixture',
+    async () => new Response(JSON.stringify(base)),
+  );
+  await expect(api.earnings()).resolves.toEqual(base);
 });

@@ -231,15 +231,48 @@ export const RideReceipt = z
   .strict();
 export type RideReceipt = z.infer<typeof RideReceipt>;
 
+const EarningsValue = z
+  .object({
+    amount: z.number().int().min(-Number.MAX_SAFE_INTEGER).max(Number.MAX_SAFE_INTEGER),
+    currency: z.literal('USD'),
+  })
+  .strict();
 export const DriverTripEarnings = z
   .object({
     rideId: z.uuid(),
     estimatedAmount: Money,
+    adjustmentAmount: EarningsValue.optional(),
+    refundAdjustmentAmount: EarningsValue.optional(),
+    disputeAdjustmentAmount: EarningsValue.optional(),
+    netRecordedAmount: EarningsValue.nullable().optional(),
     recordedAmount: Money.nullable(),
     recordedAt: z.iso.datetime().nullable(),
     payoutStatus: z.literal('not_configured'),
   })
-  .strict();
+  .strict()
+  .refine((v) => {
+    const details = [
+      v.adjustmentAmount,
+      v.refundAdjustmentAmount,
+      v.disputeAdjustmentAmount,
+      v.netRecordedAmount,
+    ];
+    if (details.every((value) => value === undefined)) return true;
+    if (
+      !v.adjustmentAmount ||
+      !v.refundAdjustmentAmount ||
+      !v.disputeAdjustmentAmount ||
+      v.netRecordedAmount === undefined
+    )
+      return false;
+    return (
+      v.adjustmentAmount.amount === v.refundAdjustmentAmount.amount + v.disputeAdjustmentAmount.amount &&
+      (v.recordedAmount === null
+        ? v.netRecordedAmount === null
+        : v.netRecordedAmount !== null &&
+          v.netRecordedAmount.amount === v.recordedAmount.amount + v.adjustmentAmount.amount)
+    );
+  }, 'Earnings adjustment details are incomplete or inconsistent.');
 export type DriverTripEarnings = z.infer<typeof DriverTripEarnings>;
 
 export const EarningsDateRange = z
@@ -250,6 +283,10 @@ export type EarningsDateRange = z.infer<typeof EarningsDateRange>;
 
 export const DriverEarnings = z
   .object({
+    adjustmentTotal: EarningsValue.optional(),
+    netTotal: EarningsValue.optional(),
+    periodAdjustmentTotal: EarningsValue.optional(),
+    periodNetTotal: EarningsValue.optional(),
     recordedTotal: z
       .object({
         amount: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
@@ -273,14 +310,39 @@ export const DriverEarnings = z
       .optional(),
     entries: z
       .array(
-        z.object({ id: z.uuid(), rideId: z.uuid(), recordedAt: z.iso.datetime(), amount: Money }).strict(),
+        z
+          .object({
+            id: z.uuid(),
+            rideId: z.uuid(),
+            recordedAt: z.iso.datetime(),
+            amount: EarningsValue,
+            kind: z.enum(['allocation', 'refund_loss_allocation', 'dispute_loss_allocation']).optional(),
+          })
+          .strict(),
       )
       .max(50),
     hasMore: z.boolean(),
     nextCursor: z.uuid().nullable(),
     payoutStatus: z.literal('not_configured'),
   })
-  .strict();
+  .strict()
+  .refine((v) => {
+    const details = [v.adjustmentTotal, v.netTotal, v.periodAdjustmentTotal, v.periodNetTotal];
+    if (details.every((value) => value === undefined))
+      return v.entries.every((e) => e.kind === undefined && e.amount.amount >= 0);
+    if (
+      !v.adjustmentTotal ||
+      !v.netTotal ||
+      v.entries.some((e) => !e.kind || (e.kind === 'allocation' && e.amount.amount < 0))
+    )
+      return false;
+    if (v.netTotal.amount !== v.recordedTotal.amount + v.adjustmentTotal.amount) return false;
+    return v.periodTotal
+      ? !!v.periodAdjustmentTotal &&
+          !!v.periodNetTotal &&
+          v.periodNetTotal.amount === v.periodTotal.amount + v.periodAdjustmentTotal.amount
+      : !v.periodAdjustmentTotal && !v.periodNetTotal;
+  }, 'Earnings adjustment totals are incomplete or inconsistent.');
 export type DriverEarnings = z.infer<typeof DriverEarnings>;
 
 export const SavedPlaceKind = z.enum(['home', 'work']);

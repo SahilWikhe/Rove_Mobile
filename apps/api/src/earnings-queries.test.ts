@@ -264,3 +264,90 @@ test('daily totals include leap day and stop at the 31-day chart limit', async (
   expect(longer.periodTotal?.amount).toBe(250);
   expect(await read()).not.toHaveProperty('dailyTotals');
 });
+
+async function adjustment(
+  ride: string,
+  amount: number,
+  kind = 'refund_loss_allocation',
+  at = '2026-09-12T12:00:00Z',
+) {
+  return transaction(db.pool, async (c) => {
+    const id = randomUUID();
+    await c.query(
+      `INSERT INTO ledger_journals(id,key,fingerprint,attempt_id,ride_id,kind,created_at)
+      SELECT $1::uuid,$1::text,'fixture',id,ride_id,$3,$4 FROM payment_attempts WHERE ride_id=$2`,
+      [id, ride, kind, at],
+    );
+    await c.query(
+      `INSERT INTO ledger_postings(journal_id,account,owner_id,amount_cents)
+      SELECT $1,'driver_payable',driver_id,$3 FROM rides WHERE id=$2`,
+      [id, ride, -amount],
+    );
+    await c.query(
+      "INSERT INTO ledger_postings(journal_id,account,amount_cents) VALUES($1,'refund_suspense',$2)",
+      [id, amount],
+    );
+    return id;
+  });
+}
+test('adjusted history preserves gross, reports signed deductions/reversals and keeps older client shape', async () => {
+  const mine = await entry(),
+    theirs = await entry(other, 900);
+  await adjustment(mine, -200);
+  await adjustment(mine, 50);
+  await adjustment(mine, -100, 'dispute_loss_allocation');
+  await adjustment(theirs, -500);
+  await adjustment(mine, -40, 'driver_transfer');
+  const actor = { id: driver, role: 'driver' as const };
+  const latest = await getEarnings(db.pool, actor, undefined, undefined, true);
+  expect(latest.recordedTotal.amount).toBe(790);
+  expect(latest.adjustmentTotal?.amount).toBe(-250);
+  expect(latest.netTotal?.amount).toBe(540);
+  expect(latest.entries).toHaveLength(4);
+  expect(latest.entries.map((e) => e.amount.amount).sort((a, b) => a - b)).toEqual([-200, -100, 50, 790]);
+  expect(JSON.stringify(latest)).not.toMatch(/cus_private|acct_private|Private name/);
+  expect(JSON.stringify(latest)).not.toContain(theirs);
+  const trip = await getTripEarnings(db.pool, actor, mine, true);
+  expect(trip).toMatchObject({
+    recordedAmount: { amount: 790 },
+    adjustmentAmount: { amount: -250 },
+    refundAdjustmentAmount: { amount: -150 },
+    disputeAdjustmentAmount: { amount: -100 },
+    netRecordedAmount: { amount: 540 },
+  });
+  const legacy = await getEarnings(db.pool, actor);
+  expect(legacy.entries).toHaveLength(1);
+  expect(legacy).not.toHaveProperty('netTotal');
+  expect(legacy.entries[0]).not.toHaveProperty('kind');
+  expect(await getTripEarnings(db.pool, actor, mine)).not.toHaveProperty('adjustmentAmount');
+});
+test('adjustments post on their own date and a refund-only period can show negative net earnings', async () => {
+  const ride = await entry();
+  await adjustment(ride, -300);
+  const range = { from: '2026-09-12', through: '2026-09-12' };
+  const value = await getEarnings(db.pool, { id: driver, role: 'driver' }, undefined, range, true);
+  expect(value.periodTotal?.amount).toBe(0);
+  expect(value.periodAdjustmentTotal?.amount).toBe(-300);
+  expect(value.periodNetTotal?.amount).toBe(-300);
+  expect(value.netTotal?.amount).toBe(490);
+  expect(value.dailyTotals).toEqual([{ date: '2026-09-12', amount: 0 }]);
+  expect(value.entries).toHaveLength(1);
+  expect(value.entries[0]?.kind).toBe('refund_loss_allocation');
+});
+test('mixed activity pagination keeps complete totals and rejects another driver’s adjustment cursor', async () => {
+  const ride = await entry(),
+    theirs = await entry(other);
+  for (let i = 0; i < 52; i++) await adjustment(ride, i % 2 === 0 ? -1 : 1);
+  const foreign = await adjustment(theirs, -1),
+    actor = { id: driver, role: 'driver' as const };
+  const first = await getEarnings(db.pool, actor, undefined, undefined, true);
+  const second = await getEarnings(db.pool, actor, first.nextCursor!, undefined, true);
+  expect(first.entries).toHaveLength(50);
+  expect(second.entries).toHaveLength(3);
+  expect(new Set([...first.entries, ...second.entries].map((e) => e.id)).size).toBe(53);
+  for (const page of [first, second])
+    expect(page).toMatchObject({ netTotal: { amount: 790 }, adjustmentTotal: { amount: 0 } });
+  await expect(getEarnings(db.pool, actor, foreign, undefined, true)).rejects.toMatchObject({
+    code: 'INVALID_CURSOR',
+  });
+});

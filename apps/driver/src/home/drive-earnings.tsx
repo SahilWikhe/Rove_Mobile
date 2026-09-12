@@ -8,7 +8,11 @@ import { Copy, theme } from '@rove/mobile-ui';
 /** Figma dashboard metric cards, backed by recorded earnings rather than mock figures. */
 export function DriveEarnings() {
   const { api, profile } = useSession();
-  const [totals, setTotals] = useState<{ today: number | undefined; allTime: number } | null>(null);
+  const [totals, setTotals] = useState<{
+    today: number | undefined;
+    allTime: number;
+    adjusted: boolean;
+  } | null>(null);
   const [failed, setFailed] = useState(false);
   useFocusEffect(
     useCallback(() => {
@@ -19,7 +23,11 @@ export function DriveEarnings() {
           return api.earnings(signal, undefined, { from: day, through: day });
         },
         onData: (data) => {
-          setTotals({ today: data.periodTotal?.amount, allTime: data.recordedTotal.amount });
+          setTotals({
+            today: (data.periodNetTotal ?? data.periodTotal)?.amount,
+            allTime: (data.netTotal ?? data.recordedTotal).amount,
+            adjusted: !!data.netTotal,
+          });
           setFailed(false);
         },
         onError: () => {
@@ -47,7 +55,11 @@ export function DriveEarnings() {
         </View>
       </View>
       <Copy kind="muted" style={styles.note}>
-        {failed ? 'Earnings are unavailable right now.' : 'Recorded earnings · payout details in Earnings'}
+        {failed
+          ? 'Earnings are unavailable right now.'
+          : totals?.adjusted
+            ? 'Net earnings · adjustments and payout details in Earnings'
+            : 'Gross trip earnings · adjustment details unavailable'}
       </Copy>
     </View>
   );

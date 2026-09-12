@@ -407,3 +407,7 @@ The shared Trip notifications card now presents device management and an explici
 ## Refund receipt extension
 
 The rider receipt uses the existing Manrope, dark cards, gold amount typography and contextual support action for verified refund updates. It distinguishes unchecked history and each provider status while preserving captured/quoted amounts. This is a documented functional extension; full Figma parity and physical layout acceptance are not established.
+
+## Driver earnings adjustments — September 12
+
+The existing gold/charcoal earnings cards now distinguish gross trip earnings, signed adjustments and net earnings. Activity rows label refund/dispute deductions and reversals; date filters apply to the recorded date of each event. Daily charts remain gross and say so. Home metrics and completed-trip totals use net earnings when supplied. Older-server responses remain explicitly gross-only, with unavailable adjustment detail explained. No available-withdrawal or bank-payment claim is added. This extends the approved transparent-compensation requirement; it does not claim new Figma extraction or full screen parity. See [financial allocation and driver display](70-payment-loss-allocation.md).

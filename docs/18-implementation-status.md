@@ -1,6 +1,14 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `908377e4fda2daff20faa235c304683485b78d98` plus the loss-allocation checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `c685ec63bdd50d758b806020b309de0a9596b7cb` plus the driver net-earnings checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Driver gross, adjustments and net earnings — September 12
+
+The driver dashboard, earnings activity and completed-trip summary now distinguish original gross earnings, approved refund/dispute adjustments, reversals and net earnings. Activity pagination includes adjustments on their recorded UTC dates, including negative net amounts in adjustment-only periods. Gross charts retain their original basis and label. Shared contracts reject inconsistent or partial net totals. New clients opt into `details=adjustments`; older clients retain gross-only response shapes, and new clients label older-server responses as gross with adjustment details unavailable. Transfers are excluded from earnings totals; no bank availability or payout completion is inferred.
+
+All eleven local application test tasks passed, including eighteen earnings-query tests and twenty-one mobile API-client tests. Four focused browser checks passed for driver account/navigation and adjusted earnings at 320/390 pixels; the 320-pixel screenshot was inspected for readable amounts and wrapping. The complete synthetic rider/driver trip passed separately, including earnings after completion. Driver iOS/Android/web exports, workspace/E2E types, source lint excluding generated reports, import boundaries, formatting and packaged API build verification passed. The React review checked component reuse, focus/poll cancellation, account scoping, stable hooks and wrapped amount rows. This is local browser/export evidence, not a fresh native binary or physical-device/provider acceptance.
+
+No hosted migration, payment flag, real provider request or production transfer changed. GitHub CI remains deferred by the user until billing is restored and remains a release requirement. Next: durable driver transfer/settlement and provider reconciliation, actual account-deletion fulfillment, remaining Figma/native journeys and production setup. Approved liability/payout policy and paid setup decisions remain final handoff items. See [loss allocation and driver presentation](70-payment-loss-allocation.md).
 
 ## Audited payment loss allocation — September 12
 

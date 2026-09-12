@@ -39,7 +39,9 @@ test('Driver Account navigation opens trips and earnings with a route back', asy
   await page.getByRole('button', { name: 'Apply dates', exact: true }).click();
   await expect(page.getByText('2000-01-01 – 2000-01-31 · UTC', { exact: true })).toBeVisible();
   await expect(page.getByTestId('daily-earnings').getByRole('img')).toHaveCount(31);
-  await expect(page.getByText('No recorded earnings in this date range.', { exact: true })).toBeVisible();
+  await expect(
+    page.getByText('No earnings or adjustments in this date range.', { exact: true }),
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Filter recorded dates', exact: true }).click();
   await page.getByRole('button', { name: 'All recorded dates', exact: true }).click();
   await page.getByRole('button', { name: 'Filter recorded dates', exact: true }).click();

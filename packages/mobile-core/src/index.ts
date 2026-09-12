@@ -317,7 +317,7 @@ export class ApiClient {
     return this.request('/v1/ride-requests', RideSummary, { method: 'POST', body: { quoteId }, key });
   }
   earnings(signal?: AbortSignal, before?: string, range?: EarningsDateRange) {
-    const query = new URLSearchParams();
+    const query = new URLSearchParams({ details: 'adjustments' });
     if (before) query.set('before', before);
     if (range) {
       const valid = EarningsDateRange.parse(range);
@@ -332,7 +332,7 @@ export class ApiClient {
   }
   tripEarnings(rideId: string, signal?: AbortSignal) {
     return this.request(
-      `/v1/drivers/me/earnings/${encodeURIComponent(rideId)}`,
+      `/v1/drivers/me/earnings/${encodeURIComponent(rideId)}?details=adjustments`,
       DriverTripEarnings,
       signal ? { signal } : {},
     );

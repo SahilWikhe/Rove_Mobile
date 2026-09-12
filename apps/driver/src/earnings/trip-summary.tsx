@@ -1,3 +1,4 @@
+import { AdjustmentBreakdown } from './adjustment-breakdown';
 import { View } from 'react-native';
 import { useCallback, useState } from 'react';
 import { router, useFocusEffect } from 'expo-router';
@@ -57,11 +58,15 @@ export function TripEarningsSummary({ rideId }: { rideId: string }) {
             }}
           >
             <Copy style={{ fontSize: 15, fontFamily: 'Manrope_800ExtraBold' }}>
-              {data.recordedAmount ? 'You earned' : 'Estimated earnings'}
+              {data.netRecordedAmount
+                ? 'Net earnings'
+                : data.recordedAmount
+                  ? 'You earned'
+                  : 'Estimated earnings'}
             </Copy>
             <Copy style={{ color: theme.gold, fontSize: 22, fontFamily: 'Manrope_800ExtraBold' }}>
               {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
-                (data.recordedAmount ?? data.estimatedAmount).amount / 100,
+                (data.netRecordedAmount ?? data.recordedAmount ?? data.estimatedAmount).amount / 100,
               )}
             </Copy>
           </View>
@@ -73,6 +78,19 @@ export function TripEarningsSummary({ rideId }: { rideId: string }) {
           {data.recordedAmount && data.recordedAmount.amount !== data.estimatedAmount.amount && (
             <Copy kind="muted">
               The recorded amount differs from the original estimate. Contact support if you need help.
+            </Copy>
+          )}
+          {data.recordedAmount && data.adjustmentAmount && (
+            <AdjustmentBreakdown
+              gross={data.recordedAmount.amount}
+              adjustment={data.adjustmentAmount.amount}
+              refund={data.refundAdjustmentAmount?.amount}
+              dispute={data.disputeAdjustmentAmount?.amount}
+            />
+          )}
+          {data.recordedAmount && !data.adjustmentAmount && (
+            <Copy kind="muted">
+              Gross trip earnings. Adjustment details are not available from this server.
             </Copy>
           )}
           <Copy kind="muted">Payouts are not connected yet. This is not an available bank withdrawal.</Copy>

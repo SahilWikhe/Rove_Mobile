@@ -584,11 +584,19 @@ export function createApp(deps: Dependencies) {
         c.var.actor,
         c.req.query('before'),
         parsed.success ? parsed.data : undefined,
+        c.req.query('details') === 'adjustments',
       ),
     );
   });
   app.get('/v1/drivers/me/earnings/:id', async (c) =>
-    c.json(await getTripEarnings(deps.pool, c.var.actor, id(c.req.param('id')))),
+    c.json(
+      await getTripEarnings(
+        deps.pool,
+        c.var.actor,
+        id(c.req.param('id')),
+        c.req.query('details') === 'adjustments',
+      ),
+    ),
   );
   app.get('/v1/rides/:id/driver-location', async (c) =>
     c.json(await getDriverLocation(deps.pool, c.var.actor, id(c.req.param('id')))),

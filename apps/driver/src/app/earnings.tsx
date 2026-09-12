@@ -1,4 +1,5 @@
 import { Keyboard, Pressable, StyleSheet, View } from 'react-native';
+import { AdjustmentBreakdown } from '../earnings/adjustment-breakdown';
 import { DailyEarnings } from '../earnings/daily-earnings';
 import { DriverNavigation } from '../navigation/driver-navigation';
 import { useCallback, useState } from 'react';
@@ -172,18 +173,39 @@ function EarningsContent({
       {data ? (
         <>
           <Card style={styles.summary}>
+            <Copy kind="label">{data.netTotal ? 'NET EARNINGS' : 'GROSS TRIP EARNINGS'}</Copy>
             <Copy style={styles.amount}>
               {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
-                (range && data.periodTotal ? data.periodTotal.amount : data.recordedTotal.amount) / 100,
+                (range && data.periodTotal
+                  ? (data.periodNetTotal ?? data.periodTotal).amount
+                  : (data.netTotal ?? data.recordedTotal).amount) / 100,
               )}
             </Copy>
             <Copy kind="muted" style={styles.caption}>
               {range ? `${range.from} – ${range.through} · UTC` : 'Lifetime recorded earnings'}
             </Copy>
             <Copy kind="muted" style={styles.caption}>
-              Allocated from captured trip payments, before payouts or adjustments.
+              {data.netTotal
+                ? 'Includes adjustments recorded in this period. Payouts are separate.'
+                : 'Gross trip earnings. Adjustment details are not available from this server.'}
             </Copy>
-            {data.dailyTotals && <DailyEarnings days={data.dailyTotals} />}
+            {data.adjustmentTotal && (
+              <AdjustmentBreakdown
+                gross={(range && data.periodTotal ? data.periodTotal : data.recordedTotal).amount}
+                adjustment={
+                  (range && data.periodAdjustmentTotal ? data.periodAdjustmentTotal : data.adjustmentTotal)
+                    .amount
+                }
+              />
+            )}
+            {data.dailyTotals && (
+              <>
+                <Copy kind="muted" style={styles.caption}>
+                  Trip earnings before adjustments
+                </Copy>
+                <DailyEarnings days={data.dailyTotals} />
+              </>
+            )}
           </Card>
           <Pressable
             accessibilityRole="button"
@@ -202,18 +224,31 @@ function EarningsContent({
           <Copy kind="muted" style={styles.caption}>
             Recorded earnings are not an available withdrawal balance.
           </Copy>
-          <Copy kind="heading">{before ? 'Earlier earnings' : 'Recent earnings'}</Copy>
+          <Copy kind="heading">{before ? 'Earlier activity' : 'Recent activity'}</Copy>
           {data.entries.length === 0 && (
             <Copy kind="muted">
               {range
-                ? 'No recorded earnings in this date range.'
+                ? 'No earnings or adjustments in this date range.'
                 : 'Your earnings appear once a completed trip’s payment is captured and allocated.'}
             </Copy>
           )}
           {data.entries.map((entry) => (
             <Card key={entry.id}>
               <View testID={`earning-${entry.rideId}`} style={{ gap: 12 }}>
-                <Money cents={entry.amount.amount} label="TRIP EARNINGS" />
+                <Money
+                  cents={entry.amount.amount}
+                  label={
+                    entry.kind === 'refund_loss_allocation'
+                      ? entry.amount.amount > 0
+                        ? 'REFUND REVERSAL'
+                        : 'REFUND ADJUSTMENT'
+                      : entry.kind === 'dispute_loss_allocation'
+                        ? entry.amount.amount > 0
+                          ? 'DISPUTE REVERSAL'
+                          : 'DISPUTE ADJUSTMENT'
+                        : 'TRIP EARNINGS'
+                  }
+                />
                 <Copy kind="muted">Recorded {new Date(entry.recordedAt).toLocaleString()}</Copy>
                 <Button
                   title="View trip details"
