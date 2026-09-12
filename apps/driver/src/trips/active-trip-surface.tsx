@@ -1,5 +1,6 @@
 import type { PropsWithChildren, ReactNode } from 'react';
 import { useState } from 'react';
+import { router } from 'expo-router';
 import { Animated, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RideDetails } from '@rove/contracts';
@@ -61,6 +62,15 @@ export function ActiveTripSurface({
           overflow: 'hidden',
         }}
       >
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Back to driving"
+          accessibilityHint="Returns to driving without changing your active trip"
+          onPress={() => router.replace('/drive')}
+          style={({ pressed }) => [styles.back, { top: insets.top + 12 }, pressed && styles.backPressed]}
+        >
+          <View accessible={false} style={styles.chevron} />
+        </Pressable>
         <View style={[styles.status, { top: insets.top + 12 }]} pointerEvents="none">
           <Copy style={styles.statusText}>{caption}</Copy>
         </View>
@@ -102,10 +112,31 @@ export function ActiveTripSurface({
 }
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.background },
+  back: {
+    position: 'absolute',
+    left: 12,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(12,12,12,0.72)',
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  backPressed: { backgroundColor: 'rgba(35,35,35,0.92)' },
+  chevron: {
+    width: 11,
+    height: 11,
+    borderLeftWidth: 2,
+    borderBottomWidth: 2,
+    borderColor: theme.text,
+    transform: [{ translateX: 2 }, { rotate: '45deg' }],
+  },
   status: {
     position: 'absolute',
     alignSelf: 'center',
-    maxWidth: '90%',
+    maxWidth: '64%',
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 999,
