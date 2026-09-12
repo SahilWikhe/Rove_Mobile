@@ -1,6 +1,16 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `574ac2653cb07a72fe8a2f89d3c50ea873a4b8ca` plus the document cleanup domain checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `43bd17ac812d3ae052d7e7daeb427ae04711fc1b` plus the native smoke diagnostics checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Native smoke diagnostics and local reproduction — September 12
+
+Improved the iOS launch wrapper to retain Maestro stdout/stderr through timeout/nonzero exit, place flow/XCTest/debug artifacts under the CI-uploaded evidence directory, and capture a failure screenshot before deleting its disposable simulator. The command wrapper streams to disk without pipe-buffer limits. Assertions and the three-minute Maestro deadline are unchanged; failures remain failures.
+
+All 61 tooling tests passed, including three new command-output/error/timeout tests. Changed-source lint, formatting, documentation, boundaries and diff checks passed. The updated iOS wrapper passed the unchanged welcome/account-entry/relaunch flow locally for both rider and driver using Maestro 2.10.0 on separate fresh iOS 26.5 simulators. Existing release binaries under local temporary build directories were reused; these checks establish those artifacts' launch behavior and wrapper behavior, not a new build or full acceptance of the current source revision. Both test simulators were cleaned up.
+
+Hosted run 34722464477 for `5f174a1` now has both Android native jobs passing, alongside general quality, tests, browser, security, infrastructure, CodeQL and mobile checks. Both iOS jobs remained in progress at the last live read; the rider had reached the launch test after both builds completed. An earlier iOS run timed out inside Maestro, but its wrapper discarded detailed tool output. The current diagnostic improvement is not claimed to fix that timeout or prove latest-main CI success.
+
+Cleanup runtime/staff API/AWS wiring remains unapplied pending explicit approval requested after automatic review rejected it. No permission was inferred from the automatic goal continuation. Independent native verification continued; remaining release work includes exact-commit hosted/native/provider acceptance, cleanup integration and retained-data/backup handling, Figma journeys and production setup. See [iOS smoke diagnostics](08-cicd-and-environments.md#ios-smoke-test-diagnostics) and [pending cleanup approval](77-document-cleanup-plans.md#pending-runtime-connection-and-approval).
 
 ## Durable document cleanup domain — September 12
 

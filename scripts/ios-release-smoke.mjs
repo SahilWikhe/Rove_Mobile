@@ -1,3 +1,4 @@
+import { nativeSmokeCommand } from './native-smoke-command.mjs';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -36,7 +37,8 @@ try {
   simctl('bootstatus', device, '-b');
   simctl('install', device, app);
   mkdirSync('reports/native-smoke', { recursive: true });
-  command(
+  console.log(`${role}: simulator booted and release installed; starting Maestro.`);
+  nativeSmokeCommand(
     process.env.MAESTRO_BINARY || 'maestro',
     [
       '--device',
@@ -48,14 +50,27 @@ try {
       'junit',
       '--output',
       `reports/native-smoke/${role}.xml`,
+      '--test-output-dir',
+      `reports/native-smoke/ios-${role}-details`,
+      '--debug-output',
+      `reports/native-smoke/ios-${role}-debug`,
       'native-tests/release-welcome.yaml',
     ],
+    `reports/native-smoke/ios-${role}-maestro.log`,
     180000,
   );
   simctl('io', device, 'screenshot', `reports/native-smoke/${role}.png`);
   console.log(`${role}: standalone welcome and account-entry control verified on a fresh iOS simulator.`);
 } catch (error) {
   console.error('iOS release smoke failed:', error.message);
+  if (device) {
+    try {
+      mkdirSync('reports/native-smoke', { recursive: true });
+      simctl('io', device, 'screenshot', `reports/native-smoke/ios-${role}-failure.png`);
+    } catch {
+      console.error('Failure screenshot could not be captured.');
+    }
+  }
   process.exitCode = 1;
 } finally {
   if (device) {

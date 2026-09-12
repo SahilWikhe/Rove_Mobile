@@ -100,3 +100,11 @@ CI run `34708488268` at `ad16b3c` failed before any job started. GitHub reports 
 CI groups runs by event and branch/PR. Pull-request updates cancel superseded active runs. Main-branch pushes leave the active run to finish and queue the latest pending revision; intermediate pending revisions may be replaced. A completed run proves its recorded commit only. Check the latest main commit before release. This avoids repeatedly interrupting longer native builds during active development.
 
 Android emulator preparation invokes `sdkmanager` from `$ANDROID_HOME/cmdline-tools/latest/bin`, matching the native launch script and avoiding dependence on the runner shell PATH. Successful compilation alone does not prove the release app launches; the emulator/UI steps must also pass.
+
+## iOS smoke-test diagnostics
+
+The iOS release smoke wrapper now streams Maestro stdout/stderr to `reports/native-smoke/ios-<role>-maestro.log`, including on timeout or nonzero exit. XCTest/flow details and debug output are retained under role-specific subdirectories. On failure the wrapper attempts a screenshot before shutting down and deleting only the simulator it created. The existing CI artifact step uploads these files even when the job fails. Large command output cannot exceed a pipe buffer and erase the diagnostics.
+
+The smoke test still requires the standalone JavaScript bundle, matching app identifier, visible Get started control, absence of the missing-script error, and successful relaunch. The three-minute Maestro timeout and assertions are unchanged. Logs improve diagnosis; they do not turn a timed-out job into success. Inspect the exact failed run's Maestro/XCTest output to distinguish simulator/driver startup from an app assertion failure.
+
+Local reproduction may reuse an existing release artifact, but that proves only that artifact's welcome/relaunch behavior. Rebuild and record the exact release SHA for candidate acceptance. Fresh simulators avoid existing app login state; never run diagnostic collection against a user's signed-in simulator.
