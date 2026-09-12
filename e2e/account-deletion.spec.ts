@@ -77,3 +77,21 @@ for (const [role, port] of [
     ).toBeVisible();
   });
 }
+
+for (const port of [8091, 8092]) {
+  test(`signed-out deletion link on ${port} offers account recovery without private requests`, async ({
+    page,
+  }) => {
+    let privateRequests = 0;
+    await page.route('**/v1/support-requests', async (route) => {
+      privateRequests++;
+      await route.abort();
+    });
+    await page.goto(`http://localhost:${port}/account-deletion`);
+    await expect(page.getByText('Sign in to manage your deletion request', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Send deletion request', exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Continue to your account', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Get started', exact: true })).toBeVisible();
+    expect(privateRequests).toBe(0);
+  });
+}

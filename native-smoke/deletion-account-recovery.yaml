@@ -1,0 +1,19 @@
+# Requires a signed-out app; this flow never signs in or submits a request.
+appId: ${APP_ID}
+---
+- openLink: ${DELETION_LINK}
+- tapOn:
+    text: Open
+    optional: true
+- extendedWaitUntil:
+    visible: Sign in to manage your deletion request
+    timeout: 30000
+- assertNotVisible: Send deletion request
+- scrollUntilVisible:
+    element: Continue to your account
+    direction: DOWN
+- takeScreenshot: deletion-account-recovery
+- tapOn: Continue to your account
+- extendedWaitUntil:
+    visible: Get started
+    timeout: 30000

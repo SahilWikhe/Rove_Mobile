@@ -65,3 +65,9 @@ node scripts/android-release-smoke.mjs driver /path/to/app-release.apk
 ```
 
 Set `ANDROID_HOME` (or `ANDROID_SDK_ROOT`); `MAESTRO_BINARY` optionally selects the CLI. `SMOKE_EMULATOR_PORT` defaults to 5580 and must be an unused even emulator port. Ubuntu CI requires KVM; local Apple Silicon uses the ARM64 system image. This checks standalone startup without Metro or account/provider requests, not signed store distribution or full device acceptance. See the implementation ledger for actual local and hosted results.
+
+## Signed-out account-deletion recovery smoke
+
+`native-smoke/deletion-account-recovery.yaml` is a separate manual debug smoke for an already signed-out rider or driver app. Supply `APP_ID` (`co.roveride.rider` or `co.roveride.driver`) and `DELETION_LINK` (`rove-rider://account-deletion` or `rove-driver://account-deletion`) to Maestro with the intended device selected. Ensure its Metro/API forwarding is available on Android. The flow opens the link, checks the recovery heading and absence of the send action, captures a screenshot and returns to Get started. It does not sign in, clear app state or submit deletion requests; do not run it against a signed-in personal account.
+
+Both apps passed locally on iOS 26.5 and Android API 36 with current JavaScript and existing debug binaries on September 12. An Android driver attempt lost its emulator connection before a successful retry. This flow is not included in standalone Release startup CI, and does not establish authenticated erasure, hosted delivery or physical-device acceptance.

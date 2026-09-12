@@ -1,6 +1,14 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `319c5d9929c3194ab926f696c6c533c304988e52` plus the regression checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `b8fea4f3e8eac5b416b87f3b57026a3e5be0476a` plus the account recovery checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Native account-deletion access recovery — September 12
+
+Both apps now wait for account restoration before rendering the deletion page. Signed-out or incomplete accounts receive an explicit Continue to your account action leading to the existing welcome/setup flow, rather than an instruction with no action. The authenticated request form remains keyed to the account and unchanged.
+
+All four focused browser scenarios passed, including existing confirmation/idempotency/acknowledgement behavior and both signed-out deep links with zero private support requests. Workspace/E2E typechecks, changed-source lint, import boundaries and both apps’ iOS/Android/web exports passed. The reusable Maestro recovery flow passed for rider and driver on iOS 26.5 and Android API 36; screenshots were inspected for readable wrapping and accessible controls. The first Android driver attempt lost its emulator connection; retry after reconnection passed. No account was signed in, cleared or deleted by these native checks.
+
+Native evidence uses the existing debug binaries and current Metro JavaScript, not fresh Release builds or physical devices. The preceding full browser baseline passed 49/49; this change adds two scenarios and has focused verification, not a new full-suite result. Hosted CI billing and CodeQL prerequisites remain unresolved. No provider configuration, migration or production activation occurred. Next: remaining physical-device/provider acceptance and release requirements below, including actual deletion fulfillment after identity/retention policy approval.
 
 ## Full local regression and driver test-state correction — September 12
 

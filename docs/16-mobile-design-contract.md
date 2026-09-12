@@ -395,3 +395,7 @@ Rider tracking and driver active trips now share a dark recovery card with a gol
 ## Existing deletion-request acknowledgement
 
 The shared rider/driver account-deletion screen recognizes an existing open request created by this flow and shows Deletion request received with its reference instead of another send action. A successful submission is acknowledged even if the following history refresh fails. Recent requests and support responses remain visible; resolved history does not prevent a new deliberate request after reopening. This is request acknowledgement only: the account remains active and no trip, payment or retained record is changed by this screen.
+
+## Signed-out deletion access recovery
+
+Both account-deletion routes wait for session restoration, then offer signed-out or incomplete accounts a clear heading, explanation and the existing gold Continue to your account action. It returns to welcome/setup; users then open Request account deletion from Account. The authenticated request form and acknowledgement remain unchanged. Four focused browser scenarios and rider/driver iOS and Android debug smoke checks passed on September 12; inspected text and buttons fit the native layouts. This does not verify physical devices or actual account erasure.
