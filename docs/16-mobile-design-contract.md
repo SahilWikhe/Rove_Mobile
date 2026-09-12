@@ -291,7 +291,8 @@ access to the actual route, fare and payment state. The matching presentation ap
 to searching rides with authorized payment (or local synthetic mode); payment confirmation
 retains its separate flow. Failed reads replace matching copy with a reconnecting state and
 invalidate cancellation confirmation as before. No nearby-driver count, ETA or progress is
-fabricated. The static illustration respects reduced-motion preferences.
+fabricated. The rings use a gentle 3.6-second scale/opacity pulse; the car and text stay still.
+The pulse is disabled for Reduce Motion, reconnecting, backgrounded apps and unfocused screens.
 
 The layout was visually verified on iOS and Android simulators and at 320 pixels in the
 browser. Browser checks passed for expanded details, cancellation, failed-read and stale
@@ -321,3 +322,6 @@ The browser lifecycle test now uploads changing coordinates in both phases and v
 rider receives them. iOS and Android simulator maps were inspected before and after a moved
 sample during an in-progress synthetic trip. Physical-device background/locked-screen GPS
 acceptance is still required before production release.
+
+The ring pulse was verified by comparing native iOS and Android frames: changed pixels were
+confined to the ring area. Rider types/lint and the cancellation/recovery browser check passed.
