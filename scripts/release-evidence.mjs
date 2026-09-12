@@ -22,7 +22,9 @@ export function checkReleaseEvidence({ repository, sha, ci, providers, ciJobs, p
       run?.status !== 'completed' ||
       run?.conclusion !== 'success' ||
       !Number.isSafeInteger(run?.id) ||
-      !Number.isSafeInteger(run?.run_attempt)
+      run.id < 1 ||
+      !Number.isSafeInteger(run?.run_attempt) ||
+      run.run_attempt < 1
     )
       fail('Run is not successful main-branch evidence for this release.');
   }
@@ -80,13 +82,22 @@ function api(path) {
 }
 function jobs(repository, run) {
   const result = [];
+  let total;
   for (let page = 1; page <= 20; page++) {
     const response = api(
       `repos/${repository}/actions/runs/${run.id}/attempts/${run.run_attempt}/jobs?per_page=100&page=${page}`,
     );
-    if (!Array.isArray(response.jobs)) throw new Error('Missing jobs');
+    if (
+      !Array.isArray(response.jobs) ||
+      !Number.isSafeInteger(response.total_count) ||
+      response.total_count < 1 ||
+      (total !== undefined && total !== response.total_count)
+    )
+      throw new Error('Invalid job pagination');
+    total = response.total_count;
     result.push(...response.jobs);
-    if (result.length >= response.total_count) return result;
+    if (result.length === total) return result;
+    if (response.jobs.length === 0 || result.length > total) throw new Error('Incomplete job pagination');
   }
   throw new Error('Job pagination exceeded');
 }
@@ -107,14 +118,26 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     try {
       const ci = api(`repos/${repository}/actions/runs/${ciId}`),
         providers = api(`repos/${repository}/actions/runs/${providerId}`);
-      const result = checkReleaseEvidence({
+      const evidence = {
         repository,
         sha,
         ci,
         providers,
         ciJobs: jobs(repository, ci),
         providerJobs: jobs(repository, providers),
-      });
+      };
+      checkReleaseEvidence(evidence);
+      // A rerun invalidates the attempt whose jobs were just collected.
+      const latestCi = api(`repos/${repository}/actions/runs/${ciId}`);
+      const latestProviders = api(`repos/${repository}/actions/runs/${providerId}`);
+      if (
+        latestCi.id !== ci.id ||
+        latestProviders.id !== providers.id ||
+        latestCi.run_attempt !== ci.run_attempt ||
+        latestProviders.run_attempt !== providers.run_attempt
+      )
+        throw new Error('Run attempt changed during collection');
+      const result = checkReleaseEvidence({ ...evidence, ci: latestCi, providers: latestProviders });
       console.log(JSON.stringify(result, null, 2));
       console.log(
         'These checks do not authorize production or replace hosted app/device acceptance, migration review and backup verification.',

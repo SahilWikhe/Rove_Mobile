@@ -59,7 +59,7 @@ Check the candidate against GitHub Actions with an authenticated `gh` CLI:
 pnpm release:check SahilWikhe/Rove_Mobile <full-commit-sha> <ci-run-id> <staging-provider-run-id>
 ```
 
-This read-only command requires successful CI and staging-provider workflows on main for the exact commit, including every required job from the recorded run attempt. Missing, skipped, stale or failed evidence exits nonzero. It does not deploy, grant production approval, or replace hosted mobile acceptance, migration review and backup verification. Run it again immediately before a release; its output is a point-in-time check, not an authorization token.
+This read-only command requires successful CI and staging-provider workflows on main for the exact commit, including every required job from the recorded run attempt. Missing, skipped, stale or failed evidence exits nonzero. It does not deploy, grant production approval, or replace hosted mobile acceptance, migration review and backup verification. The command rechecks both workflow attempts after collecting jobs and rejects an intervening rerun or status change. Run it again immediately before a release; its output is a point-in-time check, not an authorization token.
 
 ## 4. Configure mobile production builds
 
