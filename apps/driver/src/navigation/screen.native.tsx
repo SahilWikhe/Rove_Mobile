@@ -20,6 +20,7 @@ import { Banner, Button, Copy, Screen, theme } from '@rove/mobile-ui';
 import { createGuidance, assertNavigationActive, type Target } from './guidance';
 import { navigationTarget } from './directions';
 import { navigationFailure } from './errors';
+import { GuidanceFooter } from './guidance-footer';
 
 const terms = { title: 'Navigation terms', companyName: 'Rove', showOnlyDisclaimer: false };
 // SDK session is process-wide. A new screen waits for its predecessor's pending native cleanup.
@@ -39,6 +40,7 @@ export default function NavigationScreen() {
 function Directions({ id }: { id: string }) {
   const { api, profile } = useSession();
   const { navigationController: controller, setOnLocationChanged, setOnArrival } = useNavigation();
+  const readEstimate = useCallback(() => controller.getCurrentTimeAndDistance(), [controller]);
   const insets = useSafeAreaInsets();
   const [topOverlayHeight, setTopOverlayHeight] = useState(64);
   const [bottomOverlayHeight, setBottomOverlayHeight] = useState(88);
@@ -248,6 +250,7 @@ function Directions({ id }: { id: string }) {
             left: insets.left * mapScale,
             right: insets.right * mapScale,
           }}
+          footerEnabled={false}
           navigationNightMode={NavigationNightMode.FORCE_NIGHT}
           onMapReady={() => setReady(true)}
           onNavigationViewControllerCreated={(value) => {
@@ -283,23 +286,11 @@ function Directions({ id }: { id: string }) {
       </View>
       <View
         pointerEvents="box-none"
-        style={[
-          styles.bottomOverlay,
-          { bottom: insets.bottom + (running ? 120 : 0), left: insets.left, right: insets.right },
-        ]}
+        style={[styles.bottomOverlay, { bottom: insets.bottom, left: insets.left, right: insets.right }]}
         onLayout={(event) => setBottomOverlayHeight(event.nativeEvent.layout.height)}
       >
         {running ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Stop directions"
-            accessibilityHint="Stops navigation without ending your ride"
-            onPress={stop}
-            style={({ pressed }) => [styles.endNavigation, pressed && styles.backPressed]}
-          >
-            <Copy style={styles.endIcon}>×</Copy>
-            <Copy style={styles.endLabel}>End</Copy>
-          </Pressable>
+          <GuidanceFooter readEstimate={readEstimate} onEnd={stop} />
         ) : (
           <Button title="Start directions" loading={busy} disabled={!ready} onPress={() => void start()} />
         )}
@@ -323,21 +314,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.border,
   },
-  endNavigation: {
-    alignSelf: 'flex-start',
-    minHeight: 48,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: 'rgba(18,18,18,0.9)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  endIcon: { color: theme.danger, fontSize: 25, lineHeight: 28 },
-  endLabel: { color: theme.text, fontFamily: 'Manrope_700Bold', fontSize: 16, lineHeight: 24 },
   backPressed: { backgroundColor: 'rgba(35,35,35,0.92)' },
   chevron: {
     width: 11,
