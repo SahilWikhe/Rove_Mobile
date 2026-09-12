@@ -102,15 +102,27 @@ test('refuses a concurrent migration, wrong identity, inherited owner role and u
       await competing.query("SELECT pg_advisory_lock(hashtext('rove-schema-migrations'))");
       await expect(releaseMigrations(f.client, f.target, migrations)).rejects.toThrow('Another migration');
     } finally {
-      competing.release(true);
-      await competingPool.end();
+      try {
+        // Closing a socket does not wait for PostgreSQL to release session locks.
+        // Await the unlock so subsequent identity checks cannot race backend cleanup.
+        const unlocked = await competing.query(
+          "SELECT pg_advisory_unlock(hashtext('rove-schema-migrations')) AS unlocked",
+        );
+        expect(unlocked.rows[0].unlocked).toBe(true);
+      } finally {
+        competing.release(true);
+        await competingPool.end();
+      }
     }
     await expect(releaseMigrations(f.client, { ...f.target, database: 'wrong' }, migrations)).rejects.toThrow(
       'identity mismatch',
     );
     await other.query(`GRANT rove_test TO ${runtimeRole}`);
-    await expect(releaseMigrations(f.client, f.target, migrations)).rejects.toThrow('inherits');
-    await other.query(`REVOKE rove_test FROM ${runtimeRole}`);
+    try {
+      await expect(releaseMigrations(f.client, f.target, migrations)).rejects.toThrow('inherits');
+    } finally {
+      await other.query(`REVOKE rove_test FROM ${runtimeRole}`);
+    }
     await f.client.query('CREATE TABLE unrelated(id int)');
     await expect(releaseMigrations(f.client, f.target, migrations)).rejects.toThrow('Nonempty database');
   } finally {
