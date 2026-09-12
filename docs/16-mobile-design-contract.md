@@ -313,9 +313,10 @@ now follows those coordinates automatically. Panning or Show full trip stops cam
 following; Follow driver restores it. The driver marker is drawn above endpoint markers.
 Locations are last-reported GPS samples, not interpolated or invented vehicle movement.
 
-The existing driver background task requests high-accuracy updates around every ten seconds;
-the foreground rider refreshes every five seconds. OS scheduling and connectivity can delay
-updates. Samples expire after sixty seconds, failed reads remove the marker, and ending the
+The driver background task requests high-accuracy updates around every three seconds.
+Authenticated WebSocket invalidations prompt authorized rider reads while connected;
+five-second polling is a fallback when the realtime transport is unavailable. OS scheduling
+and connectivity can delay GPS samples and delivery. Samples expire after sixty seconds, failed reads remove the marker, and ending the
 assignment revokes location access. Only the assigned rider can read these coordinates.
 Server tests cover moving samples during pickup and travel, expiry and unauthorized readers.
 The browser lifecycle test now uploads changing coordinates in both phases and verifies the

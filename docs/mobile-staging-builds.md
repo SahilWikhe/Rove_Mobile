@@ -51,4 +51,17 @@ node scripts/ios-release-smoke.mjs rider /path/to/Rove.app
 node scripts/ios-release-smoke.mjs driver /path/to/RoveDriver.app
 ```
 
-`MAESTRO_BINARY` optionally selects the installed CLI path. No Metro session, account login, provider secret or payment request is needed for this welcome-only check. Local cached release artifacts validate the runner against those artifacts; only a successful CI run validates the corresponding newly built commit. This is not full authentication, keyboard, map, payment, notification or physical-device acceptance. Android CI still compiles and checks the bundled JavaScript without an automated emulator launch.
+`MAESTRO_BINARY` optionally selects the installed CLI path. No Metro session, account login, provider secret or payment request is needed for this welcome-only check. Local cached release artifacts validate the runner against those artifacts; only a successful CI run validates the corresponding newly built commit. This is not full authentication, keyboard, map, payment, notification or physical-device acceptance.
+
+## Standalone Android CI launch smoke
+
+Both Android jobs now run the same welcome/relaunch flow after the Release APK bundle check. The runner validates the package name, creates an isolated temporary API 36 Google APIs AVD, boots it on an unused port, installs the APK and runs checksum-pinned Maestro 2.10.0. It stops its own emulator and removes its temporary AVD afterward. Existing preview emulators are left intact. JUnit, Maestro diagnostics and emulator logs are retained for seven days.
+
+With Java 21, Android command-line tools, the API 36 Google APIs image matching the host architecture, and Maestro available:
+
+```sh
+node scripts/android-release-smoke.mjs rider /path/to/app-release.apk
+node scripts/android-release-smoke.mjs driver /path/to/app-release.apk
+```
+
+Set `ANDROID_HOME` (or `ANDROID_SDK_ROOT`); `MAESTRO_BINARY` optionally selects the CLI. `SMOKE_EMULATOR_PORT` defaults to 5580 and must be an unused even emulator port. Ubuntu CI requires KVM; local Apple Silicon uses the ARM64 system image. This checks standalone startup without Metro or account/provider requests, not signed store distribution or full device acceptance. See the implementation ledger for actual local and hosted results.

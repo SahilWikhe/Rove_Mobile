@@ -11,17 +11,17 @@ Reviewed against the September 12, 2026 source baseline. Verification counts and
 - `browser`: serial Playwright journeys across both Expo web apps and disposable PostgreSQL, with simulated external providers.
 - `infrastructure`: CloudFormation template lint, without AWS credentials or deployment.
 - `mobile`: Expo dependency alignment and rider/driver exports for iOS, Android and web.
-- `native-android`: rider and driver debug and release binaries compiled for x86_64 on Ubuntu with Java 21. The release APK must contain a nonempty JavaScript bundle.
-- `native-ios`: rider and driver unsigned debug and release simulator binaries compiled on macOS 26. The release app must contain a nonempty JavaScript bundle. Both native jobs regenerate projects from Expo config and the frozen patched dependencies; no provider keys or signing credentials are used.
+- `native-android`: rider and driver debug and release binaries compiled for x86_64 on Ubuntu with Java 21. The release APK must contain a nonempty JavaScript bundle, then pass the welcome/relaunch smoke on a dedicated API 36 emulator.
+- `native-ios`: rider and driver unsigned debug and release simulator binaries compiled on macOS 26. The release app must contain a nonempty JavaScript bundle, then pass the welcome/relaunch smoke on a dedicated simulator. Both native jobs regenerate projects from Expo config and the frozen patched dependencies; no provider keys or signing credentials are used.
 - `security`: moderate-or-higher dependency audit and a redacted full-history secret scan.
 - `codeql`: JavaScript/TypeScript and Actions security analysis. The local SARIF gate rejects security findings with severity at least 4 and error-level findings.
 - `ci-gate`: requires every preceding job to succeed. Missing, skipped, cancelled or failed jobs fail the gate.
 
-After the workflow has reported successfully, repository administrators can require `ci-gate` in the main-branch ruleset. Adding a workflow alone does not configure branch protection. The workflow does not deploy, migrate a cloud database, use distribution signing or use provider credentials. Android release builds use the generated local test signing configuration; they are not store artifacts. Release bundle checks catch missing embedded JavaScript, but do not prove startup or authenticated native journeys.
+After the workflow has reported successfully, repository administrators can require `ci-gate` in the main-branch ruleset. Adding a workflow alone does not configure branch protection. The workflow does not deploy, migrate a cloud database, use distribution signing or use provider credentials. Android release builds use the generated local test signing configuration; they are not store artifacts. Release bundle checks catch missing embedded JavaScript. The additional standalone launch checks assert Get started on two launches; they do not prove authenticated native journeys. See [native smoke procedures](mobile-staging-builds.md#standalone-ios-ci-launch-smoke) and the implementation ledger for local versus hosted acceptance.
 
 ## Toolchain and supply chain
 
-Node and pnpm versions are pinned. TypeScript 6.0.3 is intentionally used because the selected typescript-eslint parser supports versions below 6.1; adopting TypeScript 7 requires a compatible parser first. Actions are pinned to immutable commit SHAs. The Gitleaks installer verifies the release binary checksum before execution. Workflow tokens default to read-only contents; only CodeQL receives security-event upload permission.
+Node and pnpm versions are pinned. TypeScript 6.0.3 is intentionally used because the selected typescript-eslint parser supports versions below 6.1; adopting TypeScript 7 requires a compatible parser first. Actions are pinned to immutable commit SHAs. The Gitleaks installer verifies the release binary checksum before execution. Workflow tokens default to read-only contents; only CodeQL receives actions-read and security-event upload permissions. Code scanning must also be enabled for the private repository; the current setup blocker is recorded in [production setup](production-setup.md#github-code-scanning-prerequisite).
 
 Scoped transitive overrides address these advisories without changing the Expo SDK:
 

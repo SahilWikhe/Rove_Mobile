@@ -1,6 +1,6 @@
 # Documentation index
 
-Audited September 12, 2026; source references updated through `24c74f6f708a67f5c7591f4e754116c8a5498919`, repository scripts/routes/workflows and the staging observations in [implementation status](18-implementation-status.md). This audit updates documentation, not application behavior or external service configuration.
+Audited September 12, 2026; source references updated through `cfacf1309c269bb72272e5f0d4661b34f2bb35dd` plus the Android launch smoke checkpoint in [implementation status](18-implementation-status.md). Guides were reconciled against repository scripts/routes/workflows and dated staging observations. No external service configuration or production activation is implied.
 
 ## How to read the documentation
 

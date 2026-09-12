@@ -25,8 +25,9 @@ Create separate Expo projects for rider and driver. Each has development, previe
 
 | Workflow | Trigger | Implemented scope |
 | --- | --- | --- |
-| `.github/workflows/ci.yml` | PR, main push, merge group, manual, weekly | Quality, tests, browser, mobile exports, four native compile jobs, infrastructure lint, security, CodeQL and aggregate gate |
+| `.github/workflows/ci.yml` | PR, main push, merge group, manual, weekly | Quality, tests, browser, mobile exports, four native compile/standalone launch jobs, infrastructure lint, security, CodeQL and aggregate gate |
 | `.github/workflows/staging-providers.yml` | Manual main dispatch with billing acknowledgement | Real provider health/configuration and bounded Maps requests; no login/payment transaction |
+| `.github/workflows/release-readiness.yml` | Manual main dispatch | Read-only exact-SHA CI/provider evidence collection; no promotion or deployment |
 | Vercel Git integration | Main push | Staging deployment, independent of CI completion |
 
 Production promotion, preview acceptance automation and store submission workflows remain planned. `pnpm release:check` validates evidence for a specific SHA; it does not deploy anything. Require only existing checks, and verify effective branch/environment protections separately.

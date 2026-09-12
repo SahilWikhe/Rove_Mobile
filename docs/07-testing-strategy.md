@@ -1,6 +1,6 @@
 # Testing strategy and acceptance evidence
 
-Status: executable workspace, browser, tooling and native compilation checks exist. See [CI inventory](21-ci-verification.md), [browser journeys](51-browser-ci.md) and [manual provider checks](staging-provider-ci.md). The scenario matrix below includes remaining acceptance requirements, not a claim that every scenario is covered. Never count skipped or empty suites as evidence.
+Status: executable workspace, browser, tooling, native compilation and standalone welcome/relaunch checks exist; hosted smoke acceptance is tracked separately in the implementation ledger. See [CI inventory](21-ci-verification.md), [browser journeys](51-browser-ci.md) and [manual provider checks](staging-provider-ci.md). The scenario matrix below includes remaining acceptance requirements, not a claim that every scenario is covered. Never count skipped or empty suites as evidence.
 
 ## Principles
 

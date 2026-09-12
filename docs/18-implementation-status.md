@@ -1,6 +1,14 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `10df048a91e476d77edb0eac97714adab893a6a6` plus the native launch checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `cfacf1309c269bb72272e5f0d4661b34f2bb35dd` plus the documentation and Android launch checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Documentation reconciliation and Android launch smoke — September 12
+
+Reconciled the testing strategy, workflow inventory, native verification guides and design contract with current source. The location guide now describes requested three-second GPS samples and WebSocket-triggered authorized reads, with five-second polling only as fallback. CI documentation includes standalone welcome/relaunch checks and the manual read-only release-readiness workflow. Historical checkpoints below remain dated evidence; their pending items are superseded only where a later checkpoint records implementation or acceptance.
+
+Added the Android counterpart to the iOS release smoke: package identity validation, a dedicated temporary API 36 emulator, two standalone welcome launches, JUnit/log retention and cleanup without touching the preview emulator. Both freshly built ARM64 Release APKs passed welcome and relaunch locally on fresh API 36 emulators. Two preceding driver attempts lost the ADB device before launch; the diagnostic run passed. This is an intermittent emulator failure, not a demonstrated app fix. Maestro diagnostics and filtered runtime logs are retained for future CI failures. Hosted Android/iOS smoke acceptance remains outstanding. Documentation lint across 74 files, all 349 local file links, changed-script lint/formatting, workflow YAML parsing and diff whitespace checks passed.
+
+CI run `34707309751` for the preceding source passed quality, tests, browser, mobile exports, security and infrastructure at the latest read; native jobs were still running and CodeQL had failed. The code-scanning setup prerequisite remains deferred, with no gate bypass. No provider requests, cloud configuration, migrations or production activation were performed. Next: collect exact-source hosted evidence, investigate any recurring emulator disconnect and complete the remaining device and production requirements below.
 
 ## Standalone iOS launch smoke infrastructure — September 12
 

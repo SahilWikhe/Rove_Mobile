@@ -42,3 +42,7 @@ Port forwarding was observed to be absent between separate Maestro runs. Check `
 All 99 mobile-core tests, relevant typechecks, changed-source lint and module-boundary checks passed. At that checkpoint, broader journeys, native maps/payment, background location, release signing and the iOS rebuild/retest were outstanding. Subsequent native previews and builds supersede the initial build-only status; full physical-device acceptance remains open.
 
 Both temporary Android Auth0 identities were blocked with independent readback after acceptance. Their private fixture files and credential-bearing Maestro run folders were removed. The founder’s manual rider identity was preserved.
+
+## Automated standalone startup
+
+Android CI now includes a fresh-emulator Release welcome/relaunch check in addition to compilation and embedded-JavaScript validation. See [the runner and prerequisites](mobile-staging-builds.md#standalone-android-ci-launch-smoke). Local and hosted outcomes remain separate in [implementation status](18-implementation-status.md); this smoke does not cover authentication, payment or locked-device location.
