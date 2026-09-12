@@ -29,3 +29,7 @@ Customer provisioning, durable payment sessions, native PaymentSheet/CustomerShe
 ## Refund reconciliation events
 
 When refund tracking is enabled, signed `refund.created`, `refund.updated` and `refund.failed` events enqueue current-provider reconciliation. Expanded PaymentIntent references are normalized; unlinked legacy refunds are ignored. Amounts/status from event payloads are never applied directly. See [refund tracking](66-refund-tracking.md).
+
+## Dispute event hints
+
+The separate dispute rollout flag enables five signed charge-dispute event types. They queue current PaymentIntent dispute verification; event amounts, status and customer evidence are never stored as financial truth. Unlinked legacy events are ignored. See [subscriptions and recovery](69-disputes.md).

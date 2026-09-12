@@ -41,3 +41,7 @@ The separately flagged `refund.execute` handler processes durable staff authoriz
 ## Refund accounting and read-only recovery
 
 The refund reconciler optionally commits verified processor balance journals with observations. Uncertain execution refreshes metadata correlation before considering the original mutation retry. An authenticated staff endpoint can request the same provider-read-only recovery after the retry window. See [accounting and recovery](68-refund-accounting.md).
+
+## Dispute reconciliation
+
+With dispute tracking enabled, recovery runs its bounded sweep before drain and routes `dispute.reconcile` jobs to current-provider verification and atomic ledger/observation persistence. Queue publication, retries and dead letters retain existing worker semantics. See [disputes](69-disputes.md).

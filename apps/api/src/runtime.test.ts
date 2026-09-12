@@ -496,3 +496,17 @@ test('refund accounting requires tracking and can compose without startup provid
     await runtime.close();
   }
 });
+
+test('dispute rollout is explicit and the real enabled runtime has no startup provider calls', async () => {
+  expect(readRuntimeConfig(environment()).disputesEnabled).toBeUndefined();
+  expect(() => readRuntimeConfig({ ...environment(), PAYMENT_DISPUTES_ENABLED: 'yes' })).toThrow(
+    'payments.disputesEnabled',
+  );
+  const runtime = createRuntime({ ...environment(), PAYMENT_DISPUTES_ENABLED: 'true' });
+  try {
+    expect(runtime.disputeReconciliation).toBeDefined();
+    expect((await runtime.app.request('/health/live')).status).toBe(200);
+  } finally {
+    await runtime.close();
+  }
+});

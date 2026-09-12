@@ -42,3 +42,7 @@ Metadata recovery and processor refund/failure journals are now implemented. Rem
 
 - [Stripe refund creation](https://docs.stripe.com/api/refunds/create)
 - [Stripe idempotency and retention](https://docs.stripe.com/api/idempotent_requests)
+
+## Disputed-payment hold
+
+When dispute tracking is enabled, authorization and each provider-mutation attempt require fresh clear dispute records. The worker refreshes disputes before applying the hold. Read-only recovery can still bind an existing correlated refund. See [dispute safeguards](69-disputes.md).

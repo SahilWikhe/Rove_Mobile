@@ -655,3 +655,35 @@ export const RefundOperation = z
     createdAt: z.iso.datetime(),
   })
   .strict();
+
+export const DisputeStatus = z.enum([
+  'warning_needs_response',
+  'warning_under_review',
+  'warning_closed',
+  'needs_response',
+  'under_review',
+  'won',
+  'lost',
+  'prevented',
+]);
+export const StaffDisputeQueue = z
+  .object({
+    items: z
+      .array(
+        z
+          .object({
+            id: z.string().regex(/^(du|dp)_[a-zA-Z0-9]{1,96}$/),
+            rideId: z.uuid(),
+            amount: Money,
+            status: DisputeStatus,
+            reason: z.string().max(64),
+            dueAt: z.iso.datetime().nullable(),
+            verifiedAt: z.iso.datetime(),
+            settlementBlocked: z.boolean(),
+          })
+          .strict(),
+      )
+      .max(50),
+    nextCursor: z.string().nullable(),
+  })
+  .strict();

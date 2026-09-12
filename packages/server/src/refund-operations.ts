@@ -3,6 +3,7 @@ import { RefundAuthorization, RefundOperation } from '@rove/contracts';
 import type { Pool, PoolClient } from 'pg';
 import type { Actor } from './rides';
 import type { PaymentProvider, PaymentReference } from './payment-provider';
+import type { DisputeReconciler } from './disputes';
 import type { RefundReconciler } from './refund-reconciliation';
 import type { JobHandler } from './outbox';
 import { command, transaction } from './transactions';
@@ -29,6 +30,7 @@ export class RefundOperations {
     private reconciliation: RefundReconciler,
     private source: string,
     private now: () => Date = () => new Date(),
+    private disputes?: DisputeReconciler,
   ) {}
   private async reference(client: PoolClient, rideId: string): Promise<PaymentReference> {
     const row = (
@@ -50,6 +52,7 @@ export class RefundOperations {
     };
   }
   private async available(client: PoolClient, reference: PaymentReference, exclude?: string) {
+    await this.disputes?.assertRefundable(client, reference.attemptId);
     const check = (
       await client.query('SELECT * FROM payment_refund_checks WHERE attempt_id=$1 FOR SHARE', [
         reference.attemptId,
@@ -267,13 +270,17 @@ export class RefundOperations {
     });
     if (!prepared) return;
     // Refresh authoritative history before the first attempt. A lost-response retry must replay its original key even if that refund is already visible.
-    if (!prepared.op.first_attempt_at) await this.reconciliation.reconcile(prepared.reference.intentId);
+    if (!prepared.op.first_attempt_at) {
+      await this.reconciliation.reconcile(prepared.reference.intentId);
+    }
+    await this.disputes?.reconcile(prepared.reference.intentId);
     const ready = await transaction(this.pool, async (client) => {
       const reference = await this.reference(client, initial.ride_id);
       const op = (
         await client.query<Operation>('SELECT * FROM refund_operations WHERE id=$1 FOR UPDATE', [initial.id])
       ).rows[0]!;
       if (op.state !== 'queued') return null;
+      await this.disputes?.assertRefundable(client, reference.attemptId);
       if (!op.first_attempt_at) {
         if (op.amount_cents > (await this.available(client, reference, op.id))) throw unavailable();
         await client.query('UPDATE refund_operations SET first_attempt_at=$2 WHERE id=$1', [

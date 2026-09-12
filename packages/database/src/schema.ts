@@ -279,7 +279,7 @@ export const ledgerPostings = pgTable(
     check('ledger_nonzero_amount', sql`${t.amountCents} <> 0`),
     check(
       'ledger_valid_account',
-      sql`${t.account} in ('stripe_clearing','rider_funds','driver_payable','platform_revenue','refund_suspense','processor_fees')`,
+      sql`${t.account} in ('stripe_clearing','rider_funds','driver_payable','platform_revenue','refund_suspense','processor_fees','dispute_suspense')`,
     ),
     check(
       'ledger_scoped_owner',
@@ -704,4 +704,38 @@ export const refundOperations = pgTable(
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('refund_operations_attempt').on(t.attemptId)],
+);
+
+export const paymentDisputeChecks = pgTable(
+  'payment_dispute_checks',
+  {
+    attemptId: uuid()
+      .primaryKey()
+      .references(() => paymentAttempts.id),
+    revision: integer().notNull().default(0),
+    disputes: jsonb().notNull().default([]),
+    verifiedAt: timestamp({ withTimezone: true }),
+    requestedAt: timestamp({ withTimezone: true }),
+  },
+  (t) => [
+    check('dispute_check_revision', sql`${t.revision} >= 0`),
+    check('dispute_check_array', sql`jsonb_typeof(${t.disputes}) = 'array'`),
+  ],
+);
+export const paymentDisputeObservations = pgTable(
+  'payment_dispute_observations',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    attemptId: uuid()
+      .notNull()
+      .references(() => paymentAttempts.id),
+    revision: integer().notNull(),
+    disputes: jsonb().notNull(),
+    verifiedAt: timestamp({ withTimezone: true }).notNull(),
+  },
+  (t) => [
+    uniqueIndex('dispute_observation_revision').on(t.attemptId, t.revision),
+    check('dispute_observation_positive_revision', sql`${t.revision} > 0`),
+    check('dispute_observation_array', sql`jsonb_typeof(${t.disputes}) = 'array'`),
+  ],
 );

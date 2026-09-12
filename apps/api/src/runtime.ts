@@ -29,6 +29,8 @@ import {
   OutboxDrain,
   PaymentCustomers,
   PaymentReconciler,
+  DisputeReconciler,
+  type DisputeProvider,
   RefundOperations,
   RefundReconciler,
   type RefundProvider,
@@ -50,6 +52,7 @@ import { readRuntimeConfig, type RuntimeConfig } from './runtime-config';
 interface Resources {
   verificationEmail?: { verifyIdentity: VerifyIdentity; request(subject: string): Promise<void> };
   refundProvider?: RefundProvider;
+  disputeProvider?: DisputeProvider;
   wallet?: WalletProvider;
   documentScanner?: DocumentScanner;
   documentTransfers?: DriverDocumentTransfers;
@@ -79,9 +82,20 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
         config.refundAccountingEnabled,
       )
     : undefined;
+  if (config.disputesEnabled && !resources.disputeProvider) throw new Error('Dispute provider is required.');
+  const disputeReconciliation = config.disputesEnabled
+    ? new DisputeReconciler(pool, resources.disputeProvider!, config.paymentSource)
+    : undefined;
   const refundOperations =
     config.refundOperationsEnabled && refundReconciliation
-      ? new RefundOperations(pool, payments, refundReconciliation, config.paymentSource)
+      ? new RefundOperations(
+          pool,
+          payments,
+          refundReconciliation,
+          config.paymentSource,
+          undefined,
+          disputeReconciliation,
+        )
       : undefined;
   const matching = new MatchingService(pool, maps);
   const searchExpiry = new SearchExpiry(pool);
@@ -95,6 +109,7 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
   const handlers: Record<string, JobHandler> = {
     // Foreground messaging works without a push provider; configured delivery wraps this handler.
     ...(refundOperations ? { 'refund.execute': refundOperations.handle } : {}),
+    ...(disputeReconciliation ? { 'dispute.reconcile': disputeReconciliation.handle } : {}),
     'message.created': async () => {},
     ...reconciliation.handlers(),
     ...(refundReconciliation ? { 'refund.reconcile': refundReconciliation.handle } : {}),
@@ -110,6 +125,7 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
   const app = createApp({
     pool,
     ...(refundOperations ? { refundOperations } : {}),
+    ...(disputeReconciliation ? { disputes: disputeReconciliation } : {}),
     ...(refundReconciliation ? { refundsEnabled: true } : {}),
     ...(resources.verificationEmail ? { verificationEmail: resources.verificationEmail } : {}),
     ...(resources.documentDownloads ? { documentDownloads: resources.documentDownloads } : {}),
@@ -138,7 +154,13 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
       customers,
       resources.wallet,
     ),
-    paymentWebhooks: new PaymentWebhookInbox(pool, payments, config.paymentSource, !!refundReconciliation),
+    paymentWebhooks: new PaymentWebhookInbox(
+      pool,
+      payments,
+      config.paymentSource,
+      !!refundReconciliation,
+      !!disputeReconciliation,
+    ),
   });
   return {
     app,
@@ -149,6 +171,7 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
       : {}),
     searchExpiry,
     ...(refundReconciliation ? { refundReconciliation } : {}),
+    ...(disputeReconciliation ? { disputeReconciliation } : {}),
     ...(pushDelivery ? { pushDelivery } : {}),
     ...(payoutReconciliation ? { payoutReconciliation } : {}),
     close: async () => {
@@ -235,6 +258,7 @@ export function createRuntime(env: Record<string, string | undefined>) {
     maps,
     payments,
     refundProvider: payments,
+    disputeProvider: payments,
     verifyIdentity,
     ...(config.connect
       ? {

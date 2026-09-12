@@ -53,11 +53,19 @@ function fixture() {
   };
   const sdk = new Stripe(config.secretKey);
   const customers = { create: vi.fn() };
-  const client = { paymentIntents, refunds, customers, webhooks: sdk.webhooks } as unknown as Pick<
+  const disputes = { list: vi.fn().mockResolvedValue({ object: 'list', data: [], has_more: false }) };
+  const client = { paymentIntents, refunds, customers, disputes, webhooks: sdk.webhooks } as unknown as Pick<
     Stripe,
-    'paymentIntents' | 'refunds' | 'webhooks' | 'customers'
+    'paymentIntents' | 'refunds' | 'webhooks' | 'customers' | 'disputes'
   >;
-  return { paymentIntents, refunds, customers, sdk, provider: new StripePaymentProvider(config, client) };
+  return {
+    paymentIntents,
+    refunds,
+    customers,
+    disputes,
+    sdk,
+    provider: new StripePaymentProvider(config, client),
+  };
 }
 test('creates a configured manual-capture intent using server references and stable idempotency', async () => {
   const { provider, paymentIntents } = fixture();
@@ -460,4 +468,92 @@ test('refund balance records validate linkage, currency, direction and net arith
     ],
   });
   expect((await f.provider.refunds(reference)).refunds[0]?.balanceTransactions).toHaveLength(2);
+});
+
+function disputed(extra: Record<string, unknown> = {}) {
+  return {
+    id: 'du_fixture',
+    object: 'dispute',
+    livemode: false,
+    payment_intent: reference.intentId,
+    currency: 'usd',
+    amount: 1050,
+    status: 'needs_response',
+    reason: 'general',
+    created: 1700000000,
+    evidence_details: { due_by: 1790000000 },
+    balance_transactions: [],
+    evidence: { customer_email_address: 'private@example.invalid' },
+    ...extra,
+  };
+}
+test('dispute reader verifies payment references, follows cursors, and strips private evidence', async () => {
+  const f = refundFixture();
+  f.disputes.list
+    .mockResolvedValueOnce({ object: 'list', has_more: true, data: [disputed()] })
+    .mockResolvedValueOnce({
+      object: 'list',
+      has_more: false,
+      data: [disputed({ id: 'dp_legacy', payment_intent: { id: reference.intentId }, status: 'won' })],
+    });
+  const result = await f.provider.disputes(reference);
+  expect(result.disputes).toHaveLength(2);
+  expect(result.disputes[0]?.dueBy).toBe(1790000000);
+  expect(JSON.stringify(result)).not.toContain('private@example.invalid');
+  expect(f.disputes.list.mock.calls[1]![0]).toMatchObject({
+    payment_intent: reference.intentId,
+    starting_after: 'du_fixture',
+    limit: 100,
+  });
+  f.paymentIntents.retrieve.mockResolvedValue(intent({ customer: 'cus_other' }));
+  f.disputes.list.mockClear();
+  await expect(f.provider.disputes(reference)).rejects.toThrow();
+  expect(f.disputes.list).not.toHaveBeenCalled();
+});
+test('dispute reader rejects partial/mismatched history and invalid balance arithmetic', async () => {
+  const f = refundFixture();
+  for (const extra of [
+    { livemode: true },
+    { payment_intent: 'pi_other' },
+    { currency: 'eur' },
+    { status: 'invented' },
+    {
+      balance_transactions: [
+        {
+          id: 'txn_dispute',
+          source: 'du_other',
+          currency: 'usd',
+          type: 'adjustment',
+          amount: -1050,
+          fee: 1500,
+          net: -2550,
+        },
+      ],
+    },
+  ]) {
+    f.disputes.list.mockResolvedValueOnce({ object: 'list', has_more: false, data: [disputed(extra)] });
+    await expect(f.provider.disputes(reference)).rejects.toThrow();
+  }
+  f.disputes.list.mockResolvedValue({ object: 'list', has_more: true, data: [disputed()] });
+  await expect(f.provider.disputes(reference)).rejects.toThrow();
+  f.disputes.list.mockResolvedValue({
+    object: 'list',
+    has_more: false,
+    data: [
+      disputed({
+        balance_transactions: [
+          {
+            id: 'txn_dispute',
+            source: 'du_fixture',
+            currency: 'usd',
+            type: 'adjustment',
+            amount: -1050,
+            fee: 1500,
+            net: -2550,
+          },
+        ],
+      }),
+    ],
+  });
+  expect((await f.provider.disputes(reference)).disputes[0]?.balanceTransactions[0]?.netCents).toBe(-2550);
 });

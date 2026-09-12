@@ -64,3 +64,5 @@ export * from './messaging';
 export * from './refund-reconciliation';
 
 export { RefundOperations } from './refund-operations';
+
+export { DisputeReconciler, type DisputeProvider } from './disputes';

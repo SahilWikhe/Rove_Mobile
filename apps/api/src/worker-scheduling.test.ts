@@ -246,3 +246,30 @@ test('recovery schedules refund observations before draining and propagates swee
   await expect(failing.recover()).rejects.toThrow('refund database unavailable');
   expect(steps).toEqual(['refunds', 'drain']);
 });
+
+test('dispute recovery is awaited before drain and failures remain retryable', async () => {
+  const steps: string[] = [];
+  const tasks = {
+    searchExpiry: { sweep: async () => 0 },
+    disputeReconciliation: {
+      sweep: async () => {
+        steps.push('disputes');
+        return 1;
+      },
+    },
+    drain: {
+      run: async () => {
+        steps.push('drain');
+        return { processed: 0, failed: 0, wakeAfterSeconds: null };
+      },
+    },
+  };
+  const scheduling = new WorkerScheduling(tasks, { publish: async () => {} });
+  await scheduling.recover();
+  expect(steps).toEqual(['disputes', 'drain']);
+  tasks.disputeReconciliation.sweep = async () => {
+    throw new Error('dispute store unavailable');
+  };
+  await expect(scheduling.recover()).rejects.toThrow('dispute store unavailable');
+  expect(steps).toEqual(['disputes', 'drain']);
+});

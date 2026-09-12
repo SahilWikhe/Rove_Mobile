@@ -1,3 +1,4 @@
+import { DisputeSnapshot, DisputeId } from './disputes';
 import Stripe from 'stripe';
 import { z } from 'zod';
 import { DomainError } from './errors';
@@ -47,7 +48,7 @@ const Intent = z.object({
   amount_received: z.number().int().min(0),
   client_secret: z.string().nullable().optional(),
 });
-type StripeApi = Pick<Stripe, 'paymentIntents' | 'refunds' | 'webhooks' | 'customers'>;
+type StripeApi = Pick<Stripe, 'paymentIntents' | 'refunds' | 'webhooks' | 'customers' | 'disputes'>;
 function input<T>(schema: z.ZodType<T>, value: unknown): T {
   const parsed = schema.safeParse(value);
   if (!parsed.success)
@@ -377,6 +378,86 @@ export class StripePaymentProvider implements PaymentProvider, PaymentCustomerPr
       503,
     );
   }
+  async disputes(raw: PaymentReference) {
+    const reference = input(Reference, raw),
+      payment = await this.retrieve(reference);
+    const Balance = z.object({
+      id: z.string().regex(/^txn_[a-zA-Z0-9]{1,96}$/),
+      source: z.union([DisputeId, z.object({ id: DisputeId })]),
+      currency: z.literal('usd'),
+      type: z.literal('adjustment'),
+      amount: z.number().int().min(-99_999_999).max(99_999_999),
+      fee: z.number().int().min(-99_999_999).max(99_999_999),
+      net: z.number().int().min(-199_999_998).max(199_999_998),
+    });
+    const Item = z.object({
+      id: DisputeId,
+      object: z.literal('dispute'),
+      livemode: z.literal(this.config.live),
+      payment_intent: z.union([IntentId, z.object({ id: IntentId })]),
+      currency: z.literal('usd'),
+      amount: MinorAmount,
+      status: DisputeSnapshot.shape.status,
+      reason: DisputeSnapshot.shape.reason,
+      created: DisputeSnapshot.shape.created,
+      evidence_details: z.object({ due_by: z.number().int().min(0).max(2147483647).nullish() }),
+      balance_transactions: z.array(Balance).max(2),
+    });
+    const Page = z.object({ object: z.literal('list'), data: z.array(Item).max(100), has_more: z.boolean() });
+    const disputes: DisputeSnapshot[] = [];
+    const seen = new Set<string>(),
+      balances = new Set<string>();
+    let cursor: string | undefined;
+    for (let page = 0; page < 10; page++) {
+      const response = await this.call(() =>
+        this.stripe.disputes.list({
+          payment_intent: reference.intentId,
+          limit: 100,
+          ...(cursor ? { starting_after: cursor } : {}),
+        }),
+      );
+      const parsed = Page.safeParse(response);
+      if (!parsed.success) throw mismatch();
+      for (const item of parsed.data.data) {
+        const intentId =
+          typeof item.payment_intent === 'string' ? item.payment_intent : item.payment_intent.id;
+        if (intentId !== reference.intentId || seen.has(item.id)) throw mismatch();
+        seen.add(item.id);
+        const movements = item.balance_transactions.map((balance) => {
+          if (
+            (typeof balance.source === 'string' ? balance.source : balance.source.id) !== item.id ||
+            balance.net !== balance.amount - balance.fee ||
+            balances.has(balance.id)
+          )
+            throw mismatch();
+          balances.add(balance.id);
+          return {
+            id: balance.id,
+            disputeId: item.id,
+            amountCents: balance.amount,
+            feeCents: balance.fee,
+            netCents: balance.net,
+          };
+        });
+        disputes.push(
+          DisputeSnapshot.parse({
+            id: item.id,
+            intentId,
+            amountCents: item.amount,
+            status: item.status,
+            reason: item.reason,
+            created: item.created,
+            dueBy: item.evidence_details.due_by ?? null,
+            balanceTransactions: movements,
+          }),
+        );
+      }
+      if (!parsed.data.has_more) return { payment, disputes };
+      if (!parsed.data.data.length) throw mismatch();
+      cursor = parsed.data.data.at(-1)!.id;
+    }
+    throw new DomainError('DISPUTE_REVIEW_REQUIRED', 'Complete dispute history could not be verified.', 503);
+  }
   verifyWebhook(body: string | Buffer, signature: string, now = Date.now()) {
     if (Buffer.byteLength(body) > 1_048_576 || signature.length > 8192)
       throw new DomainError('INVALID_PAYMENT_WEBHOOK', 'Invalid payment event.', 400);
@@ -405,6 +486,35 @@ export class StripePaymentProvider implements PaymentProvider, PaymentCustomerPr
       .safeParse(event);
     if (!parsed.success) throw new DomainError('INVALID_PAYMENT_WEBHOOK', 'Invalid payment event.', 400);
     let resourceId = parsed.data.data.object.id;
+    if (
+      [
+        'charge.dispute.created',
+        'charge.dispute.updated',
+        'charge.dispute.closed',
+        'charge.dispute.funds_withdrawn',
+        'charge.dispute.funds_reinstated',
+      ].includes(parsed.data.type)
+    ) {
+      const dispute = z
+        .object({
+          object: z.literal('dispute'),
+          id: DisputeId,
+          payment_intent: z.union([IntentId, z.object({ id: IntentId }), z.null()]),
+        })
+        .safeParse(event.data.object);
+      if (!dispute.success) throw new DomainError('INVALID_PAYMENT_WEBHOOK', 'Invalid payment event.', 400);
+      if (dispute.data.payment_intent === null)
+        return {
+          id: parsed.data.id,
+          type: 'dispute.unlinked',
+          created: parsed.data.created,
+          resourceId: dispute.data.id,
+        };
+      resourceId =
+        typeof dispute.data.payment_intent === 'string'
+          ? dispute.data.payment_intent
+          : dispute.data.payment_intent.id;
+    }
     if (['refund.created', 'refund.updated', 'refund.failed'].includes(parsed.data.type)) {
       const refund = z
         .object({

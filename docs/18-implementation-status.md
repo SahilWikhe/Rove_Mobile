@@ -1,6 +1,16 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `f99a923681a2121a189287566ae55a555e486f68` plus the refund recovery/accounting checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `24ab5d08d0398c98e0a42a56c5a76bb9d26f5966` plus the dispute verification checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Dispute verification, accounting and protected staff review — September 12
+
+Added migration 0034, bounded current-provider dispute listing, five signed dispute event hints, durable revision-fenced observations, recovery sweeps and source-keyed balance journals. Financial records distinguish withdrawal and reinstatement rather than inferring a balance return from won status. Raw customer evidence is excluded. The MFA/permission-protected staff queue supports deadline ordering, status filtering and pagination; an authorized refresh endpoint retrieves current facts without provider mutations.
+
+When enabled, unknown/stale/open/lost/unresolved dispute records block staff refund authorization and each mutation attempt. The worker rechecks disputes after authorization, while metadata-based read-only recovery can still bind a refund already created. The separate rollout flag defaults off until migration/provider/operational acceptance. Driver earnings and original capture remain unchanged; commercial suspense allocation and settlement still require completion.
+
+All eleven application test tasks passed, including 446 server tests. Focused provider/domain runs passed forty tests; focused API/runtime/scheduling runs passed forty tests. The signed HTTP test traverses the inbox/outbox worker, verified balance journal and protected staff queue, and proves a false won status in an event cannot override provider data. Workspace/E2E types, source lint excluding generated reports, import boundaries, formatting, documentation lint and packaged API build/health/authentication checks passed. These are synthetic local tests with disposable PostgreSQL and mocked provider transport; no hosted migration, money movement, credentials, permissions or flags changed.
+
+Next: authorized allocation of refund/dispute suspense and driver transfer/settlement, followed by deletion fulfillment and production/device acceptance. Evidence response ownership and provider-controlled submission/acceptance remain operational requirements; automated evidence submission and accepting disputes are not implemented. See [dispute setup and limits](69-disputes.md). No full-app or production completion is claimed.
 
 ## Refund correlation recovery and processor balance journals — September 12
 

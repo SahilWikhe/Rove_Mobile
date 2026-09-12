@@ -55,3 +55,7 @@ The provider history boundary is now consumed by the flagged durable worker and 
 ## Staff refund authorization
 
 A separate disabled-by-default mutation capability now journals staff-authorized refund operations and executes them through the durable worker. See [refund operations](67-refund-operations.md). This adds creation authorization and bounded retry recovery; correlation recovery and processor balance accounting follow in [refund accounting](68-refund-accounting.md); uncorrelated outcomes, loss allocation, disputes and settlement remain release work.
+
+## Dispute verification and financial records
+
+Dispute listing, signed hints, durable current-provider reconciliation, processor balance journals and MFA staff review are implemented behind an explicit rollout flag. This does not accept disputes, submit evidence or allocate losses. See [dispute workflow](69-disputes.md).

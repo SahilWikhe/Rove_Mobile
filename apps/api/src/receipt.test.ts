@@ -7,6 +7,7 @@ import {
   developmentRates,
   transaction,
   type MapsProvider,
+  DisputeReconciler,
   RefundOperations,
   RefundReconciler,
   PaymentWebhookInbox,
@@ -71,10 +72,11 @@ beforeEach(async () => {
   );
   app = buildApp();
 });
-function buildApp(refundsEnabled = false, refundOperations?: RefundOperations) {
+function buildApp(refundsEnabled = false, refundOperations?: RefundOperations, disputes?: DisputeReconciler) {
   return createApp({
     refundsEnabled,
     ...(refundOperations ? { refundOperations } : {}),
+    ...(disputes ? { disputes } : {}),
     ...(refundsEnabled
       ? {
           paymentWebhooks: new PaymentWebhookInbox(
@@ -87,6 +89,7 @@ function buildApp(refundsEnabled = false, refundOperations?: RefundOperations) {
             }),
             'acct_private:test',
             true,
+            !!disputes,
           ),
         }
       : {}),
@@ -332,4 +335,101 @@ test('staff refund HTTP endpoints require MFA permission, explicit enablement, a
       ])
     ).rowCount,
   ).toBe(1);
+});
+
+test('signed dispute events flow through durable worker verification to the protected staff queue', async () => {
+  await database.pool.query('TRUNCATE outbox,payment_webhook_events CASCADE');
+  await capture();
+  const staff = (await database.pool.query("SELECT id FROM users WHERE subject='staff'")).rows[0].id;
+  const current = {
+    id: 'du_fixture',
+    intentId: 'pi_private',
+    amountCents: 1050,
+    status: 'needs_response' as const,
+    reason: 'general',
+    created: 1700000000,
+    dueBy: 1790000000,
+    balanceTransactions: [
+      { id: 'txn_dispute', disputeId: 'du_fixture', amountCents: -1050, feeCents: 1500, netCents: -2550 },
+    ],
+  };
+  const service = new DisputeReconciler(
+    database.pool,
+    {
+      disputes: async (reference) => ({
+        payment: { ...reference, status: 'succeeded', capturableCents: 0, receivedCents: 1050 },
+        disputes: [current],
+      }),
+    },
+    'acct_private:test',
+  );
+  app = buildApp(true, undefined, service);
+  expect(
+    (await app.request('/v1/staff/disputes', { headers: { authorization: 'Bearer rider' } })).status,
+  ).toBe(403);
+  expect(
+    (await app.request('/v1/staff/disputes', { headers: { authorization: 'Bearer staff' } })).status,
+  ).toBe(403);
+  await database.pool.query(
+    "INSERT INTO staff_permissions(staff_id,permission) VALUES($1,'payments.dispute.review')",
+    [staff],
+  );
+  const timestamp = Math.floor(Date.now() / 1000);
+  const payload = JSON.stringify({
+    id: 'evt_dispute',
+    object: 'event',
+    type: 'charge.dispute.created',
+    livemode: false,
+    created: timestamp,
+    data: {
+      object: {
+        id: 'du_fixture',
+        object: 'dispute',
+        payment_intent: 'pi_private',
+        status: 'won',
+        evidence: { customer_email_address: 'private@example.invalid' },
+      },
+    },
+  });
+  const signature = createHmac('sha256', 'whsec_fixture').update(`${timestamp}.${payload}`).digest('hex');
+  const send = () =>
+    app.request('/webhooks/stripe', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'stripe-signature': `t=${timestamp},v1=${signature}` },
+      body: payload,
+    });
+  expect((await send()).status).toBe(200);
+  expect((await send()).status).toBe(200);
+  const worker = new OutboxWorker(
+    database.pool,
+    { 'dispute.reconcile': service.handle },
+    () => new Date(Date.now() + 1000),
+  );
+  await worker.runOnce();
+  const response = await app.request('/v1/staff/disputes?status=needs_response', {
+    headers: { authorization: 'Bearer staff' },
+  });
+  expect(response.status).toBe(200);
+  const body = await response.json();
+  expect(body.items).toHaveLength(1);
+  expect(body.items[0]).toMatchObject({
+    status: 'needs_response',
+    settlementBlocked: true,
+    amount: { amount: 1050, currency: 'USD' },
+  });
+  expect(JSON.stringify(body)).not.toContain('private@example.invalid');
+  expect(
+    (await database.pool.query("SELECT * FROM ledger_journals WHERE kind='dispute_balance'")).rowCount,
+  ).toBe(1);
+  expect((await database.pool.query("SELECT * FROM outbox WHERE topic='dispute.reconcile'")).rowCount).toBe(
+    1,
+  );
+  expect(
+    (
+      await app.request(`/v1/staff/rides/${ride}/disputes/refresh`, {
+        method: 'POST',
+        headers: { authorization: 'Bearer staff' },
+      })
+    ).status,
+  ).toBe(200);
 });

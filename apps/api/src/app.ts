@@ -37,6 +37,7 @@ import {
   ProfileNameUpdate,
 } from '@rove/contracts';
 import {
+  DisputeReconciler,
   RefundOperations,
   DriverDocumentService,
   DocumentReviewService,
@@ -73,6 +74,7 @@ import { getRide, listRides } from './ride-queries';
 type Environment = { Variables: { actor: Actor; subject: string; requestId: string } };
 interface Dependencies {
   refundOperations?: RefundOperations;
+  disputes?: DisputeReconciler;
   refundsEnabled?: boolean;
   walletSessions?: Pick<WalletSessions, 'customerSession' | 'setupSession'>;
   pool: Pool;
@@ -410,6 +412,14 @@ export function createApp(deps: Dependencies) {
       ),
     ),
   );
+  app.get('/v1/staff/disputes', async (c) => {
+    if (!deps.disputes) throw new DomainError('DISPUTES_UNAVAILABLE', 'Dispute review is not enabled.', 503);
+    return c.json(await deps.disputes.queue(c.var.actor, c.req.query()));
+  });
+  app.post('/v1/staff/rides/:id/disputes/refresh', async (c) => {
+    if (!deps.disputes) throw new DomainError('DISPUTES_UNAVAILABLE', 'Dispute review is not enabled.', 503);
+    return c.json(await deps.disputes.refresh(c.var.actor, id(c.req.param('id'))));
+  });
   app.post('/v1/staff/rides/:id/refunds/:operationId/recover', async (c) => {
     if (!deps.refundOperations)
       throw new DomainError('REFUNDS_UNAVAILABLE', 'Refund operations are not enabled.', 503);

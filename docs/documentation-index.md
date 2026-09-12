@@ -100,3 +100,7 @@ Secrets, ignored environment files, temporary test outputs and generated depende
 ## Refund balance accounting
 
 [Refund balance accounting and correlation recovery](68-refund-accounting.md) covers processor transaction evidence, immutable journals, suspense, lost-response recovery and remaining commercial/release requirements.
+
+## Disputes
+
+[Dispute verification, accounting and staff review](69-disputes.md) covers signed events, current-provider observations, financial journals, staff queue, refund holds and setup/acceptance requirements.

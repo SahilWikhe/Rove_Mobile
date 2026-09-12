@@ -4,6 +4,7 @@ import { testDatabase } from '@rove/database/testing';
 import type { PaymentReference, RefundProvider, RefundSnapshot } from './payment-provider';
 import { RefundReconciler } from './refund-reconciliation';
 import { RefundOperations } from './refund-operations';
+import { DisputeReconciler, type DisputeSnapshot } from './disputes';
 import { recordCapturedFunds } from './ledger';
 import { transaction } from './transactions';
 import type { Actor } from './rides';
@@ -319,3 +320,39 @@ test.each(['duplicate', 'future'] as const)(
     expect(refund).toHaveBeenCalledTimes(1);
   },
 );
+
+test('an enabled dispute guard blocks both authorization and a dispute discovered after authorization', async () => {
+  let history: DisputeSnapshot[] = [];
+  const disputes = new DisputeReconciler(
+    database.pool,
+    {
+      disputes: async (ref) => ({
+        payment: { ...ref, status: 'succeeded', receivedCents: 1050, capturableCents: 0 },
+        disputes: history,
+      }),
+    },
+    source,
+    () => now,
+  );
+  operations = new RefundOperations(database.pool, { refund }, reconcile, source, () => now, disputes);
+  await expect(
+    operations.authorize(staff, reference.rideId, authorization, 'fixture-key-one'),
+  ).rejects.toMatchObject({ code: 'DISPUTE_PAYMENT_HOLD' });
+  await disputes.reconcile(reference.intentId);
+  const op = await operations.authorize(staff, reference.rideId, authorization, 'fixture-key-one');
+  history = [
+    {
+      id: 'du_fixture',
+      intentId: reference.intentId,
+      amountCents: 1050,
+      status: 'needs_response',
+      reason: 'general',
+      created: 1700000000,
+      dueBy: null,
+      balanceTransactions: [],
+    },
+  ];
+  await expect(execute(op.id)).rejects.toMatchObject({ code: 'DISPUTE_PAYMENT_HOLD' });
+  expect(refund).not.toHaveBeenCalled();
+  expect((await row(op.id)).first_attempt_at).toBeNull();
+});

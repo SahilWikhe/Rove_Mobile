@@ -7,6 +7,7 @@ export interface WorkerTasks {
   documentScans?: { runOnce(): Promise<unknown>; nextWakeAfterSeconds(): Promise<number | null> };
   drain: { run(): Promise<{ processed: number; failed: number; wakeAfterSeconds: number | null }> };
   searchExpiry: { sweep(): Promise<number> };
+  disputeReconciliation?: { sweep(): Promise<number> };
   refundReconciliation?: { sweep(): Promise<number> };
   pushDelivery?: { sweep(): Promise<number> };
   payoutReconciliation?: { sweep(): Promise<number> };
@@ -35,6 +36,7 @@ export class WorkerScheduling {
     await this.tasks.payoutReconciliation?.sweep();
     await this.tasks.pushDelivery?.sweep();
     await this.tasks.refundReconciliation?.sweep();
+    await this.tasks.disputeReconciliation?.sweep();
     return this.consume({ version: 1 });
   }
 }

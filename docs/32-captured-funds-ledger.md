@@ -33,3 +33,7 @@ Remaining: owner-scoped receipts and earnings APIs/UI, refund/dispute/fee/payout
 ## Refund observations
 
 Refund tracking now persists verified observations separately from capture journals. It does not reverse capture journals or driver allocations. Verified processor refund and failure-balance journals are now implemented separately; refund loss allocation and suspense review remain outstanding. See [refund tracking](66-refund-tracking.md) and [refund balance accounting](68-refund-accounting.md).
+
+## Dispute balance journals
+
+Dispute withdrawals/reinstatements now have source-keyed immutable balanced journals with processor fees and `dispute_suspense`. Capture and driver payable remain unchanged. Commercial suspense allocation, driver settlement and complete provider/bank reconciliation remain separate work. See [dispute accounting](69-disputes.md).

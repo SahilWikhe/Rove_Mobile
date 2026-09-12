@@ -30,6 +30,13 @@ const supported = new Set([
   'payment_intent.canceled',
 ]);
 
+const disputeEvents = new Set([
+  'charge.dispute.created',
+  'charge.dispute.updated',
+  'charge.dispute.closed',
+  'charge.dispute.funds_withdrawn',
+  'charge.dispute.funds_reinstated',
+]);
 const refundEvents = new Set(['refund.created', 'refund.updated', 'refund.failed']);
 
 /** Durable ingress only. Signed event state is never used as payment authorization. */
@@ -39,6 +46,7 @@ export class PaymentWebhookInbox {
     private verifier: PaymentWebhookVerifier,
     private source: string,
     private refundsEnabled = false,
+    private disputesEnabled = false,
   ) {
     // One platform account and mode per endpoint/verifier; never derive this from request input.
     if (!/^acct_[a-zA-Z0-9]{1,96}:(test|live)$/.test(source))
@@ -50,7 +58,9 @@ export class PaymentWebhookInbox {
     if (!parsed.success) throw new DomainError('INVALID_PAYMENT_WEBHOOK', 'Invalid payment event.', 400);
     const hint = parsed.data;
     const refund = refundEvents.has(hint.type);
-    if (!supported.has(hint.type) && !(this.refundsEnabled && refund)) return;
+    const dispute = disputeEvents.has(hint.type);
+    if (!supported.has(hint.type) && !(this.refundsEnabled && refund) && !(this.disputesEnabled && dispute))
+      return;
     if (!/^pi_[a-zA-Z0-9]{1,96}$/.test(hint.resourceId))
       throw new DomainError('INVALID_PAYMENT_WEBHOOK', 'Invalid payment event.', 400);
     await transaction(this.pool, async (client) => {
@@ -82,7 +92,7 @@ export class PaymentWebhookInbox {
       }
       // Receipt and job commit atomically. A failed enqueue must cause Stripe to retry delivery.
       await client.query(`INSERT INTO outbox (topic,aggregate_id,payload,dedupe_key) VALUES ($1,$2,$3,$4)`, [
-        refund ? 'refund.reconcile' : 'payment.reconcile',
+        dispute ? 'dispute.reconcile' : refund ? 'refund.reconcile' : 'payment.reconcile',
         row.id,
         JSON.stringify({ source: this.source, intentId: hint.resourceId }),
         `payment-webhook:${row.id}`,

@@ -174,6 +174,14 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
       throw new ConfigurationError(['payments.refundAccountingEnabled']);
     return env.PAYMENT_REFUND_ACCOUNTING_ENABLED === 'true';
   });
+  const disputesEnabled = capture(() => {
+    if (
+      env.PAYMENT_DISPUTES_ENABLED !== undefined &&
+      !['true', 'false'].includes(env.PAYMENT_DISPUTES_ENABLED)
+    )
+      throw new ConfigurationError(['payments.disputesEnabled']);
+    return env.PAYMENT_DISPUTES_ENABLED === 'true';
+  });
   const payments = capture(() => readPaymentConfig(env));
   const connect = capture(() => readConnectConfig(env));
   const push = capture(() => readPushConfig(env));
@@ -190,6 +198,7 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
     payments,
     ...(refundOperationsEnabled ? { refundOperationsEnabled: true as const } : {}),
     ...(refundAccountingEnabled ? { refundAccountingEnabled: true as const } : {}),
+    ...(disputesEnabled ? { disputesEnabled: true as const } : {}),
     ...(refundsEnabled ? { refundsEnabled: true as const } : {}),
     ...(documentScanning ? { documentScanning } : {}),
     ...(documentStorage ? { documentStorage } : {}),
