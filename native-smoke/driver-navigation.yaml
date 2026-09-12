@@ -1,0 +1,21 @@
+# Requires an active synthetic pickup trip, open on the trip screen.
+# Does not accept Google terms or calculate a billable navigation route.
+appId: co.roveride.driver
+---
+- assertVisible: Heading to pickup
+- scrollUntilVisible:
+    element: Directions to pickup
+    direction: DOWN
+- tapOn: Directions to pickup
+- extendedWaitUntil:
+    visible: Start directions
+    timeout: 20000
+- assertVisible: Back to trip
+- takeScreenshot: in-app-navigation
+- tapOn: Back to trip
+- extendedWaitUntil:
+    visible: Heading to pickup
+    timeout: 15000
+- assertVisible: Directions to pickup
+- assertNotVisible: Start directions
+- takeScreenshot: navigation-returned-to-trip

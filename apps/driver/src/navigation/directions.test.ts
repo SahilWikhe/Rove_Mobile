@@ -25,10 +25,7 @@ test('opens a fresh pickup without forwarding identity, label, origin or credent
   const deps = setup({ ...ride, state: 'arrived', version: 3 });
   await openTripDirections(deps);
   expect(deps.load).toHaveBeenCalledWith(ride.id, deps.signal);
-  const url = new URL(deps.open.mock.calls[0]![0]);
-  expect(url.origin).toBe('https://www.google.com');
-  expect([...url.searchParams.keys()]).toEqual(['api', 'destination', 'travelmode', 'dir_action']);
-  expect(url.searchParams.get('destination')).toBe('35.78,-78.64');
+  expect(deps.open).toHaveBeenCalledWith(ride.id);
 });
 test('onboard trip targets destination and terminal/interrupted trips never expose navigation', () => {
   expect(navigationTarget({ ...ride, state: 'in_progress' })?.point).toBe('35.8,-78.6');
@@ -55,7 +52,7 @@ test('authorization/network failure cannot fall back to cached coordinates', asy
   await expect(openTripDirections(deps)).rejects.toThrow('Forbidden');
   expect(deps.open).not.toHaveBeenCalled();
 });
-test('late response after cancellation cannot open Maps even if transport ignores abort', async () => {
+test('late response after cancellation cannot open navigation even if transport ignores abort', async () => {
   const controller = new AbortController();
   const deps = setup();
   deps.signal = controller.signal;

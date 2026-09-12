@@ -182,13 +182,13 @@ test('rider request reaches the driver and both apps follow a completed syntheti
         delete document.documentElement.dataset.navigationUrl;
       });
       await driver.getByRole('button', { name: 'Directions to ' + leg, exact: true }).click();
-      await expect
-        .poll(() => driver.evaluate(() => document.documentElement.dataset.navigationUrl))
-        .toBeTruthy();
-      const navigationUrl = await driver.evaluate(() => document.documentElement.dataset.navigationUrl!);
-      expect(new URL(navigationUrl).searchParams.get('destination')).toBe(
-        `${trip[leg].coordinate.latitude},${trip[leg].coordinate.longitude}`,
-      );
+      await expect(driver).toHaveURL(new RegExp('/navigation\\?id=' + id));
+      await expect(
+        driver.getByText('Turn-by-turn directions are available in the Rove Driver iOS and Android apps.'),
+      ).toBeVisible();
+      expect(await driver.evaluate(() => document.documentElement.dataset.navigationUrl)).toBeUndefined();
+      await driver.getByRole('button', { name: 'Back to trip', exact: true }).click();
+      await expect(driver.getByRole('button', { name: action, exact: true })).toBeVisible();
       const after = await request.get('http://localhost:4085/v1/rides/' + id, {
         headers: { Authorization: 'Bearer synthetic-driver' },
       });

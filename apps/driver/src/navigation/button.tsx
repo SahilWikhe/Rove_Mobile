@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
-import { AppState, Linking } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { AppState } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
 import type { RideDetails } from '@rove/contracts';
 import { useSession } from '@rove/mobile-core/session';
 import { Banner, Button } from '@rove/mobile-ui';
@@ -44,7 +44,9 @@ export function NavigationButton({ ride, disabled }: { ride: RideDetails; disabl
         expected: ride,
         signal: request.signal,
         load: (id, signal) => api.ride(id, signal),
-        open: (url) => Linking.openURL(url),
+        open: async (rideId) => {
+          router.push({ pathname: '/navigation', params: { id: rideId } });
+        },
       });
     } catch (failure) {
       if (!request.signal.aborted)

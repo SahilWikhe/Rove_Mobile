@@ -1,0 +1,15 @@
+diff --git a/react-native-maps.podspec b/react-native-maps.podspec
+index 7be245f38c92962540bf25fafbbd6bf4de1943ff..9076a9c9a2ae3f95a8efb3efa6df8ee3ac2ab285 100644
+--- a/react-native-maps.podspec
++++ b/react-native-maps.podspec
+@@ -112,8 +112,8 @@ Pod::Spec.new do |s|
+     }
+     # Fixed compiler flags to avoid -Wno warnings
+     ss.compiler_flags = folly_compiler_flags + ' -DHAVE_GOOGLE_MAPS=1 -DHAVE_GOOGLE_MAPS_UTILS=1'
+-    ss.dependency 'GoogleMaps', '9.4.0'
+-    ss.dependency 'Google-Maps-iOS-Utils', '6.1.0'
++    ss.dependency 'GoogleMaps', (defined?($RNMapsGoogleMapsVersion) ? $RNMapsGoogleMapsVersion : '9.4.0')
++    ss.dependency 'Google-Maps-iOS-Utils', (defined?($RNMapsGoogleMapsUtilsVersion) ? $RNMapsGoogleMapsUtilsVersion : '6.1.0')
+     ss.dependency 'react-native-maps/Generated'
+     ss.dependency 'react-native-maps/Maps'
+     install_modules_dependencies(ss)

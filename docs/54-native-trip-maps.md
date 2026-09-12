@@ -113,3 +113,48 @@ pnpm maps:staging:check /path/to/private-staging.env "Public pickup" "Public des
 ```
 
 The diagnostic makes at most five Google requests, stops at the first failure, and creates no rides or database records. It handles Vercel's quoted service-area JSON exports. Failures identify the stage and, when available, the provider HTTP status; raw provider responses, addresses and credentials are not printed. A successful check verifies address search, details and routing only—not native rendering or a complete booking/payment flow. Delete temporary environment exports after use.
+
+## In-app driver navigation
+
+Driver directions use `@googlemaps/react-native-navigation-sdk` 0.16.3. The
+Directions button performs a fresh owned-trip read, then opens `/navigation?id=…`
+inside Rove. Coordinates, identity and credentials are not included in the route
+URL. Browser builds show a native-app availability message; they do not launch an
+external maps website.
+
+On the native screen, Start directions asks for foreground location permission
+and the Google navigation terms. Declining either leaves guidance stopped. The
+trip is revalidated after permission/terms and again after route calculation.
+Only the current authorized pickup or destination leg is sent to the SDK.
+While guidance runs, trip access and leg are checked every four seconds. A failed
+read, changed leg, completed/cancelled trip, leaving the screen or backgrounding
+the app stops this foreground navigation session. Returning requires an explicit
+restart. Arrival does not mark the driver arrived, start the ride or complete it;
+those actions remain on the trip screen with their existing confirmation steps.
+Continuous lock-screen/background guidance is not implemented by this session.
+
+Enable Navigation SDK in the Google Cloud project and include it in the driver
+native keys' API restrictions. Preserve the iOS bundle-ID and Android
+package/certificate restrictions. These are native build-time keys, separate
+from the backend Places/Routes key. Rebuild the driver native binary after adding
+the SDK; a Metro reload or Vercel deployment cannot install native dependencies.
+Navigation requests use Google billing even when the ride backend is synthetic.
+
+`apps/driver/plugins/with-navigation.js` makes native generation reproducible.
+On Android it substitutes Navigation 7.6.1 for standalone Play Services Maps,
+because Navigation supplies those map classes, and enables core-library
+desugaring. On iOS it selects GoogleMaps/GoogleNavigation 10.13.0 and Maps Utils
+7.0.0. The small pnpm `react-native-maps` patch permits app-scoped pod version
+overrides; rider builds retain the original 9.4.0/6.1.0 defaults. Keep these pins
+aligned with the navigation wrapper when upgrading and compile both platforms.
+The navigation-wrapper patch preserves iOS route failure status codes that the
+wrapper otherwise returns as UNKNOWN. The app translates SDK failures into
+actionable messages rather than displaying provider codes to drivers.
+
+Navigation lifecycle unit tests cover changed/ended trips, lost authorization,
+denied preparation and native work completing after teardown. The booking
+browser test checks internal routing, no external window and unchanged trip
+state. Native verification must additionally cover terms acceptance, actual
+route/guidance rendering, exit/re-entry, denied location and SDK authorization
+failures. Browser and mocked-controller tests do not establish native navigation
+or physical-device voice/GPS behavior.

@@ -7,6 +7,8 @@
 - `quality`: frozen dependency install, peer compatibility, formatting, ESLint/React hooks, package import boundaries, tooling regression tests, all workspace types, Markdown and migration snapshot drift.
 - `tests`: behavior and concurrency suites against disposable local PostgreSQL, without cloud credentials or production data.
 - `mobile`: Expo dependency alignment and rider/driver exports for iOS, Android and web.
+- `native-android`: rider and driver debug binaries compiled for x86_64 on Ubuntu with Java 21.
+- `native-ios`: rider and driver unsigned simulator binaries compiled on macOS 26. Both native jobs regenerate projects from Expo config and the frozen patched dependencies; no provider keys or signing credentials are used.
 - `security`: moderate-or-higher dependency audit and a redacted full-history secret scan.
 - `codeql`: JavaScript/TypeScript and Actions security analysis. The local SARIF gate rejects security findings with severity at least 4 and error-level findings.
 - `ci-gate`: requires every preceding job to succeed. Missing, skipped, cancelled or failed jobs fail the gate.

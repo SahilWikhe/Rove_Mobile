@@ -1,0 +1,19 @@
+diff --git a/ios/react-native-navigation-sdk/NavModule.mm b/ios/react-native-navigation-sdk/NavModule.mm
+index a13d210ef627c2a02fb04efc9b09bbeda99663f6..0017aee236b28a24843c607d291c7b1688c2b096 100644
+--- a/ios/react-native-navigation-sdk/NavModule.mm
++++ b/ios/react-native-navigation-sdk/NavModule.mm
+@@ -907,6 +907,14 @@ RCT_EXPORT_MODULE(NavModule);
+   switch (routeStatus) {
+     case GMSRouteStatusOK:
+       return @"OK";
++    case GMSRouteStatusAPIKeyNotAuthorized:
++      return @"API_KEY_NOT_AUTHORIZED";
++    case GMSRouteStatusTravelModeUnsupported:
++      return @"TRAVEL_MODE_UNSUPPORTED";
++    case GMSRouteStatusDuplicateWaypointsError:
++      return @"DUPLICATE_WAYPOINTS_ERROR";
++    case GMSRouteStatusInternalError:
++      return @"INTERNAL_ERROR";
+     case GMSRouteStatusNoRouteFound:
+       return @"NO_ROUTE_FOUND";
+     case GMSRouteStatusNetworkError:

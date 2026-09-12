@@ -14,16 +14,16 @@ export function navigationTarget(ride: RideDetails) {
   return {
     leg,
     point,
-    url: `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(point)}&travelmode=driving&dir_action=navigate`,
+    coordinate: coordinate.data,
   };
 }
 
-/** A fresh owned-trip read is required for every explicit external handoff. */
+/** A fresh owned-trip read is required for every explicit in-app navigation session. */
 export async function openTripDirections(options: {
   expected: RideDetails;
   signal: AbortSignal;
   load: (id: string, signal: AbortSignal) => Promise<RideDetails>;
-  open: (url: string) => Promise<unknown>;
+  open: (rideId: string) => Promise<unknown>;
 }) {
   const { expected, signal, load, open } = options;
   if (signal.aborted) return;
@@ -40,5 +40,5 @@ export async function openTripDirections(options: {
     next.point !== target.point
   )
     throw new Error('Your trip changed. Check the updated trip before opening directions again.');
-  await open(next.url);
+  await open(latest.id);
 }

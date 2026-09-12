@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@expo-google-fonts/manrope": "0.4.2",
+    "@googlemaps/react-native-navigation-sdk": "0.16.3",
     "@rove/contracts": "workspace:*",
     "@rove/mobile-core": "workspace:*",
     "@rove/mobile-ui": "workspace:*",
