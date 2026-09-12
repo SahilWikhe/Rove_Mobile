@@ -1,6 +1,12 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `01f98ee086120297747317b74f9694c992c9633c` plus the release-readiness checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `1544da0522ab5aaa8710fa885412ad0cb70b8350` plus the CI permission correction below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Full regression checkpoint and CodeQL permission correction — September 12
+
+At source `1544da0`, all 11 local application test tasks passed and all 41 browser scenarios passed in 5.4 minutes, including the real search timeout, complete trip, messaging and recovery cases. Repository-wide formatting passed. Cloud run `34706460649` passed quality, application tests, mobile exports, security and infrastructure; native builds and browser were still running when inspected.
+
+That run failed CodeQL after query evaluation while accessing workflow-run metadata: `Resource not accessible by integration` for Get a workflow run. Added `actions: read` only to the CodeQL job, retaining existing contents-read and security-events-write permissions. This matches the [GitHub endpoint permission](https://docs.github.com/en/rest/actions/workflow-runs#get-a-workflow-run). The job still must upload analysis and pass the existing findings gate; neither is bypassed. Workflow parsing and documentation checks passed locally; a successful corrected hosted CodeQL/native run remains outstanding. A new push is required for the permission fix, so the prior run is not a complete green checkpoint. No app behavior, provider requests or production activation changed.
 
 ## Manual release-readiness infrastructure — September 12
 

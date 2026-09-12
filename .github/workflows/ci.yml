@@ -235,6 +235,8 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
+      # CodeQL reads workflow-run metadata when preparing uploaded analysis.
+      actions: read
       security-events: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
