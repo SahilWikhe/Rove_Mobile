@@ -4,15 +4,15 @@ This is the setup sequence for the existing Rove code. It does not provision res
 
 ## 1. Establish isolated resources
 
-| Service | Production setup | Existing implementation |
-| --- | --- | --- |
-| Neon Postgres | Separate production project, empty application database, dedicated runtime and migration roles, verified backups and restore procedure | Versioned SQL in `packages/database/migrations`; runtime requires `sslmode=verify-full` |
-| Vercel | Separate API project rooted at `apps/api`, production domain and environment-scoped secrets | `apps/api/vercel.json` defines API rewrites, queue consumer and minute recovery cron |
-| Auth0 | Production tenant/API and separate native clients for rider and driver; configure native callbacks/logout, email delivery and verification | OIDC validation and mobile callback/session recovery |
-| Stripe | Approved live platform account, payment-method configuration, separate payment and Connect webhook secrets | Payment authorization/capture, payment records, Connect onboarding and capability reconciliation |
-| Google Maps | Production project/quotas and separate server, iOS and Android keys with appropriate restrictions | Server Places/Routes integration, native maps and in-app navigation |
-| AWS documents | Production stack with private storage, malware scanning and scoped application role | `infra/aws/driver-documents.template.json`; [document storage setup](62-provider-setup-handoff.md) |
-| Expo and stores | Rider and driver Expo project IDs, production build environments, signing and APNs/FCM credentials | App-specific EAS profiles and [native build setup](mobile-staging-builds.md) |
+| Service         | Production setup                                                                                                                           | Existing implementation                                                                            |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| Neon Postgres   | Separate production project, empty application database, dedicated runtime and migration roles, verified backups and restore procedure     | Versioned SQL in `packages/database/migrations`; runtime requires `sslmode=verify-full`            |
+| Vercel          | Separate API project rooted at `apps/api`, production domain and environment-scoped secrets                                                | `apps/api/vercel.json` defines API rewrites, queue consumer and minute recovery cron               |
+| Auth0           | Production tenant/API and separate native clients for rider and driver; configure native callbacks/logout, email delivery and verification | OIDC validation and mobile callback/session recovery                                               |
+| Stripe          | Approved live platform account, payment-method configuration, separate payment and Connect webhook secrets                                 | Payment authorization/capture, payment records, Connect onboarding and capability reconciliation   |
+| Google Maps     | Production project/quotas and separate server, iOS and Android keys with appropriate restrictions                                          | Server Places/Routes integration, native maps and in-app navigation                                |
+| AWS documents   | Production stack with private storage, malware scanning and scoped application role                                                        | `infra/aws/driver-documents.template.json`; [document storage setup](62-provider-setup-handoff.md) |
+| Expo and stores | Rider and driver Expo project IDs, production build environments, signing and APNs/FCM credentials                                         | App-specific EAS profiles and [native build setup](mobile-staging-builds.md)                       |
 
 Confirm provider plans, quotas and budgets before activation. Staging is an environment name, not a guarantee that provider usage is free. No prices or paid resources are approved by this document.
 
@@ -52,6 +52,14 @@ Before production migration, verify the destination project/endpoint, migration-
 A push to main can deploy staging through its current Git integration. Production must select a specific commit whose CI and staging acceptance passed. Configure production Git behavior so a normal main push cannot bypass the release decision; GitHub CI success alone does not enforce Vercel deployment ordering. The proposed release sequence is in [environment and release controls](08-cicd-and-environments.md).
 
 After deployment, verify authenticated API behavior, webhook processing, delayed queue delivery and recovery cron against the intended database. Rollback must preserve schema compatibility and must not attempt to undo already captured payments. Mobile store releases are separate from API deployment.
+
+Check the candidate against GitHub Actions with an authenticated `gh` CLI:
+
+```sh
+pnpm release:check SahilWikhe/Rove_Mobile <full-commit-sha> <ci-run-id> <staging-provider-run-id>
+```
+
+This read-only command requires successful CI and staging-provider workflows on main for the exact commit, including every required job from the recorded run attempt. Missing, skipped, stale or failed evidence exits nonzero. It does not deploy, grant production approval, or replace hosted mobile acceptance, migration review and backup verification. Run it again immediately before a release; its output is a point-in-time check, not an authorization token.
 
 ## 4. Configure mobile production builds
 
