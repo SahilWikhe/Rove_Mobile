@@ -55,6 +55,8 @@ export async function recordCapturedFunds(client: PoolClient, input: Capture): P
     input.receivedCents > 99_999_999
   )
     throw new DomainError('INVALID_LEDGER_AMOUNT', 'Payment accounting requires review.', 409);
+  // Serialize financial decisions for this payment with reconciliation and loss allocation.
+  await client.query('SELECT id FROM payment_attempts WHERE id=$1 FOR UPDATE', [input.attemptId]);
   await journal(client, input, 'capture', [
     { account: 'stripe_clearing', ownerId: null, amountCents: input.receivedCents },
     { account: 'rider_funds', ownerId: input.riderId, amountCents: -input.receivedCents },
@@ -69,6 +71,22 @@ export async function recordCapturedFunds(client: PoolClient, input: Capture): P
     input.earningsCents > input.receivedCents
   )
     return false;
+  const allocated = (
+    await client.query("SELECT id FROM ledger_journals WHERE attempt_id=$1 AND kind='allocation'", [
+      input.attemptId,
+    ])
+  ).rowCount;
+  if (!allocated) {
+    const funds = (
+      await client.query(
+        `SELECT -COALESCE(sum(l.amount_cents),0)::int AS amount FROM ledger_postings l
+      JOIN ledger_journals j ON j.id=l.journal_id WHERE j.attempt_id=$1 AND l.account='rider_funds'`,
+        [input.attemptId],
+      )
+    ).rows[0];
+    // A refund already released part of this liability. Never allocate the original full fare again.
+    if (funds.amount !== input.receivedCents) return false;
+  }
   const entries: Posting[] = [
     { account: 'rider_funds', ownerId: input.riderId, amountCents: input.receivedCents },
     { account: 'driver_payable', ownerId: input.driverId, amountCents: -input.earningsCents },

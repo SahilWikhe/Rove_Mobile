@@ -11,6 +11,7 @@ import { cors } from 'hono/cors';
 import { z } from 'zod';
 import {
   RefundAuthorization,
+  PaymentLossAuthorization,
   DriverDocumentReservation,
   DriverDocumentReviewDecision,
   DriverDocumentUploadCompletion,
@@ -39,6 +40,7 @@ import {
 import {
   DisputeReconciler,
   RefundOperations,
+  PaymentLosses,
   DriverDocumentService,
   DocumentReviewService,
   DriverEligibilityService,
@@ -74,6 +76,7 @@ import { getRide, listRides } from './ride-queries';
 type Environment = { Variables: { actor: Actor; subject: string; requestId: string } };
 interface Dependencies {
   refundOperations?: RefundOperations;
+  paymentLosses?: PaymentLosses;
   disputes?: DisputeReconciler;
   refundsEnabled?: boolean;
   walletSessions?: Pick<WalletSessions, 'customerSession' | 'setupSession'>;
@@ -412,6 +415,23 @@ export function createApp(deps: Dependencies) {
       ),
     ),
   );
+  app.get('/v1/staff/rides/:id/loss-allocation', async (c) => {
+    if (!deps.paymentLosses)
+      throw new DomainError('LOSS_ALLOCATION_UNAVAILABLE', 'Loss allocation is not enabled.', 503);
+    return c.json(await deps.paymentLosses.status(c.var.actor, id(c.req.param('id'))));
+  });
+  app.post('/v1/staff/rides/:id/loss-allocation', async (c) => {
+    if (!deps.paymentLosses)
+      throw new DomainError('LOSS_ALLOCATION_UNAVAILABLE', 'Loss allocation is not enabled.', 503);
+    return c.json(
+      await deps.paymentLosses.allocate(
+        c.var.actor,
+        id(c.req.param('id')),
+        await body(c, PaymentLossAuthorization),
+        c.req.header('Idempotency-Key') ?? '',
+      ),
+    );
+  });
   app.get('/v1/staff/disputes', async (c) => {
     if (!deps.disputes) throw new DomainError('DISPUTES_UNAVAILABLE', 'Dispute review is not enabled.', 503);
     return c.json(await deps.disputes.queue(c.var.actor, c.req.query()));

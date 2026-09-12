@@ -50,3 +50,7 @@ Provider adapter tests cover correlation redaction, metadata validation, expande
 
 - [Refund financial references and failure adjustments](https://docs.stripe.com/api/refunds/object)
 - [Balance transaction amount, fee and net fields](https://docs.stripe.com/api/balance_transactions/object)
+
+## Payment loss allocation checkpoint
+
+The protected, audited allocation API is implemented locally behind a default-off flag. See [payment loss allocation](70-payment-loss-allocation.md) for signed balances, policy requirements, migration 0035 and remaining net driver earnings/transfer integration. No hosted rollout or production settlement acceptance is implied.

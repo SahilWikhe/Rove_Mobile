@@ -279,7 +279,7 @@ export const ledgerPostings = pgTable(
     check('ledger_nonzero_amount', sql`${t.amountCents} <> 0`),
     check(
       'ledger_valid_account',
-      sql`${t.account} in ('stripe_clearing','rider_funds','driver_payable','platform_revenue','refund_suspense','processor_fees','dispute_suspense')`,
+      sql`${t.account} in ('stripe_clearing','rider_funds','driver_payable','platform_revenue','refund_suspense','processor_fees','dispute_suspense','platform_payment_losses')`,
     ),
     check(
       'ledger_scoped_owner',
@@ -738,4 +738,21 @@ export const paymentDisputeObservations = pgTable(
     check('dispute_observation_positive_revision', sql`${t.revision} > 0`),
     check('dispute_observation_array', sql`jsonb_typeof(${t.disputes}) = 'array'`),
   ],
+);
+
+export const paymentLossAllocations = pgTable(
+  'payment_loss_allocations',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    journalId: uuid()
+      .notNull()
+      .unique()
+      .references(() => ledgerJournals.id),
+    authorizedBy: uuid()
+      .notNull()
+      .references(() => users.id),
+    policyReference: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [check('loss_policy_reference', sql`length(${t.policyReference}) between 1 and 128`)],
 );

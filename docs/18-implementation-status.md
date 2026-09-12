@@ -1,6 +1,16 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `24ab5d08d0398c98e0a42a56c5a76bb9d26f5966` plus the dispute verification checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `908377e4fda2daff20faa235c304683485b78d98` plus the loss-allocation checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Audited payment loss allocation — September 12
+
+Implemented protected staff review and allocation endpoints, shared signed contracts, migration 0035 and immutable policy attribution. Explicit approved amounts resolve verified refund/dispute suspense into released rider liability, remaining unpaid driver earnings and platform loss expense. The service prevents duplicate decisions, over-deduction, stale-balance acceptance and restoration beyond a party's prior allocation for that category. Original capture/gross earnings journals remain unchanged. Refunded rider funds cannot subsequently become a second full-fare earnings allocation. Audit, journal, decision and idempotent command commit atomically.
+
+All eleven local application test tasks passed, including 455 server tests. Final review-response checks passed nine allocation tests and ten receipt/staff API tests. Coverage includes concurrency, retry, MFA/permission revocation, source isolation, reinstatement, stale facts, audit failure rollback, immutable decisions and the real authenticated HTTP route. Workspace/E2E types, source lint excluding generated reports, boundaries, formatting, documentation checks, packaged API build verification and schema-generation no-diff check passed. Tests use disposable local PostgreSQL and synthetic financial records. Initial generated SQL attempted to recreate already-versioned refund/dispute tables because the saved schema snapshot lagged; migration 0035 contains only new changes and the new snapshot now matches current source.
+
+The user has deferred GitHub billing/CI recovery; local development proceeds with hosted CI still mandatory before release. No hosted migration, flag activation, provider call or production transfer occurred. `PAYMENT_LOSS_ALLOCATION_ENABLED` defaults off and requires both refund accounting and dispute tracking. Commercial policy approval remains an owner/operations decision rather than an assumed split.
+
+Next: driver adjustment/net earnings presentation and durable transfer/settlement, then actual deletion fulfillment, remaining native/UI acceptance and production setup. This checkpoint does not transfer funds, prove bank payout readiness, or establish full Figma/device/provider acceptance. See [payment loss allocation](70-payment-loss-allocation.md).
 
 ## Dispute verification, accounting and protected staff review — September 12
 

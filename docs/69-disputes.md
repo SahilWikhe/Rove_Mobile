@@ -54,3 +54,7 @@ Disposable PostgreSQL tests cover balanced deduction/reversal journals, unknown/
 - [Dispute object and deadlines](https://docs.stripe.com/api/disputes/object)
 - [Dispute listing and payment filtering](https://docs.stripe.com/api/disputes/list)
 - [Balance adjustments for disputes and reinstatements](https://docs.stripe.com/reports/balance-transaction-types)
+
+## Payment loss allocation checkpoint
+
+The protected, audited allocation API is implemented locally behind a default-off flag. See [payment loss allocation](70-payment-loss-allocation.md) for signed balances, policy requirements, migration 0035 and remaining net driver earnings/transfer integration. No hosted rollout or production settlement acceptance is implied.

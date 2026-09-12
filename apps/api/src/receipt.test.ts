@@ -9,6 +9,7 @@ import {
   type MapsProvider,
   DisputeReconciler,
   RefundOperations,
+  PaymentLosses,
   RefundReconciler,
   PaymentWebhookInbox,
   StripePaymentProvider,
@@ -72,9 +73,15 @@ beforeEach(async () => {
   );
   app = buildApp();
 });
-function buildApp(refundsEnabled = false, refundOperations?: RefundOperations, disputes?: DisputeReconciler) {
+function buildApp(
+  refundsEnabled = false,
+  refundOperations?: RefundOperations,
+  disputes?: DisputeReconciler,
+  paymentLosses?: PaymentLosses,
+) {
   return createApp({
     refundsEnabled,
+    ...(paymentLosses ? { paymentLosses } : {}),
     ...(refundOperations ? { refundOperations } : {}),
     ...(disputes ? { disputes } : {}),
     ...(refundsEnabled
@@ -432,4 +439,55 @@ test('signed dispute events flow through durable worker verification to the prot
       })
     ).status,
   ).toBe(200);
+});
+
+test('staff loss API is disabled by default and applies one authenticated, permitted audited decision', async () => {
+  const url = `/v1/staff/rides/${ride}/loss-allocation`;
+  expect((await app.request(url, { headers: { Authorization: 'Bearer rider' } })).status).toBe(503);
+  await capture();
+  await database.pool.query('INSERT INTO payment_refund_checks(attempt_id,verified_at) VALUES($1,now())', [
+    attempt,
+  ]);
+  await database.pool.query('INSERT INTO payment_dispute_checks(attempt_id,verified_at) VALUES($1,now())', [
+    attempt,
+  ]);
+  await database.pool.query(
+    "INSERT INTO staff_permissions(staff_id,permission) SELECT id,'payments.loss.allocate' FROM users WHERE subject='staff'",
+  );
+  await transaction(database.pool, async (c) => {
+    const journal = randomUUID();
+    await c.query(
+      "INSERT INTO ledger_journals(id,key,fingerprint,attempt_id,ride_id,kind) VALUES($1::uuid,$1::text,'fixture',$2,$3,'refund_balance')",
+      [journal, attempt, ride],
+    );
+    await c.query(
+      "INSERT INTO ledger_postings(journal_id,account,amount_cents) VALUES($1,'refund_suspense',300),($1,'stripe_clearing',-300)",
+      [journal],
+    );
+  });
+  app = buildApp(false, undefined, undefined, new PaymentLosses(database.pool, 'acct_private:test'));
+  expect((await app.request(url, { headers: { Authorization: 'Bearer rider' } })).status).toBe(403);
+  const review = await app.request(url, { headers: { Authorization: 'Bearer staff' } });
+  expect(review.status).toBe(200);
+  expect(await review.json()).toMatchObject({ refundBalanceCents: 300, riderFundsCents: 1050 });
+  const options = {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer staff',
+      'Content-Type': 'application/json',
+      'Idempotency-Key': 'loss-http-retry',
+    },
+    body: JSON.stringify({
+      kind: 'refund',
+      expectedBalanceCents: 300,
+      riderFundsCents: 300,
+      driverCents: 0,
+      platformCents: 0,
+      policyReference: 'fixture-policy',
+    }),
+  };
+  const first = await app.request(url, options);
+  expect(first.status).toBe(200);
+  expect(await (await app.request(url, options)).json()).toEqual(await first.json());
+  expect((await database.pool.query('SELECT * FROM payment_loss_allocations')).rowCount).toBe(1);
 });

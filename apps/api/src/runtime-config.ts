@@ -182,6 +182,16 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
       throw new ConfigurationError(['payments.disputesEnabled']);
     return env.PAYMENT_DISPUTES_ENABLED === 'true';
   });
+  const lossAllocationEnabled = capture(() => {
+    if (
+      env.PAYMENT_LOSS_ALLOCATION_ENABLED !== undefined &&
+      !['true', 'false'].includes(env.PAYMENT_LOSS_ALLOCATION_ENABLED)
+    )
+      throw new ConfigurationError(['payments.lossAllocationEnabled']);
+    if (env.PAYMENT_LOSS_ALLOCATION_ENABLED === 'true' && (!refundAccountingEnabled || !disputesEnabled))
+      throw new ConfigurationError(['payments.lossAllocationEnabled']);
+    return env.PAYMENT_LOSS_ALLOCATION_ENABLED === 'true';
+  });
   const payments = capture(() => readPaymentConfig(env));
   const connect = capture(() => readConnectConfig(env));
   const push = capture(() => readPushConfig(env));
@@ -196,6 +206,7 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
     ...(documentAwsRoleArn ? { documentAwsRoleArn } : {}),
     ...push,
     payments,
+    ...(lossAllocationEnabled ? { lossAllocationEnabled: true as const } : {}),
     ...(refundOperationsEnabled ? { refundOperationsEnabled: true as const } : {}),
     ...(refundAccountingEnabled ? { refundAccountingEnabled: true as const } : {}),
     ...(disputesEnabled ? { disputesEnabled: true as const } : {}),

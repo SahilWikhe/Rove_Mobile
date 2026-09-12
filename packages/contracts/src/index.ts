@@ -687,3 +687,49 @@ export const StaffDisputeQueue = z
     nextCursor: z.string().nullable(),
   })
   .strict();
+
+// Signed allocation amounts restore prior deductions when verified funds are returned.
+const SignedFinancialCents = z.number().int().min(-99_999_999).max(99_999_999);
+export const PaymentLossAuthorization = z
+  .object({
+    kind: z.enum(['refund', 'dispute']),
+    expectedBalanceCents: SignedFinancialCents.refine((n) => n !== 0),
+    riderFundsCents: SignedFinancialCents,
+    driverCents: SignedFinancialCents,
+    platformCents: SignedFinancialCents,
+    policyReference: z.string().trim().min(1).max(128),
+  })
+  .strict()
+  .refine(
+    (v) => v.riderFundsCents + v.driverCents + v.platformCents === v.expectedBalanceCents,
+    'Allocate the entire verified outstanding balance.',
+  )
+  .refine(
+    (v) =>
+      [v.riderFundsCents, v.driverCents, v.platformCents].every(
+        (n) => n === 0 || Math.sign(n) === Math.sign(v.expectedBalanceCents),
+      ),
+    'Allocations must follow the direction of the verified balance.',
+  );
+export const PaymentLossReview = z
+  .object({
+    allocatedLosses: z
+      .array(
+        z
+          .object({
+            kind: z.enum(['refund', 'dispute']),
+            riderFundsCents: SignedFinancialCents,
+            driverCents: SignedFinancialCents,
+            platformCents: SignedFinancialCents,
+          })
+          .strict(),
+      )
+      .length(2),
+    rideId: z.uuid(),
+    refundBalanceCents: SignedFinancialCents,
+    disputeBalanceCents: SignedFinancialCents,
+    riderFundsCents: SignedFinancialCents,
+    driverPayableCents: SignedFinancialCents,
+    verifiedRecordsCurrent: z.boolean(),
+  })
+  .strict();

@@ -32,6 +32,7 @@ import {
   DisputeReconciler,
   type DisputeProvider,
   RefundOperations,
+  PaymentLosses,
   RefundReconciler,
   type RefundProvider,
   PaymentSessions,
@@ -125,6 +126,7 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
   const app = createApp({
     pool,
     ...(refundOperations ? { refundOperations } : {}),
+    ...(config.lossAllocationEnabled ? { paymentLosses: new PaymentLosses(pool, config.paymentSource) } : {}),
     ...(disputeReconciliation ? { disputes: disputeReconciliation } : {}),
     ...(refundReconciliation ? { refundsEnabled: true } : {}),
     ...(resources.verificationEmail ? { verificationEmail: resources.verificationEmail } : {}),

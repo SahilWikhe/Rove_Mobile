@@ -510,3 +510,23 @@ test('dispute rollout is explicit and the real enabled runtime has no startup pr
     await runtime.close();
   }
 });
+
+test('loss decisions require refund accounting and disputes; enabled runtime performs no startup provider calls', async () => {
+  expect(readRuntimeConfig(environment()).lossAllocationEnabled).toBeUndefined();
+  for (const value of ['true', 'yes'])
+    expect(() => readRuntimeConfig({ ...environment(), PAYMENT_LOSS_ALLOCATION_ENABLED: value })).toThrow(
+      'payments.lossAllocationEnabled',
+    );
+  const runtime = createRuntime({
+    ...environment(),
+    PAYMENT_REFUNDS_ENABLED: 'true',
+    PAYMENT_REFUND_ACCOUNTING_ENABLED: 'true',
+    PAYMENT_DISPUTES_ENABLED: 'true',
+    PAYMENT_LOSS_ALLOCATION_ENABLED: 'true',
+  });
+  try {
+    expect((await runtime.app.request('/health/live')).status).toBe(200);
+  } finally {
+    await runtime.close();
+  }
+});

@@ -110,3 +110,7 @@ Do not enable public rides just because the services are configured. Outstanding
 - Implement and rehearse controlled production migrations/releases, monitoring, support ownership and incident recovery.
 
 Final business decisions include launch geography, rider prices/driver compensation, Connect responsibility and payout policy, refunds/cancellation handling, retention/deletion rules, support ownership, and activation budgets. Record these before changing their corresponding production settings.
+
+## Payment loss allocation checkpoint
+
+The protected, audited allocation API is implemented locally behind a default-off flag. See [payment loss allocation](70-payment-loss-allocation.md) for signed balances, policy requirements, migration 0035 and remaining net driver earnings/transfer integration. No hosted rollout or production settlement acceptance is implied.
