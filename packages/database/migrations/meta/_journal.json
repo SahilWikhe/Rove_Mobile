@@ -288,6 +288,20 @@
       "when": 1789250751897,
       "tag": "0040_account_closure",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1789251826185,
+      "tag": "0041_retention_holds",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1789252351695,
+      "tag": "0042_identity_deletion_dispatch",
+      "breakpoints": true
     }
   ]
 }

@@ -225,7 +225,13 @@ test('unknown provider results never complete closure; retry recovers without an
   await service.authorize(staff, id, policy, randomUUID());
   erase.mockRejectedValueOnce(new Error('synthetic network timeout'));
   await expect(service.removeIdentity(id)).rejects.toThrow('synthetic network timeout');
-  expect((await service.inspect(staff, id)).state).toBe('closed');
+  const uncertain = await service.inspect(staff, id);
+  expect(uncertain.state).toBe('closed');
+  expect(uncertain.identityAttemptedAt).not.toBeNull();
+  expect(uncertain.identityRemovedAt).toBeNull();
+  await expect(
+    db.pool.query('UPDATE account_closures SET identity_attempted_at=NULL WHERE request_id=$1', [id]),
+  ).rejects.toThrow('immutable');
   await service.removeIdentity(id);
   expect((await service.inspect(staff, id)).state).toBe('identity_removed');
   await expect(service.removeIdentity(randomUUID())).rejects.toMatchObject({

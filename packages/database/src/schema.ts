@@ -905,6 +905,7 @@ export const accountClosures = pgTable(
     reviewReference: text().notNull(),
     closedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     identityRemovedAt: timestamp({ withTimezone: true }),
+    identityAttemptedAt: timestamp({ withTimezone: true }),
   },
   (t) => [
     check('account_closure_policy', sql`length(${t.policyReference}) between 1 and 128`),
@@ -912,6 +913,38 @@ export const accountClosures = pgTable(
     check(
       'account_closure_identity_time',
       sql`${t.identityRemovedAt} is null or ${t.identityRemovedAt} >= ${t.closedAt}`,
+    ),
+  ],
+);
+
+export const retentionHolds = pgTable(
+  'retention_holds',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    ownerId: uuid()
+      .notNull()
+      .references(() => users.id),
+    kind: text().notNull(),
+    reasonReference: text().notNull(),
+    reviewAt: timestamp({ withTimezone: true }).notNull(),
+    placedBy: uuid()
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    releasedBy: uuid().references(() => users.id),
+    releasedAt: timestamp({ withTimezone: true }),
+    releaseReference: text(),
+  },
+  (t) => [
+    uniqueIndex('retention_active_case')
+      .on(t.ownerId, t.kind, t.reasonReference)
+      .where(sql`${t.releasedAt} is null`),
+    index('retention_review_queue').on(t.reviewAt, t.id),
+    check('retention_hold_kind', sql`${t.kind} in ('legal','safety','privacy')`),
+    check('retention_hold_reference', sql`length(${t.reasonReference}) between 1 and 128`),
+    check(
+      'retention_hold_release',
+      sql`(${t.releasedAt} is null and ${t.releasedBy} is null and ${t.releaseReference} is null) or (${t.releasedAt} is not null and ${t.releasedBy} is not null and ${t.releaseReference} is not null and length(${t.releaseReference}) between 1 and 128 and ${t.releasedAt}>=${t.createdAt})`,
     ),
   ],
 );

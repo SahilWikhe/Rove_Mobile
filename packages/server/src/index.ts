@@ -89,3 +89,5 @@ export { StripeBankPayouts } from './stripe-bank-payouts';
 export { AccountDeletions } from './account-deletions';
 
 export { AccountClosures, type IdentityDeletionProvider } from './account-closures';
+
+export { RetentionHolds, assertNoRetentionHolds } from './retention-holds';

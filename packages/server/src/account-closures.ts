@@ -1,3 +1,4 @@
+import { assertNoRetentionHolds } from './retention-holds';
 import { z } from 'zod';
 import type { Pool, PoolClient } from 'pg';
 import { AccountClosureAuthorization, AccountClosure } from '@rove/contracts';
@@ -22,6 +23,7 @@ function dto(row: Record<string, unknown>) {
     requestId: row.request_id,
     state: row.identity_removed_at ? 'identity_removed' : 'closed',
     closedAt: (row.closed_at as Date).toISOString(),
+    identityAttemptedAt: row.identity_attempted_at ? (row.identity_attempted_at as Date).toISOString() : null,
     identityRemovedAt: row.identity_removed_at ? (row.identity_removed_at as Date).toISOString() : null,
   });
 }
@@ -68,6 +70,7 @@ export class AccountClosures {
           'Review this unavailable account before closure.',
           409,
         );
+      await assertNoRetentionHolds(c, ownerId);
       const active = await c.query(
         "SELECT id FROM rides WHERE (rider_id=$1 OR driver_id=$1) AND state IN ('searching','matched','en_route','arrived','in_progress','interrupted') LIMIT 1",
         [ownerId],
@@ -174,11 +177,21 @@ export class AccountClosures {
   };
   async removeIdentity(requestId: string) {
     z.uuid().parse(requestId);
-    const reference = await transaction(this.pool, async (c) => {
+    const subject = await transaction(this.pool, async (c) => {
+      const initial = (
+        await c.query('SELECT owner_id FROM account_closures WHERE request_id=$1', [requestId])
+      ).rows[0];
+      if (!initial)
+        throw new DomainError(
+          'ACCOUNT_CLOSURE_REQUIRED',
+          'Close local access before deleting identity.',
+          409,
+        );
+      await c.query('SELECT id FROM users WHERE id=$1 FOR UPDATE', [initial.owner_id]);
       const row = (
         await c.query(
           `SELECT o.identity_removed_at,u.subject,u.disabled FROM account_closures o JOIN users u ON u.id=o.owner_id
-        WHERE o.request_id=$1 FOR SHARE OF o,u`,
+        WHERE o.request_id=$1 FOR UPDATE OF o`,
           [requestId],
         )
       ).rows[0];
@@ -188,24 +201,40 @@ export class AccountClosures {
           'Close local access before deleting identity.',
           409,
         );
-      return row.identity_removed_at ? null : (row.subject as string);
+      if (row.identity_removed_at) return null;
+      await assertNoRetentionHolds(c, initial.owner_id);
+      // Persist dispatch before provider I/O. New holds block later dispatches,
+      // but cannot recall an already authorized/in-flight provider request.
+      await c.query(
+        'UPDATE account_closures SET identity_attempted_at=COALESCE(identity_attempted_at,clock_timestamp()) WHERE request_id=$1',
+        [requestId],
+      );
+      return row.subject as string;
     });
-    if (!reference) return;
-    const result = await this.provider.erase(reference);
+    if (!subject) return;
+    const result = await this.provider.erase(subject);
     if (result?.status !== 'absent')
       throw new DomainError('IDENTITY_DELETION_UNAVAILABLE', 'Identity removal is not verified.', 503);
     await transaction(this.pool, async (c) => {
+      const initial = (
+        await c.query('SELECT owner_id FROM account_closures WHERE request_id=$1', [requestId])
+      ).rows[0];
+      if (!initial) throw new DomainError('ACCOUNT_CLOSURE_CHANGED', 'Review changed account closure.', 409);
+      await c.query('SELECT id FROM users WHERE id=$1 FOR UPDATE', [initial.owner_id]);
       const row = (
         await c.query(
           `SELECT o.identity_removed_at,u.subject,u.disabled FROM account_closures o JOIN users u ON u.id=o.owner_id
-        WHERE o.request_id=$1 FOR UPDATE OF o FOR SHARE OF u`,
+        WHERE o.request_id=$1 FOR UPDATE OF o`,
           [requestId],
         )
       ).rows[0];
-      if (!row?.disabled || row.subject !== reference)
+      if (!row?.disabled || row.subject !== subject)
         throw new DomainError('ACCOUNT_CLOSURE_CHANGED', 'Review changed account closure.', 409);
       if (row.identity_removed_at) return;
-      await c.query('UPDATE account_closures SET identity_removed_at=now() WHERE request_id=$1', [requestId]);
+      // A later hold must not suppress truthful evidence of an earlier dispatch.
+      await c.query('UPDATE account_closures SET identity_removed_at=clock_timestamp() WHERE request_id=$1', [
+        requestId,
+      ]);
       await c.query(
         "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES(NULL,'account.identity_removed',$1,'{}')",
         [requestId],

@@ -868,5 +868,45 @@ export const AccountClosure = z
     state: z.enum(['closed', 'identity_removed']),
     closedAt: z.iso.datetime(),
     identityRemovedAt: z.iso.datetime().nullable(),
+    identityAttemptedAt: z.iso.datetime().nullable(),
+  })
+  .strict();
+
+const PrivacyReference = z.string().regex(/^[a-zA-Z0-9._:/-]{1,128}$/);
+export const RetentionHoldInput = z
+  .object({
+    kind: z.enum(['legal', 'safety', 'privacy']),
+    reasonReference: PrivacyReference,
+    reviewAt: z.iso.datetime(),
+  })
+  .strict();
+export const RetentionHoldRelease = z.object({ releaseReference: PrivacyReference }).strict();
+export const RetentionHold = z
+  .object({
+    id: z.uuid(),
+    ownerId: z.uuid(),
+    kind: RetentionHoldInput.shape.kind,
+    reasonReference: PrivacyReference,
+    reviewAt: z.iso.datetime(),
+    createdAt: z.iso.datetime(),
+    releasedAt: z.iso.datetime().nullable(),
+    releaseReference: PrivacyReference.nullable(),
+    identityRemovedAt: z.iso.datetime().nullable(),
+    identityAttemptedAt: z.iso.datetime().nullable(),
+  })
+  .strict();
+export const RetentionHoldQuery = z
+  .object({
+    status: z.enum(['active', 'released']).default('active'),
+    ownerId: z.uuid().optional(),
+    afterReviewAt: z.iso.datetime().optional(),
+    afterId: z.uuid().optional(),
+  })
+  .strict()
+  .refine((q) => Boolean(q.afterReviewAt) === Boolean(q.afterId));
+export const RetentionHoldQueue = z
+  .object({
+    holds: z.array(RetentionHold).max(50),
+    nextCursor: z.object({ afterReviewAt: z.iso.datetime(), afterId: z.uuid() }).strict().nullable(),
   })
   .strict();

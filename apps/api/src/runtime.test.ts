@@ -654,7 +654,7 @@ test('configured closure HTTP routes queue identity removal and block stale toke
     [staff],
   );
   await database.pool.query(
-    "INSERT INTO staff_permissions(staff_id,permission) VALUES($1,'privacy.close'),($1,'privacy.read')",
+    "INSERT INTO staff_permissions(staff_id,permission) VALUES($1,'privacy.close'),($1,'privacy.read'),($1,'privacy.hold'),($1,'privacy.release-hold')",
     [staff],
   );
   expect(
@@ -681,6 +681,41 @@ test('configured closure HTTP routes queue identity removal and block stale toke
     (await runtime.app.request(path, { method: 'POST', headers: headers('rider'), body: authorization }))
       .status,
   ).toBe(403);
+  const owner = (await database.pool.query("SELECT id FROM users WHERE subject='rider'")).rows[0].id;
+  const holdBody = JSON.stringify({
+    kind: 'safety',
+    reasonReference: 'synthetic-safety-review',
+    reviewAt: '2030-01-01T00:00:00.000Z',
+  });
+  const holdPath = '/v1/staff/accounts/' + owner + '/retention-holds';
+  expect(
+    (await runtime.app.request(holdPath, { method: 'POST', headers: headers('rider'), body: holdBody }))
+      .status,
+  ).toBe(403);
+  const held = await runtime.app.request(holdPath, {
+    method: 'POST',
+    headers: headers('staff'),
+    body: holdBody,
+  });
+  expect(held.status).toBe(200);
+  const holdId = (await held.json()).id;
+  expect(
+    (await runtime.app.request(path, { method: 'POST', headers: headers('staff'), body: authorization }))
+      .status,
+  ).toBe(409);
+  const queue = await runtime.app.request('/v1/staff/retention-holds?ownerId=' + owner, {
+    headers: headers('staff'),
+  });
+  expect((await queue.json()).holds).toHaveLength(1);
+  expect(
+    (
+      await runtime.app.request('/v1/staff/retention-holds/' + holdId + '/release', {
+        method: 'POST',
+        headers: headers('staff'),
+        body: JSON.stringify({ releaseReference: 'synthetic-review-complete' }),
+      })
+    ).status,
+  ).toBe(200);
   const response = await runtime.app.request(path, {
     method: 'POST',
     headers: headers('staff'),

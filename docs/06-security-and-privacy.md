@@ -82,3 +82,7 @@ Before consumer pilot, demonstrate ownership/assignment tests, abuse controls, p
 ## Mobile design privacy and rollout controls
 
 Enforce the [offer data boundary](16-mobile-design-contract.md) in server responses, map data, caches, push and telemetry, not only visual masking. Flag credentials stay server-side; client capability booleans are not authorization. Scheduling flags grant no institution/staff role and cannot cancel existing transport obligations. Test forged overrides, targeting-data minimization and rollback as defined in [scheduling flags](17-scheduling-feature-flags.md).
+
+## Implemented retention controls
+
+Durable consumer-account holds now require staff MFA and separate placement/release permissions, block account closure and new identity-removal dispatches, and retain immutable audited evidence. Review dates never automatically release holds. Provider calls already dispatched cannot be recalled; first-dispatch and confirmed-removal timestamps distinguish uncertain outcomes. See [retention holds](76-retention-holds.md). Policy-driven application/storage erasure, backup replay and final deletion fulfillment remain open; these controls do not choose a legal retention policy.

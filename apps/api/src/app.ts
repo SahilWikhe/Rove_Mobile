@@ -1,3 +1,4 @@
+import { RetentionHolds } from '@rove/server';
 import { AccountDeletions, AccountClosures } from '@rove/server';
 import { DriverCoverage, EarningsDateRange } from '@rove/contracts';
 import { WalletSetupRequest, WalletCustomerSession, WalletSetupSession } from '@rove/contracts';
@@ -126,6 +127,7 @@ export function createApp(deps: Dependencies) {
   const messaging = new MessagingService(deps.pool);
   const support = new SupportService(deps.pool);
   const accountDeletions = new AccountDeletions(deps.pool);
+  const retentionHolds = new RetentionHolds(deps.pool);
   const limiter = new RequestLimiter(deps.pool);
   const documents = new DriverDocumentService(deps.pool, deps.documentTransfers);
   const vehicleSubmissions = new VehicleSubmissionService(deps.pool);
@@ -420,6 +422,29 @@ export function createApp(deps: Dependencies) {
   );
   app.post('/v1/conversations/:id/report', async (c) =>
     c.json(await messaging.report(c.var.actor, id(c.req.param('id')), await body(c, MessageReport))),
+  );
+  app.get('/v1/staff/retention-holds', async (c) =>
+    c.json(await retentionHolds.list(c.var.actor, c.req.query())),
+  );
+  app.post('/v1/staff/accounts/:id/retention-holds', async (c) =>
+    c.json(
+      await retentionHolds.place(
+        c.var.actor,
+        id(c.req.param('id')),
+        await body(c, z.unknown()),
+        c.req.header('Idempotency-Key') ?? '',
+      ),
+    ),
+  );
+  app.post('/v1/staff/retention-holds/:id/release', async (c) =>
+    c.json(
+      await retentionHolds.release(
+        c.var.actor,
+        id(c.req.param('id')),
+        await body(c, z.unknown()),
+        c.req.header('Idempotency-Key') ?? '',
+      ),
+    ),
   );
   app.post('/v1/staff/account-deletions/:id/close', async (c) => {
     if (!deps.accountClosures)
