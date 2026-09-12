@@ -1,6 +1,16 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `bd03b8a1df6bfbe4a6a70809b17f00715a3afea2` plus the document erasure provider checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `1ecff837d2ea7bb77adfdd47cf84592f371c14bb` plus the document inventory checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Complete document-version discovery boundary — September 12
+
+Implemented read-only S3 inventory for every inbox and quarantine attempt under a document reservation, including orphaned/unattached object versions and separate delete markers. Discovery carries both S3 pagination markers and validates exact document scope, bucket identity, complete pages and immutable version references. Repeated cursors, duplicate/conflicting versions, partial provider failures and bounded-volume/deadline failures cannot return a falsely complete partial inventory. The installed SDK lacks a version-list paginator, so this adapter explicitly implements the dual-marker sequence.
+
+Seventeen focused inventory tests passed, including pagination across versions of the same key, orphan/marker discovery, cross-document rejection, partial failure and excessive inventory. All eleven local application test tasks, workspace/E2E types, changed-source lint, formatting, docs, boundaries and packaged API build/authentication verification passed. No live S3 listing, permissions, deletion or runtime cleanup activation changed.
+
+Source inspection confirmed that an upload can write an orphaned quarantine attempt before the final account-state recheck, and inbox versions are not all represented by the attached document receipt. Consequently the cleanup manifest must consume full version discovery after fencing new/in-flight writes and previously issued upload forms, then persist authorization and per-version dispatch/proof with hold checks and rediscovery. That durable workflow remains the next work; a provider inventory is not an atomic storage snapshot or completed erasure. Other retained application data, backup replay, Figma/native/provider acceptance and production setup remain open. See [document discovery](75-account-deletion.md#document-version-discovery).
+
+Hosted CI was freshly checked: run 34722464477 for `5f174a1` is in progress; run 34723684101 for `1ecff83` is pending. Intermediate queued revisions were cancelled/replaced. This does not establish latest-commit CI success; local verification continues as authorized.
 
 ## Exact-version document erasure provider — September 12
 

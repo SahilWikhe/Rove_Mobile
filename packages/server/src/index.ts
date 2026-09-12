@@ -93,3 +93,5 @@ export { AccountClosures, type IdentityDeletionProvider } from './account-closur
 export { RetentionHolds, assertNoRetentionHolds } from './retention-holds';
 
 export { S3DocumentErasure, type DocumentErasureTarget } from './s3-document-erasure';
+
+export { S3DocumentInventory, type DocumentObjectVersion } from './s3-document-inventory';
