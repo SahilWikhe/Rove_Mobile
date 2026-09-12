@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { AppState, View } from 'react-native';
+import { AppState, PixelRatio, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { requestForegroundPermissionsAsync } from 'expo-location';
@@ -16,7 +16,7 @@ import {
   type NavigationViewController,
 } from '@googlemaps/react-native-navigation-sdk';
 import { useSession } from '@rove/mobile-core/session';
-import { Banner, Button, Copy, Screen } from '@rove/mobile-ui';
+import { Banner, Button, Copy, Screen, theme } from '@rove/mobile-ui';
 import { createGuidance, assertNavigationActive, type Target } from './guidance';
 import { navigationTarget } from './directions';
 import { navigationFailure } from './errors';
@@ -40,6 +40,10 @@ function Directions({ id }: { id: string }) {
   const { api, profile } = useSession();
   const { navigationController: controller, setOnLocationChanged, setOnArrival } = useNavigation();
   const insets = useSafeAreaInsets();
+  const [topOverlayHeight, setTopOverlayHeight] = useState(64);
+  const [bottomOverlayHeight, setBottomOverlayHeight] = useState(88);
+  // Android Maps consumes physical pixels; iOS consumes UIKit points.
+  const mapScale = Platform.OS === 'android' ? PixelRatio.get() : 1;
   const view = useRef<NavigationViewController | null>(null);
   const session = useRef<ReturnType<typeof createGuidance> | null>(null);
   const [ready, setReady] = useState(false);
@@ -229,28 +233,21 @@ function Directions({ id }: { id: string }) {
       </Screen>
     );
   return (
-    <View
-      style={{ flex: 1, backgroundColor: '#090909', paddingTop: insets.top, paddingBottom: insets.bottom }}
-    >
+    <View style={styles.screen}>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={{ padding: 12, gap: 10 }}>
-        <Button
-          title="Back to trip"
-          variant="secondary"
-          onPress={() => {
-            stop();
-            router.back();
-          }}
-        />
-        {message && <Banner message={message} />}
-      </View>
       {preview ? (
         <NavigationView
           initialCameraPosition={{
             target: { lat: preview.coordinate.latitude, lng: preview.coordinate.longitude },
             zoom: 15,
           }}
-          style={{ flex: 1 }}
+          style={StyleSheet.absoluteFill}
+          mapPadding={{
+            top: (insets.top + topOverlayHeight) * mapScale,
+            bottom: (insets.bottom + bottomOverlayHeight) * mapScale,
+            left: insets.left * mapScale,
+            right: insets.right * mapScale,
+          }}
           navigationNightMode={NavigationNightMode.FORCE_NIGHT}
           onMapReady={() => setReady(true)}
           onNavigationViewControllerCreated={(value) => {
@@ -258,11 +255,40 @@ function Directions({ id }: { id: string }) {
           }}
         />
       ) : (
-        <View style={{ flex: 1, padding: 20 }}>
+        <View style={styles.loading}>
           <Copy>{message ? 'Return to your trip to try again.' : 'Loading trip map…'}</Copy>
         </View>
       )}
-      <View style={{ padding: 16 }}>
+      <View
+        pointerEvents="box-none"
+        style={[
+          styles.topOverlay,
+          { top: insets.top + (running ? 200 : 0), left: insets.left, right: insets.right },
+        ]}
+        onLayout={(event) => setTopOverlayHeight(event.nativeEvent.layout.height)}
+      >
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Back to trip"
+          accessibilityHint="Stops directions and returns to your trip"
+          onPress={() => {
+            stop();
+            router.back();
+          }}
+          style={({ pressed }) => [styles.back, pressed && styles.backPressed]}
+        >
+          <View accessible={false} style={styles.chevron} />
+        </Pressable>
+        {message && <Banner message={message} />}
+      </View>
+      <View
+        pointerEvents="box-none"
+        style={[
+          styles.bottomOverlay,
+          { bottom: insets.bottom + (running ? 120 : 0), left: insets.left, right: insets.right },
+        ]}
+        onLayout={(event) => setBottomOverlayHeight(event.nativeEvent.layout.height)}
+      >
         <Button
           title={running ? 'Stop directions' : 'Start directions'}
           loading={busy}
@@ -273,3 +299,29 @@ function Directions({ id }: { id: string }) {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: theme.background },
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
+  topOverlay: { position: 'absolute', padding: 12, gap: 10 },
+  bottomOverlay: { position: 'absolute', padding: 16 },
+  back: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(12,12,12,0.72)',
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  backPressed: { backgroundColor: 'rgba(35,35,35,0.92)' },
+  chevron: {
+    width: 11,
+    height: 11,
+    borderLeftWidth: 2,
+    borderBottomWidth: 2,
+    borderColor: theme.text,
+    transform: [{ translateX: 2 }, { rotate: '45deg' }],
+  },
+});

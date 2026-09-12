@@ -13,6 +13,8 @@ export function TripMap({
   driver,
   fill = false,
   topInset = 0,
+  floating = false,
+  bottomInset = 0,
 }: TripMapProps) {
   const map = useRef<MapView>(null);
   const [ready, setReady] = useState(false);
@@ -57,6 +59,7 @@ export function TripMap({
           provider={applePreview ? undefined : PROVIDER_GOOGLE}
           style={StyleSheet.absoluteFill}
           initialRegion={region}
+          {...(ready ? { mapPadding: { top: 0, right: 0, bottom: bottomInset, left: 0 } } : {})}
           userInterfaceStyle="dark"
           {...(!applePreview ? { customMapStyle: darkMapStyle } : {})}
           showsUserLocation={false}
@@ -78,13 +81,27 @@ export function TripMap({
           )}
         </MapView>
       </View>
-      <Button title="Show full trip" variant="secondary" disabled={!ready} onPress={showFullTrip} />
-      <Copy kind="muted">
-        {synthetic ? 'Synthetic route endpoints. ' : ''}
-        {driver
-          ? `Driver location last reported at ${new Date(driver.sampledAt).toLocaleTimeString()}.`
-          : 'Pickup and destination markers.'}
-      </Copy>
+      {floating ? (
+        <View style={{ position: 'absolute', right: 16, bottom: bottomInset + 12 }}>
+          <Button
+            title="Show full trip"
+            variant="secondary"
+            disabled={!ready}
+            onPress={showFullTrip}
+            style={{ minHeight: 48, backgroundColor: 'rgba(10,10,10,0.85)', borderRadius: 24 }}
+          />
+        </View>
+      ) : (
+        <>
+          <Button title="Show full trip" variant="secondary" disabled={!ready} onPress={showFullTrip} />
+          <Copy kind="muted">
+            {synthetic ? 'Synthetic route endpoints. ' : ''}
+            {driver
+              ? `Driver location last reported at ${new Date(driver.sampledAt).toLocaleTimeString()}.`
+              : 'Pickup and destination markers.'}
+          </Copy>{' '}
+        </>
+      )}
     </View>
   );
 }
