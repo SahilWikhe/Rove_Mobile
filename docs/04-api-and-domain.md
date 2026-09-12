@@ -123,3 +123,7 @@ Use different allowlisted offer and accepted-assignment DTOs. Before acceptance 
 ## Implemented driver tracking boundary
 
 The native background location task authenticates with a separate location-only grant. See [driver location lifecycle](20-driver-location.md) for issuance/upload/revocation endpoints, freshness and authorization rules, native behavior, and verification limits. Do not reuse account refresh tokens in headless location tasks or expose ride reads through tracking credentials.
+
+## Driver transfer operations
+
+The default-off staff transfer endpoints authorize an explicit amount/policy reference, list operations, cancel only before first provider attempt and recover existing provider outcomes. They require verified MFA and `payments.transfer`. Source-scoped reservations and actual provider journals prevent duplicate settlement; confirmation is a connected-account transfer, not bank payout. See [contracts, accounting and rollout](72-driver-transfer-workflow.md).

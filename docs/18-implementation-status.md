@@ -1,6 +1,12 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `0abe8371e0df4624ac802ca2680ce46416ea22ea` plus the driver-transfer provider checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `8cc4c020f23ed91e151d6a91128858f32c07b628` plus the durable driver-transfer checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Durable driver transfer reservations and reconciliation — September 12
+
+Implemented protected staff authorization/list/cancel/recovery APIs, atomic owned earnings reservations, immutable decisions, a transfer worker, actual provider balance journals and fair recovery sweeps. Migrations 0036–0037 add pending liabilities and globally source-scoped provider movement bindings. Unknown outcomes retain funds; cancellation cannot release attempted transfers. Revision fencing prevents older reads from undoing reversals; returned money restores unpaid liability under a review hold. Refund authorization and loss allocation respect transfer reservations. Runtime activation requires financial prerequisites, Connect and an explicit owner-approved charge-model acknowledgement; the flag defaults off.
+
+All eleven local application test tasks passed, including 483 server tests at the integrated checkpoint. The final focused workflow run passed eighteen database tests, including confirmation-audit rollback and refund/transfer coordination. Forty-five focused API/runtime/scheduler tests passed. Workspace/E2E types, source lint excluding generated reports, import boundaries, formatting, documentation checks, schema no-diff verification and packaged API build/health/authentication checks passed. No hosted migration, flag activation, Stripe transfer or production payout occurred. This is local synthetic/mock-provider evidence. Capture-processing-fee reconciliation, driver bank-payout UI/status, provider acceptance, commercial case-resolution/payout policy, actual account-deletion fulfillment, remaining Figma/native journeys and production/device setup still require completion. GitHub billing/CI recovery remains deferred by the user; local development continues without claiming release acceptance. See [driver transfer workflow](72-driver-transfer-workflow.md).
 
 ## Driver transfer provider boundary — September 12
 

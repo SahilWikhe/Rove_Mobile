@@ -11,6 +11,7 @@ import { cors } from 'hono/cors';
 import { z } from 'zod';
 import {
   RefundAuthorization,
+  DriverTransferAuthorization,
   PaymentLossAuthorization,
   DriverDocumentReservation,
   DriverDocumentReviewDecision,
@@ -40,6 +41,7 @@ import {
 import {
   DisputeReconciler,
   RefundOperations,
+  DriverTransfers,
   PaymentLosses,
   DriverDocumentService,
   DocumentReviewService,
@@ -76,6 +78,7 @@ import { getRide, listRides } from './ride-queries';
 type Environment = { Variables: { actor: Actor; subject: string; requestId: string } };
 interface Dependencies {
   refundOperations?: RefundOperations;
+  driverTransfers?: DriverTransfers;
   paymentLosses?: PaymentLosses;
   disputes?: DisputeReconciler;
   refundsEnabled?: boolean;
@@ -415,6 +418,42 @@ export function createApp(deps: Dependencies) {
       ),
     ),
   );
+  app.get('/v1/staff/rides/:id/transfers', async (c) => {
+    if (!deps.driverTransfers)
+      throw new DomainError('TRANSFERS_UNAVAILABLE', 'Driver transfers are not enabled.', 503);
+    return c.json(await deps.driverTransfers.list(c.var.actor, id(c.req.param('id'))));
+  });
+  app.post('/v1/staff/rides/:id/transfers', async (c) => {
+    if (!deps.driverTransfers)
+      throw new DomainError('TRANSFERS_UNAVAILABLE', 'Driver transfers are not enabled.', 503);
+    return c.json(
+      await deps.driverTransfers.authorize(
+        c.var.actor,
+        id(c.req.param('id')),
+        await body(c, DriverTransferAuthorization),
+        c.req.header('Idempotency-Key') ?? '',
+      ),
+    );
+  });
+  app.post('/v1/staff/rides/:id/transfers/:operationId/cancel', async (c) => {
+    if (!deps.driverTransfers)
+      throw new DomainError('TRANSFERS_UNAVAILABLE', 'Driver transfers are not enabled.', 503);
+    return c.json(
+      await deps.driverTransfers.cancel(
+        c.var.actor,
+        id(c.req.param('id')),
+        id(c.req.param('operationId')),
+        c.req.header('Idempotency-Key') ?? '',
+      ),
+    );
+  });
+  app.post('/v1/staff/rides/:id/transfers/:operationId/recover', async (c) => {
+    if (!deps.driverTransfers)
+      throw new DomainError('TRANSFERS_UNAVAILABLE', 'Driver transfers are not enabled.', 503);
+    return c.json(
+      await deps.driverTransfers.recover(c.var.actor, id(c.req.param('id')), id(c.req.param('operationId'))),
+    );
+  });
   app.get('/v1/staff/rides/:id/loss-allocation', async (c) => {
     if (!deps.paymentLosses)
       throw new DomainError('LOSS_ALLOCATION_UNAVAILABLE', 'Loss allocation is not enabled.', 503);

@@ -530,3 +530,33 @@ test('loss decisions require refund accounting and disputes; enabled runtime per
     await runtime.close();
   }
 });
+
+test('driver transfers require financial tracking, Connect and explicit model approval; startup never moves money', async () => {
+  expect(readRuntimeConfig(environment()).driverTransfersEnabled).toBeUndefined();
+  const enabled = {
+    ...environment(),
+    PAYMENT_DRIVER_TRANSFERS_ENABLED: 'true',
+    PAYMENT_REFUNDS_ENABLED: 'true',
+    PAYMENT_REFUND_ACCOUNTING_ENABLED: 'true',
+    PAYMENT_DISPUTES_ENABLED: 'true',
+    PAYMENT_LOSS_ALLOCATION_ENABLED: 'true',
+    STRIPE_CONNECT_ONBOARDING_ENABLED: 'true',
+    STRIPE_CONNECT_RETURN_ORIGIN: 'https://api.example.test',
+    STRIPE_CONNECT_WEBHOOK_SECRET: 'whsec_connectfixture',
+    STRIPE_TRANSFER_MODEL_APPROVED: 'separate-charges-and-transfers',
+  };
+  for (const changes of [
+    { PAYMENT_DRIVER_TRANSFERS_ENABLED: 'yes' },
+    { PAYMENT_LOSS_ALLOCATION_ENABLED: 'false' },
+    { STRIPE_CONNECT_ONBOARDING_ENABLED: 'false' },
+    { STRIPE_TRANSFER_MODEL_APPROVED: '' },
+  ])
+    expect(() => readRuntimeConfig({ ...enabled, ...changes })).toThrow('payments.driverTransfersEnabled');
+  const runtime = createRuntime(enabled);
+  try {
+    expect(runtime.driverTransfers).toBeDefined();
+    expect((await runtime.app.request('/health/live')).status).toBe(200);
+  } finally {
+    await runtime.close();
+  }
+});

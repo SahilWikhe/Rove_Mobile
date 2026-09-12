@@ -9,6 +9,8 @@ import {
   type MapsProvider,
   DisputeReconciler,
   RefundOperations,
+  DriverTransfers,
+  type DriverTransferSnapshot,
   PaymentLosses,
   RefundReconciler,
   PaymentWebhookInbox,
@@ -78,9 +80,11 @@ function buildApp(
   refundOperations?: RefundOperations,
   disputes?: DisputeReconciler,
   paymentLosses?: PaymentLosses,
+  driverTransfers?: DriverTransfers,
 ) {
   return createApp({
     refundsEnabled,
+    ...(driverTransfers ? { driverTransfers } : {}),
     ...(paymentLosses ? { paymentLosses } : {}),
     ...(refundOperations ? { refundOperations } : {}),
     ...(disputes ? { disputes } : {}),
@@ -490,4 +494,128 @@ test('staff loss API is disabled by default and applies one authenticated, permi
   expect(first.status).toBe(200);
   expect(await (await app.request(url, options)).json()).toEqual(await first.json());
   expect((await database.pool.query('SELECT * FROM payment_loss_allocations')).rowCount).toBe(1);
+});
+
+test('staff transfer HTTP flow authenticates, reserves, settles through the worker and exposes recovery without provider identifiers', async () => {
+  const url = `/v1/staff/rides/${ride}/transfers`;
+  expect((await app.request(url)).status).toBe(401);
+  expect((await app.request(url, { headers: { Authorization: 'Bearer staff' } })).status).toBe(503);
+  await database.pool.query('TRUNCATE outbox CASCADE');
+  const driver = (await database.pool.query("SELECT id FROM users WHERE subject='driver'")).rows[0].id;
+  await database.pool.query(
+    "INSERT INTO drivers(id,approved,eligibility_expires_at) VALUES($1,true,now()+interval '1 day')",
+    [driver],
+  );
+  await database.pool.query('UPDATE rides SET driver_id=$1 WHERE id=$2', [driver, ride]);
+  await database.pool.query(
+    "INSERT INTO driver_payout_accounts(driver_id,source,account_id) VALUES($1,'acct_private:test','acct_driver')",
+    [driver],
+  );
+  await capture();
+  await transaction(database.pool, async (c) => {
+    const journal = randomUUID();
+    await c.query(
+      "INSERT INTO ledger_journals(id,key,fingerprint,attempt_id,ride_id,kind) VALUES($1::uuid,$1::text,'fixture',$2,$3,'allocation')",
+      [journal, attempt, ride],
+    );
+    await c.query(
+      "INSERT INTO ledger_postings(journal_id,account,owner_id,amount_cents) VALUES($1,'rider_funds',$2,1050),($1,'driver_payable',$3,-790),($1,'platform_revenue',NULL,-260)",
+      [journal, rider, driver],
+    );
+  });
+  await database.pool.query(
+    'INSERT INTO payment_refund_checks(attempt_id,verified_at,received_cents) VALUES($1,now(),1050)',
+    [attempt],
+  );
+  await database.pool.query('INSERT INTO payment_dispute_checks(attempt_id,verified_at) VALUES($1,now())', [
+    attempt,
+  ]);
+  const disputes = new DisputeReconciler(
+    database.pool,
+    {
+      disputes: async () => {
+        throw new Error('unused');
+      },
+    },
+    'acct_private:test',
+  );
+  let observed: DriverTransferSnapshot | null = null;
+  const transfers = new DriverTransfers(
+    database.pool,
+    {
+      funding: async () => ({ chargeId: 'ch_fixture', unrefundedCents: 1050 }),
+      create: async (r) =>
+        (observed = {
+          id: 'tr_fixture',
+          created: Math.floor(Date.now() / 1000),
+          amountCents: r.amountCents,
+          reversedCents: 0,
+          movements: [
+            {
+              id: 'txn_transfer',
+              sourceId: 'tr_fixture',
+              kind: 'transfer',
+              amountCents: -r.amountCents,
+              feeCents: 0,
+              netCents: -r.amountCents,
+            },
+          ],
+        }),
+      find: async () => observed,
+      retrieve: async () => {
+        if (!observed) throw new Error('missing');
+        return observed;
+      },
+    },
+    { reconcile: async () => {} },
+    { reconcile: async () => {}, assertRefundable: disputes.assertRefundable.bind(disputes) },
+    'acct_private:test',
+  );
+  app = buildApp(false, undefined, undefined, undefined, transfers);
+  const options = {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer staff',
+      'Content-Type': 'application/json',
+      'Idempotency-Key': 'http-transfer-one',
+    },
+    body: JSON.stringify({ amountCents: 600, policyReference: 'fixture-approved-policy' }),
+  };
+  expect((await app.request(url, options)).status).toBe(403);
+  await database.pool.query(
+    "INSERT INTO staff_permissions(staff_id,permission) SELECT id,'payments.transfer' FROM users WHERE subject='staff'",
+  );
+  expect((await app.request(url, { headers: { Authorization: 'Bearer rider' } })).status).toBe(403);
+  const authorized = await app.request(url, options);
+  expect(authorized.status).toBe(200);
+  const operation = await authorized.json();
+  expect(operation.state).toBe('queued');
+  expect(await (await app.request(url, options)).json()).toEqual(operation);
+  const worker = new OutboxWorker(database.pool, { 'transfer.execute': transfers.handle });
+  expect(await worker.runOnce()).toEqual({ processed: 1, failed: 0 });
+  const listed = await (await app.request(url, { headers: { Authorization: 'Bearer staff' } })).json();
+  expect(listed.operations).toMatchObject([{ id: operation.id, state: 'confirmed', amountCents: 600 }]);
+  expect(JSON.stringify(listed)).not.toContain('acct_');
+  expect(JSON.stringify(listed)).not.toContain('tr_fixture');
+  expect(
+    (await app.request(`${url}/${operation.id}/cancel`, { method: options.method, headers: options.headers }))
+      .status,
+  ).toBe(409);
+  expect(
+    (
+      await app.request(`${url}/${operation.id}/recover`, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer staff' },
+      })
+    ).status,
+  ).toBe(200);
+  await database.pool.query("DELETE FROM staff_permissions WHERE permission='payments.transfer'");
+  expect(
+    (
+      await app.request(`${url}/${operation.id}/recover`, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer staff' },
+      })
+    ).status,
+  ).toBe(403);
 });

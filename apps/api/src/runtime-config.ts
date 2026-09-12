@@ -194,6 +194,21 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
   });
   const payments = capture(() => readPaymentConfig(env));
   const connect = capture(() => readConnectConfig(env));
+  const driverTransfersEnabled = capture(() => {
+    if (
+      env.PAYMENT_DRIVER_TRANSFERS_ENABLED !== undefined &&
+      !['true', 'false'].includes(env.PAYMENT_DRIVER_TRANSFERS_ENABLED)
+    )
+      throw new ConfigurationError(['payments.driverTransfersEnabled']);
+    if (
+      env.PAYMENT_DRIVER_TRANSFERS_ENABLED === 'true' &&
+      (!lossAllocationEnabled ||
+        !connect ||
+        env.STRIPE_TRANSFER_MODEL_APPROVED !== 'separate-charges-and-transfers')
+    )
+      throw new ConfigurationError(['payments.driverTransfersEnabled']);
+    return env.PAYMENT_DRIVER_TRANSFERS_ENABLED === 'true';
+  });
   const push = capture(() => readPushConfig(env));
   const documentAwsRoleArn = capture(() => readDocumentRole(env));
   const documentStorage = capture(() => readDocumentStorage(env));
@@ -206,6 +221,7 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
     ...(documentAwsRoleArn ? { documentAwsRoleArn } : {}),
     ...push,
     payments,
+    ...(driverTransfersEnabled ? { driverTransfersEnabled: true as const } : {}),
     ...(lossAllocationEnabled ? { lossAllocationEnabled: true as const } : {}),
     ...(refundOperationsEnabled ? { refundOperationsEnabled: true as const } : {}),
     ...(refundAccountingEnabled ? { refundAccountingEnabled: true as const } : {}),

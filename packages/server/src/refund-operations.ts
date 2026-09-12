@@ -53,6 +53,15 @@ export class RefundOperations {
   }
   private async available(client: PoolClient, reference: PaymentReference, exclude?: string) {
     await this.disputes?.assertRefundable(client, reference.attemptId);
+    if (
+      (
+        await client.query(
+          "SELECT id FROM driver_transfer_operations WHERE attempt_id=$1 AND state IN ('queued','review_required')",
+          [reference.attemptId],
+        )
+      ).rowCount
+    )
+      throw unavailable();
     const check = (
       await client.query('SELECT * FROM payment_refund_checks WHERE attempt_id=$1 FOR SHARE', [
         reference.attemptId,

@@ -75,3 +75,5 @@ export type {
   DriverTransferReference,
   DriverTransferSnapshot,
 } from './driver-transfer-provider';
+
+export { DriverTransfers } from './driver-transfers';

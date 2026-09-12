@@ -4,7 +4,7 @@ Updated: September 12, 2026. This is a locally tested provider adapter, not an e
 
 ## Implemented
 
-`StripeDriverTransfers` implements funding inspection, transfer creation, read-only operation lookup and transfer/reversal inspection. It is exported from the server package but is not composed into the API runtime, exposed by an endpoint or scheduled by a worker.
+`StripeDriverTransfers` implements funding inspection, transfer creation, read-only operation lookup and transfer/reversal inspection. It is composed into the runtime only when the default-off driver transfer flag and its prerequisites are explicitly enabled. The protected orchestration is documented in [driver transfer workflow](72-driver-transfer-workflow.md).
 
 Funding inspection verifies the platform account, test/live mode, persisted rider/payment/ride/attempt references, full manual capture, original charge and its actual USD balance transaction. It requires available charge funds and rejects disputed charges, pending funding, invalid fee arithmetic and PaymentIntents configured for automatic destination transfers or on-behalf-of processing. The unrefunded amount is a funding ceiling, not an authorization or a driver's available earnings.
 
@@ -14,13 +14,13 @@ Lookup is scoped to destination and exact operation group. Only a complete empty
 
 Returned snapshots contain only normalized identifiers, amounts, timestamps and actual balance movements. Reversal history is fetched in bounded pages (at most 1,000 records), with reference, duplicate, total and financial checks. Concurrently inconsistent histories require retry. Transfer debits and reversal credits retain signed processor fees/net effects. No raw provider error or customer payload is returned.
 
-## Required next implementation
+## Orchestration and remaining rollout
 
-Before runtime activation, add durable authorized reservations, immutable operation inputs and journal entries, current refund/dispute/driver eligibility holds, an outbox worker, reconciliation/version fencing and a protected recovery flow. Reserve available driver liability transactionally before any provider mutation. Persist the first-attempt timestamp before the call. Unknown outcomes must retain reservations; read-only lookup and the same-key retry window must not become a new operation. Additional transfers against the same fare require aggregate database accounting, which this transport adapter cannot enforce.
+The [durable workflow](72-driver-transfer-workflow.md) now adds authorized reservations, immutable operation inputs/journals, current financial/driver holds, an outbox worker, revision fencing and protected recovery. It persists the first-attempt timestamp before the call, retains unknown reservations and prevents aggregate over-reservation against the same fare. These remain responsibilities of the workflow; the transport adapter alone does not authorize a transfer.
 
 A historical disputed-charge marker currently prevents new transfers even after a dispute closes. Resolving that conservative hold requires a deliberate settlement policy and verified dispute/accounting state, not removing the check blindly. Platform liquidity, payout schedules, cross-border/currency support, loss allocation policy and bank-payout status are separate requirements. The current implementation supports USD platform charges and existing US recipient onboarding only.
 
-No new environment flag, migration, hosted resource or provider mutation was activated for this checkpoint. Final policy and paid setup decisions remain owner handoff items. Hosted CI remains deferred pending billing recovery and must pass before release. Provider sandbox acceptance and eventual physical/mobile payout presentation are still required.
+The adapter checkpoint activated no flag, migration, hosted resource or provider mutation. The later workflow adds migrations and a default-off flag; neither has been activated in a hosted environment by this work. Final policy and paid setup decisions remain owner handoff items. Hosted CI remains deferred pending billing recovery and must pass before release. Provider sandbox acceptance and eventual physical/mobile payout presentation are still required.
 
 ## Local verification
 

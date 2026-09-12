@@ -795,3 +795,21 @@ export const PaymentLossReview = z
     verifiedRecordsCurrent: z.boolean(),
   })
   .strict();
+
+export const DriverTransferAuthorization = z
+  .object({
+    amountCents: z.number().int().min(1).max(99_999_999),
+    policyReference: z.string().trim().min(1).max(128),
+  })
+  .strict();
+export const DriverTransferOperation = z
+  .object({
+    id: z.uuid(),
+    state: z.enum(['queued', 'confirmed', 'review_required', 'canceled']),
+    amountCents: z.number().int().min(1).max(99_999_999),
+    reversedCents: z.number().int().min(0).max(99_999_999),
+    createdAt: z.iso.datetime(),
+    checkedAt: z.iso.datetime().nullable(),
+  })
+  .strict()
+  .refine((o) => o.reversedCents <= o.amountCents);

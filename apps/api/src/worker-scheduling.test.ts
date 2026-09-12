@@ -273,3 +273,39 @@ test('dispute recovery is awaited before drain and failures remain retryable', a
   await expect(scheduling.recover()).rejects.toThrow('dispute store unavailable');
   expect(steps).toEqual(['disputes', 'drain']);
 });
+
+test('transfer recovery runs after financial refresh sweeps and before draining', async () => {
+  const order: string[] = [];
+  const scheduler = new WorkerScheduling(
+    {
+      searchExpiry: { sweep: async () => 0 },
+      refundReconciliation: {
+        sweep: async () => {
+          order.push('refund');
+          return 0;
+        },
+      },
+      disputeReconciliation: {
+        sweep: async () => {
+          order.push('dispute');
+          return 0;
+        },
+      },
+      driverTransfers: {
+        sweep: async () => {
+          order.push('transfer');
+          return 1;
+        },
+      },
+      drain: {
+        run: async () => {
+          order.push('drain');
+          return { processed: 1, failed: 0, wakeAfterSeconds: null };
+        },
+      },
+    },
+    { publish: async () => {} },
+  );
+  await scheduler.recover();
+  expect(order).toEqual(['refund', 'dispute', 'transfer', 'drain']);
+});

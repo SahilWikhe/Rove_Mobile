@@ -113,4 +113,8 @@ Final business decisions include launch geography, rider prices/driver compensat
 
 ## Payment loss allocation checkpoint
 
-The protected, audited allocation API is implemented locally behind a default-off flag. See [payment loss allocation](70-payment-loss-allocation.md) for signed balances, policy requirements, migration 0035 and remaining net driver earnings/transfer integration. No hosted rollout or production settlement acceptance is implied.
+The protected, audited allocation API is implemented locally behind a default-off flag. See [payment loss allocation](70-payment-loss-allocation.md) for signed balances, policy requirements, migration 0035 and compatible net driver earnings presentation. No hosted rollout or production settlement acceptance is implied.
+
+## Driver transfers
+
+The protected reservation, transfer worker and reconciliation workflow is implemented behind `PAYMENT_DRIVER_TRANSFERS_ENABLED=false`. Apply migrations 0036–0037 before deployment, including when existing refund operations are enabled. See [driver transfer rollout](72-driver-transfer-workflow.md) for required tracking/accounting flags, Connect setup, the explicit charge-model acknowledgement, staff permissions and provider acceptance. No production flag, transfer or bank payout was activated. Final policy, paid setup and bank-payout presentation/acceptance remain outstanding.

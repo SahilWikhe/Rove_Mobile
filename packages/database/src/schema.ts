@@ -279,11 +279,11 @@ export const ledgerPostings = pgTable(
     check('ledger_nonzero_amount', sql`${t.amountCents} <> 0`),
     check(
       'ledger_valid_account',
-      sql`${t.account} in ('stripe_clearing','rider_funds','driver_payable','platform_revenue','refund_suspense','processor_fees','dispute_suspense','platform_payment_losses')`,
+      sql`${t.account} in ('stripe_clearing','rider_funds','driver_payable','platform_revenue','refund_suspense','processor_fees','dispute_suspense','platform_payment_losses','driver_transfer_pending')`,
     ),
     check(
       'ledger_scoped_owner',
-      sql`(${t.account} in ('rider_funds','driver_payable')) = (${t.ownerId} is not null)`,
+      sql`(${t.account} in ('rider_funds','driver_payable','driver_transfer_pending')) = (${t.ownerId} is not null)`,
     ),
   ],
 );
@@ -755,4 +755,74 @@ export const paymentLossAllocations = pgTable(
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [check('loss_policy_reference', sql`length(${t.policyReference}) between 1 and 128`)],
+);
+
+export const driverTransferOperations = pgTable(
+  'driver_transfer_operations',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    attemptId: uuid()
+      .notNull()
+      .references(() => paymentAttempts.id),
+    driverId: uuid()
+      .notNull()
+      .references(() => drivers.id),
+    payoutBindingId: uuid()
+      .notNull()
+      .references(() => driverPayoutAccounts.id),
+    accountId: text().notNull(),
+    authorizedBy: uuid()
+      .notNull()
+      .references(() => users.id),
+    amountCents: integer().notNull(),
+    policyReference: text().notNull(),
+    state: text().notNull().default('queued'),
+    firstAttemptAt: timestamp({ withTimezone: true }),
+    chargeId: text(),
+    providerTransferId: text().unique(),
+    revision: integer().notNull().default(0),
+    reversedCents: integer().notNull().default(0),
+    checkedAt: timestamp({ withTimezone: true }),
+    requestedAt: timestamp({ withTimezone: true }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('driver_transfer_attempt').on(t.attemptId),
+    index('driver_transfer_recovery').on(t.requestedAt, t.createdAt),
+    check('driver_transfer_amount', sql`${t.amountCents} between 1 and 99999999`),
+    check('driver_transfer_policy', sql`length(${t.policyReference}) between 1 and 128`),
+    check('driver_transfer_state', sql`${t.state} in ('queued','confirmed','review_required','canceled')`),
+    check('driver_transfer_revision', sql`${t.revision} >= 0`),
+    check('driver_transfer_reversed', sql`${t.reversedCents} between 0 and ${t.amountCents}`),
+    check('driver_transfer_account', sql`${t.accountId} ~ '^acct_[a-zA-Z0-9]{1,96}$'`),
+    check('driver_transfer_charge', sql`${t.chargeId} is null or ${t.chargeId} ~ '^ch_[a-zA-Z0-9]{1,96}$'`),
+    check(
+      'driver_transfer_provider',
+      sql`${t.providerTransferId} is null or ${t.providerTransferId} ~ '^tr_[a-zA-Z0-9]{1,96}$'`,
+    ),
+    check('driver_transfer_attempt_frozen', sql`(${t.firstAttemptAt} is null) = (${t.chargeId} is null)`),
+    check(
+      'driver_transfer_confirmation',
+      sql`(${t.state} <> 'confirmed' or ${t.providerTransferId} is not null) and (${t.providerTransferId} is null or ${t.firstAttemptAt} is not null) and (${t.state} <> 'canceled' or ${t.firstAttemptAt} is null)`,
+    ),
+  ],
+);
+
+export const driverTransferMovements = pgTable(
+  'driver_transfer_movements',
+  {
+    source: text().notNull(),
+    balanceId: text().notNull(),
+    operationId: uuid()
+      .notNull()
+      .references(() => driverTransferOperations.id),
+    journalId: uuid()
+      .notNull()
+      .unique()
+      .references(() => ledgerJournals.id),
+  },
+  (t) => [
+    uniqueIndex('driver_transfer_movement_source').on(t.source, t.balanceId),
+    index('driver_transfer_movement_operation').on(t.operationId),
+  ],
 );

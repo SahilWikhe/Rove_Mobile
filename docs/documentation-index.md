@@ -108,3 +108,5 @@ Secrets, ignored environment files, temporary test outputs and generated depende
 For audited refund/dispute responsibility decisions, see [payment loss allocation](70-payment-loss-allocation.md).
 
 For the unactivated Stripe transfer adapter and required settlement orchestration, see [driver transfer provider boundary](71-driver-transfer-provider.md).
+
+For protected staff authorization, owned pending-liability reservations, worker execution, recovery and rollout, see [driver transfer workflow](72-driver-transfer-workflow.md).

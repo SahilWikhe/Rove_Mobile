@@ -33,6 +33,9 @@ import {
   type DisputeProvider,
   RefundOperations,
   PaymentLosses,
+  DriverTransfers,
+  StripeDriverTransfers,
+  type DriverTransferProvider,
   RefundReconciler,
   type RefundProvider,
   PaymentSessions,
@@ -64,6 +67,7 @@ interface Resources {
   payments: PaymentProvider & PaymentCustomerProvider & PaymentWebhookVerifier;
   verifyIdentity: VerifyIdentity;
   driverPayoutProvider?: DriverPayoutProvider;
+  driverTransferProvider?: DriverTransferProvider;
   payoutWebhookVerifier?: PayoutWebhookVerifier;
 }
 /** Composition shared by HTTP and worker hosts; resource ownership stays with the caller. */
@@ -98,6 +102,23 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
           disputeReconciliation,
         )
       : undefined;
+  if (
+    config.driverTransfersEnabled &&
+    (!resources.driverTransferProvider ||
+      !resources.driverPayoutProvider ||
+      !refundReconciliation ||
+      !disputeReconciliation)
+  )
+    throw new Error('Transfer provider and financial reconciliation are required.');
+  const driverTransfers = config.driverTransfersEnabled
+    ? new DriverTransfers(
+        pool,
+        resources.driverTransferProvider!,
+        refundReconciliation!,
+        disputeReconciliation!,
+        config.paymentSource,
+      )
+    : undefined;
   const matching = new MatchingService(pool, maps);
   const searchExpiry = new SearchExpiry(pool);
   const payoutReconciliation = resources.driverPayoutProvider
@@ -109,6 +130,7 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
       : undefined;
   const handlers: Record<string, JobHandler> = {
     // Foreground messaging works without a push provider; configured delivery wraps this handler.
+    ...(driverTransfers ? { 'transfer.execute': driverTransfers.handle } : {}),
     ...(refundOperations ? { 'refund.execute': refundOperations.handle } : {}),
     ...(disputeReconciliation ? { 'dispute.reconcile': disputeReconciliation.handle } : {}),
     'message.created': async () => {},
@@ -125,6 +147,7 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
   const worker = new OutboxWorker(pool, pushDelivery ? pushDelivery.handlers(handlers) : handlers);
   const app = createApp({
     pool,
+    ...(driverTransfers ? { driverTransfers } : {}),
     ...(refundOperations ? { refundOperations } : {}),
     ...(config.lossAllocationEnabled ? { paymentLosses: new PaymentLosses(pool, config.paymentSource) } : {}),
     ...(disputeReconciliation ? { disputes: disputeReconciliation } : {}),
@@ -172,6 +195,7 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
       ? { documentScans: new DocumentScanWorker(pool, resources.documentScanner) }
       : {}),
     searchExpiry,
+    ...(driverTransfers ? { driverTransfers } : {}),
     ...(refundReconciliation ? { refundReconciliation } : {}),
     ...(disputeReconciliation ? { disputeReconciliation } : {}),
     ...(pushDelivery ? { pushDelivery } : {}),
@@ -224,7 +248,26 @@ export function createRuntime(env: Record<string, string | undefined>) {
   const database = createDatabase(config.databaseUrl);
   // pg emits idle-client errors outside queries. Keep the process alive; never log driver error details.
   database.pool.on('error', () => console.error('Database connection interrupted.'));
+  const driverPayoutProvider = config.connect
+    ? new StripeDriverPayouts({
+        secretKey: config.payments.secretKey,
+        live: config.payments.mode === 'live',
+        origin: config.connect.origin,
+      })
+    : undefined;
   return composeRuntime(config, {
+    ...(config.driverTransfersEnabled && driverPayoutProvider
+      ? {
+          driverTransferProvider: new StripeDriverTransfers(
+            {
+              secretKey: config.payments.secretKey,
+              live: config.payments.mode === 'live',
+              platformAccountId: config.payments.accountId,
+            },
+            driverPayoutProvider,
+          ),
+        }
+      : {}),
     ...(verificationEmail ? { verificationEmail } : {}),
     wallet: new StripeWalletProvider({ ...config.payments, live: config.payments.mode === 'live' }),
     ...(config.documentScanning
@@ -269,11 +312,7 @@ export function createRuntime(env: Record<string, string | undefined>) {
             webhookSecret: config.connect.webhookSecret,
             live: config.payments.mode === 'live',
           }),
-          driverPayoutProvider: new StripeDriverPayouts({
-            secretKey: config.payments.secretKey,
-            live: config.payments.mode === 'live',
-            origin: config.connect.origin,
-          }),
+          driverPayoutProvider: driverPayoutProvider!,
         }
       : {}),
   });
