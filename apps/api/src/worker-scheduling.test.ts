@@ -291,6 +291,12 @@ test('transfer recovery runs after financial refresh sweeps and before draining'
           return 0;
         },
       },
+      captureFees: {
+        sweep: async () => {
+          order.push('capture');
+          return 0;
+        },
+      },
       driverTransfers: {
         sweep: async () => {
           order.push('transfer');
@@ -307,5 +313,5 @@ test('transfer recovery runs after financial refresh sweeps and before draining'
     { publish: async () => {} },
   );
   await scheduler.recover();
-  expect(order).toEqual(['refund', 'dispute', 'transfer', 'drain']);
+  expect(order).toEqual(['refund', 'dispute', 'capture', 'transfer', 'drain']);
 });

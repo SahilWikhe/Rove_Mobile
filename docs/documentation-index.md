@@ -110,3 +110,5 @@ For audited refund/dispute responsibility decisions, see [payment loss allocatio
 For the unactivated Stripe transfer adapter and required settlement orchestration, see [driver transfer provider boundary](71-driver-transfer-provider.md).
 
 For protected staff authorization, owned pending-liability reservations, worker execution, recovery and rollout, see [driver transfer workflow](72-driver-transfer-workflow.md).
+
+- [Capture fee accounting](73-capture-fee-accounting.md): actual processor fees, immutable balances, recovery and transfer holds.

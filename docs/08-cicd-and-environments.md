@@ -98,3 +98,5 @@ CI run `34708488268` at `ad16b3c` failed before any job started. GitHub reports 
 ## Concurrent CI runs
 
 CI groups runs by event and branch/PR. Pull-request updates cancel superseded active runs. Main-branch pushes leave the active run to finish and queue the latest pending revision; intermediate pending revisions may be replaced. A completed run proves its recorded commit only. Check the latest main commit before release. This avoids repeatedly interrupting longer native builds during active development.
+
+Android emulator preparation invokes `sdkmanager` from `$ANDROID_HOME/cmdline-tools/latest/bin`, matching the native launch script and avoiding dependence on the runner shell PATH. Successful compilation alone does not prove the release app launches; the emulator/UI steps must also pass.

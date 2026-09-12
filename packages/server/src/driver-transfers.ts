@@ -1,3 +1,4 @@
+import type { CaptureFees } from './capture-fees';
 import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Pool, PoolClient } from 'pg';
@@ -76,6 +77,7 @@ export class DriverTransfers {
     private refunds: Pick<RefundReconciler, 'reconcile'>,
     private disputes: Pick<DisputeReconciler, 'reconcile' | 'assertRefundable'>,
     private source: string,
+    private captureFees: Pick<CaptureFees, 'reconcile' | 'assertReady'>,
     private now: () => Date = () => new Date(),
   ) {}
   private async context(c: PoolClient, rideId: string): Promise<Context> {
@@ -155,6 +157,7 @@ export class DriverTransfers {
       d.eligibility_expires_at <= this.now()
     )
       throw review();
+    await this.captureFees.assertReady(c, p.attemptId, p.amountCents);
     await this.disputes.assertRefundable(c, p.attemptId);
     const f = (
       await c.query('SELECT * FROM payment_refund_checks WHERE attempt_id=$1 FOR SHARE', [p.attemptId])
@@ -526,6 +529,7 @@ export class DriverTransfers {
       return p;
     });
     if (!initial) return;
+    await this.captureFees.reconcile(initial.intentId);
     await this.refunds.reconcile(initial.intentId);
     await this.disputes.reconcile(initial.intentId);
     const funds = await this.provider.funding(initial);
@@ -534,6 +538,8 @@ export class DriverTransfers {
         op = await this.operation(c, operationId, p);
       if (op.state !== 'queued' || op.provider_transfer_id) return null;
       const eligible = await this.eligible(c, p, op.id);
+      const capture = await this.captureFees.assertReady(c, p.attemptId, p.amountCents);
+      if (capture.chargeId !== funds.chargeId) throw review();
       await this.reserved(c, p, op);
       if (
         eligible.bindingId !== op.payout_binding_id ||

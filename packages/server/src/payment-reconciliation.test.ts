@@ -1,3 +1,4 @@
+import { CaptureFees } from './capture-fees';
 import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { testDatabase } from '@rove/database/testing';
@@ -350,4 +351,63 @@ test('ledger persistence failure rolls back paid state and reconciliation revisi
   await reconcile.reconcile(reference.intentId);
   expect(await state()).toMatchObject({ payment_state: 'paid' });
   expect((await database.pool.query('SELECT * FROM ledger_journals')).rows).toHaveLength(1);
+});
+
+test('capture accounting queues once for full captures including already-paid backfills, and remains opt-in', async () => {
+  retrieve.mockImplementation(async () =>
+    snapshot({ status: 'succeeded', capturableCents: 0, receivedCents: 1050 }),
+  );
+  await reconcile.reconcile(reference.intentId);
+  expect(await topics()).not.toContain('capture-fee.reconcile');
+  const enabled = new PaymentReconciler(database.pool, provider, source, () => now, true);
+  await enabled.reconcile(reference.intentId);
+  await enabled.reconcile(reference.intentId);
+  const rows = (await database.pool.query("SELECT * FROM outbox WHERE topic='capture-fee.reconcile'")).rows;
+  expect(rows).toHaveLength(1);
+  expect(rows[0].payload).toEqual({ source, intentId: reference.intentId });
+});
+
+test('full capture reconciliation reaches durable fee accounting through the real outbox worker', async () => {
+  retrieve.mockImplementation(async () =>
+    snapshot({ status: 'succeeded', capturableCents: 0, receivedCents: 1050 }),
+  );
+  const enabled = new PaymentReconciler(database.pool, provider, source, () => now, true);
+  await enabled.reconcile(reference.intentId);
+  const fees = new CaptureFees(
+    database.pool,
+    {
+      retrieve: async () => ({
+        chargeId: 'ch_fixture',
+        balanceId: 'txn_fixture',
+        amountCents: 1050,
+        feeCents: 61,
+        netCents: 989,
+        status: 'available',
+        disputed: false,
+        unrefundedCents: 1050,
+      }),
+    },
+    source,
+    () => now,
+  );
+  const queued = (await database.pool.query('SELECT max(available_at) AS time FROM outbox')).rows[0]
+    .time as Date;
+  const worker = new OutboxWorker(
+    database.pool,
+    {
+      'capture-fee.reconcile': fees.handle,
+      'payment.updated': async () => {},
+      'payment.review_required': async () => {},
+    },
+    () => new Date(queued.getTime() + 1000),
+  );
+  expect(await worker.runOnce()).toMatchObject({ failed: 0 });
+  expect(
+    (
+      await database.pool.query(
+        "SELECT sum(amount_cents)::int AS amount FROM ledger_postings WHERE account='stripe_clearing'",
+      )
+    ).rows[0].amount,
+  ).toBe(989);
+  expect(await worker.runOnce()).toEqual({ processed: 0, failed: 0 });
 });

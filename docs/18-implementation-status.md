@@ -1,6 +1,16 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `0f6133b2899e209abe55f95859c725473d68f635` plus the capture-balance provider and CI concurrency checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `e938a645ce4c7cecbecb6363d21f8418810f81ea` plus the durable capture-fee checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Durable capture fees and transfer eligibility — September 12
+
+Implemented migration 0038, immutable source-scoped capture balance bindings, separate processing-fee journals, explicit zero-fee records, revision-fenced provider observations, durable changed-fact review holds and bounded recovery sweeps. Full capture reconciliation queues fee accounting, including backfill for already-paid records. Transfers now require fresh verified fee accounting and refresh it before every new provider mutation; matching source charges and existing refund/dispute/recipient holds remain mandatory. Original gross fare and agreed driver earnings are unchanged. `PAYMENT_CAPTURE_ACCOUNTING_ENABLED` defaults off and is a required dependency for transfer activation. No hosted migration, financial flag activation, real Stripe request or production transfer occurred.
+
+All eleven local application test tasks passed, including 533 server tests and 166 API tests. Focused API/runtime/scheduler tests passed 46 tests. Workspace/E2E types, source lint excluding generated reports, import boundaries, formatting, documentation checks, schema no-diff verification and packaged API build/health/authentication checks passed. Tests cover actual/zero fees, pending balances, provider-reference isolation, cross-payment balance reuse, missing gross capture, stale concurrent reads, audit rollback, immutable review holds, transfer reservation preservation and the full payment-reconciliation-to-outbox-fee-journal path. These are synthetic local tests, not provider acceptance.
+
+Hosted baseline CI passed quality, tests, infrastructure, security, CodeQL, mobile bundling and browser checks. The Android driver debug/release builds succeeded but emulator preparation failed because `sdkmanager` was not on PATH. The workflow now uses its explicit Android SDK path, consistent with the launch script. Hosted proof of that fix and all native launch checks remain pending; other native jobs were still running at the last observation.
+
+Next: bank-payout status/presentation and actual account-deletion fulfillment, then remaining Figma/native/provider acceptance and production setup. Reviewed corrections for conflicting provider fee facts, commercial payout/case-resolution policy and paid setup remain final handoff/release requirements. See [capture-fee workflow and rollout](73-capture-fee-accounting.md).
 
 ## Capture balance reader and uninterrupted main CI — September 12
 

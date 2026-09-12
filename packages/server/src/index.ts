@@ -80,3 +80,5 @@ export { DriverTransfers } from './driver-transfers';
 
 export { StripeCaptureBalances } from './stripe-capture-balances';
 export type { CaptureBalanceProvider, CaptureBalanceSnapshot } from './capture-balance-provider';
+
+export { CaptureFees } from './capture-fees';

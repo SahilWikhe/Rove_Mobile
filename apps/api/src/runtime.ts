@@ -34,6 +34,9 @@ import {
   RefundOperations,
   PaymentLosses,
   DriverTransfers,
+  CaptureFees,
+  StripeCaptureBalances,
+  type CaptureBalanceProvider,
   StripeDriverTransfers,
   type DriverTransferProvider,
   RefundReconciler,
@@ -67,6 +70,7 @@ interface Resources {
   payments: PaymentProvider & PaymentCustomerProvider & PaymentWebhookVerifier;
   verifyIdentity: VerifyIdentity;
   driverPayoutProvider?: DriverPayoutProvider;
+  captureBalanceProvider?: CaptureBalanceProvider;
   driverTransferProvider?: DriverTransferProvider;
   payoutWebhookVerifier?: PayoutWebhookVerifier;
 }
@@ -75,7 +79,18 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
   const { database, maps, payments, verifyIdentity } = resources;
   const { pool } = database;
   const customers = new PaymentCustomers(pool, payments, config.paymentSource);
-  const reconciliation = new PaymentReconciler(pool, payments, config.paymentSource);
+  const reconciliation = new PaymentReconciler(
+    pool,
+    payments,
+    config.paymentSource,
+    undefined,
+    !!config.captureAccountingEnabled,
+  );
+  if (config.captureAccountingEnabled && !resources.captureBalanceProvider)
+    throw new Error('Capture balance provider is required.');
+  const captureFees = config.captureAccountingEnabled
+    ? new CaptureFees(pool, resources.captureBalanceProvider!, config.paymentSource)
+    : undefined;
   if (config.refundsEnabled && !resources.refundProvider)
     throw new Error('Refund reconciliation provider is required.');
   const refundReconciliation = config.refundsEnabled
@@ -104,7 +119,8 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
       : undefined;
   if (
     config.driverTransfersEnabled &&
-    (!resources.driverTransferProvider ||
+    (!captureFees ||
+      !resources.driverTransferProvider ||
       !resources.driverPayoutProvider ||
       !refundReconciliation ||
       !disputeReconciliation)
@@ -117,6 +133,7 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
         refundReconciliation!,
         disputeReconciliation!,
         config.paymentSource,
+        captureFees!,
       )
     : undefined;
   const matching = new MatchingService(pool, maps);
@@ -130,6 +147,7 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
       : undefined;
   const handlers: Record<string, JobHandler> = {
     // Foreground messaging works without a push provider; configured delivery wraps this handler.
+    ...(captureFees ? { 'capture-fee.reconcile': captureFees.handle } : {}),
     ...(driverTransfers ? { 'transfer.execute': driverTransfers.handle } : {}),
     ...(refundOperations ? { 'refund.execute': refundOperations.handle } : {}),
     ...(disputeReconciliation ? { 'dispute.reconcile': disputeReconciliation.handle } : {}),
@@ -195,6 +213,7 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
       ? { documentScans: new DocumentScanWorker(pool, resources.documentScanner) }
       : {}),
     searchExpiry,
+    ...(captureFees ? { captureFees } : {}),
     ...(driverTransfers ? { driverTransfers } : {}),
     ...(refundReconciliation ? { refundReconciliation } : {}),
     ...(disputeReconciliation ? { disputeReconciliation } : {}),
@@ -256,6 +275,15 @@ export function createRuntime(env: Record<string, string | undefined>) {
       })
     : undefined;
   return composeRuntime(config, {
+    ...(config.captureAccountingEnabled
+      ? {
+          captureBalanceProvider: new StripeCaptureBalances({
+            secretKey: config.payments.secretKey,
+            live: config.payments.mode === 'live',
+            platformAccountId: config.payments.accountId,
+          }),
+        }
+      : {}),
     ...(config.driverTransfersEnabled && driverPayoutProvider
       ? {
           driverTransferProvider: new StripeDriverTransfers(

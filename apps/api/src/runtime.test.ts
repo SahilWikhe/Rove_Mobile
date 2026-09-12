@@ -536,6 +536,7 @@ test('driver transfers require financial tracking, Connect and explicit model ap
   const enabled = {
     ...environment(),
     PAYMENT_DRIVER_TRANSFERS_ENABLED: 'true',
+    PAYMENT_CAPTURE_ACCOUNTING_ENABLED: 'true',
     PAYMENT_REFUNDS_ENABLED: 'true',
     PAYMENT_REFUND_ACCOUNTING_ENABLED: 'true',
     PAYMENT_DISPUTES_ENABLED: 'true',
@@ -547,6 +548,7 @@ test('driver transfers require financial tracking, Connect and explicit model ap
   };
   for (const changes of [
     { PAYMENT_DRIVER_TRANSFERS_ENABLED: 'yes' },
+    { PAYMENT_CAPTURE_ACCOUNTING_ENABLED: 'false' },
     { PAYMENT_LOSS_ALLOCATION_ENABLED: 'false' },
     { STRIPE_CONNECT_ONBOARDING_ENABLED: 'false' },
     { STRIPE_TRANSFER_MODEL_APPROVED: '' },
@@ -555,6 +557,20 @@ test('driver transfers require financial tracking, Connect and explicit model ap
   const runtime = createRuntime(enabled);
   try {
     expect(runtime.driverTransfers).toBeDefined();
+    expect((await runtime.app.request('/health/live')).status).toBe(200);
+  } finally {
+    await runtime.close();
+  }
+});
+
+test('capture accounting is opt-in and rejects malformed configuration without provider calls', async () => {
+  expect(readRuntimeConfig(environment()).captureAccountingEnabled).toBeUndefined();
+  expect(() => readRuntimeConfig({ ...environment(), PAYMENT_CAPTURE_ACCOUNTING_ENABLED: 'yes' })).toThrow(
+    'payments.captureAccountingEnabled',
+  );
+  const runtime = createRuntime({ ...environment(), PAYMENT_CAPTURE_ACCOUNTING_ENABLED: 'true' });
+  try {
+    expect(runtime.captureFees).toBeDefined();
     expect((await runtime.app.request('/health/live')).status).toBe(200);
   } finally {
     await runtime.close();

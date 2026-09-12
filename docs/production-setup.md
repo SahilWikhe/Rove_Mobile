@@ -118,3 +118,7 @@ The protected, audited allocation API is implemented locally behind a default-of
 ## Driver transfers
 
 The protected reservation, transfer worker and reconciliation workflow is implemented behind `PAYMENT_DRIVER_TRANSFERS_ENABLED=false`. Apply migrations 0036–0037 before deployment, including when existing refund operations are enabled. See [driver transfer rollout](72-driver-transfer-workflow.md) for required tracking/accounting flags, Connect setup, the explicit charge-model acknowledgement, staff permissions and provider acceptance. No production flag, transfer or bank payout was activated. Final policy, paid setup and bank-payout presentation/acceptance remain outstanding.
+
+## Original capture processing fees
+
+Apply migration 0038 and complete the [capture fee acceptance steps](73-capture-fee-accounting.md) before enabling `PAYMENT_CAPTURE_ACCOUNTING_ENABLED`. This flag defaults off and is now required by driver transfers. Verify actual provider gross/fee/net amounts, backfill previously captured payments through recovery, inspect review holds, and confirm agreed driver earnings remain unchanged. No hosted migration or flag activation is asserted.

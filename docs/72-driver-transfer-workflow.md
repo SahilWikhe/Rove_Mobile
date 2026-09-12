@@ -25,7 +25,7 @@ Before each mutation, the worker refreshes refund/dispute observations, verifies
 
 Verified Stripe transfer balance transactions debit the pending liability and record the actual platform clearing movement and processor fees. Every balance transaction is bound immutably to one operation and one journal within its provider source. Duplicate observations are idempotent; different observations for the same transaction require review. Revision fencing prevents slower observations from overwriting newer results. Journal, movement binding, provider ID, state and audit changes commit atomically.
 
-Verified reversal credits restore unpaid driver liability and actual platform balance/fee effects. The operation becomes `review_required`, blocking another transfer against that payment until the case is resolved. This implementation does not automatically forgive, redistribute or repay returned funds. Original gross earnings and approved loss adjustments are not rewritten by transfers. Existing capture journals record gross captured amounts; capture-processing-fee reconciliation still needs implementation before claiming parity with the platform Stripe balance. Transfer/reversal fees implemented here do not fill that separate gap.
+Verified reversal credits restore unpaid driver liability and actual platform balance/fee effects. The operation becomes `review_required`, blocking another transfer against that payment until the case is resolved. This implementation does not automatically forgive, redistribute or repay returned funds. Original gross earnings and approved loss adjustments are not rewritten by transfers. Original capture journals record gross amounts. The separate [capture-fee workflow](73-capture-fee-accounting.md) now records actual processing fees and is a required prerequisite for transfer creation. Broader Stripe balance parity still requires provider acceptance and all applicable movement types.
 
 ## Recovery and limits
 
@@ -39,7 +39,7 @@ Apply migrations 0036 and 0037 through the reviewed migration process before dep
 
 `PAYMENT_DRIVER_TRANSFERS_ENABLED=false` is the default. Enabling requires:
 
-- Refund tracking, refund accounting, dispute tracking and loss-allocation flags enabled and verified.
+- Capture accounting, refund tracking, refund accounting, dispute tracking and loss-allocation flags enabled and verified. Apply migration 0038 for capture accounting.
 - Existing Connect onboarding configured, including its distinct webhook secret and required live model acknowledgement.
 - `STRIPE_TRANSFER_MODEL_APPROVED=separate-charges-and-transfers`, set only after the owner approves this charge model.
 - Approved staff permissions, liability/settlement policy, operational review process, capture-fee reconciliation and provider sandbox acceptance.
@@ -52,4 +52,4 @@ Database tests exercise concurrent authorizations/workers, idempotency, owned re
 
 ## Capture balance provider boundary
 
-`StripeCaptureBalances` now reads and validates the original charge balance transaction, including actual gross amount, processing fee, net amount and pending/available status. Transfer funding uses this same reader and additionally holds disputed or unavailable funds. Provider errors, missing expansions and mismatched ownership/account/mode/currency/arithmetic fail closed. Refund and dispute movements do not rewrite the original capture fee. This reader is transport infrastructure: durable capture-fee journals, recovery and transfer eligibility tied to verified accounting remain unfinished. It does not estimate fees or deduct them from driver earnings.
+`StripeCaptureBalances` now reads and validates the original charge balance transaction, including actual gross amount, processing fee, net amount and pending/available status. Transfer funding uses this same reader and additionally holds disputed or unavailable funds. Provider errors, missing expansions and mismatched ownership/account/mode/currency/arithmetic fail closed. Refund and dispute movements do not rewrite the original capture fee. The reader now supplies durable capture-fee journals, recovery and transfer eligibility through the default-off [capture-fee workflow](73-capture-fee-accounting.md). It does not estimate fees or deduct them from driver earnings.

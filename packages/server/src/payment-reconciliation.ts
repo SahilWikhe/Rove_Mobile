@@ -51,6 +51,7 @@ export class PaymentReconciler {
     private provider: PaymentProvider,
     private source: string,
     private now: () => Date = () => new Date(),
+    private captureAccountingEnabled = false,
   ) {
     if (!/^acct_[a-zA-Z0-9]{1,96}:(test|live)$/.test(source)) throw new Error('Invalid payment source.');
   }
@@ -242,6 +243,20 @@ export class PaymentReconciler {
           next = 'review_required';
           work = 'payment.review_required';
         }
+      }
+      if (
+        this.captureAccountingEnabled &&
+        current.status === 'succeeded' &&
+        current.receivedCents === before.amount_cents
+      ) {
+        await client.query(
+          `INSERT INTO outbox(topic,aggregate_id,payload,dedupe_key) VALUES('capture-fee.reconcile',$1,$2,$3) ON CONFLICT(dedupe_key) DO NOTHING`,
+          [
+            before.id,
+            JSON.stringify({ source: this.source, intentId: before.intent_id }),
+            `capture-fee-initial:${before.id}`,
+          ],
+        );
       }
       if (next === ride.payment_state) return;
       if (next !== 'authorized')

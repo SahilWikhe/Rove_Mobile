@@ -826,3 +826,43 @@ export const driverTransferMovements = pgTable(
     index('driver_transfer_movement_operation').on(t.operationId),
   ],
 );
+
+export const paymentCaptureChecks = pgTable(
+  'payment_capture_checks',
+  {
+    attemptId: uuid()
+      .primaryKey()
+      .references(() => paymentAttempts.id),
+    source: text().notNull(),
+    revision: integer().notNull().default(0),
+    chargeId: text(),
+    balanceId: text(),
+    amountCents: integer(),
+    feeCents: integer(),
+    netCents: integer(),
+    journalId: uuid()
+      .unique()
+      .references(() => ledgerJournals.id),
+    verifiedAt: timestamp({ withTimezone: true }),
+    checkedAt: timestamp({ withTimezone: true }),
+    requestedAt: timestamp({ withTimezone: true }),
+    reviewRequired: boolean().notNull().default(false),
+  },
+  (t) => [
+    uniqueIndex('capture_balance_source').on(t.source, t.balanceId),
+    check('capture_check_revision', sql`${t.revision} >= 0`),
+    check('capture_check_source', sql`${t.source} ~ '^acct_[a-zA-Z0-9]{1,96}:(test|live)$'`),
+    check(
+      'capture_check_facts',
+      sql`(
+      ${t.chargeId} is null and ${t.balanceId} is null and ${t.amountCents} is null and ${t.feeCents} is null and ${t.netCents} is null and ${t.journalId} is null and ${t.verifiedAt} is null
+    ) or (
+      ${t.chargeId} is not null and ${t.chargeId} ~ '^ch_[a-zA-Z0-9]{1,96}$' and ${t.balanceId} is not null and ${t.balanceId} ~ '^txn_[a-zA-Z0-9]{1,96}$'
+      and ${t.amountCents} is not null and ${t.amountCents} between 1 and 99999999
+      and ${t.feeCents} is not null and ${t.feeCents} between 0 and ${t.amountCents}
+      and ${t.netCents} is not null and ${t.netCents} = ${t.amountCents} - ${t.feeCents}
+      and ${t.verifiedAt} is not null and ((${t.feeCents} = 0 and ${t.journalId} is null) or (${t.feeCents} > 0 and ${t.journalId} is not null))
+    )`,
+    ),
+  ],
+);

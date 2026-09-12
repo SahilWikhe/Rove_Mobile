@@ -1,3 +1,4 @@
+import { CaptureFees } from '@rove/server';
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
 import { createHmac, randomUUID } from 'node:crypto';
 import { testDatabase } from '@rove/database/testing';
@@ -120,12 +121,12 @@ function buildApp(
 
 const request = (subject = 'rider', id = ride) =>
   app.request(`/v1/rides/${id}/receipt`, { headers: { Authorization: `Bearer ${subject}` } });
-async function capture(amount = 1050) {
+async function capture(amount = 1050, canonicalKey = false) {
   return transaction(database.pool, async (client) => {
     const id = randomUUID();
     await client.query(
-      "INSERT INTO ledger_journals(id,key,fingerprint,attempt_id,ride_id,kind) VALUES($1::uuid,$1::text,'fixture',$2,$3,'capture')",
-      [id, attempt, ride],
+      "INSERT INTO ledger_journals(id,key,fingerprint,attempt_id,ride_id,kind) VALUES($1::uuid,$4,'fixture',$2,$3,'capture')",
+      [id, attempt, ride, canonicalKey ? `${attempt}:capture` : id],
     );
     await client.query(
       "INSERT INTO ledger_postings(journal_id,account,owner_id,amount_cents) VALUES($1,'stripe_clearing',NULL,$2),($1,'rider_funds',$3,-$2)",
@@ -511,7 +512,7 @@ test('staff transfer HTTP flow authenticates, reserves, settles through the work
     "INSERT INTO driver_payout_accounts(driver_id,source,account_id) VALUES($1,'acct_private:test','acct_driver')",
     [driver],
   );
-  await capture();
+  await capture(1050, true);
   await transaction(database.pool, async (c) => {
     const journal = randomUUID();
     await c.query(
@@ -540,6 +541,23 @@ test('staff transfer HTTP flow authenticates, reserves, settles through the work
     'acct_private:test',
   );
   let observed: DriverTransferSnapshot | null = null;
+  const captureFees = new CaptureFees(
+    database.pool,
+    {
+      retrieve: async () => ({
+        chargeId: 'ch_fixture',
+        balanceId: 'txn_capture',
+        amountCents: 1050,
+        feeCents: 0,
+        netCents: 1050,
+        status: 'available',
+        disputed: false,
+        unrefundedCents: 1050,
+      }),
+    },
+    'acct_private:test',
+  );
+  await captureFees.reconcile('pi_private');
   const transfers = new DriverTransfers(
     database.pool,
     {
@@ -570,6 +588,7 @@ test('staff transfer HTTP flow authenticates, reserves, settles through the work
     { reconcile: async () => {} },
     { reconcile: async () => {}, assertRefundable: disputes.assertRefundable.bind(disputes) },
     'acct_private:test',
+    captureFees,
   );
   app = buildApp(false, undefined, undefined, undefined, transfers);
   const options = {

@@ -1,3 +1,4 @@
+import { CaptureFees } from './capture-fees';
 import { randomUUID } from 'node:crypto';
 import { beforeAll, afterAll, beforeEach, expect, test, vi } from 'vitest';
 import { testDatabase } from '@rove/database/testing';
@@ -14,6 +15,7 @@ import type { DriverTransferReference, DriverTransferSnapshot } from './driver-t
 let db: Awaited<ReturnType<typeof testDatabase>>;
 let staff: Actor, rideId: string, driverId: string, attemptId: string;
 let now: Date, service: DriverTransfers;
+let captureFees: CaptureFees;
 const source = 'acct_fixture:test';
 const policy = { amountCents: 600, policyReference: 'fixture-approved-policy-v1' };
 const observed = new Map<string, DriverTransferSnapshot>();
@@ -130,12 +132,31 @@ beforeEach(async () => {
     await db.pool.query('UPDATE payment_dispute_checks SET verified_at=$1', [now]);
   });
   const disputes = new DisputeReconciler(db.pool, { disputes: vi.fn() }, source, () => now);
+  captureFees = new CaptureFees(
+    db.pool,
+    {
+      retrieve: async () => ({
+        chargeId: 'ch_fixture',
+        balanceId: 'txn_capture',
+        amountCents: 1050,
+        feeCents: 0,
+        netCents: 1050,
+        status: 'available',
+        disputed: false,
+        unrefundedCents: 1050,
+      }),
+    },
+    source,
+    () => now,
+  );
+  await captureFees.reconcile('pi_fixture');
   service = new DriverTransfers(
     db.pool,
     { funding, create, find, retrieve },
     { reconcile: refresh },
     { reconcile: refresh, assertRefundable: disputes.assertRefundable.bind(disputes) },
     source,
+    captureFees,
     () => now,
   );
 });
@@ -211,7 +232,11 @@ test('concurrent authorizations and workers cannot reserve or settle twice', asy
   const results = await Promise.allSettled([authorize('parallel-one'), authorize('parallel-two')]);
   expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
   const id = (await db.pool.query('SELECT id FROM driver_transfer_operations')).rows[0].id;
-  await Promise.all([run(id), run(id)]);
+  const workers = await Promise.allSettled([run(id), run(id)]);
+  expect(workers.some((r) => r.status === 'fulfilled')).toBe(true);
+  for (const result of workers)
+    if (result.status === 'rejected')
+      expect(result.reason).toMatchObject({ code: 'CAPTURE_ACCOUNTING_RETRY' });
   await run(id);
   expect(observed.size).toBe(1);
   expect(
@@ -301,6 +326,7 @@ test('stale facts, unresolved refund authorization and source mismatch are rejec
     { reconcile: refresh },
     { reconcile: refresh, assertRefundable: vi.fn() },
     'acct_other:test',
+    captureFees,
     () => now,
   );
   await expect(other.authorize(staff, rideId, policy, 'source-isolation')).rejects.toBeDefined();
@@ -509,4 +535,15 @@ test('refund authorization respects a pending transfer and becomes available aft
   await service.cancel(staff, rideId, a.id, 'cancel-for-refund');
   expect((await refunds.authorize(staff, rideId, input, 'refund-after-cancel')).state).toBe('queued');
   expect(provider.refund).not.toHaveBeenCalled();
+});
+
+test('missing, stale or review-held capture fees block authorization and new transfer attempts', async () => {
+  await db.pool.query('UPDATE payment_capture_checks SET verified_at=$1', [new Date(now.getTime() - 300001)]);
+  await expect(authorize()).rejects.toMatchObject({ code: 'CAPTURE_ACCOUNTING_REVIEW' });
+  await captureFees.reconcile('pi_fixture');
+  const a = await authorize();
+  await db.pool.query('UPDATE payment_capture_checks SET review_required=true');
+  await expect(run(a.id)).rejects.toMatchObject({ code: 'CAPTURE_ACCOUNTING_REVIEW' });
+  expect(create).not.toHaveBeenCalled();
+  expect(await balances()).toMatchObject({ driver_transfer_pending: -600 });
 });
