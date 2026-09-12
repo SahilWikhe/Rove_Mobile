@@ -379,3 +379,31 @@ test('adjusted earnings reject incomplete or inconsistent totals instead of disp
   );
   await expect(api.earnings()).resolves.toEqual(base);
 });
+
+test('bank payout history preserves authentication and pagination while rejecting inconsistent status data', async () => {
+  const fetcher = vi.fn<Transport>(
+    async () =>
+      new Response(
+        JSON.stringify({
+          status: 'available',
+          items: [],
+          nextCursor: null,
+          checkedAt: '2026-09-12T12:00:00Z',
+        }),
+      ),
+  );
+  const api = new ApiClient('https://api.example', async () => 'fixture-token', fetcher);
+  const abort = new AbortController();
+  expect(await api.bankPayoutHistory('po_older', abort.signal)).toMatchObject({ status: 'available' });
+  expect(fetcher.mock.calls[0]?.[0]).toBe('https://api.example/v1/drivers/me/payout-history?after=po_older');
+  expect(fetcher.mock.calls[0]?.[1]).toMatchObject({
+    headers: { Authorization: 'Bearer fixture-token' },
+    signal: abort.signal,
+  });
+  fetcher.mockResolvedValue(
+    new Response(
+      JSON.stringify({ status: 'unavailable', items: [], nextCursor: 'po_unexpected', checkedAt: null }),
+    ),
+  );
+  await expect(api.bankPayoutHistory()).rejects.toMatchObject({ code: 'INCOMPATIBLE_RESPONSE' });
+});

@@ -52,6 +52,7 @@ import {
   type DriverDocumentTransfers,
   PushInstallations,
   DriverPayouts,
+  type BankPayouts,
   SupportService,
   MessagingService,
   DomainError,
@@ -98,6 +99,7 @@ interface Dependencies {
     create(actor: Actor, rideId: string): Promise<{ rideId: string; clientSecret: string }>;
   };
   driverPayouts?: DriverPayouts;
+  bankPayouts?: BankPayouts;
   payoutWebhooks?: { receive(body: Buffer, signature: string): Promise<void> };
   paymentWebhooks?: { receive(body: Buffer, signature: string): Promise<void> };
 }
@@ -352,6 +354,13 @@ export function createApp(deps: Dependencies) {
     return c.json(
       deps.driverPayouts ? await deps.driverPayouts.status(c.var.actor) : { status: 'unavailable' },
     );
+  });
+  app.get('/v1/drivers/me/payout-history', async (c) => {
+    if (c.var.actor.role !== 'driver')
+      throw new DomainError('FORBIDDEN', 'Payout history is for drivers.', 403);
+    if (!deps.bankPayouts)
+      return c.json({ status: 'unavailable', items: [], nextCursor: null, checkedAt: null });
+    return c.json(await deps.bankPayouts.list(c.var.actor, c.req.query('after')));
   });
   app.post('/v1/drivers/me/payout-setup', async (c) => {
     await body(c, z.object({}).strict());

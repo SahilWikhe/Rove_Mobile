@@ -20,6 +20,9 @@ import {
   StripePayoutWebhookVerifier,
   type PayoutWebhookVerifier,
   DriverPayouts,
+  BankPayouts,
+  StripeBankPayouts,
+  type BankPayoutProvider,
   StripeDriverPayouts,
   type DriverPayoutProvider,
   GoogleMapsProvider,
@@ -69,6 +72,7 @@ interface Resources {
   maps: MapsProvider;
   payments: PaymentProvider & PaymentCustomerProvider & PaymentWebhookVerifier;
   verifyIdentity: VerifyIdentity;
+  bankPayoutProvider?: BankPayoutProvider;
   driverPayoutProvider?: DriverPayoutProvider;
   captureBalanceProvider?: CaptureBalanceProvider;
   driverTransferProvider?: DriverTransferProvider;
@@ -78,6 +82,8 @@ interface Resources {
 export function composeRuntime(config: RuntimeConfig, resources: Resources) {
   const { database, maps, payments, verifyIdentity } = resources;
   const { pool } = database;
+  if (config.bankPayoutsEnabled && !resources.bankPayoutProvider)
+    throw new Error('Bank payout provider is required.');
   const customers = new PaymentCustomers(pool, payments, config.paymentSource);
   const reconciliation = new PaymentReconciler(
     pool,
@@ -178,6 +184,11 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
           payoutWebhooks: new PayoutWebhookInbox(pool, resources.payoutWebhookVerifier, config.paymentSource),
         }
       : {}),
+    bankPayouts: new BankPayouts(
+      pool,
+      config.paymentSource,
+      config.bankPayoutsEnabled ? resources.bankPayoutProvider : undefined,
+    ),
     driverPayouts: new DriverPayouts(pool, config.paymentSource, resources.driverPayoutProvider),
     maps,
     verifyIdentity,
@@ -275,6 +286,18 @@ export function createRuntime(env: Record<string, string | undefined>) {
       })
     : undefined;
   return composeRuntime(config, {
+    ...(config.bankPayoutsEnabled && driverPayoutProvider
+      ? {
+          bankPayoutProvider: new StripeBankPayouts(
+            {
+              secretKey: config.payments.secretKey,
+              live: config.payments.mode === 'live',
+              platformAccountId: config.payments.accountId,
+            },
+            driverPayoutProvider,
+          ),
+        }
+      : {}),
     ...(config.captureAccountingEnabled
       ? {
           captureBalanceProvider: new StripeCaptureBalances({

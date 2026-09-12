@@ -194,6 +194,16 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
   });
   const payments = capture(() => readPaymentConfig(env));
   const connect = capture(() => readConnectConfig(env));
+  const bankPayoutsEnabled = capture(() => {
+    if (
+      env.PAYMENT_BANK_PAYOUTS_ENABLED !== undefined &&
+      !['true', 'false'].includes(env.PAYMENT_BANK_PAYOUTS_ENABLED)
+    )
+      throw new ConfigurationError(['payments.bankPayoutsEnabled']);
+    if (env.PAYMENT_BANK_PAYOUTS_ENABLED === 'true' && !connect)
+      throw new ConfigurationError(['payments.bankPayoutsEnabled']);
+    return env.PAYMENT_BANK_PAYOUTS_ENABLED === 'true';
+  });
   const captureAccountingEnabled = capture(() => {
     if (
       env.PAYMENT_CAPTURE_ACCOUNTING_ENABLED !== undefined &&
@@ -230,6 +240,7 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
     ...(documentAwsRoleArn ? { documentAwsRoleArn } : {}),
     ...push,
     payments,
+    ...(bankPayoutsEnabled ? { bankPayoutsEnabled: true as const } : {}),
     ...(captureAccountingEnabled ? { captureAccountingEnabled: true as const } : {}),
     ...(driverTransfersEnabled ? { driverTransfersEnabled: true as const } : {}),
     ...(lossAllocationEnabled ? { lossAllocationEnabled: true as const } : {}),

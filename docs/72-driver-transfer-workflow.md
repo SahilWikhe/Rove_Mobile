@@ -31,7 +31,7 @@ Verified reversal credits restore unpaid driver liability and actual platform ba
 
 The recovery scheduler includes a fair bounded sweep of up to 100 eligible operations, no more than hourly per operation. It includes confirmed transfers so later reversals can be observed, and can enqueue a fresh recovery job after an earlier job dead-lettered. It runs with the existing worker recovery schedule; this is periodic provider reconciliation, not a new transfer webhook implementation. Existing worker failures remain visible in outbox/dead-letter records.
 
-A zero suspense balance alone does not authorize settlement. An old dispute marker, expired operating eligibility, unknown refund, changed payout binding or missing provider funds can still hold a transfer. Owner policy must define case resolution, treatment of inactive drivers, retention and payout timing before rollout. The app does not yet present bank-payout progress or provide driver-initiated withdrawals. A confirmed transfer credits the driver's connected Stripe balance; it does not prove a bank deposit.
+A zero suspense balance alone does not authorize settlement. An old dispute marker, expired operating eligibility, unknown refund, changed payout binding or missing provider funds can still hold a transfer. Owner policy must define case resolution, treatment of inactive drivers, retention and payout timing before rollout. The app now provides [read-only bank-payout history](74-bank-payout-history.md). Driver-initiated withdrawals and bank balance reconciliation are not implemented. A confirmed transfer credits the driver's connected Stripe balance; it does not prove a bank deposit.
 
 ## Rollout
 

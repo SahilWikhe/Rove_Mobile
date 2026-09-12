@@ -24,7 +24,7 @@ test('Driver Account navigation opens trips and earnings with a route back', asy
     'aria-selected',
     'true',
   );
-  await expect(page.getByRole('button', { name: 'Review payout setup', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'View payouts', exact: true })).toBeVisible();
   await expect(page.getByTestId('daily-earnings').getByRole('img')).toHaveCount(7);
   await page.screenshot({ path: '/tmp/rove-driver-earnings-figma-web.png', fullPage: true });
   await page.getByRole('button', { name: 'Filter recorded dates', exact: true }).click();

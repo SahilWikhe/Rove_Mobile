@@ -1,6 +1,16 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `e938a645ce4c7cecbecb6363d21f8418810f81ea` plus the durable capture-fee checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `421a818a4d4df5c68a0b0ed60dfec835bd95309b` plus the bank-payout history checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Bank-payout history and driver presentation — September 12
+
+Implemented a read-only connected-account payout provider, authenticated driver history API, strict shared contracts/client pagination, default-off runtime configuration and the driver Payouts screen. The screen separates bank/debit-card history from onboarding readiness, shows current provider status and estimated arrival dates, supports older pages, and clears stale status after failed refreshes. Existing dark surfaces and accessible controls are reused. Earnings now links to Payouts with a matching accessible label. Provider responses exclude bank identifiers/details, arbitrary metadata and failure messages; account binding and driver access are rechecked after provider reads.
+
+All eleven local application test tasks passed, including 548 server tests and 168 API tests at the integrated checkpoint. Final focused provider/domain tests passed fifteen tests, the authenticated HTTP test passed, and the mobile client suite passed twenty-two tests. Workspace/E2E types, source lint excluding generated reports, boundaries, formatting, docs, packaged API build/health/authentication checks and rider/driver web/iOS/Android JavaScript exports passed. Five focused browser journeys passed, including Earnings navigation, payout setup, history pagination and clearing stale payout data after failure. The phone-width payout screenshot was visually reviewed with no amount/text clipping. Tests use synthetic provider data and disposable local PostgreSQL; JavaScript exports and browser evidence do not establish native device or real Stripe acceptance.
+
+`PAYMENT_BANK_PAYOUTS_ENABLED` defaults off and requires verified Connect setup. No new migration, real provider request, withdrawal, schedule change or production activation occurred. This is account-level status, not a ride-to-bank allocation or bank balance journal. Physical-device/provider acceptance, payout policy and any automatic withdrawal/notification requirements remain explicit release decisions/work. See [bank-payout history and activation](74-bank-payout-history.md).
+
+Next priority: actual account-deletion fulfillment and retention controls, then remaining Figma/native/provider acceptance and production setup. CI remains under verification: hosted baseline browser/security/quality tests passed, both Android builds reached the emulator stage (the SDK path fix is in newer main), and iOS jobs remained active at the last observation. New main runs queue without interrupting the active run; completed baseline checks do not prove the latest revision.
 
 ## Durable capture fees and transfer eligibility — September 12
 

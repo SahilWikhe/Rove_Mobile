@@ -1,3 +1,4 @@
+import { BankPayoutHistory } from '@rove/contracts';
 import { MessageRealtime } from './message-realtime';
 import {
   Conversation,
@@ -385,6 +386,13 @@ export class ApiClient {
   }
   trackingSession() {
     return this.request('/v1/drivers/me/tracking-session', TrackingGrant, { method: 'POST', body: {} });
+  }
+  bankPayoutHistory(after?: string, signal?: AbortSignal) {
+    return this.request(
+      `/v1/drivers/me/payout-history${after ? `?after=${encodeURIComponent(after)}` : ''}`,
+      BankPayoutHistory,
+      signal ? { signal } : {},
+    );
   }
   driverPayoutStatus(signal?: AbortSignal) {
     return this.request('/v1/drivers/me/payout-setup', DriverPayoutStatus, { ...(signal ? { signal } : {}) });

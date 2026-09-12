@@ -1,3 +1,4 @@
+import { BankHistory } from '../payouts/bank-history';
 import { Platform } from 'react-native';
 import { useCallback, useRef, useState } from 'react';
 import { Stack, router, useFocusEffect } from 'expo-router';
@@ -92,12 +93,14 @@ function PayoutSetup() {
           : undefined
       }
     >
-      <Stack.Screen options={{ title: 'Payout setup' }} />
+      <Stack.Screen options={{ title: 'Payouts' }} />
       <Copy kind="title">Your payout details.</Copy>
       {!profile ? (
         <Copy>Sign in as a driver to continue.</Copy>
       ) : (
         <>
+          <BankHistory revision={revision} />
+          <Copy kind="heading">Stripe setup</Copy>
           <Card>
             <Copy kind="heading">
               {status
@@ -141,7 +144,7 @@ function PayoutSetup() {
       )}
       {profile && (
         <Button
-          title="Help with payout setup"
+          title="Help with payouts"
           variant="secondary"
           disabled={busy}
           onPress={() => router.push('/support')}

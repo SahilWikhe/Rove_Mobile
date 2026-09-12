@@ -467,7 +467,7 @@ test('rider request reaches the driver and both apps follow a completed syntheti
       driver.getByText('RECORDED TRIP EARNINGS', { exact: true }).filter({ visible: true }),
     ).toBeVisible();
     await driver.goBack();
-    await driver.getByRole('button', { name: 'Review payout setup', exact: true }).click();
+    await driver.getByRole('button', { name: 'View payouts', exact: true }).click();
     await expect(driver.getByText('Your payout details.', { exact: true })).toBeVisible();
     await driver.goBack();
     await driver.goBack();

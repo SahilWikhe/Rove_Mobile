@@ -112,3 +112,5 @@ For the unactivated Stripe transfer adapter and required settlement orchestratio
 For protected staff authorization, owned pending-liability reservations, worker execution, recovery and rollout, see [driver transfer workflow](72-driver-transfer-workflow.md).
 
 - [Capture fee accounting](73-capture-fee-accounting.md): actual processor fees, immutable balances, recovery and transfer holds.
+
+- [Driver bank-payout history](74-bank-payout-history.md): connected-account status, driver presentation, access controls and rollout.

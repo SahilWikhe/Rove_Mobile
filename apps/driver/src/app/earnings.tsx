@@ -209,14 +209,14 @@ function EarningsContent({
           </Card>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Review payout setup"
+            accessibilityLabel="View payouts"
             onPress={() => router.push('/payouts')}
             style={styles.payout}
           >
             <View style={{ flex: 1, gap: 4 }}>
-              <Copy style={{ fontFamily: 'Manrope_700Bold', fontSize: 14 }}>Payout setup</Copy>
+              <Copy style={{ fontFamily: 'Manrope_700Bold', fontSize: 14 }}>Payouts</Copy>
               <Copy kind="muted" style={styles.caption}>
-                Review your payout account and eligibility
+                Bank payout history and Stripe details
               </Copy>
             </View>
             <Copy style={{ color: theme.gold }}>›</Copy>

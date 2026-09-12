@@ -576,3 +576,25 @@ test('capture accounting is opt-in and rejects malformed configuration without p
     await runtime.close();
   }
 });
+
+test('bank payout history is opt-in and requires Connect without initiating payouts', async () => {
+  expect(readRuntimeConfig(environment()).bankPayoutsEnabled).toBeUndefined();
+  expect(() => readRuntimeConfig({ ...environment(), PAYMENT_BANK_PAYOUTS_ENABLED: 'yes' })).toThrow(
+    'payments.bankPayoutsEnabled',
+  );
+  expect(() => readRuntimeConfig({ ...environment(), PAYMENT_BANK_PAYOUTS_ENABLED: 'true' })).toThrow(
+    'payments.bankPayoutsEnabled',
+  );
+  const runtime = createRuntime({
+    ...environment(),
+    PAYMENT_BANK_PAYOUTS_ENABLED: 'true',
+    STRIPE_CONNECT_ONBOARDING_ENABLED: 'true',
+    STRIPE_CONNECT_RETURN_ORIGIN: 'https://api.example.test',
+    STRIPE_CONNECT_WEBHOOK_SECRET: 'whsec_connectfixture',
+  });
+  try {
+    expect((await runtime.app.request('/health/live')).status).toBe(200);
+  } finally {
+    await runtime.close();
+  }
+});

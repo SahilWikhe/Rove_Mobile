@@ -82,3 +82,6 @@ export { StripeCaptureBalances } from './stripe-capture-balances';
 export type { CaptureBalanceProvider, CaptureBalanceSnapshot } from './capture-balance-provider';
 
 export { CaptureFees } from './capture-fees';
+
+export { BankPayouts, type BankPayoutProvider } from './bank-payouts';
+export { StripeBankPayouts } from './stripe-bank-payouts';

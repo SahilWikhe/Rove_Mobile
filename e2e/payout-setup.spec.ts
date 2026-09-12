@@ -38,7 +38,7 @@ test('failed payout refresh clears stale readiness and leaves recovery available
   await expect(page.getByText('Payout status could not be checked.', { exact: true })).toBeVisible();
   await expect(page.getByText('Checking payout setup…', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Review Stripe details', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Help with payout setup', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Help with payouts', exact: true })).toBeEnabled();
   failed = false;
   await page.getByRole('button', { name: 'Check setup status', exact: true }).click();
   await expect(page.getByText('Stripe details are ready.', { exact: true })).toBeVisible();

@@ -813,3 +813,33 @@ export const DriverTransferOperation = z
   })
   .strict()
   .refine((o) => o.reversedCents <= o.amountCents);
+
+export const BankPayoutCursor = z.string().regex(/^po_[a-zA-Z0-9]{1,96}$/);
+export const BankPayout = z
+  .object({
+    id: BankPayoutCursor,
+    amountCents: z.number().int().min(1).max(99_999_999),
+    currency: z.literal('usd'),
+    status: z.enum(['pending', 'in_transit', 'paid', 'failed', 'canceled']),
+    createdAt: z.iso.datetime(),
+    expectedArrivalAt: z.iso.datetime(),
+    destinationType: z.enum(['bank_account', 'card']),
+  })
+  .strict();
+export const BankPayoutHistory = z
+  .object({
+    status: z.enum(['unavailable', 'not_started', 'available']),
+    items: z.array(BankPayout).max(20),
+    nextCursor: BankPayoutCursor.nullable(),
+    checkedAt: z.iso.datetime().nullable(),
+  })
+  .strict()
+  .refine((p) =>
+    p.status === 'available'
+      ? p.checkedAt !== null &&
+        new Set(p.items.map((i) => i.id)).size === p.items.length &&
+        (p.nextCursor === null || p.items.at(-1)?.id === p.nextCursor)
+      : p.items.length === 0 && p.nextCursor === null && p.checkedAt === null,
+  );
+export type BankPayoutHistory = z.infer<typeof BankPayoutHistory>;
+export type BankPayout = z.infer<typeof BankPayout>;
