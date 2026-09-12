@@ -1,6 +1,7 @@
 import { useRef, useState, type ReactNode } from 'react';
 import {
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -171,7 +172,10 @@ export function MessageThreadView({
               style={styles.circle}
               accessibilityRole="button"
               accessibilityLabel="Report conversation"
-              onPress={() => setReporting((v) => !v)}
+              onPress={() => {
+                Keyboard.dismiss();
+                setReporting((v) => !v);
+              }}
             >
               <Copy>•••</Copy>
             </Pressable>
@@ -190,7 +194,7 @@ export function MessageThreadView({
           </Pressable>
         )}
         {reporting && c && (
-          <View style={styles.report}>
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.report}>
             <Copy>Report and close this conversation</Copy>
             <Copy kind="muted" style={styles.subtitle}>
               Further messages will be blocked. Your report goes to Help & support. For an emergency, call
@@ -209,7 +213,7 @@ export function MessageThreadView({
               />
             ))}
             <Button title="Keep conversation" variant="secondary" onPress={() => setReporting(false)} />
-          </View>
+          </ScrollView>
         )}
         {error && (
           <View style={styles.notice}>
@@ -224,7 +228,7 @@ export function MessageThreadView({
         )}
         <ScrollView
           ref={list}
-          style={{ flex: 1 }}
+          style={{ flex: 1, display: reporting ? 'none' : 'flex' }}
           contentContainerStyle={styles.messages}
           keyboardShouldPersistTaps="handled"
           onScroll={(e) => {
@@ -251,61 +255,64 @@ export function MessageThreadView({
             </View>
           ))}
         </ScrollView>
-        {c?.canSend ? (
-          <View style={styles.composer}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={{ gap: 8, paddingVertical: 6 }}
-            >
-              {replies.map((reply) => (
-                <Pressable
-                  key={reply}
-                  style={styles.quick}
-                  onPress={() => setText(reply)}
-                  disabled={busy}
-                  accessibilityRole="button"
-                >
-                  <Copy style={{ fontSize: 13, color: theme.gold }}>{reply}</Copy>
-                </Pressable>
-              ))}
-            </ScrollView>
-            <View style={[styles.row, { alignItems: 'flex-end', gap: 10 }]}>
-              <TextInput
-                testID="message-input"
-                accessibilityLabel="Message"
-                placeholder="Write a message…"
-                placeholderTextColor={theme.muted}
-                value={text}
-                onChangeText={setText}
-                editable={!busy}
-                maxLength={1000}
-                multiline
-                style={styles.input}
-              />
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Send message"
-                disabled={busy || !text.trim()}
-                onPress={send}
-                style={[styles.send, (busy || !text.trim()) && { opacity: 0.5 }]}
+        {!reporting &&
+          (c?.canSend ? (
+            <View style={styles.composer}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{ gap: 8, paddingVertical: 6 }}
               >
-                <Copy style={{ color: '#17140C', fontSize: 24 }}>{busy ? '…' : '↑'}</Copy>
-              </Pressable>
+                {replies.map((reply) => (
+                  <Pressable
+                    key={reply}
+                    style={styles.quick}
+                    onPress={() => setText(reply)}
+                    disabled={busy}
+                    accessibilityRole="button"
+                  >
+                    <Copy style={{ fontSize: 13, color: theme.gold }}>{reply}</Copy>
+                  </Pressable>
+                ))}
+              </ScrollView>
+              <View style={[styles.row, { alignItems: 'flex-end', gap: 10 }]}>
+                <TextInput
+                  testID="message-input"
+                  accessibilityLabel="Message"
+                  placeholder="Write a message…"
+                  placeholderTextColor={theme.muted}
+                  value={text}
+                  onChangeText={setText}
+                  editable={!busy}
+                  maxLength={1000}
+                  multiline
+                  style={styles.input}
+                />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Send message"
+                  disabled={busy || !text.trim()}
+                  onPress={send}
+                  style={[styles.send, (busy || !text.trim()) && { opacity: 0.5 }]}
+                >
+                  <Copy style={{ color: '#17140C', fontSize: 24 }}>{busy ? '…' : '↑'}</Copy>
+                </Pressable>
+              </View>
+              <Copy kind="muted" style={styles.small}>
+                {text.length}/1000 · Only message when it is safe to do so.
+              </Copy>
             </View>
-            <Copy kind="muted" style={styles.small}>
-              {text.length}/1000 · Only message when it is safe to do so.
-            </Copy>
-          </View>
-        ) : (
-          c && (
-            <Copy kind="muted" style={styles.notice}>
-              {c.blocked ? 'This conversation is closed after a report.' : 'This conversation is read-only.'}{' '}
-              Messages are available for 30 days.
-            </Copy>
-          )
-        )}
+          ) : (
+            c && (
+              <Copy kind="muted" style={styles.notice}>
+                {c.blocked
+                  ? 'This conversation is closed after a report.'
+                  : 'This conversation is read-only.'}{' '}
+                Messages are available for 30 days.
+              </Copy>
+            )
+          ))}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
