@@ -1,6 +1,10 @@
+import { useSession } from '@rove/mobile-core/session';
+import { useMessageUnread } from '@rove/mobile-core/use-messages';
+import { useFocusEffect } from 'expo-router';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { Copy, theme } from '@rove/mobile-ui';
+import { messageIcon } from '@rove/mobile-ui/message-icon';
 import drive from '../../assets/navigation/drive.png';
 import trips from '../../assets/navigation/trips.png';
 import earnings from '../../assets/navigation/earnings.png';
@@ -10,6 +14,7 @@ const destinations = [
   { label: 'Drive', path: '/drive', icon: drive },
   { label: 'Trips', path: '/trips', icon: trips },
   { label: 'Earnings', path: '/earnings', icon: earnings },
+  { label: 'Messages', path: '/messages', icon: messageIcon },
   { label: 'Account', path: '/account', icon: account },
 ] as const;
 
@@ -21,6 +26,9 @@ export function DriverNavigation({
   active: (typeof destinations)[number]['path'];
   disabled?: boolean;
 }) {
+  const { api, profile } = useSession();
+  const messages = useMessageUnread(api, profile?.id);
+  useFocusEffect(messages.focus);
   return (
     <View style={styles.wrap} pointerEvents="box-none">
       <View style={styles.bar}>
@@ -28,7 +36,9 @@ export function DriverNavigation({
           <Pressable
             key={path}
             accessibilityRole="button"
-            accessibilityLabel={label}
+            accessibilityLabel={
+              label === 'Messages' && messages.unread ? `Messages, ${messages.unread} unread` : label
+            }
             accessibilityState={{ selected: path === active, disabled }}
             disabled={disabled}
             onPress={() => {
@@ -36,6 +46,19 @@ export function DriverNavigation({
             }}
             style={({ pressed }) => [styles.item, (pressed || disabled) && styles.dimmed]}
           >
+            {label === 'Messages' && messages.unread > 0 && (
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  right: 8,
+                  width: 7,
+                  height: 7,
+                  borderRadius: 4,
+                  backgroundColor: theme.gold,
+                }}
+              />
+            )}
             <Image
               source={icon}
               accessible={false}
@@ -52,6 +75,8 @@ export function DriverNavigation({
 const styles = StyleSheet.create({
   wrap: { alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8 },
   bar: {
+    width: '100%',
+    maxWidth: 420,
     flexDirection: 'row',
     gap: 4,
     padding: 12,
@@ -65,7 +90,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     elevation: 8,
   },
-  item: { minWidth: 60, minHeight: 48, alignItems: 'center', justifyContent: 'center', gap: 3 },
+  item: { minWidth: 48, flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', gap: 3 },
   icon: { width: 24, height: 24 },
   label: { color: theme.muted, fontSize: 11, lineHeight: 16 },
   dimmed: { opacity: 0.6 },

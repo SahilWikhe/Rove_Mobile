@@ -455,7 +455,7 @@ export const PushInstallationStatus = z
 export const PushHint = z
   .object({
     eventId: z.uuid(),
-    kind: z.enum(['ride_update', 'offer_available']),
+    kind: z.enum(['ride_update', 'offer_available', 'message_available']),
     referenceId: z.uuid(),
   })
   .strict();
@@ -557,3 +557,64 @@ export const WalletSetupSession = z
       .max(1024),
   })
   .strict();
+
+// Assignment-scoped text messaging. No contact details or client-selected recipients.
+export const MessageInput = z
+  .object({
+    requestId: z.uuid(),
+    text: z
+      .string()
+      .trim()
+      .min(1)
+      .max(1000)
+      .refine((value) =>
+        Array.from(value).every(
+          (char) => char.charCodeAt(0) >= 32 || char === '\n' || char === '\r' || char === '\t',
+        ),
+      ),
+  })
+  .strict();
+export const TripMessage = z
+  .object({
+    id: z.uuid(),
+    sequence: z.number().int().positive(),
+    mine: z.boolean(),
+    text: z.string().min(1).max(1000),
+    createdAt: z.iso.datetime(),
+  })
+  .strict();
+export type TripMessage = z.infer<typeof TripMessage>;
+export const Conversation = z
+  .object({
+    id: z.uuid(),
+    rideId: z.uuid(),
+    name: z.string(),
+    rideCreatedAt: z.iso.datetime(),
+    state: RideState,
+    canSend: z.boolean(),
+    blocked: z.boolean(),
+    unread: z.number().int().nonnegative(),
+    latest: TripMessage.nullable(),
+  })
+  .strict();
+export type Conversation = z.infer<typeof Conversation>;
+export const ConversationQuery = z
+  .object({
+    beforeCreatedAt: z.iso.datetime().optional(),
+    beforeId: z.uuid().optional(),
+  })
+  .strict()
+  .refine((v) => Boolean(v.beforeCreatedAt) === Boolean(v.beforeId));
+export const ConversationList = z
+  .object({
+    conversations: z.array(Conversation).max(50),
+    nextCursor: z.object({ beforeCreatedAt: z.iso.datetime(), beforeId: z.uuid() }).strict().nullable(),
+  })
+  .strict();
+export type ConversationList = z.infer<typeof ConversationList>;
+export const ConversationThread = z
+  .object({ conversation: Conversation, messages: z.array(TripMessage).max(200) })
+  .strict();
+export type ConversationThread = z.infer<typeof ConversationThread>;
+export const MessageRead = z.object({ through: z.number().int().positive() }).strict();
+export const MessageReport = z.object({ reason: z.enum(['harassment', 'unsafe', 'spam', 'other']) }).strict();

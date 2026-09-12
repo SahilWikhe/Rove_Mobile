@@ -58,3 +58,5 @@ export { DriverEligibilityService, EligibilityDecision } from './driver-eligibil
 
 export { WalletSessions, type WalletProvider } from './wallet-sessions';
 export { StripeWalletProvider } from './stripe-wallet';
+
+export * from './messaging';

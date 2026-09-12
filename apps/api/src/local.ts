@@ -105,6 +105,8 @@ const worker = new OutboxWorker(database.pool, {
   'matching.tick': async (job) => matching.tick(job.aggregateId),
   // Local apps poll; these acknowledgments do not represent delivered notifications.
   'offer.created': async () => {},
+  // Foreground messaging works without a push provider; configured delivery wraps this handler.
+  'message.created': async () => {},
   'ride.matched': async () => {},
   'ride.en_route': async () => {},
   'ride.arrived': async () => {},

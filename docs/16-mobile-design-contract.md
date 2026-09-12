@@ -26,7 +26,7 @@ Review evidence: page metadata for both mobile files and rendered rider Home (`2
 
 Removing Rove Pro does not remove earnings, payout setup, receipts or transparent driver compensation. The actual fare/fee/earnings formula remains an open business decision. Do not replace “100%” with an invented commission. Likewise, no recurring schedule implies institutional membership, guaranteed driver assignment, early arrival or an automatically booked return.
 
-Tips, ratings and messaging exist in the references. Preserve their design reference, but their prior optional/unresolved implementation scope is unchanged by this approval. They must not prevent completing or viewing a paid ride. A messaging release needs its own authorization, retention and abuse/contact policy; unlimited post-trip contact is not implied by the mockups.
+Tips, ratings and messaging exist in the references. Preserve their design reference, but their prior optional/unresolved implementation scope is unchanged by this approval. They must not prevent completing or viewing a paid ride. Messaging was subsequently authorized and is implemented under the assignment, retention-visibility and reporting policy in [Rider–driver messaging](64-trip-messaging.md). Unlimited post-trip contact is not implied by the mockups.
 
 ## Visual and component contract
 

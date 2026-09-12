@@ -1,3 +1,11 @@
+import {
+  Conversation,
+  ConversationList,
+  ConversationThread,
+  MessageInput,
+  TripMessage,
+  MessageReport,
+} from '@rove/contracts';
 import { EarningsDateRange } from '@rove/contracts';
 import { WalletCustomerSession, WalletSetupSession, WalletSetupRequest } from '@rove/contracts';
 import { z } from 'zod';
@@ -57,6 +65,51 @@ export class ApiError extends Error {
 }
 export type Transport = (url: string, options: RequestInit) => Promise<Response>;
 export class ApiClient {
+  unreadMessages(signal?: AbortSignal) {
+    return this.request(
+      '/v1/conversations-unread',
+      z.object({ unread: z.number().int().nonnegative() }).strict(),
+      signal ? { signal } : {},
+    );
+  }
+
+  conversations(cursor?: { beforeCreatedAt: string; beforeId: string }, signal?: AbortSignal) {
+    const query = cursor ? '?' + new URLSearchParams(cursor).toString() : '';
+    return this.request('/v1/conversations' + query, ConversationList, signal ? { signal } : {});
+  }
+  conversation(id: string, signal?: AbortSignal) {
+    z.uuid().parse(id);
+    return this.request('/v1/conversations/' + id, ConversationThread, signal ? { signal } : {});
+  }
+  rideConversation(id: string, signal?: AbortSignal) {
+    z.uuid().parse(id);
+    return this.request('/v1/rides/' + id + '/conversation', Conversation, signal ? { signal } : {});
+  }
+  sendMessage(id: string, text: string, requestId: string, signal?: AbortSignal) {
+    z.uuid().parse(id);
+    return this.request('/v1/conversations/' + id + '/messages', TripMessage, {
+      method: 'POST',
+      body: MessageInput.parse({ text, requestId }),
+      ...(signal ? { signal } : {}),
+    });
+  }
+  readMessages(id: string, through: number, signal?: AbortSignal) {
+    z.uuid().parse(id);
+    return this.request('/v1/conversations/' + id + '/read', z.object({ ok: z.literal(true) }), {
+      method: 'POST',
+      body: { through },
+      ...(signal ? { signal } : {}),
+    });
+  }
+  reportConversation(id: string, reason: z.infer<typeof MessageReport>['reason'], signal?: AbortSignal) {
+    z.uuid().parse(id);
+    return this.request('/v1/conversations/' + id + '/report', z.object({ ok: z.literal(true) }), {
+      method: 'POST',
+      body: { reason },
+      ...(signal ? { signal } : {}),
+    });
+  }
+
   driverDocuments(signal?: AbortSignal) {
     return this.request('/v1/drivers/me/documents', DriverDocumentList, { ...(signal ? { signal } : {}) });
   }

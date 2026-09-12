@@ -1,3 +1,4 @@
+import { OpenConversation } from '../messaging/open-conversation';
 import completionMark from '../../assets/completion/check.png';
 import { Image, View } from 'react-native';
 import { ActiveTripDetails } from '../trips/active-trip-details';
@@ -183,6 +184,7 @@ function TripContent({ id }: { id: string }) {
               />
             </>
           )}
+          <OpenConversation rideId={ride.id} />
           <NavigationButton
             key={`${profile?.id}:${ride.id}:${ride.version}`}
             ride={ride}

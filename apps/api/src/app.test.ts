@@ -780,3 +780,43 @@ test('earnings date parameters are paired, validated and preserve the original u
   const unfiltered = await request('/v1/drivers/me/earnings');
   expect(await unfiltered.json()).not.toHaveProperty('periodTotal');
 });
+
+test('messaging HTTP validates input, scopes conversations and acknowledges only real messages', async () => {
+  const driver = await (
+    await request('/v1/me', { name: 'Synthetic Driver', role: 'driver' }, 'driver')
+  ).json();
+  const quote = randomUUID(),
+    ride = randomUUID(),
+    offer = randomUUID();
+  await database.pool.query("INSERT INTO quotes(id,rider_id,snapshot,expires_at) VALUES($1,$2,'{}',now())", [
+    quote,
+    riderId,
+  ]);
+  await database.pool.query(
+    "INSERT INTO rides(id,quote_id,rider_id,driver_id,state,fare_cents,earnings_cents,search_deadline) VALUES($1,$2,$3,$4,'matched',1000,700,now())",
+    [ride, quote, riderId, driver.id],
+  );
+  await database.pool.query(
+    "INSERT INTO offers(id,ride_id,driver_id,status,expires_at,snapshot) VALUES($1,$2,$3,'accepted',now(),'{}')",
+    [offer, ride, driver.id],
+  );
+  const path = '/v1/conversations/' + offer;
+  expect((await app.request(path)).status).toBe(401);
+  expect((await request('/v1/conversations/not-an-id')).status).toBe(400);
+  expect((await request('/v1/conversations?beforeId=' + offer)).status).toBe(400);
+  expect((await request(path + '/messages', { text: '', requestId: randomUUID() })).status).toBe(400);
+  expect(
+    (await request(path + '/messages', { text: 'hello', requestId: randomUUID(), senderId: driver.id }))
+      .status,
+  ).toBe(400);
+  const sent = await request(path + '/messages', { text: 'At the entrance', requestId: randomUUID() });
+  expect(sent.status).toBe(200);
+  const m = await sent.json();
+  const thread = await request(path, undefined, 'driver');
+  expect(thread.headers.get('Cache-Control')).toBe('no-store');
+  expect((await thread.json()).messages[0].mine).toBe(false);
+  expect((await (await request('/v1/conversations-unread', undefined, 'driver')).json()).unread).toBe(1);
+  expect((await request(path + '/read', { through: m.sequence }, 'driver')).status).toBe(200);
+  expect((await request(path + '/report', { reason: 'spam' }, 'driver')).status).toBe(200);
+  expect((await request(path + '/messages', { text: 'blocked', requestId: randomUUID() })).status).toBe(409);
+});

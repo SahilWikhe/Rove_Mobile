@@ -107,9 +107,18 @@ export function Screen({
 export function Copy({
   children,
   kind = 'body',
+  numberOfLines,
   style,
-}: PropsWithChildren<{ kind?: 'body' | 'title' | 'heading' | 'muted' | 'label'; style?: object }>) {
-  return <Text style={[styles.body, styles[kind], style]}>{children}</Text>;
+}: PropsWithChildren<{
+  kind?: 'body' | 'title' | 'heading' | 'muted' | 'label';
+  style?: object;
+  numberOfLines?: number;
+}>) {
+  return (
+    <Text numberOfLines={numberOfLines} style={[styles.body, styles[kind], style]}>
+      {children}
+    </Text>
+  );
 }
 export function Brand({ driver = false }: { driver?: boolean }) {
   return (

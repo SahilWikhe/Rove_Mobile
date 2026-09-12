@@ -53,6 +53,7 @@ export default function Layout() {
           >
             <Stack.Screen name="index" options={{ headerShown: false, animation: 'none' }} />
             <Stack.Screen name="rides" options={{ animation: 'none' }} />
+            <Stack.Screen name="messages" options={{ animation: 'none' }} />
             <Stack.Screen name="account" options={{ animation: 'none' }} />
           </Stack>
         </SafeAreaProvider>

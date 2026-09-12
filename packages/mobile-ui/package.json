@@ -11,7 +11,9 @@
     "./notification-controls": "./src/notification-controls.tsx",
     "./notification-devices": "./src/notification-devices.tsx",
     "./account-layout": "./src/account-layout.tsx",
-    "./map-style": "./src/map-style.ts"
+    "./map-style": "./src/map-style.ts",
+    "./messages": "./src/messages.tsx",
+    "./message-icon": "./src/message-icon.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
@@ -28,5 +30,8 @@
     "react-native": "0.86.3",
     "react-native-maps": "1.27.2",
     "react-native-safe-area-context": "~5.7.0"
+  },
+  "dependencies": {
+    "@rove/contracts": "workspace:*"
   }
 }

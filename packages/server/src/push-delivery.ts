@@ -19,6 +19,7 @@ type Delivery = {
   receipt_attempts: number;
 };
 const topics = [
+  'message.created',
   'offer.created',
   'ride.matched',
   'ride.en_route',

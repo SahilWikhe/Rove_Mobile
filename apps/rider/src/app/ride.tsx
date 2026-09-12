@@ -1,3 +1,4 @@
+import { OpenConversation } from '../messaging/open-conversation';
 import { TrackingHeader, trackingCaptions } from '../tracking/tracking-header';
 import { DriverSummary } from '../tracking/driver-summary';
 import { RiderTripMap } from '../tracking/trip-map';
@@ -127,6 +128,7 @@ export default function Ride() {
           </Copy>
           <RiderTripMap key={ride.id} ride={ride} />
           <DriverSummary ride={ride} />
+          {ride.driver && <OpenConversation rideId={ride.id} />}
           <RouteSummary
             pickup={ride.pickup?.label ?? ride.pickupArea}
             destination={ride.destination?.label ?? ride.destinationArea}

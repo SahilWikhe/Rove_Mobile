@@ -1,8 +1,12 @@
 import { PushHint } from '@rove/contracts';
 import { createLatestRequest } from './latest-request';
 
-export type NotificationTarget = { pathname: '/ride' | '/trip' | '/offer'; params: { id: string } };
+export type NotificationTarget = {
+  pathname: '/ride' | '/trip' | '/offer' | '/conversation';
+  params: { id: string };
+};
 interface Resources {
+  conversation?(id: string, signal?: AbortSignal): Promise<{ conversation: { id: string } }>;
   ride(id: string, signal?: AbortSignal): Promise<{ id: string }>;
   offers(signal?: AbortSignal): Promise<{ offers: { id: string; expiresAt: string }[] }>;
 }
@@ -32,7 +36,13 @@ export function createNotificationTaps(
       const current = () => request.current() && currentSession();
       try {
         let pathname: NotificationTarget['pathname'];
-        if (hint.kind === 'ride_update') {
+        if (hint.kind === 'message_available') {
+          if (!api.conversation) return 'unavailable';
+          const result = await api.conversation(hint.referenceId, request.signal);
+          if (!current()) return 'ignored';
+          if (result.conversation.id !== hint.referenceId) return 'unavailable';
+          pathname = '/conversation';
+        } else if (hint.kind === 'ride_update') {
           const ride = await api.ride(hint.referenceId, request.signal);
           if (!current()) return 'ignored';
           if (ride.id !== hint.referenceId) return 'unavailable';

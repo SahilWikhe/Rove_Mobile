@@ -23,7 +23,7 @@ export const PushRecipient = z
   .strict();
 export type PushRecipient = z.infer<typeof PushRecipient>;
 type Audience = {
-  kind: 'ride_update' | 'offer_available';
+  kind: 'ride_update' | 'offer_available' | 'message_available';
   referenceId: string;
   expiresAt: Date;
   riderId: string | null;
@@ -58,6 +58,31 @@ export class PushAudience {
       )
     ).rows[0];
     if (!event) return null;
+    if (event.topic === 'message.created') {
+      const row = (
+        await this.pool.query(
+          `SELECT m.offer_id,
+        CASE WHEN m.sender_id=r.rider_id THEN NULL ELSE r.rider_id END AS rider_id,
+        CASE WHEN m.sender_id=r.driver_id THEN NULL ELSE r.driver_id END AS driver_id
+        FROM trip_messages m JOIN offers o ON o.id=m.offer_id JOIN rides r ON r.id=o.ride_id
+        WHERE m.id=$1 AND o.status='accepted' AND r.driver_id=o.driver_id
+        AND r.state IN ('matched','en_route','arrived','in_progress','interrupted')
+        AND NOT EXISTS(SELECT 1 FROM trip_message_reports WHERE offer_id=o.id)
+        AND NOT EXISTS(SELECT 1 FROM users WHERE id IN(r.rider_id,r.driver_id) AND disabled=true)
+        AND m.sequence>COALESCE((SELECT through FROM trip_message_reads WHERE offer_id=o.id AND owner_id=CASE WHEN m.sender_id=r.rider_id THEN r.driver_id ELSE r.rider_id END),0)`,
+          [event.aggregate_id],
+        )
+      ).rows[0];
+      return row
+        ? {
+            kind: 'message_available',
+            referenceId: row.offer_id,
+            expiresAt: event.expires_at,
+            riderId: row.rider_id,
+            driverId: row.driver_id,
+          }
+        : null;
+    }
     if (rideTopics.has(event.topic)) {
       const ride = (
         await this.pool.query<{ rider_id: string; driver_id: string | null }>(

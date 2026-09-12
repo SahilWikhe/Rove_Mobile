@@ -17,6 +17,9 @@ import {
   PushInstallationProof,
   PushInstallationUpdate,
   PushInstallationDelete,
+  MessageInput,
+  MessageRead,
+  MessageReport,
   SupportRequestInput,
   SupportResolution,
   QuoteRequest,
@@ -43,6 +46,7 @@ import {
   PushInstallations,
   DriverPayouts,
   SupportService,
+  MessagingService,
   DomainError,
   VehicleReviewService,
   VehicleSubmissionService,
@@ -102,6 +106,7 @@ function id(value: string): string {
 export function createApp(deps: Dependencies) {
   const app = new Hono<Environment>();
   const pushInstallations = new PushInstallations(deps.pool, deps.pushProjects ?? {});
+  const messaging = new MessagingService(deps.pool);
   const support = new SupportService(deps.pool);
   const limiter = new RequestLimiter(deps.pool);
   const documents = new DriverDocumentService(deps.pool, deps.documentTransfers);
@@ -205,7 +210,11 @@ export function createApp(deps: Dependencies) {
     c.set('subject', identity.subject);
     let policy: RequestLimit = c.req.method === 'GET' ? 'read' : 'mutation';
     if (c.req.path === '/v1/places' || c.req.path.startsWith('/v1/saved-places/')) policy = 'places';
-    else if (c.req.path === '/v1/support-requests' && c.req.method === 'POST') policy = 'support';
+    else if (
+      (c.req.path === '/v1/support-requests' || /^\/v1\/conversations\/[^/]+\/report$/.test(c.req.path)) &&
+      c.req.method === 'POST'
+    )
+      policy = 'support';
     else if (c.req.path === '/v1/drivers/me/payout-setup') policy = 'payoutSetup';
     else if (c.req.path.startsWith('/v1/wallet/')) policy = 'paymentSessions';
     else if (c.req.path === '/v1/quotes') policy = 'quotes';
@@ -345,6 +354,23 @@ export function createApp(deps: Dependencies) {
   );
   app.put('/v1/drivers/me/vehicle-submission', async (c) =>
     c.json(await vehicleSubmissions.submit(c.var.actor, await body(c, VehicleSubmissionUpdate))),
+  );
+  app.get('/v1/conversations-unread', async (c) => c.json(await messaging.unread(c.var.actor)));
+  app.get('/v1/conversations', async (c) => c.json(await messaging.list(c.var.actor, c.req.query())));
+  app.get('/v1/rides/:id/conversation', async (c) =>
+    c.json(await messaging.forRide(c.var.actor, id(c.req.param('id')))),
+  );
+  app.get('/v1/conversations/:id', async (c) =>
+    c.json(await messaging.thread(c.var.actor, id(c.req.param('id')))),
+  );
+  app.post('/v1/conversations/:id/messages', async (c) =>
+    c.json(await messaging.send(c.var.actor, id(c.req.param('id')), await body(c, MessageInput))),
+  );
+  app.post('/v1/conversations/:id/read', async (c) =>
+    c.json(await messaging.read(c.var.actor, id(c.req.param('id')), await body(c, MessageRead))),
+  );
+  app.post('/v1/conversations/:id/report', async (c) =>
+    c.json(await messaging.report(c.var.actor, id(c.req.param('id')), await body(c, MessageReport))),
   );
   app.get('/v1/support-requests', async (c) => c.json(await support.list(c.var.actor)));
   app.post('/v1/support-requests', async (c) =>

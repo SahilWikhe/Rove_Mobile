@@ -585,3 +585,58 @@ export const driverDocumentReviews = pgTable(
     ),
   ],
 );
+
+// The accepted offer identifies an assignment; messages never transfer to a replacement driver.
+export const tripMessages = pgTable(
+  'trip_messages',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    sequence: integer().generatedAlwaysAsIdentity().notNull().unique(),
+    offerId: uuid()
+      .notNull()
+      .references(() => offers.id, { onDelete: 'cascade' }),
+    senderId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    requestId: uuid().notNull(),
+    text: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('trip_message_retry').on(t.senderId, t.requestId),
+    index('trip_message_thread').on(t.offerId, t.sequence),
+    index('trip_message_expiry').on(t.createdAt),
+    check('trip_message_text_length', sql`length(trim(${t.text})) BETWEEN 1 AND 1000`),
+  ],
+);
+export const tripMessageReads = pgTable(
+  'trip_message_reads',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    offerId: uuid()
+      .notNull()
+      .references(() => offers.id, { onDelete: 'cascade' }),
+    ownerId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    through: integer().notNull(),
+  },
+  (t) => [uniqueIndex('trip_message_reader').on(t.offerId, t.ownerId)],
+);
+export const tripMessageReports = pgTable(
+  'trip_message_reports',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    offerId: uuid()
+      .notNull()
+      .references(() => offers.id, { onDelete: 'cascade' }),
+    reporterId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    supportId: uuid()
+      .notNull()
+      .references(() => supportRequests.id),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('trip_message_reporter').on(t.offerId, t.reporterId)],
+);

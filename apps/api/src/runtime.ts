@@ -72,6 +72,8 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
       ? new PushDelivery(pool, resources.pushProvider, config.pushProjects)
       : undefined;
   const handlers: Record<string, JobHandler> = {
+    // Foreground messaging works without a push provider; configured delivery wraps this handler.
+    'message.created': async () => {},
     ...reconciliation.handlers(),
     ...(payoutReconciliation ? { 'payout.reconcile': payoutReconciliation.handle } : {}),
     'ride.search_expire': async (job) => {

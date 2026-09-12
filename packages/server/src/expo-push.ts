@@ -107,7 +107,10 @@ export class ExpoPushProvider implements PushProvider {
       await this.call('send', {
         to: message.token,
         title: 'Rove',
-        body: 'Open Rove to check your latest trip information.',
+        body:
+          message.hint.kind === 'message_available'
+            ? 'You have a new trip message. Open Rove to read it.'
+            : 'Open Rove to check your latest trip information.',
         data: message.hint,
         ttl,
         priority: 'high',

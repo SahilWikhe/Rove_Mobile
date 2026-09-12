@@ -127,3 +127,30 @@ test('newer taps supersede old responses and cancellation fences unmounted handl
   expect(await unmounted).toBe('ignored');
   expect(s.navigate).toHaveBeenCalledTimes(1);
 });
+
+test('message notification authorizes the conversation before opening and drops late account responses', async () => {
+  let active = true;
+  const navigate = vi.fn();
+  let resolve!: (value: { conversation: { id: string } }) => void;
+  const api = {
+    ride: async () => ({ id }),
+    offers: async () => ({ offers: [] }),
+    conversation: vi.fn(
+      () =>
+        new Promise<{ conversation: { id: string } }>((r) => {
+          resolve = r;
+        }),
+    ),
+  };
+  const taps = createNotificationTaps('rider', api, () => active, navigate);
+  const pending = taps.open(hint('message_available'));
+  active = false;
+  resolve({ conversation: { id } });
+  expect(await pending).toBe('ignored');
+  expect(navigate).not.toHaveBeenCalled();
+  active = true;
+  const next = taps.open(hint('message_available'));
+  resolve({ conversation: { id } });
+  expect(await next).toBe('opened');
+  expect(navigate).toHaveBeenCalledWith({ pathname: '/conversation', params: { id } });
+});

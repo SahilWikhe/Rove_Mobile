@@ -17,7 +17,8 @@
     "./location-freshness": "./src/location-freshness.ts",
     "./native-auth-intent": "./src/native-auth-intent.ts",
     "./document-upload": "./src/document-upload.ts",
-    "./use-reduced-motion": "./src/use-reduced-motion.ts"
+    "./use-reduced-motion": "./src/use-reduced-motion.ts",
+    "./use-messages": "./src/use-messages.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
