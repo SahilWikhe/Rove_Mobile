@@ -36,3 +36,7 @@ Validation errors include only field names. Do not log parsed configuration, ori
 ## Optional Auth0 verification resend
 
 `AUTH0_VERIFICATION_CLIENT_ID` and `AUTH0_VERIFICATION_CLIENT_SECRET` enable server-only verification-email jobs. Both must be present together; omitting both leaves resend unavailable without weakening the email gate. The client must belong to the standard Auth0 tenant identified by `OIDC_ISSUER` and have the Management API `update:users` grant. Do not expose these through `EXPO_PUBLIC_*`. Configuration, domain limitations and the required hosted acceptance steps are in [authentication recovery](46-auth-refresh-recovery.md#deferred-server-setup).
+
+## Refund tracking flag
+
+`PAYMENT_REFUNDS_ENABLED` accepts only `true` or `false` and defaults off. Enable only after migration 0031 and compatible rider rollout. API and worker must share the setting; see [refund tracking rollout](66-refund-tracking.md).

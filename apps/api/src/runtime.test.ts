@@ -235,11 +235,19 @@ test.each([false, true])(
       (await database.pool.query('SELECT payment_state FROM rides WHERE id=$1', [ride.id])).rows[0]
         .payment_state,
     ).toBe('released');
-    const unhandled = (
-      await database.pool.query("SELECT last_error_code FROM outbox WHERE topic='payment.updated'")
-    ).rows;
-    expect(unhandled.length).toBeGreaterThan(0);
-    expect(unhandled.every((row) => row.last_error_code === 'UNKNOWN_JOB_TYPE')).toBe(true);
+    // Release may finish just before its final notification job becomes due at database precision.
+    await expect
+      .poll(
+        async () => {
+          await runtime.worker.runOnce(20);
+          const unhandled = (
+            await database.pool.query("SELECT last_error_code FROM outbox WHERE topic='payment.updated'")
+          ).rows;
+          return unhandled.length > 0 && unhandled.every((row) => row.last_error_code === 'UNKNOWN_JOB_TYPE');
+        },
+        { interval: 20, timeout: 2000 },
+      )
+      .toBe(true);
   },
 );
 
@@ -415,4 +423,25 @@ test('Vercel document storage requires a role in the bucket account; local CLI c
     role,
   );
   expect(readRuntimeConfig({ ...environment(), VERCEL: '1' }).documentAwsRoleArn).toBeUndefined();
+});
+
+test('refund observation rollout is explicit and validates boolean configuration', () => {
+  expect(readRuntimeConfig(environment()).refundsEnabled).toBeUndefined();
+  expect(
+    readRuntimeConfig({ ...environment(), PAYMENT_REFUNDS_ENABLED: 'false' }).refundsEnabled,
+  ).toBeUndefined();
+  expect(readRuntimeConfig({ ...environment(), PAYMENT_REFUNDS_ENABLED: 'true' }).refundsEnabled).toBe(true);
+  expect(() => readRuntimeConfig({ ...environment(), PAYMENT_REFUNDS_ENABLED: 'yes' })).toThrow(
+    'payments.refundsEnabled',
+  );
+});
+
+test('real refund-enabled runtime composes the reader and recovery service without startup provider calls', async () => {
+  const runtime = createRuntime({ ...environment(), PAYMENT_REFUNDS_ENABLED: 'true' });
+  try {
+    expect(runtime.refundReconciliation).toBeDefined();
+    expect((await runtime.app.request('/health/live')).status).toBe(200);
+  } finally {
+    await runtime.close();
+  }
 });

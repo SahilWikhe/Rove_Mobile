@@ -34,7 +34,7 @@ const maps: MapsProvider = {
     throw new Error('Not used');
   },
 };
-function app(configured = true) {
+function app(configured = true, refundsEnabled = false) {
   return createApp({
     pool: database.pool,
     rides: new RideService(database.pool),
@@ -55,6 +55,7 @@ function app(configured = true) {
             database.pool,
             new StripePaymentProvider(config),
             'acct_fixture:test',
+            refundsEnabled,
           ),
         }
       : {}),
@@ -171,4 +172,56 @@ test('unconfigured endpoints reject delivery and webhook size allowance does not
   expect((await send(largeValid)).status).toBe(200);
   expect((await send(event({ padding: 'x'.repeat(1_048_576) }))).status).toBe(413);
   expect((await app().request('/v1/ride-requests', { method: 'POST', body: largeValid })).status).toBe(413);
+});
+
+test('refund hints require valid signed intent references and are ignored until enabled', async () => {
+  const payload = event({
+    id: 'evt_refund',
+    type: 'refund.failed',
+    data: {
+      object: {
+        id: 're_fixture',
+        object: 'refund',
+        payment_intent: { id: 'pi_fixture' },
+        private: 'not stored',
+      },
+    },
+  });
+  expect((await send(payload)).status).toBe(200);
+  expect((await database.pool.query('SELECT * FROM outbox')).rowCount).toBe(0);
+  const enabled = app(true, true);
+  const response = await enabled.request('/webhooks/stripe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'stripe-signature': sign(payload) },
+    body: payload,
+  });
+  expect(response.status).toBe(200);
+  const job = (await database.pool.query('SELECT * FROM outbox')).rows[0];
+  expect(job.topic).toBe('refund.reconcile');
+  expect(job.payload).toEqual({ source: 'acct_fixture:test', intentId: 'pi_fixture' });
+  const unrelated = event({
+    id: 'evt_legacy',
+    type: 'refund.updated',
+    data: { object: { id: 're_legacy', object: 'refund', payment_intent: null } },
+  });
+  expect(
+    (
+      await enabled.request('/webhooks/stripe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'stripe-signature': sign(unrelated) },
+        body: unrelated,
+      })
+    ).status,
+  ).toBe(200);
+  expect((await database.pool.query('SELECT * FROM outbox')).rowCount).toBe(1);
+
+  for (const object of [{ id: 're_bad', object: 'charge', payment_intent: 'pi_fixture' }]) {
+    const bad = event({ id: 'evt_bad', type: 'refund.updated', data: { object } });
+    const rejected = await enabled.request('/webhooks/stripe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'stripe-signature': sign(bad) },
+      body: bad,
+    });
+    expect(rejected.status).toBe(400);
+  }
 });

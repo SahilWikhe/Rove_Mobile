@@ -29,3 +29,7 @@ Cloud build output must still confirm that the queue consumer is registered and 
 Monitoring, notification/review consumers, dead-letter redrive and real provider/device checks remain incomplete. This checkpoint does not enable production bookings or imply operational readiness.
 
 References: [Vercel queue SDK](https://vercel.com/docs/queues/sdk), [queue consumer setup](https://vercel.com/docs/queues/quickstart), [cron configuration](https://vercel.com/docs/cron-jobs).
+
+## Refund recovery
+
+The optional refund reconciliation service runs its bounded recovery sweep before outbox consumption. Configure the same `PAYMENT_REFUNDS_ENABLED` value as the API only after migration 0031. This adds read-only provider traffic, not refund creation. See [rollout and recovery limits](66-refund-tracking.md).

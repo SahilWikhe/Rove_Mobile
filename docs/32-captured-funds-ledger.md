@@ -29,3 +29,7 @@ The ledger records actual received funds even for a partial capture requiring re
 Six database-backed ledger tests cover concurrent duplicate settlement, account totals, partial capture, conflicting replay, empty/unbalanced direct-SQL journals, committed-record immutability, attempts to append later lines, transaction rollback and invalid earnings. A reconciliation test injects a ledger-write failure, confirms payment state/revision roll back, and verifies a later retry records the capture. All data and provider responses are synthetic.
 
 Remaining: owner-scoped receipts and earnings APIs/UI, refund/dispute/fee/payout journal operations, correction and review tools, provider balance reconciliation, final accounting/business-policy review, restricted runtime database role and production/sandbox acceptance. Existing fixture payment states are not evidence of ledger-backed settlement; real-provider runtime composition still needs verification.
+
+## Refund observations
+
+Refund tracking now persists verified observations separately from capture journals. It does not reverse capture journals or driver allocations. Balanced refund adjustment journals remain outstanding. See [refund tracking](66-refund-tracking.md).

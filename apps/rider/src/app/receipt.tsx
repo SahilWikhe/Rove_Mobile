@@ -61,6 +61,50 @@ function ReceiptContent({ id, retry }: { id: string; retry: () => void }) {
           {receipt.capturedAmount.amount !== receipt.quotedFare.amount && (
             <Banner message="The recorded capture differs from your quoted fare. Your payment is being reviewed." />
           )}
+          {receipt.refunds && (
+            <Card>
+              <Copy kind="heading">Refund updates</Copy>
+              {receipt.refunds.verifiedAt ? (
+                <Copy kind="muted">Last checked {new Date(receipt.refunds.verifiedAt).toLocaleString()}</Copy>
+              ) : (
+                <Copy kind="muted">
+                  Refund updates have not been checked yet. This does not confirm whether a refund exists.
+                </Copy>
+              )}
+              {receipt.refunds.verifiedAt && receipt.refunds.items.length === 0 && (
+                <Copy>No refunds recorded at the last check.</Copy>
+              )}
+              {receipt.refunds.items.map((refund) => (
+                <Card key={refund.id}>
+                  <Money
+                    cents={refund.amount.amount}
+                    label={
+                      refund.status === 'succeeded'
+                        ? 'REFUND COMPLETED'
+                        : refund.status === 'pending'
+                          ? 'REFUND PENDING'
+                          : refund.status === 'requires_action'
+                            ? 'REFUND NEEDS ACTION'
+                            : refund.status === 'failed'
+                              ? 'REFUND FAILED'
+                              : 'REFUND CANCELED'
+                    }
+                  />
+                  <Copy kind="muted">Started {new Date(refund.createdAt).toLocaleDateString()}</Copy>
+                  {refund.status === 'succeeded' && (
+                    <Copy kind="muted">Your bank may take additional time to show the refund.</Copy>
+                  )}
+                  {['failed', 'requires_action'].includes(refund.status) && (
+                    <Copy>Contact support using Get help with this payment below.</Copy>
+                  )}
+                </Card>
+              ))}
+              <Copy kind="muted">
+                The captured amount above is the original payment record. Pending or failed refunds are not
+                completed refunds.
+              </Copy>
+            </Card>
+          )}
           <Copy kind="muted">Receipt reference</Copy>
           <Copy>{receipt.id}</Copy>
           <Button

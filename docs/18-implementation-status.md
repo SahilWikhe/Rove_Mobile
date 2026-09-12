@@ -1,6 +1,14 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `2602c69531ac0209092897a27fd17cd55aef6b29` plus the refund-provider checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `1792c87f62a13a0e157613462fcb7d360c450226` plus the durable refund-tracking checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Durable refund tracking — September 12
+
+Launch gaps now take precedence over small recovery/UI refinements. Added migration 0031, immutable refund observations, revision-fenced reconciliation, signed webhook hints, bounded fair recovery and owned rider receipt states. The rollout flag defaults off until schema and compatible clients are deployed. No refund creation, capture reversal, driver earnings adjustment, dispute handling or transfer is claimed.
+
+Local verification: all eleven application test tasks passed at the main implementation checkpoint; subsequent targeted checks passed seven refund-reconciliation database tests and nineteen webhook/scheduling tests covering final refinements, including fair progress beyond 100 unprocessed payments. Workspace/E2E types passed. Two rider browser tests passed at 320/390 pixels for unchecked history, all refund statuses and support navigation; the 390-pixel screenshot was inspected. Both app exports for iOS/Android/web and packaged API build verification passed at the implementation checkpoint. These are disposable database, synthetic browser and mocked-provider checks, not hosted or physical acceptance. Final source lint (excluding generated local reports), formatting, boundaries, documentation checks, workspace/E2E types and packaged API build verification passed. The unfiltered lint command initially scanned a generated report bundle and failed on that output; application source lint is clean. No cloud migration, refund or provider configuration change occurred.
+
+Next: durable refund authorization/accounting, disputes and driver settlement, then deletion fulfillment and production/device acceptance. Physical tests, production policy/setup and GitHub billing/CI prerequisites remain outstanding. See [refund tracking and rollout](66-refund-tracking.md).
 
 ## Refund-history provider boundary — September 12
 

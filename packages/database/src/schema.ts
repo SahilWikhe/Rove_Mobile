@@ -645,3 +645,42 @@ export const tripMessageReports = pgTable(
   },
   (t) => [uniqueIndex('trip_message_reporter').on(t.offerId, t.reporterId)],
 );
+
+// Provider observations only; financial postings and refund approval are separate operations.
+export const paymentRefundChecks = pgTable(
+  'payment_refund_checks',
+  {
+    attemptId: uuid()
+      .primaryKey()
+      .references(() => paymentAttempts.id),
+    revision: integer().notNull().default(0),
+    refunds: jsonb().notNull().default([]),
+    receivedCents: integer().notNull().default(0),
+    verifiedAt: timestamp({ withTimezone: true }),
+    requestedAt: timestamp({ withTimezone: true }),
+  },
+  (t) => [
+    check('refund_check_revision', sql`${t.revision} >= 0`),
+    check('refund_check_array', sql`jsonb_typeof(${t.refunds}) = 'array'`),
+    check('refund_check_amount', sql`${t.receivedCents} >= 0 AND ${t.receivedCents} <= 99999999`),
+  ],
+);
+export const paymentRefundObservations = pgTable(
+  'payment_refund_observations',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    attemptId: uuid()
+      .notNull()
+      .references(() => paymentAttempts.id),
+    revision: integer().notNull(),
+    refunds: jsonb().notNull(),
+    receivedCents: integer().notNull(),
+    verifiedAt: timestamp({ withTimezone: true }).notNull(),
+  },
+  (t) => [
+    uniqueIndex('refund_observation_revision').on(t.attemptId, t.revision),
+    check('refund_observation_positive_revision', sql`${t.revision} > 0`),
+    check('refund_observation_array', sql`jsonb_typeof(${t.refunds}) = 'array'`),
+    check('refund_observation_amount', sql`${t.receivedCents} >= 0 AND ${t.receivedCents} <= 99999999`),
+  ],
+);

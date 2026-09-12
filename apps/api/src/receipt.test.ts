@@ -1,7 +1,17 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
-import { randomUUID } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import { testDatabase } from '@rove/database/testing';
-import { QuoteService, RideService, developmentRates, transaction, type MapsProvider } from '@rove/server';
+import {
+  QuoteService,
+  RideService,
+  developmentRates,
+  transaction,
+  type MapsProvider,
+  RefundReconciler,
+  PaymentWebhookInbox,
+  StripePaymentProvider,
+  OutboxWorker,
+} from '@rove/server';
 import { createApp } from './app';
 let database: Awaited<ReturnType<typeof testDatabase>>;
 let app: ReturnType<typeof createApp>;
@@ -58,7 +68,26 @@ beforeEach(async () => {
     "INSERT INTO payment_attempts(id,ride_id,customer_binding_id,intent_id,source,amount_cents) VALUES($1,$2,$3,'pi_private','acct_private:test',1050)",
     [attempt, ride, binding],
   );
-  app = createApp({
+  app = buildApp();
+});
+function buildApp(refundsEnabled = false) {
+  return createApp({
+    refundsEnabled,
+    ...(refundsEnabled
+      ? {
+          paymentWebhooks: new PaymentWebhookInbox(
+            database.pool,
+            new StripePaymentProvider({
+              secretKey: 'sk_test_fixture',
+              webhookSecret: 'whsec_fixture',
+              live: false,
+              paymentMethodConfiguration: 'pmc_fixture',
+            }),
+            'acct_private:test',
+            true,
+          ),
+        }
+      : {}),
     pool: database.pool,
     rides: new RideService(database.pool),
     quotes: new QuoteService(database.pool, maps, developmentRates, {
@@ -71,7 +100,8 @@ beforeEach(async () => {
     verifyIdentity: async (token) => ({ subject: token }),
     flags: async () => ({ scheduling: false, weekly: false, monthly: false }),
   });
-});
+}
+
 const request = (subject = 'rider', id = ride) =>
   app.request(`/v1/rides/${id}/receipt`, { headers: { Authorization: `Bearer ${subject}` } });
 async function capture(amount = 1050) {
@@ -153,4 +183,81 @@ test('a capture linked to another customer owner is not exposed as a rider recei
   const result = await request();
   expect(result.status).toBe(409);
   expect((await result.json()).error.code).toBe('RECEIPT_PENDING');
+});
+
+test('signed refund webhooks reconcile through durable jobs into only the owner receipt', async () => {
+  await database.pool.query('TRUNCATE payment_webhook_events,outbox CASCADE');
+  await capture();
+  app = buildApp(true);
+  expect((await (await request()).json()).refunds).toEqual({ verifiedAt: null, items: [] });
+  let status: 'pending' | 'succeeded' = 'pending';
+  const reconciliation = new RefundReconciler(
+    database.pool,
+    {
+      refunds: async (reference) => ({
+        payment: { ...reference, status: 'succeeded', capturableCents: 0, receivedCents: 1050 },
+        refunds: [
+          { id: 're_fixture', intentId: reference.intentId, amountCents: 300, status, created: 1700000000 },
+        ],
+      }),
+    },
+    'acct_private:test',
+  );
+  // PostgreSQL timestamps retain sub-millisecond precision; make newly enqueued fixture jobs due.
+  const worker = new OutboxWorker(
+    database.pool,
+    { 'refund.reconcile': reconciliation.handle },
+    () => new Date(Date.now() + 1000),
+  );
+  const eventTime = Math.floor(Date.now() / 1000);
+  async function webhook(eventId: string, type: string) {
+    const created = eventTime;
+    const body = JSON.stringify({
+      id: eventId,
+      type,
+      created,
+      livemode: false,
+      data: {
+        object: {
+          id: 're_fixture',
+          object: 'refund',
+          payment_intent: 'pi_private',
+          status: 'succeeded',
+          amount: 999999,
+          metadata: { private: 'do not persist' },
+        },
+      },
+    });
+    const digest = createHmac('sha256', 'whsec_fixture').update(`${created}.${body}`).digest('hex');
+    return app.request('/webhooks/stripe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'stripe-signature': `t=${created},v1=${digest}` },
+      body,
+    });
+  }
+  expect((await webhook('evt_refund', 'refund.created')).status).toBe(200);
+  expect((await webhook('evt_refund', 'refund.created')).status).toBe(200);
+  expect(await worker.runOnce()).toEqual({ processed: 1, failed: 0 });
+  const pending = await (await request()).json();
+  expect(pending.refunds.items).toEqual([
+    {
+      id: 're_fixture',
+      amount: { amount: 300, currency: 'USD' },
+      status: 'pending',
+      createdAt: '2023-11-14T22:13:20.000Z',
+    },
+  ]);
+  expect(pending.capturedAmount.amount).toBe(1050);
+  expect(pending.refunds.verifiedAt).toBeTruthy();
+  status = 'succeeded';
+  expect((await webhook('evt_updated', 'refund.updated')).status).toBe(200);
+  expect(await worker.runOnce()).toEqual({ processed: 1, failed: 0 });
+  const completed = await (await request()).json();
+  expect(completed.refunds.items[0].status).toBe('succeeded');
+  expect(completed.capturedAmount.amount).toBe(1050);
+  for (const subject of ['other', 'driver', 'staff']) expect((await request(subject)).status).toBe(404);
+  expect(JSON.stringify(completed)).not.toMatch(/pi_private|cus_private|acct_private|do not persist/);
+  expect((await database.pool.query('SELECT * FROM payment_refund_observations')).rowCount).toBe(2);
+  app = buildApp(false);
+  expect((await (await request()).json()).refunds).toBeUndefined();
 });

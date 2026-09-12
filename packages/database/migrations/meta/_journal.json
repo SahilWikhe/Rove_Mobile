@@ -218,6 +218,13 @@
       "when": 1789196387319,
       "tag": "0030_driver_location_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1789239155134,
+      "tag": "0031_refund_observations",
+      "breakpoints": true
     }
   ]
 }

@@ -203,3 +203,46 @@ test('only successful document completion wakes scanning, not reservations or fa
   await Promise.all(background);
   expect(publish).toHaveBeenCalledOnce();
 });
+
+test('recovery schedules refund observations before draining and propagates sweep failures', async () => {
+  const steps: string[] = [];
+  const scheduler = new WorkerScheduling(
+    {
+      searchExpiry: { sweep: async () => 0 },
+      refundReconciliation: {
+        sweep: async () => {
+          steps.push('refunds');
+          return 1;
+        },
+      },
+      drain: {
+        run: async () => {
+          steps.push('drain');
+          return { processed: 1, failed: 0, wakeAfterSeconds: null };
+        },
+      },
+    },
+    { publish: async () => {} },
+  );
+  await scheduler.recover();
+  expect(steps).toEqual(['refunds', 'drain']);
+  const failing = new WorkerScheduling(
+    {
+      searchExpiry: { sweep: async () => 0 },
+      refundReconciliation: {
+        sweep: async () => {
+          throw new Error('refund database unavailable');
+        },
+      },
+      drain: {
+        run: async () => {
+          steps.push('unexpected drain');
+          return { processed: 0, failed: 0, wakeAfterSeconds: null };
+        },
+      },
+    },
+    { publish: async () => {} },
+  );
+  await expect(failing.recover()).rejects.toThrow('refund database unavailable');
+  expect(steps).toEqual(['refunds', 'drain']);
+});

@@ -29,6 +29,8 @@ import {
   OutboxDrain,
   PaymentCustomers,
   PaymentReconciler,
+  RefundReconciler,
+  type RefundProvider,
   PaymentSessions,
   PaymentWebhookInbox,
   QuoteService,
@@ -46,6 +48,7 @@ import { readRuntimeConfig, type RuntimeConfig } from './runtime-config';
 
 interface Resources {
   verificationEmail?: { verifyIdentity: VerifyIdentity; request(subject: string): Promise<void> };
+  refundProvider?: RefundProvider;
   wallet?: WalletProvider;
   documentScanner?: DocumentScanner;
   documentTransfers?: DriverDocumentTransfers;
@@ -64,6 +67,11 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
   const { pool } = database;
   const customers = new PaymentCustomers(pool, payments, config.paymentSource);
   const reconciliation = new PaymentReconciler(pool, payments, config.paymentSource);
+  if (config.refundsEnabled && !resources.refundProvider)
+    throw new Error('Refund reconciliation provider is required.');
+  const refundReconciliation = config.refundsEnabled
+    ? new RefundReconciler(pool, resources.refundProvider!, config.paymentSource)
+    : undefined;
   const matching = new MatchingService(pool, maps);
   const searchExpiry = new SearchExpiry(pool);
   const payoutReconciliation = resources.driverPayoutProvider
@@ -77,6 +85,7 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
     // Foreground messaging works without a push provider; configured delivery wraps this handler.
     'message.created': async () => {},
     ...reconciliation.handlers(),
+    ...(refundReconciliation ? { 'refund.reconcile': refundReconciliation.handle } : {}),
     ...(payoutReconciliation ? { 'payout.reconcile': payoutReconciliation.handle } : {}),
     'ride.search_expire': async (job) => {
       await searchExpiry.expire(job.aggregateId);
@@ -88,6 +97,7 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
   const worker = new OutboxWorker(pool, pushDelivery ? pushDelivery.handlers(handlers) : handlers);
   const app = createApp({
     pool,
+    ...(refundReconciliation ? { refundsEnabled: true } : {}),
     ...(resources.verificationEmail ? { verificationEmail: resources.verificationEmail } : {}),
     ...(resources.documentDownloads ? { documentDownloads: resources.documentDownloads } : {}),
     ...(resources.documentTransfers ? { documentTransfers: resources.documentTransfers } : {}),
@@ -115,7 +125,7 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
       customers,
       resources.wallet,
     ),
-    paymentWebhooks: new PaymentWebhookInbox(pool, payments, config.paymentSource),
+    paymentWebhooks: new PaymentWebhookInbox(pool, payments, config.paymentSource, !!refundReconciliation),
   });
   return {
     app,
@@ -125,6 +135,7 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
       ? { documentScans: new DocumentScanWorker(pool, resources.documentScanner) }
       : {}),
     searchExpiry,
+    ...(refundReconciliation ? { refundReconciliation } : {}),
     ...(pushDelivery ? { pushDelivery } : {}),
     ...(payoutReconciliation ? { payoutReconciliation } : {}),
     close: async () => {
@@ -210,6 +221,7 @@ export function createRuntime(env: Record<string, string | undefined>) {
     database,
     maps,
     payments,
+    refundProvider: payments,
     verifyIdentity,
     ...(config.connect
       ? {

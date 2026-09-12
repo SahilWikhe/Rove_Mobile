@@ -352,11 +352,29 @@ export class StripePaymentProvider implements PaymentProvider, PaymentCustomerPr
       })
       .safeParse(event);
     if (!parsed.success) throw new DomainError('INVALID_PAYMENT_WEBHOOK', 'Invalid payment event.', 400);
-    return {
-      id: parsed.data.id,
-      type: parsed.data.type,
-      created: parsed.data.created,
-      resourceId: parsed.data.data.object.id,
-    };
+    let resourceId = parsed.data.data.object.id;
+    if (['refund.created', 'refund.updated', 'refund.failed'].includes(parsed.data.type)) {
+      const refund = z
+        .object({
+          object: z.literal('refund'),
+          id: z.string().regex(/^re_[a-zA-Z0-9]{1,96}$/),
+          payment_intent: z.union([IntentId, z.object({ id: IntentId }), z.null()]),
+        })
+        .safeParse(event.data.object);
+      if (!refund.success) throw new DomainError('INVALID_PAYMENT_WEBHOOK', 'Invalid payment event.', 400);
+      // Valid legacy charge refunds have no PaymentIntent and cannot belong to a Rove attempt.
+      if (refund.data.payment_intent === null)
+        return {
+          id: parsed.data.id,
+          type: 'refund.unlinked',
+          created: parsed.data.created,
+          resourceId: refund.data.id,
+        };
+      resourceId =
+        typeof refund.data.payment_intent === 'string'
+          ? refund.data.payment_intent
+          : refund.data.payment_intent.id;
+    }
+    return { id: parsed.data.id, type: parsed.data.type, created: parsed.data.created, resourceId };
   }
 }

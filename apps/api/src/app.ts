@@ -70,6 +70,7 @@ import { getRide, listRides } from './ride-queries';
 
 type Environment = { Variables: { actor: Actor; subject: string; requestId: string } };
 interface Dependencies {
+  refundsEnabled?: boolean;
   walletSessions?: Pick<WalletSessions, 'customerSession' | 'setupSession'>;
   pool: Pool;
   documentTransfers?: DriverDocumentTransfers;
@@ -536,7 +537,7 @@ export function createApp(deps: Dependencies) {
     c.json(await getDriverLocation(deps.pool, c.var.actor, id(c.req.param('id')))),
   );
   app.get('/v1/rides/:id/receipt', async (c) =>
-    c.json(await getReceipt(deps.pool, c.var.actor, id(c.req.param('id')))),
+    c.json(await getReceipt(deps.pool, c.var.actor, id(c.req.param('id')), deps.refundsEnabled)),
   );
   app.post('/v1/wallet/customer-session', async (c) => {
     await body(c, z.object({}).strict());

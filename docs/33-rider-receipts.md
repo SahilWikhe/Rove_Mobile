@@ -20,4 +20,8 @@ The screen explicitly labels captured and quoted amounts and shows pending/error
 
 Six real PostgreSQL/API tests cover missing ledger records, correct amounts and safe serialization, authorization boundaries, partial/cancelled captures, duplicate journals and mismatched customer ownership. Shared strict response validation applies in the mobile client. Native bundle exports verify compilation; physical-device layout and real-provider receipt verification remain outstanding.
 
-This is an in-app payment record, not an emailed/downloadable receipt or a tax invoice. Refund, dispute, fee/tax breakdown and tipping views remain to be implemented. The local synthetic worker now records captures and allocations through the shared ledger service. A paid fixture without ledger records still correctly returns pending; the UI must never fabricate a receipt.
+This is an in-app payment record, not an emailed/downloadable receipt or a tax invoice. Dispute, fee/tax breakdown and tipping views remain to be implemented. Refund updates are now available behind the rollout flag; refund authorization and accounting remain separate work. The local synthetic worker now records captures and allocations through the shared ledger service. A paid fixture without ledger records still correctly returns pending; the UI must never fabricate a receipt.
+
+## Verified refund updates
+
+With `PAYMENT_REFUNDS_ENABLED=true`, the optional refund section shows last verification time, unchecked history, or individual pending/action-required/succeeded/failed/canceled refunds. Original captured and quoted amounts remain unchanged. The receipt ownership query includes the verified check in the same database snapshot. Disabled deployments omit this field and do not query the new table. See [refund tracking rollout](66-refund-tracking.md) before enablement.

@@ -46,4 +46,8 @@ This uses Stripe's [refund listing](https://docs.stripe.com/api/refunds/list) an
 
 All fifteen Stripe adapter tests passed, including four added history cases for pagination, field/reference checks, duplicated pages, pending/failed totals, bounded reads and sanitized errors after a partial response. Workspace/E2E typechecks, changed-source lint, import boundaries and packaged API runtime checks passed. No provider network request or financial mutation occurred.
 
-Next: durable refund observations, webhook/recovery orchestration and owner-authorized receipt presentation, followed by refund authorization and financial journals under the approved policy. This boundary alone does not implement those workflows or change existing receipts.
+The subsequent durable checkpoint below adds observations, webhook/recovery orchestration and owned receipt presentation. Refund authorization and financial journals under the approved policy remain next.
+
+## Durable refund tracking
+
+The provider history boundary is now consumed by the flagged durable worker and rider receipt path. See [refund tracking](66-refund-tracking.md) for migration, recovery and rollout. Refund creation authorization, adjustment journals, disputes and transfers remain unfinished.

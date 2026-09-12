@@ -88,3 +88,7 @@ Current code is authoritative for callable routes, schemas, configuration and co
 Root `README.md`, `CONTRIBUTING.md` and `AGENTS.md` define entry points and contribution rules. Asset READMEs under rider, driver and shared messaging assets retain their Figma export provenance; those dates do not assert current visual parity. They were retained where provenance remains accurate. New completion behavior is described in the design contract and current status.
 
 Secrets, ignored environment files, temporary test outputs and generated dependency documentation are outside this versioned documentation inventory. Never copy them into docs to make setup appear complete.
+
+## Refund tracking
+
+[Refund tracking and recovery](66-refund-tracking.md) covers immutable observations, webhook hints, fair recovery, rider receipt states and staged enablement.

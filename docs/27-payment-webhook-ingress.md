@@ -25,3 +25,7 @@ Only this exact webhook path allows up to 1 MiB. Other API requests retain their
 Six integration tests use independently generated HMAC signatures, the real Stripe SDK verifier, Hono HTTP requests and disposable PostgreSQL. They cover twelve concurrent duplicate deliveries, tampering/mode/account rejection, injected enqueue failure with rollback and successful redelivery, late events, conflicting references, unsupported events, disabled configuration and request limits. The tests do not call Stripe or alter a real account.
 
 Customer provisioning, durable payment sessions, native PaymentSheet/CustomerSheet, saved methods, capture/allocation ledger, receipts, earnings and runtime/worker composition are implemented; see [native payments](31-native-rider-payments.md), [ledger](32-captured-funds-ledger.md), [earnings](37-driver-earnings.md) and [runtime](34-backend-runtime.md). Remaining: complete physical-device PaymentSheet/3DS and sandbox journey acceptance, refund/dispute authorization and journals, actual driver transfers/settlement, periodic reconciliation/review operations, retention and approved production policies. Staging evidence is not production activation.
+
+## Refund reconciliation events
+
+When refund tracking is enabled, signed `refund.created`, `refund.updated` and `refund.failed` events enqueue current-provider reconciliation. Expanded PaymentIntent references are normalized; unlinked legacy refunds are ignored. Amounts/status from event payloads are never applied directly. See [refund tracking](66-refund-tracking.md).

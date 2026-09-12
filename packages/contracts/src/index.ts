@@ -200,6 +200,23 @@ export const PaymentSession = z
   .strict();
 export type PaymentSession = z.infer<typeof PaymentSession>;
 
+export const ReceiptRefunds = z
+  .object({
+    verifiedAt: z.iso.datetime().nullable(),
+    items: z
+      .array(
+        z
+          .object({
+            id: z.string().regex(/^re_[a-zA-Z0-9]{1,96}$/),
+            amount: Money,
+            status: z.enum(['pending', 'requires_action', 'succeeded', 'failed', 'canceled']),
+            createdAt: z.iso.datetime(),
+          })
+          .strict(),
+      )
+      .max(1000),
+  })
+  .strict();
 export const RideReceipt = z
   .object({
     id: z.uuid(),
@@ -207,6 +224,7 @@ export const RideReceipt = z
     recordedAt: z.iso.datetime(),
     quotedFare: Money,
     capturedAmount: Money,
+    refunds: ReceiptRefunds.optional(),
     rideState: RideState,
     paymentState: z.string().min(1).max(100),
   })

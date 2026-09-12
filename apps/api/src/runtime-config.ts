@@ -149,6 +149,11 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
   }
   capture(() => realtimeDatabaseUrl(env));
   const api = capture(() => readApiConfig(env));
+  const refundsEnabled = capture(() => {
+    if (env.PAYMENT_REFUNDS_ENABLED !== undefined && !['true', 'false'].includes(env.PAYMENT_REFUNDS_ENABLED))
+      throw new ConfigurationError(['payments.refundsEnabled']);
+    return env.PAYMENT_REFUNDS_ENABLED === 'true';
+  });
   const payments = capture(() => readPaymentConfig(env));
   const connect = capture(() => readConnectConfig(env));
   const push = capture(() => readPushConfig(env));
@@ -163,6 +168,7 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
     ...(documentAwsRoleArn ? { documentAwsRoleArn } : {}),
     ...push,
     payments,
+    ...(refundsEnabled ? { refundsEnabled: true as const } : {}),
     ...(documentScanning ? { documentScanning } : {}),
     ...(documentStorage ? { documentStorage } : {}),
     ...(connect ? { connect } : {}),

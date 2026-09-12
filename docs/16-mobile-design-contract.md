@@ -403,3 +403,7 @@ Both account-deletion routes wait for session restoration, then offer signed-out
 ## Lost notification-proof reset
 
 The shared Trip notifications card now presents device management and an explicit reset confirmation when saved registration proof is lost. Confirmation explains that all listed notification devices must first be turned off, other phones stay signed in and this phone remains opted out after reset. Cancel performs no work; successful reset returns to Enable notifications. Existing gold/secondary controls and wrapping copy are retained. The real controls passed an isolated browser harness at 320 and 390 widths using Manrope; native recovery and physical-device acceptance remain open.
+
+## Refund receipt extension
+
+The rider receipt uses the existing Manrope, dark cards, gold amount typography and contextual support action for verified refund updates. It distinguishes unchecked history and each provider status while preserving captured/quoted amounts. This is a documented functional extension; full Figma parity and physical layout acceptance are not established.
