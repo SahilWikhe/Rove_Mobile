@@ -1,6 +1,16 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `8cc4c020f23ed91e151d6a91128858f32c07b628` plus the durable driver-transfer checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `0f6133b2899e209abe55f95859c725473d68f635` plus the capture-balance provider and CI concurrency checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Capture balance reader and uninterrupted main CI — September 12
+
+Extracted a shared server-only Stripe capture-balance reader. It verifies the platform account, payment/customer/ride/attempt references, mode, full manual capture, currency, source charge and actual gross/fee/net arithmetic. It reports pending versus available observations and preserves the original processing fee when refunds or disputes occur. Missing/unexpanded balances fail closed rather than becoming zero fees. Driver transfer funding now uses the same reader and retains availability/dispute holds. This is the provider boundary; durable capture-fee journals, recovery and an accounting-backed transfer eligibility check remain the next concrete step. No money moved, flags changed, hosted migration ran or production setup was activated.
+
+Forty focused provider tests passed. All eleven local application test tasks passed, including 513 server tests, after removing a sub-millisecond enqueue/worker-clock race from two transfer tests. Workspace/E2E types, source lint excluding generated reports, boundaries, tooling tests, formatting, documentation checks and packaged API build/health/authentication checks passed. Provider responses were synthetic mocks; no real Stripe request was made.
+
+The user made the repository public. GitHub's latest cancellation annotations identified competing requests in the CI concurrency group; hosted runners now execute again. The restarted baseline run passed quality, tests, infrastructure, security, CodeQL and mobile bundling at the last observation, with browser and native builds still running. CI now lets active main runs finish while newer pushes wait, while superseded PR runs remain cancelable. Intermediate pending revisions may be replaced; release still requires successful checks for the exact release commit. This supersedes the earlier CI-deferral status, not the remaining release requirements.
+
+Capture accounting, bank-payout status, deletion fulfillment, provider/native/Figma acceptance and production setup remain incomplete. See [transfer workflow and capture boundary](72-driver-transfer-workflow.md) and [CI concurrency](08-cicd-and-environments.md#concurrent-ci-runs).
 
 ## Durable driver transfer reservations and reconciliation — September 12
 

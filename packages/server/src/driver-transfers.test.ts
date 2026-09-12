@@ -183,7 +183,14 @@ test('authorization atomically reserves earnings with audit and outbox; worker c
   });
   expect(create).not.toHaveBeenCalled();
   expect(await authorize()).toEqual(a);
-  const worker = new OutboxWorker(db.pool, { 'transfer.execute': service.handle });
+  // PostgreSQL timestamps retain sub-millisecond precision; advance the worker clock
+  // beyond the committed enqueue time instead of racing JavaScript's millisecond clock.
+  const queuedAt = (await db.pool.query('SELECT max(available_at) AS time FROM outbox')).rows[0].time as Date;
+  const worker = new OutboxWorker(
+    db.pool,
+    { 'transfer.execute': service.handle },
+    () => new Date(queuedAt.getTime() + 1000),
+  );
   expect(await worker.runOnce()).toEqual({ processed: 1, failed: 0 });
   await run(a.id);
   expect(create).toHaveBeenCalledTimes(1);
@@ -377,7 +384,14 @@ test('sweep recovers dead-lettered operations and confirmed transfers without un
   await db.pool.query('UPDATE outbox SET completed_at=now()');
   expect(await service.sweep()).toBe(1);
   expect(await service.sweep()).toBe(0);
-  const worker = new OutboxWorker(db.pool, { 'transfer.execute': service.handle });
+  // PostgreSQL timestamps retain sub-millisecond precision; advance the worker clock
+  // beyond the committed enqueue time instead of racing JavaScript's millisecond clock.
+  const queuedAt = (await db.pool.query('SELECT max(available_at) AS time FROM outbox')).rows[0].time as Date;
+  const worker = new OutboxWorker(
+    db.pool,
+    { 'transfer.execute': service.handle },
+    () => new Date(queuedAt.getTime() + 1000),
+  );
   expect(await worker.runOnce()).toEqual({ processed: 1, failed: 0 });
   expect((await op(a.id)).reversed_cents).toBe(100);
 });

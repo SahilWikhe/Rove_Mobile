@@ -4,12 +4,12 @@ Status: CI is implemented and verified on GitHub runners; see [current pipeline]
 
 ## Environment topology
 
-| Environment | Database/data | Identity and providers | Deployment |
-| --- | --- | --- | --- |
-| Local | Local Postgres or isolated Neon development branch; synthetic | Test identities, mocks/sandbox | Local API/admin, Expo development build |
-| PR preview | Disposable branch from clean synthetic seed | Test-only credentials and message sinks | Protected Vercel previews; optional mobile preview build |
-| Staging | Persistent synthetic integration dataset | Sandbox payments/maps quotas; test identities | Stable staging API/admin and internal mobile builds |
-| Production | Separate controlled production Neon project | Production identity/provider credentials | Controlled Vercel release and store builds |
+| Environment | Database/data                                                 | Identity and providers                        | Deployment                                               |
+| ----------- | ------------------------------------------------------------- | --------------------------------------------- | -------------------------------------------------------- |
+| Local       | Local Postgres or isolated Neon development branch; synthetic | Test identities, mocks/sandbox                | Local API/admin, Expo development build                  |
+| PR preview  | Disposable branch from clean synthetic seed                   | Test-only credentials and message sinks       | Protected Vercel previews; optional mobile preview build |
+| Staging     | Persistent synthetic integration dataset                      | Sandbox payments/maps quotas; test identities | Stable staging API/admin and internal mobile builds      |
+| Production  | Separate controlled production Neon project                   | Production identity/provider credentials      | Controlled Vercel release and store builds               |
 
 Use separate production and nonproduction Neon projects before real data is introduced. Branching from production can copy sensitive data; PR branches must derive from a synthetic seed or a validated schema-only workflow. A branch named `production` does not by itself establish whether it contains real data or has production controls.
 
@@ -23,12 +23,12 @@ Create separate Expo projects for rider and driver. Each has development, previe
 
 ## Workflow inventory
 
-| Workflow | Trigger | Implemented scope |
-| --- | --- | --- |
-| `.github/workflows/ci.yml` | PR, main push, merge group, manual, weekly | Quality, tests, browser, mobile exports, four native compile/standalone launch jobs, infrastructure lint, security, CodeQL and aggregate gate |
-| `.github/workflows/staging-providers.yml` | Manual main dispatch with billing acknowledgement | Real provider health/configuration and bounded Maps requests; no login/payment transaction |
-| `.github/workflows/release-readiness.yml` | Manual main dispatch | Read-only exact-SHA CI/provider evidence collection; no promotion or deployment |
-| Vercel Git integration | Main push | Staging deployment, independent of CI completion |
+| Workflow                                  | Trigger                                           | Implemented scope                                                                                                                             |
+| ----------------------------------------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.github/workflows/ci.yml`                | PR, main push, merge group, manual, weekly        | Quality, tests, browser, mobile exports, four native compile/standalone launch jobs, infrastructure lint, security, CodeQL and aggregate gate |
+| `.github/workflows/staging-providers.yml` | Manual main dispatch with billing acknowledgement | Real provider health/configuration and bounded Maps requests; no login/payment transaction                                                    |
+| `.github/workflows/release-readiness.yml` | Manual main dispatch                              | Read-only exact-SHA CI/provider evidence collection; no promotion or deployment                                                               |
+| Vercel Git integration                    | Main push                                         | Staging deployment, independent of CI completion                                                                                              |
 
 Production promotion, preview acceptance automation and store submission workflows remain planned. `pnpm release:check` validates evidence for a specific SHA; it does not deploy anything. Require only existing checks, and verify effective branch/environment protections separately.
 
@@ -94,3 +94,7 @@ Default scheduling flags off in each environment. Core CI uses deterministic fak
 ## Hosted runner billing prerequisite — September 12
 
 CI run `34708488268` at `ad16b3c` failed before any job started. GitHub reports failed recent account payments or a spending limit requiring attention in account Billing & plans. The owner must resolve the reported account condition before rerunning CI for the intended candidate. This is separate from the private-repository CodeQL entitlement prerequisite; neither is bypassed by local tests or a successful Git push.
+
+## Concurrent CI runs
+
+CI groups runs by event and branch/PR. Pull-request updates cancel superseded active runs. Main-branch pushes leave the active run to finish and queue the latest pending revision; intermediate pending revisions may be replaced. A completed run proves its recorded commit only. Check the latest main commit before release. This avoids repeatedly interrupting longer native builds during active development.

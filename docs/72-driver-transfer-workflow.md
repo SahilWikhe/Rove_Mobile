@@ -49,3 +49,7 @@ No paid setup or commercial decision was selected for the user. Production remai
 ## Local evidence
 
 Database tests exercise concurrent authorizations/workers, idempotency, owned reservations, cancellation races, permission revocation, unknown outcomes, financial holds, late reversals, stale reads, audit rollback, immutable decisions, missing reservation journals and cross-operation provider transaction reuse. The authenticated HTTP test covers staff permission, authorization, worker confirmation, list and recovery routes. Runtime tests cover default-off dependency/model checks and no startup money movement. Scheduler tests cover inclusion in recovery. Exact completed checks are recorded in [implementation status](18-implementation-status.md); mocks do not establish provider acceptance.
+
+## Capture balance provider boundary
+
+`StripeCaptureBalances` now reads and validates the original charge balance transaction, including actual gross amount, processing fee, net amount and pending/available status. Transfer funding uses this same reader and additionally holds disputed or unavailable funds. Provider errors, missing expansions and mismatched ownership/account/mode/currency/arithmetic fail closed. Refund and dispute movements do not rewrite the original capture fee. This reader is transport infrastructure: durable capture-fee journals, recovery and transfer eligibility tied to verified accounting remain unfinished. It does not estimate fees or deduct them from driver earnings.

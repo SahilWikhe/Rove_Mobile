@@ -1,4 +1,5 @@
 import Stripe from 'stripe';
+import { StripeCaptureBalances } from './stripe-capture-balances';
 import { z } from 'zod';
 import { DomainError } from './errors';
 import type { DriverPayoutProvider } from './driver-payout-provider';
@@ -43,38 +44,6 @@ const Balance = z
     status: z.enum(['pending', 'available']),
   })
   .refine((b) => b.net === b.amount - b.fee);
-const Charge = z.object({
-  id: id('ch'),
-  object: z.literal('charge'),
-  livemode: z.boolean(),
-  payment_intent: id('pi'),
-  paid: z.literal(true),
-  captured: z.literal(true),
-  status: z.literal('succeeded'),
-  currency: z.literal('usd'),
-  amount: Amount,
-  amount_captured: Amount,
-  amount_refunded: NonnegativeAmount,
-  disputed: z.boolean(),
-  balance_transaction: Balance,
-});
-const Intent = z.object({
-  id: id('pi'),
-  object: z.literal('payment_intent'),
-  livemode: z.boolean(),
-  amount: Amount,
-  amount_received: Amount,
-  amount_capturable: z.literal(0),
-  capture_method: z.literal('manual'),
-  transfer_data: z.null(),
-  on_behalf_of: z.null(),
-  application_fee_amount: z.null(),
-  status: z.literal('succeeded'),
-  currency: z.literal('usd'),
-  customer: id('cus'),
-  metadata: z.object({ roveRideId: z.uuid(), roveAttemptId: z.uuid() }),
-  latest_charge: Charge,
-});
 const Transfer = z.object({
   id: id('tr'),
   object: z.literal('transfer'),
@@ -121,7 +90,7 @@ function parse<T>(schema: z.ZodType<T>, raw: unknown): T {
   return result.data;
 }
 
-/** Transport only; deliberately not wired to runtime until durable reservations and journals exist.
+/** Provider transport used by the opt-in durable transfer workflow.
  * A transfer credits the connected Stripe account, not the driver's bank account.
  */
 export class StripeDriverTransfers implements DriverTransferProvider {
@@ -160,40 +129,9 @@ export class StripeDriverTransfers implements DriverTransferProvider {
     if (account.id !== this.config.platformAccountId) throw failure();
   }
   async funding(raw: PaymentReference) {
-    const r = parse(Payment, raw);
-    await this.platform();
-    const p = parse(
-      Intent,
-      await this.call(() =>
-        this.client.paymentIntents.retrieve(r.intentId, {
-          expand: ['latest_charge.balance_transaction'],
-        }),
-      ),
-    );
-    const c = p.latest_charge;
-    const b = c.balance_transaction;
-    if (
-      p.id !== r.intentId ||
-      p.livemode !== this.config.live ||
-      p.customer !== r.customerId ||
-      p.metadata.roveRideId !== r.rideId ||
-      p.metadata.roveAttemptId !== r.attemptId ||
-      p.amount !== r.amountCents ||
-      p.amount_received !== r.amountCents ||
-      c.livemode !== this.config.live ||
-      c.payment_intent !== r.intentId ||
-      c.amount !== r.amountCents ||
-      c.amount_captured !== r.amountCents ||
-      c.amount_refunded > c.amount_captured ||
-      b.source !== c.id ||
-      !['charge', 'payment'].includes(b.type) ||
-      b.fee < 0 ||
-      b.fee > b.amount ||
-      b.amount !== c.amount_captured
-    )
-      throw failure();
-    if (b.status !== 'available' || c.disputed) throw hold();
-    return { chargeId: c.id, unrefundedCents: c.amount_captured - c.amount_refunded };
+    const capture = await this.call(() => new StripeCaptureBalances(this.config, this.client).retrieve(raw));
+    if (capture.status !== 'available' || capture.disputed) throw hold();
+    return { chargeId: capture.chargeId, unrefundedCents: capture.unrefundedCents };
   }
   private reference(raw: DriverTransferReference) {
     const r = parse(Reference, raw);
