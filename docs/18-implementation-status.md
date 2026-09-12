@@ -1,6 +1,14 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `31f7e42199448b4686be82a3e9738947752b324d`. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `24c74f6f708a67f5c7591f4e754116c8a5498919`. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Documentation follow-up — September 12
+
+The comprehensive refresh in `40c82cd` updated the architecture, feature guides, staging and production runbooks, and documentation index. This follow-up advances the source reference to the subsequent driver trip-support change, which is documented below and in the support/design guides. Historical test counts and deployment observations remain dated evidence.
+
+At this review, [CI run 34703505858](https://github.com/SahilWikhe/Rove_Mobile/actions/runs/34703505858) for `24c74f6` was still in progress. The earlier successful CI run below must not be presented as a pass for this source. No new application changes, provider calls, migrations or deployment verification were performed in this documentation follow-up. Documentation lint and local Markdown link checks passed.
+
+Email verification enforcement and in-app resend remain unfinished release work; investigation is not implementation. Next: complete the remaining account recovery work and UI/device acceptance, then record the actual results here. Production setup and owner decisions remain deferred and explicitly listed below.
 
 ## Driver trip support — September 12
 

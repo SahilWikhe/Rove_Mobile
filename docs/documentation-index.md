@@ -1,6 +1,6 @@
 # Documentation index
 
-Audited September 12, 2026 against source `31f7e42199448b4686be82a3e9738947752b324d`, repository scripts/routes/workflows and the staging observations in [implementation status](18-implementation-status.md). This audit updates documentation, not application behavior or external service configuration.
+Audited September 12, 2026; source references updated through `24c74f6f708a67f5c7591f4e754116c8a5498919`, repository scripts/routes/workflows and the staging observations in [implementation status](18-implementation-status.md). This audit updates documentation, not application behavior or external service configuration.
 
 ## How to read the documentation
 
