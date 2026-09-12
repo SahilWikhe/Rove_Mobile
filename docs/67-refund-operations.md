@@ -12,11 +12,11 @@ Authorization locks the payment attempt and requires a capture journal matching 
 
 The worker refreshes current provider history before its first mutation, checks the captured-funds limit again, and persists its first-attempt timestamp before contacting Stripe. All retries use the same UUID-derived provider operation key. A lost response must replay that key even if a refund is already visible in provider history. A database failure after provider success likewise retries the original key. Successful response binding and the follow-up reconciliation job commit together. Duplicate deliveries cannot change the bound provider refund identifier.
 
-`submitted` means Stripe returned an identifiable refund, not that the money reached the customer. Rider receipts use the separate verified observation path. Authorization amount, staff, reason, policy reference, creation time and first attempt are protected against rewriting; deletion is rejected. This does not add refund adjustment ledger entries or reverse driver earnings.
+`submitted` means Stripe returned an identifiable refund, not that the money reached the customer. Rider receipts use the separate verified observation path. Authorization amount, staff, reason, policy reference, creation time and first attempt are protected against rewriting; deletion is rejected. A separate accounting flag now adds verified processor balance journals without reversing driver earnings; see [refund accounting](68-refund-accounting.md).
 
 ## Uncertain outcomes and review
 
-An unresolved operation at least 23 hours beyond its first attempt becomes `review_required` without another provider mutation. This leaves headroom before Stripe may prune idempotency records after at least 24 hours. Never reissue an old uncertain request under a new key. Verify the provider outcome and matching persisted operation through controlled financial review. A self-service review-resolution API and metadata-based recovery are still outstanding; until implemented and accepted, keep production mutation enablement off.
+An unresolved operation at least 23 hours beyond its first attempt becomes `review_required` without another provider mutation. This leaves headroom before Stripe may prune idempotency records after at least 24 hours. Never reissue an old uncertain request under a new key. Verify the provider outcome and matching persisted operation through controlled financial review. Metadata-based read-only recovery and an authenticated recovery endpoint are now implemented; see [correlation recovery](68-refund-accounting.md). Uncorrelated/contradictory cases still require controlled provider-support review. Keep production mutation enablement off until financial workflows and provider acceptance are complete.
 
 External dashboard refunds can occur between history retrieval and mutation; Stripe remains the final cumulative refund limit. Provider exceptions preserve the reservation and retry history instead of assuming no money moved. Worker dead letters and review-required operations need operational monitoring. No automatic driver loss allocation is selected.
 
@@ -36,7 +36,7 @@ Disposable PostgreSQL tests cover permissions, replay, concurrent reservations, 
 
 ## Remaining financial work
 
-Implement controlled resolution of ambiguous/refused operations, balanced refund adjustment journals, dispute processing, driver transfer/settlement and their authorized review workflows before enabling production mutations. Commercial policy, liability and provider setup remain final owner decisions.
+Metadata recovery and processor refund/failure journals are now implemented. Remaining: review of uncorrelated/refused outcomes, allocation of refund suspense under approved policy, dispute processing, driver transfer/settlement and their authorized review workflows before enabling production mutations. Commercial policy, liability and provider setup remain final owner decisions.
 
 ## Provider references
 

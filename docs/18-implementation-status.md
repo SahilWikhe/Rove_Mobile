@@ -1,6 +1,16 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `a4feb0992a617e8915493f14113c9290694910a3` plus the staff refund-operation checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `f99a923681a2121a189287566ae55a555e486f68` plus the refund recovery/accounting checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Refund correlation recovery and processor balance journals — September 12
+
+Added immutable operation UUID metadata to refund creation and validated correlation to provider history. The worker and MFA/permission-protected staff recovery endpoint can bind a known refund after a lost response without another mutation, including beyond the retry cutoff. Recovery rejects amount-only guesses, duplicate correlation, mismatched amounts and implausible creation times. Manual recovery records its initiating staff actor; unknown outcomes retain their reservation rather than authorizing blind reissue.
+
+Migration 0033 adds refund suspense and processor fee accounts. The optional accounting path expands and validates actual refund/failure balance transactions, journals net impact/fees with stable provider keys and commits those entries atomically with observations. Pending refunds can have real processor balance movement; failure status alone never invents a reversal. Original capture, driver payable and revenue allocations remain unchanged. Commercial loss allocation and suspense resolution remain required before affected settlements.
+
+All eleven application test tasks passed at the integrated checkpoint (including 434 server tests). Subsequent focused recovery verification passed thirteen tests for the final timestamp/actor checks. Workspace/E2E types, source lint excluding generated reports, import boundaries, formatting, documentation lint and packaged API build/health/authentication checks passed. These use disposable PostgreSQL and synthetic/mocked provider records; no hosted migration, monetary request, provider setting or rollout flag changed. No new native UI behavior was introduced or physical/provider acceptance claimed.
+
+Next major financial work: dispute processing, approved refund-suspense allocation/review and driver transfer/settlement workflows, then deletion fulfillment and release/device acceptance. Uncorrelated legacy outcomes still need controlled provider-support review. See [refund balance accounting and recovery](68-refund-accounting.md) for setup steps and limits. The full product goal remains incomplete.
 
 ## Staff-authorized refund execution — September 12
 

@@ -279,7 +279,7 @@ export const ledgerPostings = pgTable(
     check('ledger_nonzero_amount', sql`${t.amountCents} <> 0`),
     check(
       'ledger_valid_account',
-      sql`${t.account} in ('stripe_clearing','rider_funds','driver_payable','platform_revenue')`,
+      sql`${t.account} in ('stripe_clearing','rider_funds','driver_payable','platform_revenue','refund_suspense','processor_fees')`,
     ),
     check(
       'ledger_scoped_owner',

@@ -37,3 +37,7 @@ The optional refund reconciliation service runs its bounded recovery sweep befor
 ## Refund execution
 
 The separately flagged `refund.execute` handler processes durable staff authorizations with a stable provider key and a 23-hour uncertain-retry cutoff. Disabling it requires deliberate handling of queued jobs. See [refund operations](67-refund-operations.md).
+
+## Refund accounting and read-only recovery
+
+The refund reconciler optionally commits verified processor balance journals with observations. Uncertain execution refreshes metadata correlation before considering the original mutation retry. An authenticated staff endpoint can request the same provider-read-only recovery after the retry window. See [accounting and recovery](68-refund-accounting.md).

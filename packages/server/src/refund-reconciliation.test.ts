@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { testDatabase } from '@rove/database/testing';
 import type { PaymentReference, RefundProvider, RefundSnapshot } from './payment-provider';
 import { RefundReconciler } from './refund-reconciliation';
+import { recordCapturedFunds } from './ledger';
+import { transaction } from './transactions';
 let database: Awaited<ReturnType<typeof testDatabase>>;
 let reference: PaymentReference;
 let now: Date;
@@ -212,4 +214,59 @@ test('recovery advances past an unprocessed first page instead of starving later
     ).rows[0].count,
   ).toBe(105);
   expect(refunds).not.toHaveBeenCalled();
+});
+
+test('refund accounting and verified observations commit together and retry after a ledger failure', async () => {
+  const rider = (await database.pool.query('SELECT rider_id FROM rides WHERE id=$1', [reference.rideId]))
+    .rows[0].rider_id;
+  await transaction(database.pool, (c) =>
+    recordCapturedFunds(c, {
+      attemptId: reference.attemptId,
+      rideId: reference.rideId,
+      riderId: rider,
+      receivedCents: 1050,
+      driverId: null,
+      earningsCents: 0,
+      completed: false,
+      fullFare: true,
+    }),
+  );
+  await reconcile.reconcile(reference.intentId);
+  const before = await stored();
+  reconcile = new RefundReconciler(database.pool, { refunds }, source, () => now, true);
+  refunds.mockResolvedValue(
+    snapshot([
+      {
+        ...item('pending'),
+        balanceTransactions: [
+          {
+            id: 'txn_fixture',
+            refundId: 're_fixture',
+            kind: 'refund',
+            amountCents: -300,
+            feeCents: 0,
+            netCents: -300,
+          },
+        ],
+      },
+    ]),
+  );
+  await database.pool.query(
+    "ALTER TABLE ledger_postings ADD CONSTRAINT fixture_block_refund CHECK(account<>'refund_suspense') NOT VALID",
+  );
+  try {
+    await expect(reconcile.reconcile(reference.intentId)).rejects.toThrow();
+  } finally {
+    await database.pool.query('ALTER TABLE ledger_postings DROP CONSTRAINT fixture_block_refund');
+  }
+  expect(await stored()).toEqual(before);
+  expect(
+    (await database.pool.query("SELECT * FROM ledger_journals WHERE kind='refund_balance'")).rowCount,
+  ).toBe(0);
+  await reconcile.reconcile(reference.intentId);
+  await reconcile.reconcile(reference.intentId);
+  expect((await stored()).refunds[0].status).toBe('pending');
+  expect(
+    (await database.pool.query("SELECT * FROM ledger_journals WHERE kind='refund_balance'")).rowCount,
+  ).toBe(1);
 });

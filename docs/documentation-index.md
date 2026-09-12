@@ -96,3 +96,7 @@ Secrets, ignored environment files, temporary test outputs and generated depende
 ## Staff refund operations
 
 [Staff-authorized refund operations](67-refund-operations.md) documents permissions, durable reservations, provider retries, rollout and remaining financial review/accounting work.
+
+## Refund balance accounting
+
+[Refund balance accounting and correlation recovery](68-refund-accounting.md) covers processor transaction evidence, immutable journals, suspense, lost-response recovery and remaining commercial/release requirements.

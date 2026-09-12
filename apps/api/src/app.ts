@@ -410,6 +410,13 @@ export function createApp(deps: Dependencies) {
       ),
     ),
   );
+  app.post('/v1/staff/rides/:id/refunds/:operationId/recover', async (c) => {
+    if (!deps.refundOperations)
+      throw new DomainError('REFUNDS_UNAVAILABLE', 'Refund operations are not enabled.', 503);
+    return c.json(
+      await deps.refundOperations.recover(c.var.actor, id(c.req.param('id')), id(c.req.param('operationId'))),
+    );
+  });
   app.post('/v1/staff/rides/:id/refunds', async (c) => {
     if (!deps.refundOperations)
       throw new DomainError('REFUNDS_UNAVAILABLE', 'Refund operations are not enabled.', 503);

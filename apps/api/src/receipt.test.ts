@@ -312,6 +312,17 @@ test('staff refund HTTP endpoints require MFA permission, explicit enablement, a
   const body = await response.json();
   expect(body).toMatchObject({ state: 'queued', amountCents: 300 });
   expect(await (await call('staff')).json()).toEqual(body);
+  const recoverEndpoint = `${endpoint}/${body.id}/recover`;
+  expect(
+    (await app.request(recoverEndpoint, { method: 'POST', headers: { authorization: 'Bearer rider' } }))
+      .status,
+  ).toBe(403);
+  const recovered = await app.request(recoverEndpoint, {
+    method: 'POST',
+    headers: { authorization: 'Bearer staff' },
+  });
+  expect(recovered.status).toBe(200);
+  expect(await recovered.json()).toMatchObject({ id: body.id, state: 'queued' });
   const listed = await app.request(endpoint, { headers: { authorization: 'Bearer staff' } });
   expect(await listed.json()).toMatchObject({ operations: [body] });
   expect(

@@ -149,6 +149,82 @@ export class RefundOperations {
       return { operations: result.rows.map((op) => this.dto(op)) };
     });
   }
+  /** Read-only provider verification can resolve an uncertain submission even beyond the mutation retry window. */
+  private async recoverKnown(operationId: string, rideId: string, actorId?: string): Promise<boolean> {
+    const reference = await transaction(this.pool, (c) => this.reference(c, rideId));
+    await this.reconciliation.reconcile(reference.intentId);
+    return transaction(this.pool, async (client) => {
+      await this.reference(client, rideId);
+      const op = (
+        await client.query<Operation>(
+          'SELECT * FROM refund_operations WHERE id=$1 AND attempt_id=$2 FOR UPDATE',
+          [operationId, reference.attemptId],
+        )
+      ).rows[0];
+      if (!op) throw unavailable();
+      if (op.provider_refund_id) return true;
+      if (!op.first_attempt_at) return false;
+      const check = (
+        await client.query('SELECT * FROM payment_refund_checks WHERE attempt_id=$1 FOR SHARE', [
+          reference.attemptId,
+        ])
+      ).rows[0];
+      if (!check?.verified_at || check.verified_at.getTime() < this.now().getTime() - 300000)
+        throw unavailable();
+      const history = z
+        .array(
+          z.object({
+            id: z.string().regex(/^re_[a-zA-Z0-9]{1,96}$/),
+            operationId: z.uuid().optional(),
+            amountCents: z.number().int().positive(),
+            created: z.number().int(),
+          }),
+        )
+        .parse(check.refunds);
+      const matches = history.filter((r) => r.operationId === op.id);
+      if (!matches.length) return false;
+      if (
+        matches.length !== 1 ||
+        matches[0]!.amountCents !== op.amount_cents ||
+        matches[0]!.created * 1000 < op.first_attempt_at.getTime() - 120000 ||
+        matches[0]!.created * 1000 > this.now().getTime() + 120000
+      )
+        throw unavailable();
+      await client.query("UPDATE refund_operations SET state='submitted',provider_refund_id=$2 WHERE id=$1", [
+        op.id,
+        matches[0]!.id,
+      ]);
+      await client.query(
+        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'refund.submission_recovered',$2,'{}')",
+        [actorId ?? null, op.id],
+      );
+      return true;
+    });
+  }
+  async recover(actor: Actor, rawRideId: string, rawOperationId: string) {
+    const rideId = z.uuid().parse(rawRideId),
+      operationId = z.uuid().parse(rawOperationId);
+    await transaction(this.pool, async (client) => {
+      await requireStaffPermission(client, actor, permission);
+      const reference = await this.reference(client, rideId);
+      if (
+        !(
+          await client.query('SELECT id FROM refund_operations WHERE id=$1 AND attempt_id=$2', [
+            operationId,
+            reference.attemptId,
+          ])
+        ).rowCount
+      )
+        throw unavailable();
+    });
+    await this.recoverKnown(operationId, rideId, actor.id);
+    return transaction(this.pool, async (client) => {
+      await requireStaffPermission(client, actor, permission);
+      const op = (await client.query<Operation>('SELECT * FROM refund_operations WHERE id=$1', [operationId]))
+        .rows[0]!;
+      return this.dto(op);
+    });
+  }
   readonly handle: JobHandler = async (job) => {
     const input = z
       .object({ source: z.literal(this.source), operationId: z.uuid() })
@@ -161,6 +237,12 @@ export class RefundOperations {
       )
     ).rows[0];
     if (!initial) throw unavailable();
+    if (
+      initial.first_attempt_at &&
+      !initial.provider_refund_id &&
+      (await this.recoverKnown(initial.id, initial.ride_id))
+    )
+      return;
     if (initial.state === 'review_required') return;
     if (initial.provider_refund_id) {
       await this.reconciliation.reconcile(initial.intent_id);

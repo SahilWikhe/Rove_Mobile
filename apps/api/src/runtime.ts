@@ -71,7 +71,13 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
   if (config.refundsEnabled && !resources.refundProvider)
     throw new Error('Refund reconciliation provider is required.');
   const refundReconciliation = config.refundsEnabled
-    ? new RefundReconciler(pool, resources.refundProvider!, config.paymentSource)
+    ? new RefundReconciler(
+        pool,
+        resources.refundProvider!,
+        config.paymentSource,
+        undefined,
+        config.refundAccountingEnabled,
+      )
     : undefined;
   const refundOperations =
     config.refundOperationsEnabled && refundReconciliation

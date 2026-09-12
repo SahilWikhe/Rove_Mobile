@@ -280,14 +280,28 @@ test('refund history verifies the persisted payment before listing and follows e
   ]);
   expect(result.refunds[0]).toEqual({
     id: 're_first',
+    balanceTransactions: [],
     intentId: reference.intentId,
     amountCents: 100,
     status: 'pending',
     created: 1700000000,
   });
   expect(f.refunds.list.mock.calls).toEqual([
-    [{ payment_intent: reference.intentId, limit: 100 }],
-    [{ payment_intent: reference.intentId, limit: 100, starting_after: 're_first' }],
+    [
+      {
+        payment_intent: reference.intentId,
+        limit: 100,
+        expand: ['data.balance_transaction', 'data.failure_balance_transaction'],
+      },
+    ],
+    [
+      {
+        payment_intent: reference.intentId,
+        limit: 100,
+        starting_after: 're_first',
+        expand: ['data.balance_transaction', 'data.failure_balance_transaction'],
+      },
+    ],
   ]);
   expect(f.refunds.create).not.toHaveBeenCalled();
   f.paymentIntents.retrieve.mockResolvedValueOnce(intent({ customer: 'cus_other' }));
@@ -356,4 +370,94 @@ test('refund history bounds pagination and sanitizes provider errors after a par
     code: 'PAYMENT_PROVIDER_UNAVAILABLE',
     message: 'Payment could not be confirmed. Please try again shortly.',
   });
+});
+
+test('refund mutation tags its durable operation and history returns only the validated correlation', async () => {
+  const f = refundFixture();
+  const operationId = '00000000-0000-4000-8000-000000000099';
+  await f.provider.refund(reference, 1, `rove-refund:${operationId}`);
+  expect(f.refunds.create.mock.calls[0]![0].metadata).toMatchObject({ roveRefundOperationId: operationId });
+  f.refunds.list.mockResolvedValue({
+    object: 'list',
+    has_more: false,
+    data: [
+      refunded('re_tagged', {
+        metadata: { roveRefundOperationId: operationId, privateNote: 'do not expose' },
+      }),
+    ],
+  });
+  const result = await f.provider.refunds(reference);
+  expect(result.refunds[0]?.operationId).toBe(operationId);
+  expect(JSON.stringify(result)).not.toContain('privateNote');
+  f.refunds.list.mockResolvedValue({
+    object: 'list',
+    has_more: false,
+    data: [refunded('re_tagged', { metadata: { roveRefundOperationId: 'invalid' } })],
+  });
+  await expect(f.provider.refunds(reference)).rejects.toThrow();
+});
+test('refund balance records validate linkage, currency, direction and net arithmetic', async () => {
+  const f = refundFixture();
+  const balance = {
+    id: 'txn_refund',
+    object: 'balance_transaction',
+    source: 're_balance',
+    currency: 'usd',
+    type: 'refund',
+    amount: -100,
+    fee: 5,
+    net: -105,
+  };
+  const list = (extra: Record<string, unknown> = {}) =>
+    f.refunds.list.mockResolvedValue({
+      object: 'list',
+      has_more: false,
+      data: [refunded('re_balance', { metadata: null, balance_transaction: { ...balance, ...extra } })],
+    });
+  list();
+  expect((await f.provider.refunds(reference)).refunds[0]?.balanceTransactions).toEqual([
+    {
+      id: 'txn_refund',
+      refundId: 're_balance',
+      kind: 'refund',
+      amountCents: -100,
+      feeCents: 5,
+      netCents: -105,
+    },
+  ]);
+  for (const invalid of [
+    { source: 're_other' },
+    { currency: 'eur' },
+    { amount: 100 },
+    { net: -100 },
+    { type: 'charge' },
+  ]) {
+    list(invalid);
+    await expect(f.provider.refunds(reference)).rejects.toThrow();
+  }
+  f.refunds.list.mockResolvedValue({
+    object: 'list',
+    has_more: false,
+    data: [refunded('re_balance', { balance_transaction: 'txn_unexpanded' })],
+  });
+  await expect(f.provider.refunds(reference)).rejects.toThrow();
+  f.refunds.list.mockResolvedValue({
+    object: 'list',
+    has_more: false,
+    data: [
+      refunded('re_balance', {
+        status: 'failed',
+        balance_transaction: balance,
+        failure_balance_transaction: {
+          ...balance,
+          id: 'txn_failure',
+          type: 'refund_failure',
+          amount: 100,
+          fee: 0,
+          net: 100,
+        },
+      }),
+    ],
+  });
+  expect((await f.provider.refunds(reference)).refunds[0]?.balanceTransactions).toHaveLength(2);
 });

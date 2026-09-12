@@ -249,3 +249,73 @@ test('provider success followed by a database failure retries the same operation
   expect(refund.mock.calls.map((c) => c[2])).toEqual([`rove-refund:${op.id}`, `rove-refund:${op.id}`]);
   expect((await row(op.id)).state).toBe('submitted');
 });
+
+test('read-only metadata recovery resolves an aged lost response without a second refund', async () => {
+  const op = await operations.authorize(staff, reference.rideId, authorization, 'fixture-key-one');
+  refund.mockRejectedValueOnce(new Error('uncertain'));
+  await expect(execute(op.id)).rejects.toThrow();
+  const created = Math.floor(now.getTime() / 1000);
+  now = new Date(now.getTime() + 25 * 3600000);
+  refunds.mockResolvedValue(
+    snapshot([{ ...item('succeeded'), id: 're_recovered', operationId: op.id, created }]),
+  );
+  expect(await operations.recover(staff, reference.rideId, op.id)).toMatchObject({ state: 'submitted' });
+  await execute(op.id);
+  expect(refund).toHaveBeenCalledTimes(1);
+  expect((await row(op.id)).provider_refund_id).toBe('re_recovered');
+  expect(
+    (
+      await database.pool.query(
+        "SELECT actor_id FROM audit WHERE action='refund.submission_recovered' AND aggregate_id=$1",
+        [op.id],
+      )
+    ).rows[0].actor_id,
+  ).toBe(staff.id);
+  await expect(operations.recover({ ...staff, mfa: false }, reference.rideId, op.id)).rejects.toMatchObject({
+    code: 'FORBIDDEN',
+  });
+});
+test('recovery never guesses from equal amounts or binds contradictory operation metadata', async () => {
+  const op = await operations.authorize(staff, reference.rideId, authorization, 'fixture-key-one');
+  refund.mockRejectedValueOnce(new Error('uncertain'));
+  await expect(execute(op.id)).rejects.toThrow();
+  now = new Date(now.getTime() + 25 * 3600000);
+  refunds.mockResolvedValue(snapshot([{ ...item('succeeded'), created: Math.floor(now.getTime() / 1000) }]));
+  await execute(op.id);
+  expect((await row(op.id)).state).toBe('review_required');
+  expect(refund).toHaveBeenCalledTimes(1);
+  refunds.mockResolvedValue(
+    snapshot([
+      {
+        ...item('succeeded'),
+        created: Math.floor(now.getTime() / 1000),
+        operationId: op.id,
+        amountCents: 301,
+      },
+    ]),
+  );
+  await expect(operations.recover(staff, reference.rideId, op.id)).rejects.toThrow();
+  expect((await row(op.id)).provider_refund_id).toBeNull();
+});
+
+test.each(['duplicate', 'future'] as const)(
+  'recovery rejects %s metadata evidence without binding or mutating again',
+  async (kind) => {
+    const op = await operations.authorize(staff, reference.rideId, authorization, 'fixture-key-one');
+    refund.mockRejectedValueOnce(new Error('uncertain'));
+    await expect(execute(op.id)).rejects.toThrow();
+    const candidate = {
+      ...item('succeeded'),
+      operationId: op.id,
+      created: Math.floor(now.getTime() / 1000) + (kind === 'future' ? 121 : 0),
+    };
+    refunds.mockResolvedValue(
+      snapshot(kind === 'duplicate' ? [candidate, { ...candidate, id: 're_second' }] : [candidate]),
+    );
+    await expect(operations.recover(staff, reference.rideId, op.id)).rejects.toMatchObject({
+      code: 'REFUND_REVIEW_REQUIRED',
+    });
+    expect((await row(op.id)).provider_refund_id).toBeNull();
+    expect(refund).toHaveBeenCalledTimes(1);
+  },
+);

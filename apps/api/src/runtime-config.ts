@@ -164,6 +164,16 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
       throw new ConfigurationError(['payments.refundOperationsEnabled']);
     return env.PAYMENT_REFUND_OPERATIONS_ENABLED === 'true';
   });
+  const refundAccountingEnabled = capture(() => {
+    if (
+      env.PAYMENT_REFUND_ACCOUNTING_ENABLED !== undefined &&
+      !['true', 'false'].includes(env.PAYMENT_REFUND_ACCOUNTING_ENABLED)
+    )
+      throw new ConfigurationError(['payments.refundAccountingEnabled']);
+    if (env.PAYMENT_REFUND_ACCOUNTING_ENABLED === 'true' && !refundsEnabled)
+      throw new ConfigurationError(['payments.refundAccountingEnabled']);
+    return env.PAYMENT_REFUND_ACCOUNTING_ENABLED === 'true';
+  });
   const payments = capture(() => readPaymentConfig(env));
   const connect = capture(() => readConnectConfig(env));
   const push = capture(() => readPushConfig(env));
@@ -179,6 +189,7 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
     ...push,
     payments,
     ...(refundOperationsEnabled ? { refundOperationsEnabled: true as const } : {}),
+    ...(refundAccountingEnabled ? { refundAccountingEnabled: true as const } : {}),
     ...(refundsEnabled ? { refundsEnabled: true as const } : {}),
     ...(documentScanning ? { documentScanning } : {}),
     ...(documentStorage ? { documentStorage } : {}),

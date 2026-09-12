@@ -43,7 +43,17 @@ export interface PaymentCustomerProvider {
 }
 
 /** Current provider facts only. These observations do not authorize refunds or allocate losses. */
+export interface RefundBalanceSnapshot {
+  id: string;
+  refundId: string;
+  kind: 'refund' | 'refund_failure';
+  amountCents: number;
+  feeCents: number;
+  netCents: number;
+}
 export interface RefundSnapshot {
+  balanceTransactions?: RefundBalanceSnapshot[];
+  operationId?: string;
   id: string;
   intentId: string;
   amountCents: number;

@@ -475,3 +475,24 @@ test('real mutation-enabled runtime loads with no startup refund calls', async (
     await runtime.close();
   }
 });
+
+test('refund accounting requires tracking and can compose without startup provider requests', async () => {
+  expect(readRuntimeConfig(environment()).refundAccountingEnabled).toBeUndefined();
+  expect(() => readRuntimeConfig({ ...environment(), PAYMENT_REFUND_ACCOUNTING_ENABLED: 'true' })).toThrow(
+    'payments.refundAccountingEnabled',
+  );
+  expect(() => readRuntimeConfig({ ...environment(), PAYMENT_REFUND_ACCOUNTING_ENABLED: 'yes' })).toThrow(
+    'payments.refundAccountingEnabled',
+  );
+  const runtime = createRuntime({
+    ...environment(),
+    PAYMENT_REFUNDS_ENABLED: 'true',
+    PAYMENT_REFUND_OPERATIONS_ENABLED: 'true',
+    PAYMENT_REFUND_ACCOUNTING_ENABLED: 'true',
+  });
+  try {
+    expect((await runtime.app.request('/health/live')).status).toBe(200);
+  } finally {
+    await runtime.close();
+  }
+});

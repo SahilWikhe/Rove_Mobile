@@ -232,6 +232,13 @@
       "when": 1789239155135,
       "tag": "0032_refund_operations",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1789239155136,
+      "tag": "0033_refund_balance_accounts",
+      "breakpoints": true
     }
   ]
 }

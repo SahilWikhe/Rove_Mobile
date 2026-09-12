@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { RefundBalances, recordRefundBalances } from './refund-accounting';
 import type { Pool } from 'pg';
 import type { RefundProvider, PaymentReference } from './payment-provider';
 import type { JobHandler } from './outbox';
@@ -6,6 +7,8 @@ import { DomainError } from './errors';
 import { transaction } from './transactions';
 const Refund = z
   .object({
+    operationId: z.uuid().optional(),
+    balanceTransactions: RefundBalances.optional(),
     id: z.string().regex(/^re_[a-zA-Z0-9]{1,96}$/),
     intentId: z.string().regex(/^pi_[a-zA-Z0-9]{1,96}$/),
     amountCents: z.number().int().min(1).max(99_999_999),
@@ -25,6 +28,7 @@ export class RefundReconciler {
     private provider: RefundProvider,
     private source: string,
     private now: () => Date = () => new Date(),
+    private accountingEnabled = false,
   ) {
     if (!/^acct_[a-zA-Z0-9]{1,96}:(test|live)$/.test(source)) throw new Error('Invalid refund source.');
   }
@@ -97,7 +101,13 @@ export class RefundReconciler {
       payment.receivedCents > row.amount_cents
     )
       throw mismatch();
-    const refunds = current.data.sort((a, b) => a.id.localeCompare(b.id));
+    const refunds = current.data
+      .map(({ operationId, balanceTransactions, ...refund }) => ({
+        ...refund,
+        ...(operationId ? { operationId } : {}),
+        ...(balanceTransactions ? { balanceTransactions } : {}),
+      }))
+      .sort((a, b) => a.id.localeCompare(b.id));
     const seen = new Set<string>();
     let committed = 0;
     for (const refund of refunds) {
@@ -120,9 +130,21 @@ export class RefundReconciler {
         !next ||
         next.amountCents !== old.amountCents ||
         next.created !== old.created ||
-        next.intentId !== old.intentId
+        next.intentId !== old.intentId ||
+        (old.operationId !== undefined && next.operationId !== old.operationId)
       )
         throw mismatch();
+    }
+    // Provider financial references must never disappear or change after verification.
+    for (const old of previous) {
+      const next = refunds.find((r) => r.id === old.id)!;
+      for (const movement of old.balanceTransactions ?? []) {
+        if (
+          JSON.stringify(next.balanceTransactions?.find((b) => b.id === movement.id)) !==
+          JSON.stringify(movement)
+        )
+          throw mismatch();
+      }
     }
     const changed =
       JSON.stringify(previous) !== JSON.stringify(refunds) ||
@@ -137,6 +159,14 @@ export class RefundReconciler {
         [row.id, this.source, intentId, row.customer_binding_id, row.customer_id, row.amount_cents],
       );
       if (valid.rowCount !== 1) throw mismatch();
+      if (this.accountingEnabled)
+        await recordRefundBalances(client, {
+          source: this.source,
+          attemptId: row.id,
+          rideId: row.ride_id,
+          receivedCents: payment.receivedCents,
+          refunds,
+        });
       const updated = await client.query(
         `UPDATE payment_refund_checks SET revision=revision+1,refunds=$3,received_cents=$4,verified_at=$5 WHERE attempt_id=$1 AND revision=$2`,
         [row.id, before.revision, JSON.stringify(refunds), payment.receivedCents, verifiedAt],

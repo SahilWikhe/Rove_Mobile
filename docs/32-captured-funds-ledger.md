@@ -32,4 +32,4 @@ Remaining: owner-scoped receipts and earnings APIs/UI, refund/dispute/fee/payout
 
 ## Refund observations
 
-Refund tracking now persists verified observations separately from capture journals. It does not reverse capture journals or driver allocations. Balanced refund adjustment journals remain outstanding. See [refund tracking](66-refund-tracking.md).
+Refund tracking now persists verified observations separately from capture journals. It does not reverse capture journals or driver allocations. Verified processor refund and failure-balance journals are now implemented separately; refund loss allocation and suspense review remain outstanding. See [refund tracking](66-refund-tracking.md) and [refund balance accounting](68-refund-accounting.md).

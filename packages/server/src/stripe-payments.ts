@@ -242,7 +242,13 @@ export class StripePaymentProvider implements PaymentProvider, PaymentCustomerPr
         {
           payment_intent: reference.intentId,
           amount: amountCents,
-          metadata: { roveRideId: reference.rideId, roveAttemptId: reference.attemptId },
+          metadata: {
+            roveRideId: reference.rideId,
+            roveAttemptId: reference.attemptId,
+            ...(key.startsWith('rove-refund:') && z.uuid().safeParse(key.slice(12)).success
+              ? { roveRefundOperationId: key.slice(12) }
+              : {}),
+          },
         },
         { idempotencyKey: key },
       ),
@@ -270,6 +276,16 @@ export class StripePaymentProvider implements PaymentProvider, PaymentCustomerPr
   async refunds(raw: PaymentReference) {
     const reference = input(Reference, raw);
     const payment = await this.retrieve(reference);
+    const Balance = z.object({
+      id: z.string().regex(/^txn_[a-zA-Z0-9]{1,96}$/),
+      object: z.literal('balance_transaction'),
+      source: z.union([z.string(), z.object({ id: z.string() })]),
+      currency: z.literal('usd'),
+      type: z.enum(['refund', 'payment_refund', 'refund_failure']),
+      amount: z.number().int().min(-99_999_999).max(99_999_999),
+      fee: z.number().int().min(-99_999_999).max(99_999_999),
+      net: z.number().int().min(-199_999_998).max(199_999_998),
+    });
     const Refund = z.object({
       id: z.string().regex(/^re_[a-zA-Z0-9]{1,96}$/),
       object: z.literal('refund'),
@@ -278,6 +294,9 @@ export class StripePaymentProvider implements PaymentProvider, PaymentCustomerPr
       currency: z.literal('usd'),
       status: z.enum(['pending', 'requires_action', 'succeeded', 'failed', 'canceled']),
       created: z.number().int().min(0).max(2_147_483_647),
+      metadata: z.object({ roveRefundOperationId: z.uuid().optional() }).nullish(),
+      balance_transaction: Balance.nullish(),
+      failure_balance_transaction: Balance.nullish(),
     });
     const Page = z.object({
       object: z.literal('list'),
@@ -286,12 +305,14 @@ export class StripePaymentProvider implements PaymentProvider, PaymentCustomerPr
     });
     const refunds: RefundSnapshot[] = [];
     const seen = new Set<string>();
+    const seenBalances = new Set<string>();
     let cursor: string | undefined;
     for (let pageIndex = 0; pageIndex < 10; pageIndex++) {
       const result = await this.call(() =>
         this.stripe.refunds.list({
           payment_intent: reference.intentId,
           limit: 100,
+          expand: ['data.balance_transaction', 'data.failure_balance_transaction'],
           ...(cursor ? { starting_after: cursor } : {}),
         }),
       );
@@ -303,12 +324,43 @@ export class StripePaymentProvider implements PaymentProvider, PaymentCustomerPr
         if (intentId !== reference.intentId || seen.has(item.id) || item.amount > payment.receivedCents)
           throw mismatch();
         seen.add(item.id);
+        const balances: NonNullable<RefundSnapshot['balanceTransactions']> = [];
+        for (const [kind, balance] of [
+          ['refund', item.balance_transaction],
+          ['refund_failure', item.failure_balance_transaction],
+        ] as const) {
+          if (!balance) continue;
+          if (seenBalances.has(balance.id)) throw mismatch();
+          seenBalances.add(balance.id);
+          if (
+            (typeof balance.source === 'string' ? balance.source : balance.source.id) !== item.id ||
+            balance.amount !== (kind === 'refund' ? -item.amount : item.amount) ||
+            balance.net !== balance.amount - balance.fee ||
+            (kind === 'refund_failure'
+              ? balance.type !== 'refund_failure'
+              : !['refund', 'payment_refund'].includes(balance.type))
+          )
+            throw mismatch();
+          balances.push({
+            id: balance.id,
+            refundId: item.id,
+            kind,
+            amountCents: balance.amount,
+            feeCents: balance.fee,
+            netCents: balance.net,
+          });
+        }
+        if (item.failure_balance_transaction && !item.balance_transaction) throw mismatch();
         refunds.push({
           id: item.id,
+          balanceTransactions: balances,
           intentId,
           amountCents: item.amount,
           status: item.status,
           created: item.created,
+          ...(item.metadata?.roveRefundOperationId
+            ? { operationId: item.metadata.roveRefundOperationId }
+            : {}),
         });
       }
       const committed = refunds

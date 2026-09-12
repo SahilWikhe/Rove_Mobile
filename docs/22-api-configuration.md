@@ -44,3 +44,7 @@ Validation errors include only field names. Do not log parsed configuration, ori
 ## Refund mutation flag
 
 `PAYMENT_REFUND_OPERATIONS_ENABLED=true` requires `PAYMENT_REFUNDS_ENABLED=true`. It enables staff-authorized provider mutations and requires migration 0032. It defaults off independently of read-only refund tracking. See [setup and remaining acceptance](67-refund-operations.md).
+
+## Refund balance accounting
+
+`PAYMENT_REFUND_ACCOUNTING_ENABLED=true` requires refund tracking and migration 0033. It records verified processor refund/failure movements with fee and suspense entries and defaults off. See [refund balance accounting](68-refund-accounting.md).
