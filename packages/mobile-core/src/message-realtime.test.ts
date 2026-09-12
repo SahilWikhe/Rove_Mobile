@@ -80,3 +80,35 @@ test('reconnect uses a fresh token and ready forces catch-up; a missing handshak
   expect(sockets.length).toBeGreaterThanOrEqual(4);
   stop();
 });
+
+test('location subscriptions share the socket but only stop fallback when the server supports location events', async () => {
+  const sockets: FakeSocket[] = [];
+  const stream = new MessageRealtime(
+    'http://localhost:4085',
+    async () => 'test',
+    () => {
+      const socket = new FakeSocket();
+      sockets.push(socket);
+      return socket;
+    },
+  );
+  const location = vi.fn(),
+    connection = vi.fn(),
+    message = vi.fn();
+  const stop = stream.subscribe({ topic: 'location', changed: location, connection });
+  const stopMessages = stream.subscribe({ changed: message, connection: vi.fn() });
+  sockets[0]!.emit('message', '{"type":"ready"}');
+  expect(connection).toHaveBeenLastCalledWith(false);
+  sockets[0]!.emit('message', '{"type":"ready","capabilities":["driver-location"]}');
+  expect(connection).toHaveBeenLastCalledWith(true);
+  location.mockClear();
+  message.mockClear();
+  sockets[0]!.emit('message', '{"type":"driver.location.changed"}');
+  expect(location).toHaveBeenCalledOnce();
+  expect(message).not.toHaveBeenCalled();
+  sockets[0]!.emit('message', '{"type":"messages.changed"}');
+  expect(location).toHaveBeenCalledTimes(2);
+  expect(message).toHaveBeenCalledOnce();
+  stop();
+  stopMessages();
+});

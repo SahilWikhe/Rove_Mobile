@@ -18,7 +18,8 @@
     "./native-auth-intent": "./src/native-auth-intent.ts",
     "./document-upload": "./src/document-upload.ts",
     "./use-reduced-motion": "./src/use-reduced-motion.ts",
-    "./use-messages": "./src/use-messages.ts"
+    "./use-messages": "./src/use-messages.ts",
+    "./message-watch": "./src/message-watch.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

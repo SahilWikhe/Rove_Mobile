@@ -121,6 +121,16 @@ test('rider request reaches the driver and both apps follow a completed syntheti
   browser,
   request,
 }) => {
+  let locationEvents = 0;
+  page.on('websocket', (socket) =>
+    socket.on('framereceived', ({ payload }) => {
+      try {
+        if (JSON.parse(String(payload)).type === 'driver.location.changed') locationEvents++;
+      } catch {
+        /* Ignore protocol frames. */
+      }
+    }),
+  );
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const driver = await context.newPage();
   try {
@@ -175,40 +185,6 @@ test('rider request reaches the driver and both apps follow a completed syntheti
     await expect(page.getByText('YOUR DRIVER', { exact: true })).toBeVisible();
     await expect(page.getByText('Plate: DEMO', { exact: true })).toBeVisible();
     await expect(page.getByText(/Driver location last reported at/)).toBeVisible();
-    // Stop the browser's fixed synthetic GPS from overwriting the moving samples below.
-    await driver.route('**/v1/drivers/me/heartbeat', (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ accepted: true }),
-      }),
-    );
-    async function verifyMovingLocation(latitude: number, longitude: number) {
-      const headers = { Authorization: 'Bearer synthetic-driver' };
-      const profileResponse = await request.get('http://localhost:4085/v1/drivers/me', { headers });
-      const profile = await profileResponse.json();
-      const sample = {
-        coordinate: { latitude, longitude },
-        sampledAt: new Date().toISOString(),
-        accuracyMeters: 5,
-        sequence: profile.locationSequence + 1,
-      };
-      const uploaded = await request.post('http://localhost:4085/v1/drivers/me/heartbeat', {
-        headers,
-        data: sample,
-      });
-      expect(uploaded.ok()).toBe(true);
-      const update = page.waitForResponse(
-        async (response) =>
-          response.url() === locationUrl &&
-          response.ok() &&
-          (await response.json()).location?.coordinate.latitude === latitude,
-      );
-      await page.bringToFront();
-      await update;
-      await expect(page.getByText(/Driver location last reported at/)).toBeVisible();
-    }
-
     // A location read failure must remove the previously visible report.
     await page.route(locationUrl, (route) => route.abort('failed'));
     await expect(
@@ -218,6 +194,39 @@ test('rider request reaches the driver and both apps follow a completed syntheti
     ).toBeVisible();
     await expect(page.getByText(/Driver location last reported at/)).toHaveCount(0);
     await page.unroute(locationUrl);
+    // Use explicit moving GPS samples instead of the browser's fixed synthetic heartbeat.
+    await driver.route('**/v1/drivers/me/heartbeat', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ accepted: true }),
+      }),
+    );
+    async function verifyMovingLocation(latitude: number, longitude: number) {
+      await page.bringToFront();
+      const headers = { Authorization: 'Bearer synthetic-driver' };
+      const profile = await (await request.get('http://localhost:4085/v1/drivers/me', { headers })).json();
+      const update = page.waitForResponse(
+        async (response) =>
+          response.url() === locationUrl &&
+          response.ok() &&
+          (await response.json()).location?.coordinate.latitude === latitude,
+      );
+      const priorEvents = locationEvents;
+      const uploaded = await request.post('http://localhost:4085/v1/drivers/me/heartbeat', {
+        headers,
+        data: {
+          coordinate: { latitude, longitude },
+          sampledAt: new Date().toISOString(),
+          accuracyMeters: 5,
+          sequence: profile.locationSequence + 1,
+        },
+      });
+      expect(uploaded.ok()).toBe(true);
+      await expect.poll(() => locationEvents, { timeout: 3000 }).toBeGreaterThan(priorEvents);
+      await update;
+      await expect(page.getByText(/Driver location last reported at/)).toBeVisible();
+    }
     await driver.bringToFront();
     await driver.evaluate(() => {
       window.open = (url) => {

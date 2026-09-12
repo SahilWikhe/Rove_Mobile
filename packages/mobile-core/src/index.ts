@@ -71,6 +71,10 @@ export class ApiClient {
     this.messageRealtime ??= new MessageRealtime(this.baseUrl, this.token);
     return this.messageRealtime.subscribe({ changed, connection });
   }
+  subscribeDriverLocation(changed: () => void, connection: (connected: boolean) => void) {
+    this.messageRealtime ??= new MessageRealtime(this.baseUrl, this.token);
+    return this.messageRealtime.subscribe({ topic: 'location', changed, connection });
+  }
   unreadMessages(signal?: AbortSignal) {
     return this.request(
       '/v1/conversations-unread',

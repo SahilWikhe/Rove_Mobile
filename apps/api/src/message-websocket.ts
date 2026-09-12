@@ -46,13 +46,13 @@ export function attachMessageWebSocket(
       alive = true,
       closed = false;
     let token = '';
-    const send = (type: 'ready' | 'messages.changed') => {
+    const send = (type: 'ready' | 'messages.changed' | 'driver.location.changed') => {
       if (ws.readyState !== WebSocket.OPEN) return;
       if (ws.bufferedAmount > 32768) {
         ws.close(1013, 'Reconnect');
         return;
       }
-      ws.send(JSON.stringify({ type }));
+      ws.send(JSON.stringify(type === 'ready' ? { type, capabilities: ['driver-location'] } : { type }));
     };
     const authTimeout = setTimeout(() => ws.close(4401, 'Sign in required'), 10000);
     const lifetime = setTimeout(() => ws.close(1000, 'Reconnect'), options.lifetimeMs ?? 100000);
@@ -120,7 +120,7 @@ export function attachMessageWebSocket(
         token = input.token;
         counts.set(actor.id, (counts.get(actor.id) ?? 0) + 1);
         const stop = await options.events.subscribe(actor.id, {
-          changed: () => send('messages.changed'),
+          changed: (type) => send(type),
           disconnected: () => ws.close(1013, 'Reconnect'),
         });
         if (closed) {

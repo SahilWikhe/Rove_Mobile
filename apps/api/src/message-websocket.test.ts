@@ -46,7 +46,7 @@ async function connect(url: string, actor: Actor) {
   ws.on('message', (data) => messages.push(data.toString()));
   await once(ws, 'open');
   ws.send(JSON.stringify({ type: 'authenticate', token: actor.id }));
-  await expect.poll(() => messages).toContain('{"type":"ready"}');
+  await expect.poll(() => messages).toContain('{"type":"ready","capabilities":["driver-location"]}');
   return { ws, messages };
 }
 async function fixture() {
@@ -102,7 +102,7 @@ test('separate WebSocket instances deliver committed messages only to participan
     const sent = await service.send(f.rider, f.offer, request);
     await expect.poll(() => driver.messages.length).toBe(2);
     await expect.poll(() => rider.messages.length).toBe(2);
-    expect(outsider.messages).toEqual(['{"type":"ready"}']);
+    expect(outsider.messages).toEqual(['{"type":"ready","capabilities":["driver-location"]}']);
     expect(driver.messages[1]).toBe('{"type":"messages.changed"}');
     expect((await service.thread(f.driver, f.offer)).messages[0]).toMatchObject({
       text: request.text,
@@ -184,5 +184,55 @@ test('missing notification triggers cannot produce a healthy ready connection', 
   } finally {
     await db.pool.query('ALTER TABLE trip_message_reads ENABLE TRIGGER message_read_notify');
     await server.close();
+  }
+});
+
+test('committed driver movement pushes only to its assigned rider, without coordinates, and stops after completion', async () => {
+  const f = await fixture(),
+    a = await host(),
+    b = await host();
+  try {
+    const rider = await connect(a.url, f.rider),
+      outsider = await connect(b.url, f.outsider),
+      driver = await connect(b.url, f.driver);
+    const pending = await db.pool.connect();
+    try {
+      await pending.query('BEGIN');
+      await pending.query('UPDATE drivers SET location=$2,location_sampled_at=now() WHERE id=$1', [
+        f.driver.id,
+        { latitude: 35.8, longitude: -78.6 },
+      ]);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(rider.messages).toHaveLength(1);
+      await pending.query('ROLLBACK');
+    } finally {
+      pending.release();
+    }
+    for (const state of ['en_route', 'in_progress']) {
+      await db.pool.query('UPDATE rides SET state=$2 WHERE id=$1', [f.ride, state]);
+      const before = rider.messages.filter((x) => JSON.parse(x).type === 'driver.location.changed').length;
+      await db.pool.query(
+        'UPDATE drivers SET location=$2,location_sampled_at=clock_timestamp() WHERE id=$1',
+        [f.driver.id, { latitude: state === 'en_route' ? 35.81 : 35.82, longitude: -78.6 }],
+      );
+      await expect
+        .poll(() => rider.messages.filter((x) => JSON.parse(x).type === 'driver.location.changed').length)
+        .toBe(before + 1);
+    }
+    expect(outsider.messages).toHaveLength(1);
+    expect(driver.messages.filter((x) => JSON.parse(x).type === 'driver.location.changed')).toHaveLength(0);
+    expect(rider.messages.filter((x) => JSON.parse(x).type === 'driver.location.changed')).toEqual([
+      '{"type":"driver.location.changed"}',
+      '{"type":"driver.location.changed"}',
+    ]);
+    await db.pool.query("UPDATE rides SET state='completed' WHERE id=$1", [f.ride]);
+    await db.pool.query('UPDATE drivers SET location_sampled_at=clock_timestamp() WHERE id=$1', [
+      f.driver.id,
+    ]);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(rider.messages.filter((x) => JSON.parse(x).type === 'driver.location.changed')).toHaveLength(2);
+  } finally {
+    await a.close();
+    await b.close();
   }
 });

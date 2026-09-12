@@ -4,7 +4,7 @@ import { AppState } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import type { RideDetails, RideDriverLocation } from '@rove/contracts';
 import { useSession } from '@rove/mobile-core/session';
-import { pollWhileForeground } from '@rove/mobile-core/foreground-polling';
+import { watchMessagesWhileForeground } from '@rove/mobile-core/message-watch';
 import { Banner } from '@rove/mobile-ui';
 import { TripMap } from '@rove/mobile-ui/trip-map';
 
@@ -21,24 +21,27 @@ export function RiderTripMap({ ride }: { ride: RideDetails }) {
         clearTimeout(expiry);
         setLocation(null);
       };
-      const stop = pollWhileForeground({
-        load: async (signal) => {
-          const started = performance.now();
-          const result = await api.driverLocation(ride.id, signal);
-          return { result, duration: performance.now() - started };
+      const stop = watchMessagesWhileForeground(
+        { subscribeMessages: api.subscribeDriverLocation.bind(api) },
+        {
+          load: async (signal) => {
+            const started = performance.now();
+            const result = await api.driverLocation(ride.id, signal);
+            return { result, duration: performance.now() - started };
+          },
+          onData: ({ result, duration }) => {
+            clear();
+            const sample = result.location;
+            const remaining = sample ? remainingLocationMs(sample.validForMs, duration) : 0;
+            if (sample && result.rideId === ride.id && remaining > 0 && AppState.currentState === 'active') {
+              setLocation(sample);
+              expiry = setTimeout(clear, remaining);
+            }
+          },
+          onError: clear,
+          intervalMs: 5000,
         },
-        onData: ({ result, duration }) => {
-          clear();
-          const sample = result.location;
-          const remaining = sample ? remainingLocationMs(sample.validForMs, duration) : 0;
-          if (sample && result.rideId === ride.id && remaining > 0 && AppState.currentState === 'active') {
-            setLocation(sample);
-            expiry = setTimeout(clear, remaining);
-          }
-        },
-        onError: clear,
-        intervalMs: 5000,
-      });
+      );
       const subscription = AppState.addEventListener('change', (state) => {
         if (state !== 'active') clear();
       });

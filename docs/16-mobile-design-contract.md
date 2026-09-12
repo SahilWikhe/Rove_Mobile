@@ -345,3 +345,18 @@ publication. The earlier separate staging database was not changed.
 Matching tests verify miles conversion, persisted narrowing/widening, validation, replay and
 concurrent changes. The full repository tests passed. The browser settings flow verifies a
 lost-save response and reuse of the same operation key; iOS and Android previews were checked.
+
+Rider location refresh is now driven by the shared authenticated WebSocket. Each committed
+GPS update invalidates only the assigned rider's location view; the app immediately fetches
+the latest coordinates through the authorized location endpoint. Location notifications carry
+no coordinates or ride identifiers and do not refresh unrelated message lists. Ride/assignment
+notifications also invalidate location access. A healthy location-capable connection disables
+periodic polling; older servers or disconnected transports retain the five-second fallback.
+Foreground reconnect catches up and local expiry still removes stale markers independently.
+Driver GPS sampling and OS delivery remain separate from WebSocket transport timing.
+
+Migration 0030 adds the targeted post-commit driver-location notification trigger. Socket
+readiness checks both message and location trigger installation and advertises the location
+capability. Tests passed for committed-only cross-instance delivery, participant isolation,
+trip-end revocation, client fallback, the moving-location trip flow, messaging and the full
+repository suite. Physical-device locked-screen GPS testing remains a release requirement.

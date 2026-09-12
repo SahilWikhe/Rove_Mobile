@@ -1,4 +1,8 @@
-type Listener = { changed: () => void; connection: (connected: boolean) => void };
+type Listener = {
+  topic?: 'messages' | 'location';
+  changed: () => void;
+  connection: (connected: boolean) => void;
+};
 type Socket = Pick<WebSocket, 'send' | 'close' | 'onopen' | 'onmessage' | 'onclose' | 'onerror'>;
 /** A shared account connection. Only invalidations travel over the socket, never message bodies. */
 export class MessageRealtime {
@@ -7,6 +11,7 @@ export class MessageRealtime {
   private timer?: ReturnType<typeof setTimeout>;
   private handshake?: ReturnType<typeof setTimeout>;
   private ready = false;
+  private locationReady = false;
   private retry = 1000;
   private generation = 0;
   constructor(
@@ -16,7 +21,7 @@ export class MessageRealtime {
   ) {}
   subscribe(listener: Listener) {
     this.listeners.add(listener);
-    listener.connection(this.ready);
+    listener.connection(listener.topic === 'location' ? this.ready && this.locationReady : this.ready);
     if (this.listeners.size === 1) this.connect();
     let removed = false;
     return () => {
@@ -28,7 +33,8 @@ export class MessageRealtime {
   }
   private connected(value: boolean) {
     this.ready = value;
-    for (const listener of this.listeners) listener.connection(value);
+    for (const listener of this.listeners)
+      listener.connection(value && (listener.topic !== 'location' || this.locationReady));
   }
   private connect() {
     if (!this.listeners.size) return;
@@ -78,11 +84,16 @@ export class MessageRealtime {
         if (value.type === 'ready') {
           clearTimeout(this.handshake);
           this.retry = 1000;
+          this.locationReady =
+            Array.isArray(value.capabilities) && value.capabilities.includes('driver-location');
           this.connected(true);
           // Every new connection catches up from durable storage, including first connect.
           for (const listener of this.listeners) listener.changed();
-        } else if (value.type === 'messages.changed' && this.ready) {
-          for (const listener of this.listeners) listener.changed();
+        } else if (this.ready && ['messages.changed', 'driver.location.changed'].includes(value.type)) {
+          for (const listener of this.listeners) {
+            // Ride/assignment changes invalidate locations too, including revocation.
+            if (value.type === 'messages.changed' || listener.topic === 'location') listener.changed();
+          }
         }
       } catch {
         /* Ignore malformed non-authoritative notifications. */
@@ -98,6 +109,7 @@ export class MessageRealtime {
     const socket = this.socket;
     this.socket = undefined;
     this.ready = false;
+    this.locationReady = false;
     this.retry = 1000;
     socket?.close();
   }
