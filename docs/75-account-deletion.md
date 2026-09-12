@@ -52,3 +52,13 @@ Before activation, verify tenant isolation and deletion with dedicated synthetic
 ## Sources
 
 Auth0 documents [user deletion](https://auth0.com/docs/api/management/v2/users/delete-users-by-id), [direct user reads](https://auth0.com/docs/api/management/v2/users/get-users-by-id) and [Management API permissions](https://auth0.com/docs/manage-users/user-accounts/manage-users-using-the-management-api). These establish the provider API, not Rove's retention policy.
+
+## Document-version erasure provider
+
+`S3DocumentErasure` removes one authorized inbox or quarantine object version and verifies that exact version is absent. The reference includes the document ID, matching inbox/quarantine key and a non-null version ID; the bucket, region and expected AWS account come from validated server configuration. It checks bucket versioning and matching version metadata, sends a version-specific delete, then independently checks absence. Already absent versions recover interrupted/lost-response operations without another delete. Permission failures, malformed receipts, delete markers, remaining versions and unverified responses stay failures with sanitized errors. It never bypasses S3 Object Lock or governance retention.
+
+This adapter is not yet wired into a cleanup worker or exposed through an API. No storage permissions, real objects or environment flags have changed. The caller must first persist an approved cleanup manifest, check the account's retention holds and record dispatch evidence. A single absent version does not prove all account documents are erased: the manifest must include every eligible quarantine/inbox version and orphaned upload, as well as replicas and backup obligations. Ongoing upload/scanning access must be fenced before final inventory and erasure.
+
+Final setup needs a dedicated cleanup role with narrowly scoped `s3:GetBucketVersioning`, `s3:GetObjectVersion`, `s3:DeleteObjectVersion`, and bucket-list permission sufficient for S3 to report absent objects accurately. Existing upload/download/scanner roles should not gain deletion permissions. Exact-version removal is irreversible and must remain behind the approved workflow and policy. Hosted synthetic acceptance remains required, including retained/locked versions, denied permissions and retry recovery.
+
+AWS describes [version-specific deletion](https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObject.html) and [HEAD metadata/error behavior](https://docs.aws.amazon.com/AmazonS3/latest/API/API_HeadObject.html). Local synthetic provider tests establish adapter behavior only.

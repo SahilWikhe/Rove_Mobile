@@ -1,6 +1,14 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `5f174a171ce2980708e890a914c887b7eb02873c` plus the retention safeguards checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `bd03b8a1df6bfbe4a6a70809b17f00715a3afea2` plus the document erasure provider checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Exact-version document erasure provider — September 12
+
+Implemented a server-only S3 erasure adapter for bound document inbox/quarantine versions. It validates document/key/version scope, configured bucket ownership, enabled versioning and exact-version metadata, deletes only that version and independently verifies absence. Lost-response retries recover without duplicating removal. Permission errors, missing buckets, malformed responses, delete markers, protected versions and objects that remain present cannot become success. Provider errors are sanitized; Object Lock/governance bypass is never requested.
+
+All eleven local application test tasks passed. The final focused suite passed 22 tests after extending coverage to inbox versions; final server types and changed-source lint passed. Workspace/E2E types and packaged API build/authentication verification passed at the integrated checkpoint. Documentation, formatting and boundaries checks passed. Synthetic operation tests establish provider behavior, not live S3 acceptance or completed account erasure.
+
+No runtime erasure route/worker, deletion credential, cloud permission, hosted migration or real object deletion was activated. Next is the approved cleanup manifest and worker: inventory all eligible versions/orphans, fence ongoing upload/access, persist dispatch/proof, and check holds before each destructive dispatch. Retained application data, policy classes and backup replay remain part of that work; full erasure is not complete. Remaining Figma/native/provider acceptance and production setup follow. Owner policy and paid setup decisions remain at final handoff. See [document erasure provider and setup](75-account-deletion.md#document-version-erasure-provider).
 
 ## Retention holds and durable identity dispatch — September 12
 
