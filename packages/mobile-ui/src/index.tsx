@@ -18,13 +18,16 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 // Figma rider Home 2:12 and driver waiting 1:62. See docs/16-mobile-design-contract.md.
 export const theme = {
   background: '#000000',
-  surface: '#0F0F0F',
-  raised: '#0A0A0A',
+  surface: 'rgba(15,15,15,0.9)',
+  raised: 'rgba(10,10,10,0.94)',
   gold: '#D6B26D',
   text: '#F4F0E8',
-  muted: '#8B8B8B',
+  muted: '#A0A0A0',
   border: 'rgba(255,255,255,0.12)',
   danger: '#FFB3AD',
+  glassGold: 'rgba(214,178,109,0.82)',
+  glassGoldBorder: 'rgba(255,225,164,0.65)',
+  glassHighlight: 'rgba(255,255,255,0.2)',
 };
 export function Screen({
   children,
@@ -147,11 +150,13 @@ export function Button({
       style={({ pressed }) => [
         styles.button,
         variant !== 'gold' && styles.secondary,
+        variant === 'danger' && styles.dangerButton,
         style,
         (disabled || loading) && { opacity: 0.5 },
         pressed && { opacity: 0.8 },
       ]}
     >
+      <View pointerEvents="none" accessible={false} style={styles.glassRim} />
       {loading ? (
         <ActivityIndicator color={variant === 'gold' ? theme.background : theme.gold} />
       ) : (
@@ -243,10 +248,17 @@ const styles = StyleSheet.create({
     backgroundColor: theme.surface,
     borderWidth: 1,
     borderColor: theme.border,
+    borderTopColor: theme.glassHighlight,
     gap: 14,
   },
   button: {
-    backgroundColor: theme.gold,
+    backgroundColor: theme.glassGold,
+    borderWidth: 1,
+    borderColor: theme.glassGoldBorder,
+    shadowColor: '#000000',
+    shadowOpacity: 0.22,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
     minHeight: 56,
     borderRadius: 18,
     paddingHorizontal: 22,
@@ -254,7 +266,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  secondary: { backgroundColor: 'transparent', borderWidth: 1, borderColor: theme.border },
+  secondary: { backgroundColor: theme.surface, borderColor: theme.glassHighlight },
+  dangerButton: { backgroundColor: 'rgba(62,22,24,0.92)', borderColor: 'rgba(255,179,173,0.45)' },
+  glassRim: {
+    position: 'absolute',
+    top: 0,
+    left: 16,
+    right: 16,
+    height: 1,
+    backgroundColor: theme.glassHighlight,
+  },
   buttonText: { fontFamily: 'Manrope_700Bold', fontSize: 16, color: theme.background },
   field: { gap: 8 },
   input: {
