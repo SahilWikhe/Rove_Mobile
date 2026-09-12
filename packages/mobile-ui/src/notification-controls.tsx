@@ -7,6 +7,8 @@ export function NotificationControls({
     enabled: boolean;
     busy: boolean;
     error: string | null;
+    repairable?: boolean;
+    repair?(): Promise<void>;
     enable(): Promise<void>;
     disable(): Promise<void>;
   };
@@ -26,9 +28,21 @@ export function NotificationControls({
         <Button
           variant="secondary"
           loading={settings.busy}
-          title={settings.enabled ? 'Turn off notifications' : 'Enable notifications'}
+          title={
+            settings.repairable
+              ? 'Repair and enable notifications'
+              : settings.enabled
+                ? 'Turn off notifications'
+                : 'Enable notifications'
+          }
           onPress={() =>
-            void (settings.enabled ? settings.disable() : settings.enable()).catch(() => undefined)
+            void (
+              settings.repairable && settings.repair
+                ? settings.repair()
+                : settings.enabled
+                  ? settings.disable()
+                  : settings.enable()
+            ).catch(() => undefined)
           }
         />
       )}

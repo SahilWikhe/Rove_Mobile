@@ -14,12 +14,37 @@ const State = PushInstallationProof.extend({
   revision: z.number().int().positive().nullable(),
   pending: Pending.nullable(),
   wanted: z.boolean().default(false),
-}).strict();
+})
+  .strict()
+  .refine(
+    (state) =>
+      !state.pending ||
+      (state.pending.input.installationId === state.installationId &&
+        state.pending.input.secret === state.secret),
+    'Pending notification operation must belong to this installation',
+  );
 type State = z.infer<typeof State>;
 type Api = Pick<ApiClient, 'pushInstallationStatus' | 'registerPushInstallation' | 'removePushInstallation'>;
 export interface PushStorage {
   read(): Promise<string | null>;
   write(value: string): Promise<void>;
+}
+
+export class PushStorageError extends Error {
+  constructor(readonly repairable: boolean) {
+    super(
+      repairable
+        ? 'Notification storage needs recovery. Repair settings to enable notifications again.'
+        : 'Notification storage needs recovery. This device’s saved registration proof is unavailable. Contact support to clear the old registration.',
+    );
+  }
+}
+function savedProof(decoded: unknown) {
+  return PushInstallationProof.safeParse(
+    decoded && typeof decoded === 'object'
+      ? { installationId: Reflect.get(decoded, 'installationId'), secret: Reflect.get(decoded, 'secret') }
+      : null,
+  );
 }
 
 /** One journal per API/app project, shared across accounts. Persist before every remote mutation. */
@@ -42,11 +67,10 @@ export class PushRegistration {
       try {
         decoded = JSON.parse(value);
       } catch {
-        throw new Error('Notification storage needs recovery. Your saved installation was not replaced.');
+        throw new PushStorageError(false);
       }
       const parsed = State.safeParse(decoded);
-      if (!parsed.success)
-        throw new Error('Notification storage needs recovery. Your saved installation was not replaced.');
+      if (!parsed.success) throw new PushStorageError(savedProof(decoded).success);
       return parsed.data;
     }
     if (!create) return null;
@@ -106,6 +130,31 @@ export class PushRegistration {
     const next = { ...state, revision: result.revision, pending: null };
     await this.save(next);
     return next;
+  }
+  /** Explicit repair only: retain the installation proof and verify it before replacing damaged metadata. */
+  repair(api: Api, current: () => boolean) {
+    return this.serial(async () => {
+      this.check(current);
+      const raw = await this.storage.read();
+      this.check(current);
+      if (raw === null) return;
+      let decoded: unknown;
+      try {
+        decoded = JSON.parse(raw);
+      } catch {
+        throw new PushStorageError(false);
+      }
+      if (State.safeParse(decoded).success) return;
+      const proof = savedProof(decoded);
+      if (!proof.success) throw new PushStorageError(false);
+      const status = PushInstallationStatus.parse(await api.pushInstallationStatus(proof.data));
+      this.check(current);
+      if (status.installationId !== proof.data.installationId)
+        throw new Error('Notification registration could not be verified.');
+      // Never replay an untrusted pending payload or assume notifications were turned off remotely.
+      // Explicit enable will read the server revision again and perform the normal fenced registration.
+      await this.save({ ...proof.data, revision: status.revision, pending: null, wanted: false });
+    });
   }
   wantsEnabled() {
     return this.serial(async () => (await this.load(false))?.wanted ?? false);

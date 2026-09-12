@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 import { z } from 'zod';
 import type { ApiClient } from './index';
+import { PushStorageError } from './push-registration';
 import { pushRegistration } from './push-store';
 
 export function usePushNotifications(options: {
@@ -26,9 +27,11 @@ export function usePushNotifications(options: {
     enabled: boolean;
     busy: boolean;
     error: string | null;
-  }>({ epoch: sessionEpoch, enabled: false, busy: false, error: null });
+    repairable: boolean;
+  }>({ epoch: sessionEpoch, enabled: false, busy: false, error: null, repairable: false });
   const enabled = state.epoch === sessionEpoch && state.enabled;
   const busy = state.epoch === sessionEpoch && state.busy;
+  const repairable = state.epoch === sessionEpoch && state.repairable;
   const error = state.epoch === sessionEpoch ? state.error : null;
   useEffect(() => {
     alive.current = true;
@@ -38,11 +41,11 @@ export function usePushNotifications(options: {
   }, []);
   const current = useCallback(() => alive.current && isCurrent(sessionEpoch), [isCurrent, sessionEpoch]);
   const run = useCallback(
-    async (mode: 'enable' | 'refresh' | 'disable') => {
+    async (mode: 'enable' | 'refresh' | 'disable' | 'repair') => {
       if (!journal || !accountId) return;
       if (running.current) throw new Error('Notification settings are updating. Please retry shortly.');
       running.current = true;
-      setState({ epoch: sessionEpoch, enabled: false, busy: true, error: null });
+      setState({ epoch: sessionEpoch, enabled: false, busy: true, error: null, repairable: false });
       try {
         const store = await journal;
         if (!current()) return;
@@ -51,7 +54,12 @@ export function usePushNotifications(options: {
           if (current()) setState((value) => ({ ...value, epoch: sessionEpoch, enabled: false }));
           return;
         }
-        const wanted = mode === 'enable' || (await store.wantsEnabled());
+        if (mode === 'repair') {
+          await store.repair(api, current);
+          if (!current()) return;
+        }
+        const explicit = mode === 'enable' || mode === 'repair';
+        const wanted = explicit || (await store.wantsEnabled());
         if (!current()) return;
         if (!wanted) {
           await store.disable(accountId, api, current);
@@ -67,7 +75,7 @@ export function usePushNotifications(options: {
           });
         let permission = await notifications.getPermissionsAsync();
         if (!current()) return;
-        if (!permission.granted && mode === 'enable' && permission.canAskAgain)
+        if (!permission.granted && explicit && permission.canAskAgain)
           permission = await notifications.requestPermissionsAsync();
         if (!current()) return;
         const allowed =
@@ -75,7 +83,7 @@ export function usePushNotifications(options: {
         if (!allowed) {
           await store.disable(accountId, api, current);
           if (current()) setState((value) => ({ ...value, epoch: sessionEpoch, enabled: false }));
-          if (mode === 'enable')
+          if (explicit)
             throw new Error(
               'Notifications are off in device settings. Enable them there to receive trip updates.',
             );
@@ -89,7 +97,7 @@ export function usePushNotifications(options: {
           Platform.OS === 'ios' ? 'ios' : 'android',
           api,
           current,
-          mode === 'enable',
+          explicit,
         );
         if (current()) setState((value) => ({ ...value, epoch: sessionEpoch, enabled: registered }));
       } catch (failure) {
@@ -98,7 +106,11 @@ export function usePushNotifications(options: {
           setState((value) => ({
             ...value,
             epoch: sessionEpoch,
-            error: 'Notification settings could not be confirmed. Retry or check device permissions.',
+            repairable: failure instanceof PushStorageError && failure.repairable,
+            error:
+              failure instanceof PushStorageError
+                ? failure.message
+                : 'Notification settings could not be confirmed. Retry or check device permissions.',
           }));
         }
         throw failure;
@@ -141,6 +153,8 @@ export function usePushNotifications(options: {
   }, [journal, accountId, run]);
   return {
     available,
+    repairable,
+    repair: () => run('repair'),
     enabled: !!accountId && enabled,
     busy,
     error,

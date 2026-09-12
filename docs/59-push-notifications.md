@@ -127,8 +127,16 @@ Fourteen real-PostgreSQL orchestration tests cover fan-out deduplication, existi
 ## Remaining integration
 
 1. Verify real native registration, permission/token/logout behavior and delivery/taps on iOS and Android with isolated sandbox credentials.
-2. Add local corrupted-storage recovery, token/delivery retention cleanup and operational failure/dead-letter views. The internal dashboard remains in its separate repository.
+2. Complete lost-installation-proof support recovery, token/delivery retention cleanup and operational failure/dead-letter views. The internal dashboard remains in its separate repository.
 3. Exercise staging queue latency/load, particularly twenty-second driver offers, and alert on failures and expired/unconfirmed receipts. Polling remains necessary; push does not guarantee dispatch timing.
 4. Verify revoked-token behavior and native cold-start consumption with real provider receipts before enabling production delivery.
 
 These remain necessary for the full product. No production push service was enabled by this change.
+
+## Damaged local settings recovery
+
+Both apps expose **Repair and enable notifications** when the saved installation ID and secret are intact but registration metadata is damaged. Repair verifies that proof with the authenticated backend before replacing metadata. It preserves the installation identity, discards untrusted pending payloads, and performs the normal explicit registration using a freshly read server revision and current native token. A healthy pending operation is never discarded by repair. No registration or account takeover can be authorized by a local reset alone.
+
+An account change, failed proof verification, wrong-installation response, or failed secure-storage write leaves the damaged record intact. The user can retry. Pending operations with an installation ID or secret different from the outer journal are treated as corruption and cannot be replayed. Repair does not claim that an existing server registration was disabled.
+
+When the installation secret or the entire JSON record is unreadable, automatic repair remains unavailable. The UI explains that support must clear the old registration; it never silently creates a new identity or takes over another account's push token. Existing account-authorized notification-device revocation remains the support/user cleanup mechanism. Physical-device push setup and delivery verification are still required.
