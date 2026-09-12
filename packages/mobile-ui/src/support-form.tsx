@@ -23,7 +23,10 @@ export function SupportForm({
   initialDraft,
 }: {
   list: () => Promise<{ requests: Request[] }>;
-  submit: (input: { category: Category; message: string }, key: string) => Promise<Request>;
+  submit: (
+    input: { category: Category; message: string; deletionConsent?: 'account-deletion-v1' },
+    key: string,
+  ) => Promise<Request>;
   newKey: () => string;
   accountDeletion?: boolean;
   initialDraft?: { category: Category; message: string };
@@ -86,7 +89,11 @@ export function SupportForm({
         if (!attempt.current || attempt.current.message !== text || attempt.current.category !== category)
           attempt.current = { category, message: text, key: newKey() };
         const result = await submit(
-          { category: attempt.current.category, message: attempt.current.message },
+          {
+            category: attempt.current.category,
+            message: attempt.current.message,
+            ...(accountDeletion ? { deletionConsent: 'account-deletion-v1' as const } : {}),
+          },
           attempt.current.key,
         );
         if (!mounted.current) return;

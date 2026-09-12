@@ -45,6 +45,12 @@ export class SupportService {
   }
   async create(actor: Actor, raw: unknown, key: string) {
     const input = SupportRequestInput.parse(raw);
+    if (input.deletionConsent && input.category !== 'account')
+      throw new DomainError(
+        'INVALID_DELETION_REQUEST',
+        'Account deletion requires the account category.',
+        400,
+      );
     // Disabled accounts cannot use command replay to retrieve stored private messages.
     await transaction(this.pool, (client) => owner(client, actor));
     return command(this.pool, actor.id, key, { action: 'support.create', ...input }, async (client) => {
@@ -53,7 +59,10 @@ export class SupportService {
         "SELECT id,category,message,status,created_at,response,resolved_at FROM support_requests WHERE owner_id=$1 AND category=$2 AND message=$3 AND status='open' LIMIT 1",
         [actor.id, input.category, input.message],
       );
-      if (existing.rows[0]) return dto(existing.rows[0]);
+      if (existing.rows[0]) {
+        if (input.deletionConsent) await recordDeletionConsent(client, actor, existing.rows[0].id);
+        return dto(existing.rows[0]);
+      }
       const count = await client.query(
         "SELECT count(*)::int AS count FROM support_requests WHERE owner_id=$1 AND status='open'",
         [actor.id],
@@ -69,6 +78,7 @@ export class SupportService {
         [actor.id, input.category, input.message],
       );
       const request = dto(result.rows[0]);
+      if (input.deletionConsent) await recordDeletionConsent(client, actor, request.id);
       await client.query(
         "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'support.created',$2,$3)",
         [actor.id, request.id, JSON.stringify({ category: input.category })],
@@ -160,4 +170,18 @@ export class SupportService {
       return dto(result.rows[0]);
     });
   }
+}
+
+async function recordDeletionConsent(client: PoolClient, actor: Actor, supportRequestId: string) {
+  // owner() serializes all submissions. Consent and its audit commit with the ticket.
+  const inserted = await client.query<{ id: string }>(
+    `INSERT INTO account_deletion_requests(owner_id,support_request_id,consent_version)
+     VALUES($1,$2,'account-deletion-v1') ON CONFLICT(owner_id) DO NOTHING RETURNING id`,
+    [actor.id, supportRequestId],
+  );
+  if (inserted.rows[0])
+    await client.query(
+      "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'account_deletion.requested',$2,$3)",
+      [actor.id, inserted.rows[0].id, JSON.stringify({ consentVersion: 'account-deletion-v1' })],
+    );
 }

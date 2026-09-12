@@ -434,6 +434,7 @@ export const SupportCategory = z.enum(['account', 'vehicle', 'trip', 'payment', 
 export const SupportRequestInput = z
   .object({
     category: SupportCategory,
+    deletionConsent: z.literal('account-deletion-v1').optional(),
     message: z
       .string()
       .trim()
@@ -843,3 +844,14 @@ export const BankPayoutHistory = z
   );
 export type BankPayoutHistory = z.infer<typeof BankPayoutHistory>;
 export type BankPayout = z.infer<typeof BankPayout>;
+
+export const AccountDeletionRequest = z
+  .object({
+    id: z.uuid(),
+    supportRequestId: z.uuid(),
+    consentVersion: z.literal('account-deletion-v1'),
+    state: z.literal('requested'),
+    createdAt: z.iso.datetime(),
+  })
+  .strict();
+export const AccountDeletionStatus = z.object({ request: AccountDeletionRequest.nullable() }).strict();

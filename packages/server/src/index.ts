@@ -85,3 +85,5 @@ export { CaptureFees } from './capture-fees';
 
 export { BankPayouts, type BankPayoutProvider } from './bank-payouts';
 export { StripeBankPayouts } from './stripe-bank-payouts';
+
+export { AccountDeletions } from './account-deletions';

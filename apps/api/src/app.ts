@@ -1,3 +1,4 @@
+import { AccountDeletions } from '@rove/server';
 import { DriverCoverage, EarningsDateRange } from '@rove/contracts';
 import { WalletSetupRequest, WalletCustomerSession, WalletSetupSession } from '@rove/contracts';
 import type { WalletSessions } from '@rove/server';
@@ -123,6 +124,7 @@ export function createApp(deps: Dependencies) {
   const pushInstallations = new PushInstallations(deps.pool, deps.pushProjects ?? {});
   const messaging = new MessagingService(deps.pool);
   const support = new SupportService(deps.pool);
+  const accountDeletions = new AccountDeletions(deps.pool);
   const limiter = new RequestLimiter(deps.pool);
   const documents = new DriverDocumentService(deps.pool, deps.documentTransfers);
   const vehicleSubmissions = new VehicleSubmissionService(deps.pool);
@@ -416,6 +418,10 @@ export function createApp(deps: Dependencies) {
   );
   app.post('/v1/conversations/:id/report', async (c) =>
     c.json(await messaging.report(c.var.actor, id(c.req.param('id')), await body(c, MessageReport))),
+  );
+  app.get('/v1/account-deletion', async (c) => c.json(await accountDeletions.status(c.var.actor)));
+  app.get('/v1/staff/account-deletions/:id', async (c) =>
+    c.json(await accountDeletions.inspect(c.var.actor, id(c.req.param('id')))),
   );
   app.get('/v1/support-requests', async (c) => c.json(await support.list(c.var.actor)));
   app.post('/v1/support-requests', async (c) =>

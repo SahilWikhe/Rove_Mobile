@@ -12,6 +12,7 @@ for (const [role, port] of [
     const keys: string[] = [];
     await page.route('**/v1/support-requests', async (route) => {
       if (route.request().method() !== 'POST') return route.continue();
+      expect(route.request().postDataJSON()).toMatchObject({ deletionConsent: 'account-deletion-v1' });
       keys.push(route.request().headers()['idempotency-key']!);
       if (drop) {
         drop = false;
@@ -53,6 +54,15 @@ for (const [role, port] of [
     );
     expect(requests).toHaveLength(1);
     expect(requests[0]).toMatchObject({ category: 'account', status: 'open' });
+    const deletion = await request.get('http://localhost:4085/v1/account-deletion', {
+      headers: { Authorization: `Bearer synthetic-${role}` },
+    });
+    expect(deletion.ok()).toBe(true);
+    expect((await deletion.json()).request).toMatchObject({
+      supportRequestId: requests[0].id,
+      consentVersion: 'account-deletion-v1',
+      state: 'requested',
+    });
     await page.unroute('**/v1/support-requests');
     await page.route('**/v1/support-requests', (route) =>
       route.fulfill({

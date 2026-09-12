@@ -274,6 +274,13 @@
       "when": 1789247771250,
       "tag": "0038_capture_fee_accounting",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1789250244103,
+      "tag": "0039_account_deletion_consent",
+      "breakpoints": true
     }
   ]
 }

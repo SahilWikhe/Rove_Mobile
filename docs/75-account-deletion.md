@@ -2,17 +2,25 @@
 
 ## Current implementation
 
-The rider and driver screens submit explicit deletion requests through support. Support resolution is not deletion. The Auth0 identity-removal adapter is implemented and locally tested, but is not wired to a public route, worker or runtime activation switch. Configuring credentials does not enable it. No real identity was deleted during development.
+The rider and driver confirmation screens submit `deletionConsent: account-deletion-v1` with the account support request. Migration 0039 stores a separate immutable consent record, uniquely scoped to the account, in the same transaction as the ticket, command result and audit. Ordinary account messages, even identical deletion prose, create no deletion record. Support resolution is not deletion and does not remove consent. The Auth0 identity-removal adapter is implemented and locally tested, but is not wired to a public route, worker or runtime activation switch. Configuring credentials does not enable it. No real identity was deleted during development.
 
 The adapter accepts only a database subject qualified with the configured Auth0 tenant issuer. It retrieves the exact user ID before deleting, requests only the user ID field, encodes the ID as a single URL segment, rejects identity mismatches and checks absence through a second authenticated read after deletion. An already absent identity lets a durable caller recover from a lost delete response. Unexpected status, malformed response, rate limit and network failure remain retryable errors; they never become successful completion. Provider details and credentials are excluded from errors. Requests have deadlines, disable redirects and bypass caching. Concurrent workers share short-lived server token acquisition; expired and rejected tokens are refreshed on the next attempt.
 
 Auth0 profile removal also applies to social-login profiles inside Auth0; it does not delete the person's Google/Apple or other external account. Tenant deletion is not application-data erasure or proof that previously issued JWTs are unusable.
 
-## Required durable workflow
+## Durable request status
 
-These stages remain implementation work, not activated behavior:
+`GET /v1/account-deletion` returns the authenticated active consumer's request or null. It exposes its reference, linked support reference, consent version, submission time and `requested` state only. `GET /v1/staff/account-deletions/:id` requires verified staff MFA and `privacy.read`; the inspection is audited. Support permissions alone do not grant this privacy read. Neither endpoint accepts another consumer's owner ID or invokes deletion.
 
-1. Record an explicit owner-authorized deletion operation independent of the support ticket, with idempotent submission and status history. Do not infer authorization from arbitrary support text or a staff resolution response.
+Concurrent or lost-response retries record one consent and one consent audit. An explicit confirmation can attach consent to an existing account ticket; changing an already-used idempotency key's payload is rejected. The database rejects consent rewrites/deletes, another owner's ticket, non-account tickets and non-consumer owners. It intentionally retains the original consent across later support submissions. Status beyond `requested`, withdrawal/review handling and fulfillment history remain future work.
+
+Apply migration 0039 through the environment's migration procedure before deploying the consent-aware API, then release the updated apps. Older apps without the explicit field continue creating support requests only: do not automatically convert historical free text into erasure authorization. No hosted migration is implied by local testing or a main-branch push.
+
+## Required fulfillment workflow
+
+These later stages remain implementation work, not activated behavior:
+
+1. Use the recorded explicit owner consent to create the durable fulfillment operation and status history. Do not infer authorization from arbitrary support text or a staff resolution response.
 2. Apply the approved retention policy and record staff authority/MFA, policy revision and any legal/safety hold. Check active trips and unsettled financial obligations before closing access.
 3. Atomically disable local account access, take the driver offline and revoke tracking/push registration. Persist the original subject or a durable revocation tombstone checked by all authentication/onboarding paths. Stale access tokens must not recreate a deleted profile.
 4. Queue identity removal with durable retries and independent completion evidence. The Auth0 adapter below performs this provider step only; its caller must enforce steps 1–3.
@@ -24,6 +32,8 @@ Do not use `users.disabled`, resolved support status or one successful provider 
 ## Provider setup at final handoff
 
 Prepare a dedicated server-only Auth0 machine-to-machine client in the environment's tenant with Management API scopes `read:users delete:users`. Do not reuse email-verification or mobile client credentials. The adapter configuration parser recognizes `AUTH0_DELETION_CLIENT_ID`, `AUTH0_DELETION_CLIENT_SECRET` and the matching `OIDC_ISSUER`; partial credentials and unsafe issuer URLs fail closed. Custom domains are not supported by this adapter yet; the existing configured canonical Auth0 issuer is required.
+
+Local PostgreSQL and browser tests verify explicit consent, owner isolation, staff MFA, retry deduplication, immutable bindings, audit rollback and both apps' confirmation flow. These do not verify actual fulfillment.
 
 After the workflow exists, verify tenant isolation and deletion with dedicated synthetic identities only. Exercise present, already absent, interrupted delete, denied scope, expired token, rate-limited provider and failed post-delete verification. Also test stale JWT/onboarding, concurrent booking, financial holds, storage versions, retry/audit recovery and restored-data deletion replay. Local transport tests do not prove hosted permission or complete fulfillment.
 

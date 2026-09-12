@@ -1,6 +1,16 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `91cdc9fa4df9578431ade679cccfc94ed4a4646f` plus the identity-removal checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `5a48a8527b7119c33884836809918ea47ce872ac` plus the durable deletion-consent checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Durable account-deletion consent — September 12
+
+Both mobile confirmation screens now send explicit versioned deletion consent. The support transaction records an immutable, account-scoped deletion request and its audit independently of the support ticket's resolution. Ordinary support prose is never converted to consent. Concurrent/replayed submissions deduplicate, and explicit new consent can attach to an existing account ticket. Migration 0039 enforces ownership, account category, consumer role and immutable consent; no hosted migration was run.
+
+Added owner-only `GET /v1/account-deletion` and audited staff `GET /v1/staff/account-deletions/:id`, requiring dedicated `privacy.read` and MFA. The record honestly reports `requested`; it does not disable access, delete an identity or claim fulfillment. Existing support DTOs remain compatible. Deploy the migration/API before the consent-aware mobile release; older clients continue creating support requests without erasure authorization.
+
+All eleven local application test tasks passed. Seventeen focused support/deletion domain tests passed, covering database ownership/immutability, staff permission/MFA, retries, ordinary-message isolation and audit rollback. Four rider/driver browser checks passed against the real disposable local API/database, including dropped-response recovery and signed-out protection. Workspace/E2E types, changed-source lint, boundaries, formatting, docs, packaged API build/verification and schema no-diff verification passed. No new native binaries, hosted provider acceptance or production activation is claimed.
+
+Next: authorized fulfillment state, active-trip/financial/retention holds, local access revocation and identity-worker execution, followed by eligible data/storage cleanup and backup replay evidence. Remaining rider/driver visual/native/provider acceptance and production setup remain open. See [account deletion](75-account-deletion.md). Retention and paid setup decisions remain final handoff items.
 
 ## Account-deletion identity provider boundary — September 12
 

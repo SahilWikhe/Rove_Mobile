@@ -127,3 +127,7 @@ The native background location task authenticates with a separate location-only 
 ## Driver transfer operations
 
 The default-off staff transfer endpoints authorize an explicit amount/policy reference, list operations, cancel only before first provider attempt and recover existing provider outcomes. They require verified MFA and `payments.transfer`. Source-scoped reservations and actual provider journals prevent duplicate settlement; confirmation is a connected-account transfer, not bank payout. See [contracts, accounting and rollout](72-driver-transfer-workflow.md).
+
+## Account-deletion consent
+
+The account-deletion confirmation sends `deletionConsent: account-deletion-v1` to `POST /v1/support-requests` with category `account` and the normal idempotency key. The backend atomically creates explicit consent independently of support resolution. `GET /v1/account-deletion` returns the active authenticated consumer's durable request or null. `GET /v1/staff/account-deletions/:id` requires MFA and `privacy.read`, audits inspection and does not mutate the account. No user ID or free-text message can select another account for deletion. Current state is `requested`; fulfillment remains separate. See [deletion workflow and rollout](75-account-deletion.md).

@@ -866,3 +866,24 @@ export const paymentCaptureChecks = pgTable(
     ),
   ],
 );
+
+// Explicit consumer consent is independent of support ticket resolution.
+export const accountDeletionRequests = pgTable(
+  'account_deletion_requests',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    ownerId: uuid()
+      .notNull()
+      .references(() => users.id),
+    supportRequestId: uuid()
+      .notNull()
+      .references(() => supportRequests.id),
+    consentVersion: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('account_deletion_owner').on(t.ownerId),
+    uniqueIndex('account_deletion_support').on(t.supportRequestId),
+    check('account_deletion_consent', sql`${t.consentVersion} = 'account-deletion-v1'`),
+  ],
+);
