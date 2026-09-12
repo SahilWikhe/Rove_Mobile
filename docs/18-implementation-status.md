@@ -1,6 +1,14 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `ad16b3c354f687cbc56704ae96addd9260b9ae3b` plus the driver offer recovery checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `3ddb43a9392d32f1d036fa247a1f8fc13df3d987` plus the active-trip recovery checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Active-trip storage recovery — September 12
+
+Rider and driver trip screens now share a recovery card with read-only Retry reading request and contextual Contact support. Authorized trip reads continue; cancellation and milestone controls remain unavailable while the operation journal cannot be read. Retry clears stale local confirmation and never submits or discards a saved action. A restored pending action still requires explicit confirmation. Rider recovery also rejects calls while busy, restoring or in a storage error.
+
+All four focused browser cases passed: empty and pending journal recovery for each app, repeated failure, preserved trip details, and zero mutation on retry or first-stage confirmation. Both 390×844 screenshots were inspected. The full synthetic booking-to-completion test passed, including lost acceptance response/recovery, driver location, settlement, receipt and support paths. Workspace/E2E types, changed-source lint, boundaries, both apps’ iOS/Android/web exports and documentation checks passed. The React review preserved keyed account/trip isolation and kept the shared UI free of backend imports. Physical SecureStore failure, native layout and broader device acceptance remain unproven by these browser checks.
+
+The preceding driver offer fix was confirmed on remote main at `3ddb43a`. Hosted CI billing and CodeQL prerequisites remain unresolved; no provider, infrastructure or production settings changed here. Next: continue the remaining native/UI acceptance and production release requirements below.
 
 ## Driver offer storage recovery — September 12
 

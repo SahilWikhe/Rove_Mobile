@@ -387,3 +387,7 @@ Reviewed rider Figma `4:20` design context on September 12: the existing booking
 ## Driver offer storage recovery
 
 The offer failure state now uses the same gold retry and secondary support/back controls as rider booking recovery. An unreadable journal blocks responses; retry reads storage only, and a saved acceptance requires explicit result confirmation. This implements the existing recovery-state extension without changing the normal offer layout or pre-acceptance privacy boundary. The 390×844 browser screenshot was inspected and recovery/expiry scenarios passed; physical-device acceptance remains open.
+
+## Active-trip saved-request recovery
+
+Rider tracking and driver active trips now share a dark recovery card with a gold read-only retry and secondary contextual support action. Trip reads continue while saved-operation storage is unavailable; cancellation and driver milestones remain blocked. Retrying invalidates the previous local confirmation. Empty storage restores deliberate trip controls, while a saved operation still requires Check previous action. No retry clears or submits that operation. This extends the approved failure-state design; it is not a change to normal tracking or assignment permissions.

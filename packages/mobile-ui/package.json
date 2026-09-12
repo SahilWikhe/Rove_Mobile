@@ -5,6 +5,7 @@
   "main": "src/index.tsx",
   "exports": {
     ".": "./src/index.tsx",
+    "./request-storage-recovery": "./src/request-storage-recovery.tsx",
     "./profile-name-form": "./src/profile-name-form.tsx",
     "./support-form": "./src/support-form.tsx",
     "./trip-map": "./src/trip-map.tsx",

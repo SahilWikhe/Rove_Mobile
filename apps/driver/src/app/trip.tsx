@@ -1,3 +1,4 @@
+import { RequestStorageRecovery } from '@rove/mobile-ui/request-storage-recovery';
 import { OpenConversation } from '../messaging/open-conversation';
 import completionMark from '../../assets/completion/check.png';
 import { Image, View } from 'react-native';
@@ -51,7 +52,7 @@ export default function Trip() {
 }
 function TripContent({ id }: { id: string }) {
   const { api, synthetic, profile } = useSession();
-  const { pending, restoring, recoveryError, execute } = useOperations();
+  const { pending, restoring, recoveryError, execute, refresh } = useOperations();
   const trackingError = useTrackingError();
   const [ride, setRide] = useState<RideDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -159,8 +160,17 @@ function TripContent({ id }: { id: string }) {
     <ActiveTripSurface ride={ride} synthetic={synthetic} footer={controls}>
       <Stack.Screen options={{ headerShown: false }} />
       {(error || readError) && <Banner error message={error ?? readError!} />}
-      {recoveryError && <Banner error message={recoveryError} />}
-      {pending && (
+      {recoveryError && (
+        <RequestStorageRecovery
+          error={recoveryError}
+          onRetry={async () => {
+            setConfirm(null);
+            await refresh();
+          }}
+          onSupport={() => router.push({ pathname: '/support', params: { rideId: id, category: 'trip' } })}
+        />
+      )}
+      {pending && !restoring && !recoveryError && (
         <Card>
           <Copy kind="heading">A previous request needs confirmation.</Copy>
           <Copy>

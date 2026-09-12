@@ -1,3 +1,4 @@
+import { RequestStorageRecovery } from '@rove/mobile-ui/request-storage-recovery';
 import { CompletedRide } from '../tracking/completed-ride';
 import { FindingRide } from '../tracking/finding-ride';
 import { View } from 'react-native';
@@ -63,7 +64,7 @@ export default function Ride() {
 /** Never retain a previous account's trip or pending UI after an account/route change. */
 function RideContent({ id }: { id: string }) {
   const { api, synthetic } = useSession();
-  const { pending, restoring, recoveryError, execute } = useOperations();
+  const { pending, restoring, recoveryError, execute, refresh } = useOperations();
   const [loadedRide, setRide] = useState<RideDetails | null>(null);
   const ride = loadedRide?.id === id ? loadedRide : null;
   const trackingCaption = ride ? trackingCaptions[ride.state] : undefined;
@@ -123,7 +124,7 @@ function RideContent({ id }: { id: string }) {
     }
   }
   async function recover() {
-    if (!pending) return;
+    if (!pending || busy || restoring || recoveryError) return;
     setBusy(true);
     setError(null);
     try {
@@ -194,8 +195,17 @@ function RideContent({ id }: { id: string }) {
       )}
       {ended && ride && <RideRecordHeader ride={ride} onBack={() => router.replace('/rides')} />}
       {(error || readError) && <Banner error message={error ?? readError!} />}
-      {recoveryError && <Banner error message={recoveryError} />}
-      {pending && (
+      {recoveryError && (
+        <RequestStorageRecovery
+          error={recoveryError}
+          onRetry={async () => {
+            setConfirmCancel(false);
+            await refresh();
+          }}
+          onSupport={() => router.push({ pathname: '/support', params: { rideId: id, category: 'trip' } })}
+        />
+      )}
+      {pending && !restoring && !recoveryError && (
         <Card>
           <Copy kind="heading">A previous request needs confirmation.</Copy>
           <Copy>
