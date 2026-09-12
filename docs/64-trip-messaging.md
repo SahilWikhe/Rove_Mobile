@@ -23,6 +23,12 @@ The interface directs emergencies to local emergency services. This is not a mon
 emergency channel or an automated moderation service. Text only: no attachments,
 phone numbers, calls, delivery/read promises or post-trip direct contact are added.
 
+## Entry recovery and compact composition
+
+Inbox and conversation routes wait for account restoration before showing private content. Signed-out entries offer Continue to your account; after setup the user can open Messages. Signed-in conversation entries validate the UUID before mounting a thread loader, and incomplete links offer Open Messages. Thread state remains keyed by account and conversation. Server ownership checks remain authoritative.
+
+Browser acceptance covers both signed-out entry routes, recovery through account setup into Messages without private thread requests, and both composers at 320×360 with long drafts. Input and Send remain inside the viewport with at least 48-point heights. This reduced viewport is not an actual native keyboard test. The rider Android signed-out inbox was visually inspected. Signed-in malformed-link recovery and physical keyboard/screen-reader acceptance remain to be exercised natively.
+
 ## Accessibility
 
 Each message bubble exposes its sender, full message text, localized date/time and, for outgoing messages, Sent as one accessible label. Sent means accepted by the server; it does not promise delivery or reading. Inbox buttons include unread count, latest message preview and read-only status. Quick replies explain that they fill a draft rather than send immediately. Send exposes disabled/busy state, and the report control exposes whether its menu is expanded.

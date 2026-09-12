@@ -129,6 +129,27 @@ test('rider and driver exchange persisted messages, recover a lost send, and rep
     await expect
       .poll(() => socketEvents.get(driver)!.slice(driverEventsBeforeReply))
       .toContain('messages.changed');
+    // A reduced viewport exercises the space left above a keyboard; native keyboard behavior
+    // still needs device acceptance. Check both participants with a maximum-length draft.
+    for (const surface of [page, driver]) {
+      await surface.setViewportSize({ width: 320, height: 360 });
+      const input = surface.getByRole('textbox', { name: 'Message', exact: true });
+      await input.fill('Pickup instructions '.repeat(50).slice(0, 1000));
+      await input.focus();
+      const send = surface.getByRole('button', { name: 'Send message', exact: true });
+      for (const control of [input, send]) {
+        const box = await control.boundingBox();
+        expect(box).not.toBeNull();
+        expect(box!.x).toBeGreaterThanOrEqual(0);
+        expect(box!.x + box!.width).toBeLessThanOrEqual(320);
+        expect(box!.y).toBeGreaterThanOrEqual(0);
+        expect(box!.y + box!.height).toBeLessThanOrEqual(360);
+        expect(box!.height).toBeGreaterThanOrEqual(48);
+      }
+      await expect(send).toBeEnabled();
+      await input.fill('');
+      await surface.setViewportSize({ width: 320, height: 700 });
+    }
     await driver.setViewportSize({ width: 320, height: 480 });
     const draft = driver.getByRole('textbox', { name: 'Message', exact: true });
     await draft.fill('Unsent pickup instructions');

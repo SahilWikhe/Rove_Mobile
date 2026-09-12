@@ -1,6 +1,12 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `f2c61057dbec44a759422a410643851833d05849` plus the messaging accessibility checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `5f9b4b32542d28207c10e7b07ee3c2d251ed5991` plus the messaging entry checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Messaging entry recovery and compact composition — September 12
+
+Both apps now wait for account restoration on message routes, provide account recovery for signed-out inbox/thread links, and offer Messages for malformed conversation IDs before mounting private thread loaders. Existing account/conversation state isolation is preserved. Both composers were also checked with long drafts at 320×360; Input and Send stayed within the viewport with minimum 48-point heights.
+
+Verification: all three targeted browser tests passed (rider recovery, driver recovery and the complete persisted/realtime exchange with compact composition/report controls). Workspace/E2E types, lint, boundaries and both apps’ iOS/Android/web exports passed. The installed Android rider preview displayed the inbox recovery action. React review checked conditional mounting, hook placement and existing account keys. Initial malformed-link browser checks reset the memory-only synthetic session; they do not establish signed-in malformed-link acceptance. That native check, actual keyboard interaction and VoiceOver/TalkBack remain open. No cloud setup or real provider calls occurred. Next: remaining device/UI acceptance and deferred release work below.
 
 ## Messaging accessibility — September 12
 

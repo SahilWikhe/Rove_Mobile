@@ -3,19 +3,25 @@ import { Stack, router, useFocusEffect } from 'expo-router';
 import { useSession } from '@rove/mobile-core/session';
 import { useMessageInbox } from '@rove/mobile-core/use-messages';
 import { MessageInbox } from '@rove/mobile-ui/messages';
-import { Copy, Screen } from '@rove/mobile-ui';
+import { Button, Copy, Screen } from '@rove/mobile-ui';
 import { DriverNavigation } from '../navigation/driver-navigation';
 import type { ConversationList } from '@rove/contracts';
 export default function Messages() {
-  const { profile } = useSession();
+  const { profile, ready } = useSession();
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      {profile ? (
+      {!ready ? (
+        <Screen>
+          <Copy kind="muted">Restoring your account…</Copy>
+        </Screen>
+      ) : profile ? (
         <Browser key={profile.id} />
       ) : (
         <Screen>
-          <Copy>Sign in to view messages.</Copy>
+          <Copy kind="heading">Sign in to view messages</Copy>
+          <Copy kind="muted">Open your account to sign in or finish setup, then choose Messages.</Copy>
+          <Button title="Continue to your account" onPress={() => router.replace('/')} />
         </Screen>
       )}
     </>
