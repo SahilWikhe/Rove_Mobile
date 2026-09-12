@@ -282,3 +282,18 @@ The founder requested a subtle gold gradient after reviewing the flat confirmati
 Shared primary buttons now add a low-contrast diagonal gold tint over their translucent base
 on web, iOS and Android. Secondary and danger variants retain their existing fills. The effect
 uses no bright highlight band or additional raised shadow.
+
+## Rider matching state
+
+Rider Finding your ride (`5:127`) uses the exact exported rings and car, centered matching
+copy, and a compact top-right cancellation action. Ride details expand on demand to retain
+access to the actual route, fare and payment state. The matching presentation applies only
+to searching rides with authorized payment (or local synthetic mode); payment confirmation
+retains its separate flow. Failed reads replace matching copy with a reconnecting state and
+invalidate cancellation confirmation as before. No nearby-driver count, ETA or progress is
+fabricated. The static illustration respects reduced-motion preferences.
+
+The layout was visually verified on iOS and Android simulators and at 320 pixels in the
+browser. Browser checks passed for expanded details, cancellation, failed-read and stale
+version recovery, and a complete synthetic rider/driver trip. Physical-device acceptance
+remains separate.

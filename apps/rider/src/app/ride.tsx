@@ -1,3 +1,5 @@
+import { FindingRide } from '../tracking/finding-ride';
+import { View } from 'react-native';
 import { RideRecordHeader, RideRecordRoute } from '../tracking/ride-record';
 import { OpenConversation } from '../messaging/open-conversation';
 import { TrackingHeader, trackingCaptions } from '../tracking/tracking-header';
@@ -37,9 +39,12 @@ export default function Ride() {
   const [readError, setReadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
+  const finding = ride?.state === 'searching' && (synthetic || ride.paymentState === 'authorized');
   useFocusEffect(
     useCallback(() => {
       setRide(null);
+      setShowDetails(false);
       setReadError(null);
       setError(null);
       setConfirmCancel(false);
@@ -97,9 +102,55 @@ export default function Ride() {
       setBusy(false);
     }
   }
+  const cancellation =
+    ride &&
+    !pending &&
+    !restoring &&
+    !recoveryError &&
+    ['searching', 'matched', 'en_route', 'arrived'].includes(ride.state) &&
+    (confirmCancel ? (
+      <Card>
+        <Copy kind="heading">Cancel this ride?</Copy>
+        <Copy kind="muted">Your driver search or assignment will end.</Copy>
+        <Button
+          title="Confirm cancellation"
+          variant="danger"
+          loading={busy}
+          disabled={!!readError}
+          onPress={() => void cancel()}
+        />
+        <Button
+          title="Keep ride"
+          variant="secondary"
+          disabled={busy}
+          onPress={() => setConfirmCancel(false)}
+        />
+      </Card>
+    ) : (
+      <Button
+        title="Cancel ride"
+        variant="secondary"
+        style={
+          finding
+            ? { minHeight: 48, backgroundColor: 'transparent', borderWidth: 0, paddingHorizontal: 12 }
+            : undefined
+        }
+        textStyle={finding ? { fontSize: 13 } : undefined}
+        disabled={!!readError || busy}
+        onPress={() => setConfirmCancel(true)}
+      />
+    ));
   return (
-    <Screen contentStyle={trackingCaption || ended ? { padding: 20, gap: 16 } : undefined}>
-      <Stack.Screen options={{ title: 'Your ride', headerShown: !trackingCaption && !ended }} />
+    <Screen
+      contentStyle={
+        finding
+          ? { flexGrow: 1, padding: 20, gap: 16 }
+          : trackingCaption || ended
+            ? { padding: 20, gap: 16 }
+            : undefined
+      }
+    >
+      <Stack.Screen options={{ title: 'Your ride', headerShown: !trackingCaption && !ended && !finding }} />
       {trackingCaption && (
         <TrackingHeader
           caption={trackingCaption}
@@ -122,30 +173,49 @@ export default function Ride() {
 
       {ride ? (
         <>
-          <Copy
-            kind="title"
-            style={
-              trackingCaption || ended ? { fontSize: 23, lineHeight: 29, letterSpacing: -0.5 } : undefined
-            }
-          >
-            {ride.state === 'searching' && !synthetic && ride.paymentState !== 'authorized'
-              ? 'Confirm your payment.'
-              : titles[ride.state]}
-          </Copy>
-          <RiderTripMap key={ride.id} ride={ride} />
-          <DriverSummary ride={ride} contact={<OpenConversation key={ride.id} rideId={ride.id} />} />
-          {ended ? (
-            <RideRecordRoute ride={ride} />
-          ) : (
-            <RouteSummary
-              pickup={ride.pickup?.label ?? ride.pickupArea}
-              destination={ride.destination?.label ?? ride.destinationArea}
+          {finding && (
+            <View style={{ alignSelf: confirmCancel ? 'stretch' : 'flex-end' }}>{cancellation}</View>
+          )}
+          {finding && <FindingRide reconnecting={!!readError} />}
+          {finding && (
+            <Button
+              title={showDetails ? 'Hide ride details' : 'Show ride details'}
+              variant="secondary"
+              onPress={() => setShowDetails(!showDetails)}
             />
           )}
-          <Card>
-            <Money cents={ride.fare.amount} label="FARE" />
-            <Copy kind="muted">Payment: {ride.paymentState.replaceAll('_', ' ')}</Copy>
-          </Card>
+          {(!finding || showDetails) && (
+            <>
+              {!finding && (
+                <Copy
+                  kind="title"
+                  style={
+                    trackingCaption || ended
+                      ? { fontSize: 23, lineHeight: 29, letterSpacing: -0.5 }
+                      : undefined
+                  }
+                >
+                  {ride.state === 'searching' && !synthetic && ride.paymentState !== 'authorized'
+                    ? 'Confirm your payment.'
+                    : titles[ride.state]}
+                </Copy>
+              )}
+              {!finding && <RiderTripMap key={ride.id} ride={ride} />}
+              <DriverSummary ride={ride} contact={<OpenConversation key={ride.id} rideId={ride.id} />} />
+              {ended ? (
+                <RideRecordRoute ride={ride} />
+              ) : (
+                <RouteSummary
+                  pickup={ride.pickup?.label ?? ride.pickupArea}
+                  destination={ride.destination?.label ?? ride.destinationArea}
+                />
+              )}
+              <Card>
+                <Money cents={ride.fare.amount} label="FARE" />
+                <Copy kind="muted">Payment: {ride.paymentState.replaceAll('_', ' ')}</Copy>
+              </Card>
+            </>
+          )}
           {(ride.state === 'completed' || ['paid', 'review_required'].includes(ride.paymentState)) && (
             <Button
               title="View receipt"
@@ -190,36 +260,7 @@ export default function Ride() {
                 onPress={() => router.push({ pathname: '/payment', params: { id: ride.id } })}
               />
             )}
-          {!pending &&
-            !restoring &&
-            !recoveryError &&
-            ['searching', 'matched', 'en_route', 'arrived'].includes(ride.state) &&
-            (confirmCancel ? (
-              <Card>
-                <Copy kind="heading">Cancel this ride?</Copy>
-                <Copy kind="muted">Your driver search or assignment will end.</Copy>
-                <Button
-                  title="Confirm cancellation"
-                  variant="danger"
-                  loading={busy}
-                  disabled={!!readError}
-                  onPress={() => void cancel()}
-                />
-                <Button
-                  title="Keep ride"
-                  variant="secondary"
-                  disabled={busy}
-                  onPress={() => setConfirmCancel(false)}
-                />
-              </Card>
-            ) : (
-              <Button
-                title="Cancel ride"
-                variant="secondary"
-                disabled={!!readError || busy}
-                onPress={() => setConfirmCancel(true)}
-              />
-            ))}
+          {!finding && cancellation}
         </>
       ) : (
         <Copy kind="muted">Loading your ride…</Copy>

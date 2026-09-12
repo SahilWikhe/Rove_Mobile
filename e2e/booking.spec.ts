@@ -37,6 +37,11 @@ test('rider reviews a quote and explicitly confirms cancellation', async ({ page
   await routeAndQuote(page);
   await page.getByRole('button', { name: 'Request ride', exact: true }).click();
   await expect(page.getByText('Finding your ride.', { exact: true })).toBeVisible();
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.screenshot({ path: 'test-results/rider-finding.png' });
+  await page.getByRole('button', { name: 'Show ride details', exact: true }).click();
+  await expect(page.getByText('FARE', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Hide ride details', exact: true }).click();
   const id = new URL(page.url()).searchParams.get('id');
   expect(id).toBeTruthy();
   await page.getByRole('button', { name: 'Cancel ride', exact: true }).click();
