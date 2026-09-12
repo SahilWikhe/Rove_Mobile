@@ -29,7 +29,12 @@ export function HomeNavigation({
   const messages = useMessageUnread(api, profile?.id);
   useFocusEffect(messages.focus);
   return (
-    <View style={styles.navigationWrap}>
+    <View
+      style={styles.navigationWrap}
+      pointerEvents={focused ? 'auto' : 'none'}
+      accessibilityElementsHidden={!focused}
+      importantForAccessibility={focused ? 'auto' : 'no-hide-descendants'}
+    >
       <View style={styles.navigation}>
         {(
           [
