@@ -114,3 +114,5 @@ For protected staff authorization, owned pending-liability reservations, worker 
 - [Capture fee accounting](73-capture-fee-accounting.md): actual processor fees, immutable balances, recovery and transfer holds.
 
 - [Driver bank-payout history](74-bank-payout-history.md): connected-account status, driver presentation, access controls and rollout.
+
+- [Account deletion fulfillment](75-account-deletion.md): identity-removal adapter, durable workflow requirements and retention/provider setup.

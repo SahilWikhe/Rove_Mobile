@@ -1,6 +1,16 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `421a818a4d4df5c68a0b0ed60dfec835bd95309b` plus the bank-payout history checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `91cdc9fa4df9578431ade679cccfc94ed4a4646f` plus the identity-removal checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Account-deletion identity provider boundary — September 12
+
+Implemented a server-only Auth0 identity-removal adapter with dedicated optional credential parsing, exact tenant-subject selection, minimal direct identity reads, matching-ID validation, encoded paths, delete and verified-absence recovery. Lost responses and already-absent identities can be recovered by a durable caller. Unexpected/malformed responses, rejected scopes and failed verification remain errors; credentials and provider details do not escape. Token acquisition is shared across concurrent calls, expires early and is invalidated after provider 401 responses. The adapter is not wired into a route or runtime worker; no credentials, real identities, cloud settings or production activation changed.
+
+All eleven local application test tasks passed, including 548 server tests and 189 API tests. The final focused provider suite passed 21 tests after a lint correction, and API/workspace/E2E types, changed-source lint, import boundaries, formatting, documentation checks (84 files), packaged API build and build verification passed. These synthetic transport tests prove the adapter behavior, not hosted Auth0 access or end-to-end account deletion.
+
+The active priority remains actual deletion fulfillment: explicit durable requests, policy/MFA authorization and holds, local access revocation, identity-worker orchestration, application/storage cleanup and backup replay evidence. The support screen still submits a support request; resolution is not deletion. Retention decisions and paid configuration remain final handoff items. See [account deletion implementation and requirements](75-account-deletion.md).
+
+Hosted CI is active for `91cdc9f` (run 34720747399). Earlier run 34718799525 completed with general quality/test/browser/security/build checks passing; Android failed emulator preparation (explicit SDK path fixed in later source), while both iOS jobs failed release launch/account-entry checks. Inspect those native logs and verify the current run before declaring CI recovered. Remaining Figma/native journeys, provider acceptance and production setup remain open.
 
 ## Bank-payout history and driver presentation — September 12
 

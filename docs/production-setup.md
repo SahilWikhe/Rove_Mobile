@@ -103,7 +103,7 @@ Optional navigation styling uses published Google Cloud styles and the two `EXPO
 Do not enable public rides just because the services are configured. Outstanding release work includes:
 
 - Complete refund/dispute operations and accounting, actual driver money movement, and operational reconciliation; the refund adapter and Connect onboarding are not those workflows.
-- Fulfill account deletion requests with the approved retention policy and identity/storage handling; the app currently submits requests to support.
+- Fulfill account deletion requests with the approved retention policy and identity/storage handling; the app currently submits requests to support. The identity-removal adapter is implemented but the durable fulfillment workflow remains open; see [account deletion](75-account-deletion.md).
 - Repeat [realtime messaging acceptance](realtime-messaging.md) against the production configuration before launch. Staging authenticated WebSocket delivery, retry, read updates and reconnect recovery passed with dedicated test accounts; permanent message deletion policy remains separate from visibility expiry.
 - Verify physical-device background location, notifications, native authentication and complete rider/driver trip/payment recovery on both platforms.
 - Complete the remaining Figma/UI acceptance and store-release review.
