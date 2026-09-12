@@ -121,6 +121,8 @@ test('rider request reaches the driver and both apps follow a completed syntheti
   browser,
   request,
 }) => {
+  // Includes settlement, receipt recovery, support submission and rebooking across both apps.
+  test.setTimeout(90000);
   let locationEvents = 0;
   page.on('websocket', (socket) =>
     socket.on('framereceived', ({ payload }) => {
@@ -310,6 +312,10 @@ test('rider request reaches the driver and both apps follow a completed syntheti
     await expect(page.getByText('YOUR DRIVER', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Plate: DEMO', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Ride · now', { exact: true })).toHaveCount(0);
+    await expect(
+      page.getByText('Your payment is recorded. View your receipt below.', { exact: true }),
+    ).toBeVisible();
+    await page.screenshot({ path: '/tmp/rove-rider-completed-web.png', fullPage: true });
     const saved = await request.get('http://localhost:4085/v1/rides/' + id, {
       headers: { Authorization: 'Bearer synthetic-rider' },
     });
@@ -363,6 +369,41 @@ test('rider request reaches the driver and both apps follow a completed syntheti
     });
     expect((await receipt.json()).capturedAmount).toEqual({ amount: 1185, currency: 'USD' });
     await page.getByRole('button', { name: 'Back to ride', exact: true }).click();
+    await page.getByRole('button', { name: 'Get help with this ride', exact: true }).click();
+    await expect(page.getByText(`Ride reference: ${id}`, { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Trip · Selected', exact: true })).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'What do you need help with?', exact: true })).toHaveValue(
+      '',
+    );
+    await expect(page.getByRole('button', { name: 'Send support request', exact: true })).toBeDisabled();
+    await page
+      .getByRole('textbox', { name: 'What do you need help with?', exact: true })
+      .fill('Please review this synthetic trip.');
+    await page.getByRole('button', { name: 'Send support request', exact: true }).click();
+    await expect(page.getByText(/Request saved. Reference:/)).toBeVisible();
+    await page.getByRole('link', { name: 'Go back', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Get help with this ride', exact: true })).toBeVisible();
+    const supportRideUrl = 'http://localhost:4085/v1/rides/' + id;
+    await page.route(supportRideUrl, (route) =>
+      route.fulfill({
+        status: 403,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          error: { code: 'FORBIDDEN', message: 'Ride access unavailable.', requestId: 'synthetic-support' },
+        }),
+      }),
+    );
+    await page.getByRole('button', { name: 'Get help with this ride', exact: true }).click();
+    await expect(
+      page.getByText('This ride could not be verified. Retry or open general support.', { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Send support request', exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Open general support', exact: true }).click();
+    await expect(page.getByRole('textbox', { name: 'What do you need help with?', exact: true })).toHaveValue(
+      '',
+    );
+    await page.unroute(supportRideUrl);
+    await page.getByRole('link', { name: 'Go back', exact: true }).click();
     await reviewRebooking(page, id!);
     const earnings = await request.get('http://localhost:4085/v1/drivers/me/earnings/' + id, {
       headers: { Authorization: 'Bearer synthetic-driver' },

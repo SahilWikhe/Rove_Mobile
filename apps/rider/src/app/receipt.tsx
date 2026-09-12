@@ -63,6 +63,11 @@ function ReceiptContent({ id, retry }: { id: string; retry: () => void }) {
           )}
           <Copy kind="muted">Receipt reference</Copy>
           <Copy>{receipt.id}</Copy>
+          <Button
+            title="Get help with this payment"
+            variant="secondary"
+            onPress={() => router.push({ pathname: '/support', params: { rideId: id, category: 'payment' } })}
+          />
         </>
       ) : (
         !error && (

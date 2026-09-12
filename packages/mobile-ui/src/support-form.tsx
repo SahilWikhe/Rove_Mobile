@@ -20,15 +20,17 @@ export function SupportForm({
   submit,
   newKey,
   accountDeletion = false,
+  initialDraft,
 }: {
   list: () => Promise<{ requests: Request[] }>;
   submit: (input: { category: Category; message: string }, key: string) => Promise<Request>;
   newKey: () => string;
   accountDeletion?: boolean;
+  initialDraft?: { category: Category; message: string };
 }) {
   const [requests, setRequests] = useState<Request[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const [category, setCategory] = useState<Category>('account');
+  const [category, setCategory] = useState<Category>(initialDraft?.category ?? 'account');
   const [message, setMessage] = useState(accountDeletion ? deletionMessage : '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,7 +75,7 @@ export function SupportForm({
     setError(null);
     try {
       if (send) {
-        const text = message.trim();
+        const text = [initialDraft?.message.trim(), message.trim()].filter(Boolean).join(' · ');
         if (!attempt.current || attempt.current.message !== text || attempt.current.category !== category)
           attempt.current = { category, message: text, key: newKey() };
         const result = await submit(
@@ -126,6 +128,7 @@ export function SupportForm({
           <Copy kind="muted">Do not include payment card numbers, passwords or medical details.</Copy>
         </>
       )}
+      {initialDraft?.message && <Copy kind="muted">{initialDraft.message.trim()}</Copy>}
       {error && <Banner error message={error} />}
       {receipt && <Banner message={`Request saved. Reference: ${receipt}`} />}
       {!loaded && busy && <Copy kind="muted">Loading your requests…</Copy>}
@@ -157,7 +160,7 @@ export function SupportForm({
               label="What do you need help with?"
               value={message}
               editable={!busy}
-              maxLength={2000}
+              maxLength={2000 - (initialDraft ? initialDraft.message.trim().length + 3 : 0)}
               onChangeText={setMessage}
             />
           )}

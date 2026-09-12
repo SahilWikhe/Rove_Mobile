@@ -1,3 +1,4 @@
+import { CompletedRide } from '../tracking/completed-ride';
 import { FindingRide } from '../tracking/finding-ride';
 import { View } from 'react-native';
 import { RideRecordHeader, RideRecordRoute } from '../tracking/ride-record';
@@ -186,7 +187,8 @@ export default function Ride() {
           )}
           {(!finding || showDetails) && (
             <>
-              {!finding && (
+              {ride.state === 'completed' && <CompletedRide ride={ride} />}
+              {!finding && ride.state !== 'completed' && (
                 <Copy
                   kind="title"
                   style={
@@ -200,7 +202,7 @@ export default function Ride() {
                     : titles[ride.state]}
                 </Copy>
               )}
-              {!finding && <RiderTripMap key={ride.id} ride={ride} />}
+              {!finding && ride.state !== 'completed' && <RiderTripMap key={ride.id} ride={ride} />}
               <DriverSummary ride={ride} contact={<OpenConversation key={ride.id} rideId={ride.id} />} />
               {ended ? (
                 <RideRecordRoute ride={ride} />
@@ -221,6 +223,15 @@ export default function Ride() {
               title="View receipt"
               variant="secondary"
               onPress={() => router.push({ pathname: '/receipt', params: { id: ride.id } })}
+            />
+          )}
+          {ended && (
+            <Button
+              title="Get help with this ride"
+              variant="secondary"
+              onPress={() =>
+                router.push({ pathname: '/support', params: { rideId: ride.id, category: 'trip' } })
+              }
             />
           )}
           {['completed', 'cancelled'].includes(ride.state) && ride.pickup && ride.destination && (
