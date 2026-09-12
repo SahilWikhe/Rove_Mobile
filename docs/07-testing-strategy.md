@@ -97,3 +97,7 @@ Store traces/screenshots with bounded retention and synthetic data; redact crede
 Add the frame/state tests in [mobile design contract](16-mobile-design-contract.md): consumer quote/payment, no-driver and cancellation recovery, pending financial results, onboarding/eligibility and driver arrival → start → completion. Assert no Pro subscription or default sponsored coverage in the core experience. Test pre-acceptance sensitive-field absence in actual serialized offer/map/push data, then assignment grant/revocation. Compare native screenshots and accessibility at supported sizes.
 
 Implement all scheduling flag combinations and rollback/provider-failure tests in [flag plan](17-scheduling-feature-flags.md), including weekly/monthly date boundaries, crafted API requests and already accepted schedule continuation. A disabled scheduling module must not block the on-demand core suite.
+
+## Driver UI state in recovery checks
+
+Storage-recovery browser tests wait for the Account navigation control after sign-in, which exists in both offline and online driver layouts. The offline header's Open your account button is not a session-readiness signal. Preserve the existing online state when checking recovery; do not force drivers offline or relax the no-automatic-mutation assertions to make the test pass.

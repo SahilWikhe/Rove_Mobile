@@ -25,7 +25,7 @@ for (const role of ['rider', 'driver'] as const) {
       await page.getByRole('button', { name: 'Get started', exact: true }).click();
       await expect(
         page.getByRole('button', {
-          name: role === 'rider' ? 'Where are you going?' : 'Open your account',
+          name: role === 'rider' ? 'Where are you going?' : 'Account',
           exact: true,
         }),
       ).toBeVisible();

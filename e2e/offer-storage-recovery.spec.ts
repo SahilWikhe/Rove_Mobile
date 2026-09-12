@@ -10,7 +10,7 @@ for (const savedRequest of [false, true]) {
     });
     await page.goto('http://localhost:8092');
     await page.getByRole('button', { name: 'Get started', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Open your account', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Account', exact: true })).toBeVisible();
     await page.evaluate(() => {
       const read = Storage.prototype.getItem;
       sessionStorage.setItem('e2e.fail-operation-read', 'yes');

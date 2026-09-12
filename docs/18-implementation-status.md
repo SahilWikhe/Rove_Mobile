@@ -1,6 +1,14 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `bd24824c7245fae735341c37e6793290d50fd5e7` plus the deletion acknowledgement checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `319c5d9929c3194ab926f696c6c533c304988e52` plus the regression checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Full local regression and driver test-state correction — September 12
+
+All 11 application test tasks passed at `319c5d9` (five reused valid Turbo cache entries). The initial full browser run passed 48/49 scenarios and exposed a test assumption: offer recovery waited for the Open your account header button, which is intentionally absent on the online waiting screen. Updated the offer and trip recovery tests to wait for the Account navigation button available in both online/offline states. Product behavior and mutation/recovery assertions were not weakened.
+
+The complete corrected browser suite passed **49/49 in 5.3 minutes**, including the real three-minute no-driver timeout, full two-app trip, moving location, lost booking/acceptance/send responses, messaging, notification-device ownership, deletion acknowledgement, document/eligibility recovery, saved places and trip access. Repository-wide formatting/lint, import boundaries, documentation checks and the packaged API health/authentication/missing-route checks passed. Changed E2E files passed types and lint. This is synthetic local evidence; it does not verify physical native devices, paid-provider behavior or hosted deployment.
+
+GitHub CI run `34710507399` for exact source `319c5d9` was checked and still could not start jobs because of the account billing/spending-limit prerequisite. Resolve GitHub Billing & plans, retain the separate CodeQL setup requirement, and rerun hosted checks before a release candidate is accepted. No production configuration, provider request or migration occurred. Next: continue native/provider acceptance and remaining release features; full production completion is not claimed.
 
 ## Deletion-request acknowledgement — September 12
 
