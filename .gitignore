@@ -24,3 +24,6 @@ credentials.json
 *.jks
 *.p12
 *.mobileprovision
+
+# Generated release evidence
+/release-readiness/

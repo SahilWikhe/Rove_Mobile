@@ -63,6 +63,14 @@ pnpm release:check SahilWikhe/Rove_Mobile <full-commit-sha> <ci-run-id> <staging
 
 This read-only command requires successful CI and staging-provider workflows on main for the exact commit, including every required job from the recorded run attempt. Missing, skipped, stale or failed evidence exits nonzero. It does not deploy, grant production approval, or replace hosted mobile acceptance, migration review and backup verification. The command rechecks both workflow attempts after collecting jobs and rejects an intervening rerun or status change. Run it again immediately before a release; its output is a point-in-time check, not an authorization token.
 
+### Manual GitHub release-readiness report
+
+In GitHub Actions, choose **Release readiness → Run workflow**, select `main`, and enter the full candidate commit SHA plus its successful CI and staging-provider run IDs. The candidate must belong to the selected main history. This uses GitHub's read-only workflow token; no additional secret or production service setup is needed.
+
+The workflow runs the trusted main-checkout verifier, validates all required jobs and current run attempts for the exact candidate, and retains `evidence.txt` for 30 days. It records both candidate and verifier source commits. Missing, mismatched, pending or failed evidence fails the job and produces no success artifact. Inputs are passed as environment values and validated before invoking Git or GitHub.
+
+This workflow reads existing GitHub evidence only. It does not rerun staging providers, incur Maps requests, deploy Vercel, migrate a database, approve production or submit mobile apps. The report is a point-in-time snapshot: rerun readiness before a release if evidence changes. Device acceptance, approved policies, production isolation, migration/restore rehearsal and actual deployment remain separate requirements. The existing main-to-staging integration is unchanged; the protected production promotion workflow still needs the final production project and release setup.
+
 ## 4. Configure mobile production builds
 
 Populate each role in `config/mobile-production.json` with the reviewed production API URL, Auth0 issuer/audience/client ID and Expo project UUID. These are public identifiers. Put matching values into that app's EAS production environment.

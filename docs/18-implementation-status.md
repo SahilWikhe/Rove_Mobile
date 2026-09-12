@@ -1,6 +1,12 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `5f9b4b32542d28207c10e7b07ee3c2d251ed5991` plus the messaging entry checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `01f98ee086120297747317b74f9694c992c9633c` plus the release-readiness checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Manual release-readiness infrastructure — September 12
+
+Added a read-only GitHub workflow around the existing exact-commit release-evidence checker. It validates main-branch ancestry and checkout identity, checks CI/provider run provenance and current attempts, and retains a timestamped report identifying the verifier source. It needs no production secrets and performs no deployment, migration or billable provider requests. See [production setup](production-setup.md#manual-github-release-readiness-report).
+
+All 55 tooling tests passed, including nine focused candidate/evidence tests with a real temporary Git repository, unmerged candidates and mocked GitHub pagination/rerun failures. Lint, documentation and workflow YAML parsing passed. A local collection against real successful runs for `1ce0170` correctly rejected them: that historical CI run has no native Android/iOS jobs required by the current gate. No success artifact or production approval was produced. Hosted workflow execution and a live positive result are not yet accepted. Production promotion, device acceptance and final service/policy setup remain open; this report is evidence collection, not launch approval. Next: validate the workflow in GitHub and continue the remaining acceptance/setup work below.
 
 ## Messaging entry recovery and compact composition — September 12
 

@@ -1,0 +1,50 @@
+name: Release readiness
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: 'Full main-branch commit SHA to review'
+        required: true
+        type: string
+      ci_run_id:
+        description: 'Successful CI run ID for that exact commit'
+        required: true
+        type: string
+      provider_run_id:
+        description: 'Successful staging provider run ID for that exact commit'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  evidence:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Validate candidate and collect evidence
+        run: node scripts/release-candidate.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          CI_RUN_ID: ${{ inputs.ci_run_id }}
+          PROVIDER_RUN_ID: ${{ inputs.provider_run_id }}
+      - name: Retain verified evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: release-readiness-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release-readiness/evidence.txt
+          if-no-files-found: error
+          retention-days: 30
