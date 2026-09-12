@@ -28,3 +28,7 @@ Four new PostgreSQL tests prove:
 A new mobile client test verifies cursor encoding and preservation of the returned continuation. Existing polling tests cover disposal, cancellation, late-response suppression and backoff. These are query/transport/controller tests; they are not rendered multi-page native interaction tests.
 
 The local rider browser preview was exercised through sign-in → My rides, confirming the loaded empty state and Refresh control. Both mobile apps exported for iOS, Android and web. Complete native pagination interaction, accessibility and Figma visual acceptance remain outstanding. All data used in tests was synthetic in disposable local PostgreSQL; production data was not changed.
+
+## Ride-link recovery
+
+Rider ride details wait for account restoration before mounting the authenticated trip loader. Signed-out or unfinished accounts see Continue to your account, leading to the existing sign-in/profile/verification recovery entry point. After signing in, the rider can find the trip in My rides; this does not automatically open or mutate a ride. A missing or invalid ride UUID offers Open My rides without issuing an invalid detail request. Failed initial reads show a recovery message and a history action while normal foreground retry continues. The mounted trip state is isolated by profile ID and ride ID.

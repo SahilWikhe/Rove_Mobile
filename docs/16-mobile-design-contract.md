@@ -372,3 +372,9 @@ Completed/ended rides link to trip support and receipts link to payment support.
 ### Driver trip support consistency
 
 Driver trip details now include the existing outlined secondary Get help with this trip action. Both apps reuse the same verified-context support form and shared dark surfaces, typography and gold actions. The form requires the user's description and does not represent intake as a refund, trip change or staffed response.
+
+## Rider ride-link recovery and compact layout — September 12
+
+A signed-out ride link now shows a clear account recovery action without starting private ride reads. Incomplete links direct signed-in riders to My rides. The trip component is keyed by account and ride so a route or account change cannot reuse the previous screen state. A failed initial read no longer claims to be loading indefinitely and leaves an explicit history action available while foreground retries continue.
+
+The signed-out recovery layout was visually inspected on the Android emulator with system font scale 2.0; heading, explanation and primary action were visible and wrapped without clipping. The original scale 1.0 was restored. On iOS, a Maestro check at accessibility-extra-extra-extra-large passed app launch, ride-link opening, scrolling to the recovery action and its visibility assertion; the simulator’s original large setting was restored. The debug warning overlay remains outside this product-layout acceptance. This is one Android accessibility layout check, not a full app or physical-device acceptance pass. At a 320×568 browser viewport, all rider navigation labels fit on one line with at least 48×48 touch targets and stayed inside the viewport; scrolling Home to its end exposed the last card above the floating bar. Browser checks also exercise recovery to account and My rides.

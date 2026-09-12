@@ -11,7 +11,7 @@ import { useOperations } from '@rove/mobile-core/use-operations';
 import { pollWhileForeground } from '@rove/mobile-core/foreground-polling';
 import { useCallback, useState } from 'react';
 import { router, Stack, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import type { RideDetails } from '@rove/contracts';
+import { RideSummary, type RideDetails } from '@rove/contracts';
 import { useSession } from '@rove/mobile-core/session';
 import { Banner, Button, Card, Copy, Money, RouteSummary, Screen } from '@rove/mobile-ui';
 const titles: Record<RideDetails['state'], string> = {
@@ -29,6 +29,39 @@ const titles: Record<RideDetails['state'], string> = {
 };
 export default function Ride() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const session = useSession();
+  if (!session.ready)
+    return (
+      <Screen>
+        <Copy kind="muted">Restoring your account…</Copy>
+      </Screen>
+    );
+  if (!session.profile)
+    return (
+      <Screen>
+        <Stack.Screen options={{ title: 'Your ride' }} />
+        <Copy kind="heading">Sign in to view your ride</Copy>
+        <Copy kind="muted">
+          Open your account to sign in or finish setup, then find this trip in My rides.
+        </Copy>
+        <Button title="Continue to your account" onPress={() => router.replace('/')} />
+      </Screen>
+    );
+  const parsed = RideSummary.shape.id.safeParse(id);
+  if (!parsed.success)
+    return (
+      <Screen>
+        <Stack.Screen options={{ title: 'Your ride' }} />
+        <Copy kind="heading">This ride link is incomplete</Copy>
+        <Copy kind="muted">Choose a trip from your ride history to see its latest details.</Copy>
+        <Button title="Open My rides" onPress={() => router.replace('/rides')} />
+      </Screen>
+    );
+  return <RideContent key={`${session.profile.id}:${parsed.data}`} id={parsed.data} />;
+}
+
+/** Never retain a previous account's trip or pending UI after an account/route change. */
+function RideContent({ id }: { id: string }) {
   const { api, synthetic } = useSession();
   const { pending, restoring, recoveryError, execute } = useOperations();
   const [loadedRide, setRide] = useState<RideDetails | null>(null);
@@ -274,7 +307,14 @@ export default function Ride() {
           {!finding && cancellation}
         </>
       ) : (
-        <Copy kind="muted">Loading your ride…</Copy>
+        <>
+          <Copy kind="muted">
+            {readError
+              ? 'Your ride details could not be loaded. We’ll retry while this screen is open.'
+              : 'Loading your ride…'}
+          </Copy>
+          <Button title="Open My rides" variant="secondary" onPress={() => router.replace('/rides')} />
+        </>
       )}
     </Screen>
   );

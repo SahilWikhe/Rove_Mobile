@@ -2,6 +2,12 @@
 
 Updated: September 12, 2026. Current source baseline: `24c74f6f708a67f5c7591f4e754116c8a5498919`. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Rider ride-link recovery and compact-screen verification — September 12
+
+Native inspection found a signed-out rider stranded on Please sign in plus Loading your ride, with no recovery action. The route now waits for account restoration, offers account recovery before making private reads, rejects incomplete ride links and isolates trip state by account/ride. An initial read failure offers My rides rather than an indefinite loading claim.
+
+The corrected recovery screen was visually verified on the Android emulator at 200% system text size; its text and action remained fully visible and the original font setting was restored. On iOS, a Maestro check at accessibility-extra-extra-extra-large passed app launch, ride-link opening, scrolling to the recovery action and its visibility assertion; the simulator’s original large setting was restored. The debug warning overlay remains outside this product-layout acceptance. Compact browser checks verify 320×568 navigation label fit, minimum touch areas, viewport bounds, full end-of-scroll Home-card clearance and account/history recovery. This does not establish complete Figma parity or full native accessibility acceptance. All six targeted browser regressions passed, including booking/cancellation, completed trip, lost-response recovery and real search expiration/retry. Workspace/E2E types, lint, import boundaries, rider iOS/Android/web exports and documentation lint passed. Next: continue remaining rider/driver screen and device acceptance; production setup and provider decisions remain deferred below.
+
 ## In-app verification-email resend — September 12
 
 Implemented the server Auth0 verification-job adapter, optional server configuration, authenticated recovery endpoint and shared rider/driver resend UI. Only the signed-in subject can be targeted. Shared database limits bound both per-account and total attempts; normal verified-email API protection remains unchanged. The UI handles acceptance and cooldown without treating a request as delivery or marking the account verified.
