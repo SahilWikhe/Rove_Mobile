@@ -1,6 +1,12 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `34a7a07090a5bbef1b6336706bc00db49ed553e1` plus the Firebase release validation checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `bd24824c7245fae735341c37e6793290d50fd5e7` plus the deletion acknowledgement checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Deletion-request acknowledgement — September 12
+
+Both account-deletion screens now acknowledge a successful or existing open deletion request with its reference instead of showing another send action. Existing request history and support responses remain accessible. Resolved history permits a new explicit request after reopening. The screen continues to state that the account remains active and submission does not cancel trips, change payments or fulfill deletion. No retention policy or erasure backend was introduced.
+
+Both app browser tests passed for explicit confirmation, a lost response retried with the original idempotency key, a single persisted open request, reopening without another POST, and resolved-history display with a new request available. Rider and driver screenshots were inspected at 390×844. Workspace/E2E typechecks, changed-source lint, boundaries and both apps’ iOS/Android/web exports passed. These are browser and export checks, not physical-device acceptance or completed account erasure. Next: remaining device/UI acceptance and actual deletion fulfillment after the documented identity/retention policies are approved; hosted CI setup remains outstanding.
 
 ## Android Firebase release validation — September 12
 

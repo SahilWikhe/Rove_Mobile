@@ -35,6 +35,13 @@ export function SupportForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<string | null>(null);
+  const openDeletion = accountDeletion
+    ? requests.find(
+        (request) =>
+          request.category === 'account' && request.status === 'open' && request.message === deletionMessage,
+      )
+    : undefined;
+  const deletionReceived = accountDeletion && Boolean(receipt || openDeletion);
   const mounted = useRef(true),
     running = useRef(false);
   const attempt = useRef<{ category: Category; message: string; key: string } | null>(null);
@@ -69,7 +76,7 @@ export function SupportForm({
     };
   }, [list]);
   async function run(send: boolean) {
-    if (running.current) return;
+    if (running.current || (send && deletionReceived)) return;
     running.current = true;
     setBusy(true);
     setError(null);
@@ -142,7 +149,13 @@ export function SupportForm({
       )}
       {loaded && (
         <>
-          <Copy kind="heading">{accountDeletion ? 'Confirm your request' : 'New request'}</Copy>
+          <Copy kind="heading">
+            {deletionReceived
+              ? 'Deletion request received'
+              : accountDeletion
+                ? 'Confirm your request'
+                : 'New request'}
+          </Copy>
           {!accountDeletion &&
             categories.map((value) => (
               <Button
@@ -154,7 +167,16 @@ export function SupportForm({
               />
             ))}
           {accountDeletion ? (
-            <Copy>{deletionMessage}</Copy>
+            deletionReceived ? (
+              <Card>
+                <Copy>
+                  Your request is saved. Check Recent requests below for its status and any support response.
+                </Copy>
+                <Copy kind="muted">Reference: {receipt ?? openDeletion?.id}</Copy>
+              </Card>
+            ) : (
+              <Copy>{deletionMessage}</Copy>
+            )
           ) : (
             <Field
               label="What do you need help with?"
@@ -167,11 +189,13 @@ export function SupportForm({
           {!accountDeletion && (
             <Copy kind="muted">At least 10 characters. Check existing requests before sending another.</Copy>
           )}
-          <Button
-            title={accountDeletion ? 'Send deletion request' : 'Send support request'}
-            disabled={busy || message.trim().length < 10}
-            onPress={() => void run(true)}
-          />
+          {!deletionReceived && (
+            <Button
+              title={accountDeletion ? 'Send deletion request' : 'Send support request'}
+              disabled={busy || message.trim().length < 10}
+              onPress={() => void run(true)}
+            />
+          )}
           <Copy kind="heading">Recent requests</Copy>
           {!requests.length && <Copy>No requests yet.</Copy>}
           {requests.map((request) => (

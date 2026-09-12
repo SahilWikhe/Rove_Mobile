@@ -33,14 +33,17 @@ for (const [role, port] of [
     ).toBeVisible();
     await send.click();
     await expect(page.getByText(/Request saved. Reference:/)).toBeVisible();
-    await expect(send).toBeDisabled();
+    await expect(send).toHaveCount(0);
+    await expect(page.getByText('Deletion request received', { exact: true })).toBeVisible();
     expect(keys).toHaveLength(2);
     expect(keys[0]).toBeTruthy();
     expect(keys[1]).toBe(keys[0]);
     await page.getByRole('link', { name: 'Go back', exact: true }).click();
     await page.getByRole('button', { name: 'Request account deletion', exact: true }).click();
-    await page.getByRole('button', { name: 'Send deletion request', exact: true }).click();
-    await expect(page.getByText(/Request saved. Reference:/)).toBeVisible();
+    await expect(page.getByText('Deletion request received', { exact: true })).toBeVisible();
+    await expect(send).toHaveCount(0);
+    expect(keys).toHaveLength(2);
+    await page.screenshot({ path: `reports/${role}-deletion-received.png`, fullPage: true });
     const response = await request.get('http://localhost:4085/v1/support-requests', {
       headers: { Authorization: `Bearer synthetic-${role}` },
     });
@@ -50,5 +53,27 @@ for (const [role, port] of [
     );
     expect(requests).toHaveLength(1);
     expect(requests[0]).toMatchObject({ category: 'account', status: 'open' });
+    await page.unroute('**/v1/support-requests');
+    await page.route('**/v1/support-requests', (route) =>
+      route.fulfill({
+        json: {
+          requests: [
+            {
+              ...requests[0],
+              status: 'resolved',
+              response: 'Please contact support about the remaining account steps.',
+              resolvedAt: '2026-09-12T12:00:00.000Z',
+            },
+          ],
+        },
+      }),
+    );
+    await page.getByRole('link', { name: 'Go back', exact: true }).click();
+    await page.getByRole('button', { name: 'Request account deletion', exact: true }).click();
+    await expect(page.getByText('Deletion request received', { exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Send deletion request', exact: true })).toBeEnabled();
+    await expect(
+      page.getByText('Please contact support about the remaining account steps.', { exact: true }),
+    ).toBeVisible();
   });
 }

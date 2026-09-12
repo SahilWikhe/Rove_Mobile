@@ -391,3 +391,7 @@ The offer failure state now uses the same gold retry and secondary support/back 
 ## Active-trip saved-request recovery
 
 Rider tracking and driver active trips now share a dark recovery card with a gold read-only retry and secondary contextual support action. Trip reads continue while saved-operation storage is unavailable; cancellation and driver milestones remain blocked. Retrying invalidates the previous local confirmation. Empty storage restores deliberate trip controls, while a saved operation still requires Check previous action. No retry clears or submits that operation. This extends the approved failure-state design; it is not a change to normal tracking or assignment permissions.
+
+## Existing deletion-request acknowledgement
+
+The shared rider/driver account-deletion screen recognizes an existing open request created by this flow and shows Deletion request received with its reference instead of another send action. A successful submission is acknowledged even if the following history refresh fails. Recent requests and support responses remain visible; resolved history does not prevent a new deliberate request after reopening. This is request acknowledgement only: the account remains active and no trip, payment or retained record is changed by this screen.
