@@ -289,12 +289,20 @@ function Directions({ id }: { id: string }) {
         ]}
         onLayout={(event) => setBottomOverlayHeight(event.nativeEvent.layout.height)}
       >
-        <Button
-          title={running ? 'Stop directions' : 'Start directions'}
-          loading={busy}
-          disabled={!ready}
-          onPress={() => (running ? stop() : void start())}
-        />
+        {running ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Stop directions"
+            accessibilityHint="Stops navigation without ending your ride"
+            onPress={stop}
+            style={({ pressed }) => [styles.endNavigation, pressed && styles.backPressed]}
+          >
+            <Copy style={styles.endIcon}>×</Copy>
+            <Copy style={styles.endLabel}>End</Copy>
+          </Pressable>
+        ) : (
+          <Button title="Start directions" loading={busy} disabled={!ready} onPress={() => void start()} />
+        )}
       </View>
     </View>
   );
@@ -315,6 +323,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.border,
   },
+  endNavigation: {
+    alignSelf: 'flex-start',
+    minHeight: 48,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(18,18,18,0.9)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  endIcon: { color: theme.danger, fontSize: 25, lineHeight: 28 },
+  endLabel: { color: theme.text, fontFamily: 'Manrope_700Bold', fontSize: 16, lineHeight: 24 },
   backPressed: { backgroundColor: 'rgba(35,35,35,0.92)' },
   chevron: {
     width: 11,
