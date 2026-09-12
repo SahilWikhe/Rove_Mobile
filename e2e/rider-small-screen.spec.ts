@@ -41,22 +41,3 @@ test('rider navigation labels fit a compact screen and the last home action clea
   await choose.click();
   await expect(page.getByRole('button', { name: 'Close booking', exact: true })).toBeVisible();
 });
-
-test('signed-out ride links offer account recovery without requesting private ride data', async ({
-  page,
-}) => {
-  let rideReads = 0;
-  await page.route('**/v1/rides/*', async (route) => {
-    rideReads += 1;
-    await route.abort();
-  });
-  await page.goto('http://localhost:8091/ride?id=00000000-0000-4000-8000-000000000001');
-  await expect(page.getByText('Sign in to view your ride', { exact: true })).toBeVisible();
-  await expect(page.getByText('Loading your ride…', { exact: true })).toHaveCount(0);
-  expect(rideReads).toBe(0);
-  await page.getByRole('button', { name: 'Continue to your account', exact: true }).click();
-  await page.getByRole('button', { name: 'Get started', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Where are you going?', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'My rides', exact: true }).click();
-  await expect(page.getByText('Your rides and their latest status', { exact: true })).toBeVisible();
-});

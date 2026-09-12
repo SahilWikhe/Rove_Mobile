@@ -32,3 +32,7 @@ The local rider browser preview was exercised through sign-in → My rides, conf
 ## Ride-link recovery
 
 Rider ride details wait for account restoration before mounting the authenticated trip loader. Signed-out or unfinished accounts see Continue to your account, leading to the existing sign-in/profile/verification recovery entry point. After signing in, the rider can find the trip in My rides; this does not automatically open or mutate a ride. A missing or invalid ride UUID offers Open My rides without issuing an invalid detail request. Failed initial reads show a recovery message and a history action while normal foreground retry continues. The mounted trip state is isolated by profile ID and ride ID.
+
+### Driver trip-link recovery
+
+Driver trip details now apply the same entry checks: wait for session restoration, send an unfinished/signed-out account to the shared account entry point, and route missing/invalid UUIDs to Trips without mounting a private-data loader. Existing account-and-trip keyed state isolation is retained. A failed initial read offers Open Trips while foreground retries continue. No navigation recovery action changes a trip milestone or replays a pending operation.

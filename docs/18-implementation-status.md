@@ -2,6 +2,12 @@
 
 Updated: September 12, 2026. Current source baseline: `24c74f6f708a67f5c7591f4e754116c8a5498919`. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Driver trip-link recovery — September 12
+
+Applied account-restoration, signed-out recovery and UUID validation to driver trip links. Private trip loaders and pending-operation controls are not mounted before an account is ready. Initial read failures offer a route to Trips rather than an indefinite loading claim; existing account/ride state isolation remains intact.
+
+Verification: the completed synthetic rider/driver journey and both signed-out link recovery checks passed (three browser tests). All workspace/E2E types, lint, import boundaries and driver iOS/Android/web exports passed. iOS Maestro launch/link/scroll/action-visibility checks passed at the largest accessibility text size, with the original setting restored. Native Android cold-link recovery also displayed correctly. During font-size changes Android recreated the activity and returned to an earlier launch route; ordinary warm navigation worked when tested separately. Native configuration-change route retention needs a follow-up check and is not marked accepted. Next: that native lifecycle issue and remaining screen/device acceptance. No cloud setup or production activation occurred.
+
 ## Rider ride-link recovery and compact-screen verification — September 12
 
 Native inspection found a signed-out rider stranded on Please sign in plus Loading your ride, with no recovery action. The route now waits for account restoration, offers account recovery before making private reads, rejects incomplete ride links and isolates trip state by account/ride. An initial read failure offers My rides rather than an indefinite loading claim.

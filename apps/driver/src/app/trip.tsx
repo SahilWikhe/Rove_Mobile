@@ -10,9 +10,9 @@ import { useTrackingError } from '../tracking/provider';
 import { useCallback, useRef, useState } from 'react';
 import { NavigationButton } from '../navigation/button';
 import { router, Stack, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import type { RideDetails } from '@rove/contracts';
+import { RideSummary, type RideDetails } from '@rove/contracts';
 import { useSession } from '@rove/mobile-core/session';
-import { Banner, Button, Card, Copy, RouteSummary } from '@rove/mobile-ui';
+import { Banner, Button, Card, Copy, RouteSummary, Screen } from '@rove/mobile-ui';
 const actions = {
   matched: ['en_route', 'Head to pickup'],
   en_route: ['arrived', 'I’ve arrived'],
@@ -21,8 +21,33 @@ const actions = {
 } as const;
 export default function Trip() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { profile } = useSession();
-  return <TripContent key={`${profile?.id ?? 'signed-out'}:${id}`} id={id} />;
+  const session = useSession();
+  if (!session.ready)
+    return (
+      <Screen>
+        <Copy kind="muted">Restoring your account…</Copy>
+      </Screen>
+    );
+  if (!session.profile)
+    return (
+      <Screen>
+        <Stack.Screen options={{ title: 'Your trip' }} />
+        <Copy kind="heading">Sign in to view your trip</Copy>
+        <Copy kind="muted">Open your account to sign in or finish setup, then find this trip in Trips.</Copy>
+        <Button title="Continue to your account" onPress={() => router.replace('/')} />
+      </Screen>
+    );
+  const parsed = RideSummary.shape.id.safeParse(id);
+  if (!parsed.success)
+    return (
+      <Screen>
+        <Stack.Screen options={{ title: 'Your trip' }} />
+        <Copy kind="heading">This trip link is incomplete</Copy>
+        <Copy kind="muted">Choose a trip from your history to see its latest details.</Copy>
+        <Button title="Open Trips" onPress={() => router.replace('/trips')} />
+      </Screen>
+    );
+  return <TripContent key={`${session.profile.id}:${parsed.data}`} id={parsed.data} />;
 }
 function TripContent({ id }: { id: string }) {
   const { api, synthetic, profile } = useSession();
@@ -208,7 +233,14 @@ function TripContent({ id }: { id: string }) {
           )}
         </>
       ) : (
-        <Copy kind="muted">Loading your trip…</Copy>
+        <>
+          <Copy kind="muted">
+            {readError
+              ? 'Your trip details could not be loaded. We’ll retry while this screen is open.'
+              : 'Loading your trip…'}
+          </Copy>
+          <Button title="Open Trips" variant="secondary" onPress={() => router.replace('/trips')} />
+        </>
       )}
     </ActiveTripSurface>
   );
