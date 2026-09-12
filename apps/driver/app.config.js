@@ -12,6 +12,7 @@ module.exports = ({ config }) => ({
     ...(config.plugins ?? []),
     'expo-notifications',
     'expo-font',
+    './plugins/with-font-scale',
     './plugins/with-navigation',
     [
       'react-native-maps',

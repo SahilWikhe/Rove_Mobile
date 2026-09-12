@@ -1,12 +1,20 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `24c74f6f708a67f5c7591f4e754116c8a5498919`. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. Current source baseline: `dfa6dc96d2010cd70c4acc55aa93b47df1a449e4` plus the Android font-scale checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Android font-scale route retention — September 12
+
+Both Expo app configs now preserve their mounted Android activity when system text size changes. The app-local manifest plugins append `fontScale` without replacing existing activity flags; React Native handles text relayout. This fixes the earlier return to an old launch link when changing accessibility text size. A rebuilt native app is required.
+
+Verification: sequential rider and driver Android arm64 debug builds passed and were installed on the API 36 emulator. After opening an initial trip link, rider About and driver Coverage remained selected at 200% text size, with body text visibly growing. Both retained their screens and shrank text again after backgrounding, restoring 100% and resuming the existing task. The original font setting is restored. Four new manifest regression checks passed within all 53 tooling tests; workspace/E2E types, lint and import boundaries passed. The first concurrent builds raced in shared native outputs; sequential builds resolved the missing driver module and rider codegen failure. See [mobile build procedure](mobile-staging-builds.md#android-text-size-changes).
+
+This is local emulator verification, not physical-device or full accessibility acceptance. No cloud credentials, provider calls or production activation changed. Next: remaining screen/device acceptance and the release/setup items below.
 
 ## Driver trip-link recovery — September 12
 
 Applied account-restoration, signed-out recovery and UUID validation to driver trip links. Private trip loaders and pending-operation controls are not mounted before an account is ready. Initial read failures offer a route to Trips rather than an indefinite loading claim; existing account/ride state isolation remains intact.
 
-Verification: the completed synthetic rider/driver journey and both signed-out link recovery checks passed (three browser tests). All workspace/E2E types, lint, import boundaries and driver iOS/Android/web exports passed. iOS Maestro launch/link/scroll/action-visibility checks passed at the largest accessibility text size, with the original setting restored. Native Android cold-link recovery also displayed correctly. During font-size changes Android recreated the activity and returned to an earlier launch route; ordinary warm navigation worked when tested separately. Native configuration-change route retention needs a follow-up check and is not marked accepted. Next: that native lifecycle issue and remaining screen/device acceptance. No cloud setup or production activation occurred.
+Verification: the completed synthetic rider/driver journey and both signed-out link recovery checks passed (three browser tests). All workspace/E2E types, lint, import boundaries and driver iOS/Android/web exports passed. iOS Maestro launch/link/scroll/action-visibility checks passed at the largest accessibility text size, with the original setting restored. Native Android cold-link recovery also displayed correctly. During font-size changes Android recreated the activity and returned to an earlier launch route; ordinary warm navigation worked when tested separately. That configuration-change issue is addressed by the later Android font-scale checkpoint above. Remaining screen/device acceptance is still open. No cloud setup or production activation occurred.
 
 ## Rider ride-link recovery and compact-screen verification — September 12
 

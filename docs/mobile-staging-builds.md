@@ -31,3 +31,11 @@ Install and launch with Metro stopped. Verify Auth0 login/callback/logout, Maps 
 Production profiles and store submission must follow the final production endpoints, Auth0 applications, live payment policy, signing and operating approvals. Do not turn a staging build into production by changing only a Stripe key.
 
 References: [Expo monorepo builds](https://docs.expo.dev/build-reference/build-with-monorepos/), [build profiles](https://docs.expo.dev/build/eas-json/), [internal distribution](https://docs.expo.dev/build/internal-distribution/).
+
+## Android text-size changes
+
+Both apps apply `plugins/with-font-scale.js` during Expo prebuild. It adds `fontScale` to MainActivity configuration handling while preserving existing flags. React Native 0.86 handles text relayout; keeping the activity mounted prevents a font-size change from returning the router to its original launch link. This is a native configuration change and requires rebuilding/reinstalling the APK, not just Fast Refresh.
+
+For local Android builds, build the rider and driver sequentially in a shared checkout. Their pnpm native dependencies share generated build files; concurrent builds can race in code generation and package the wrong Expo module registry. CI jobs with separate checkouts do not share those outputs.
+
+Acceptance procedure: cold-launch a trip link, navigate to another screen, change Android text size from 100% to 200%, and confirm both the retained screen and visibly larger body text. Background the app, restore 100%, resume the existing task and confirm that the screen is still retained and text shrinks. Restore the original device setting after testing. Repeat on both apps; this does not replace physical-device or process-death recovery checks.
