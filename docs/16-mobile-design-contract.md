@@ -225,3 +225,23 @@ card says it is unavailable. Driver and vehicle identity remain limited to the o
 assignment and are absent after termination/completion. No example plate, registration region or
 vehicle year is invented. The existing vehicle-review service prevents changing the effective
 vehicle during an active assignment.
+
+## Rider booking route panel
+
+Rider Book a ride (`4:20`) uses the reference's centered heading, close control, Pick up now
+pill, joined pickup/destination panel and place-result rows. The exact close, clock, endpoint
+and place-pin exports are retained under `apps/rider/assets/booking` with transparent native
+PNG renders. Colors use the subsequently approved shared gold/glass tokens. Search results
+show provider-supplied labels and areas; no sample medical destinations or current-location
+claim is substituted for an address the rider selected.
+
+Either endpoint can be entered first. Editing one keeps the other selected endpoint, and
+keyboard Search uses the same explicit request path as the Search places button. Saved-place
+management, service selection, quote review and lost-request recovery remain available.
+Scheduling and additional stops are not exposed without implemented, enabled capabilities.
+The screen scrolls and wraps selected addresses rather than copying fixed Figma heights.
+
+The initial panel was visually checked on iOS and Android simulators. Booking E2E checks
+cover cancellation, completed synthetic trips, lost responses, actual search expiry/retry,
+and saved-place recovery. These checks do not establish physical-device keyboard or live
+Google Places acceptance.

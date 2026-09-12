@@ -1,3 +1,4 @@
+import { BookingHeader, RouteEntry, PlaceResult } from '../booking/route-entry';
 import { useEffect, useRef, useState } from 'react';
 import { createLatestRequest } from '@rove/mobile-core/latest-request';
 import { useOperations } from '@rove/mobile-core/use-operations';
@@ -7,7 +8,7 @@ import { QuoteConfirmation } from '../booking/quote-confirmation';
 import { ServicePicker } from '../booking/service-picker';
 import type { Place, Quote, SavedPlaceKind } from '@rove/contracts';
 import { useSession } from '@rove/mobile-core/session';
-import { Banner, Button, Card, Copy, Field, Screen } from '@rove/mobile-ui';
+import { Banner, Button, Copy, Screen } from '@rove/mobile-ui';
 export default function Book() {
   const { profile } = useSession();
   const { fromRide, savedKind } = useLocalSearchParams<{ fromRide?: string; savedKind?: string }>();
@@ -147,6 +148,17 @@ function BookingForm({ fromRide, savedKind }: { fromRide?: string; savedKind?: S
     });
   }
 
+  function search() {
+    if (query.trim().length < 3) return;
+    void read(
+      (signal) => api.places(query.trim(), signal),
+      (result) => {
+        setPlaces(result.places);
+        setSearched(true);
+      },
+    );
+  }
+
   if (!profile)
     return (
       <Screen>
@@ -203,9 +215,9 @@ function BookingForm({ fromRide, savedKind }: { fromRide?: string; savedKind?: S
       </Screen>
     );
   return (
-    <Screen contentStyle={quote ? { paddingHorizontal: 20, paddingTop: 22, gap: 16 } : undefined}>
-      <Stack.Screen options={{ title: 'Book a ride', headerShown: !quote }} />
-      {!quote && <Copy kind="title">Your route.</Copy>}
+    <Screen contentStyle={{ paddingHorizontal: 20, paddingTop: 16, gap: 16 }}>
+      <Stack.Screen options={{ title: 'Book a ride', headerShown: false }} />
+      {!quote && <BookingHeader onClose={() => (router.canGoBack() ? router.back() : router.replace('/'))} />}
       {fromRide && !quote && (
         <Banner message="Review your route and choose your ride type. You’ll see a new fare before requesting another ride." />
       )}
@@ -228,6 +240,43 @@ function BookingForm({ fromRide, savedKind }: { fromRide?: string; savedKind?: S
         />
       ) : (
         <>
+          <RouteEntry
+            pickup={pickup}
+            destination={destination}
+            target={target}
+            query={query}
+            onEdit={edit}
+            onSearch={search}
+          />
+          {(!pickup || !destination) && (
+            <Button
+              title="Search places"
+              disabled={query.trim().length < 3}
+              loading={loading}
+              onPress={search}
+            />
+          )}
+          {searched && !loading && places.length === 0 && (
+            <Copy kind="muted">No places found. Try a different address.</Copy>
+          )}
+          {places.map((place) => (
+            <PlaceResult
+              key={place.id}
+              place={place}
+              onPress={() => {
+                cancelRead();
+                if (target === 'pickup') {
+                  setPickup(place);
+                  setTarget('destination');
+                } else {
+                  setDestination(place);
+                  if (!pickup) setTarget('pickup');
+                }
+                setPlaces([]);
+                setQuery('');
+              }}
+            />
+          ))}
           <SavedPlaceControls
             api={api}
             selected={destination ?? pickup}
@@ -244,81 +293,14 @@ function BookingForm({ fromRide, savedKind }: { fromRide?: string; savedKind?: S
                   if (target === 'pickup') {
                     setPickup(place);
                     setTarget('destination');
-                  } else setDestination(place);
+                  } else {
+                    setDestination(place);
+                    if (!pickup) setTarget('pickup');
+                  }
                 },
               )
             }
           />
-          {pickup && (
-            <Card>
-              <Copy kind="label">PICKUP</Copy>
-              <Copy>{pickup.label}</Copy>
-              <Button
-                title="Change pickup"
-                variant="secondary"
-                onPress={() => {
-                  edit('pickup');
-                }}
-              />
-            </Card>
-          )}
-          {destination && (
-            <Card>
-              <Copy kind="label">DESTINATION</Copy>
-              <Copy>{destination.label}</Copy>
-              <Button
-                title="Change destination"
-                variant="secondary"
-                onPress={() => {
-                  edit('destination');
-                }}
-              />
-            </Card>
-          )}
-          {(!pickup || !destination) && (
-            <>
-              <Field
-                label={target === 'pickup' ? 'Pickup address' : 'Destination address'}
-                value={query}
-                onChangeText={(text) => edit(target, text)}
-                placeholder="Search an address or place"
-                autoCorrect={false}
-              />
-              <Button
-                title="Search places"
-                disabled={query.trim().length < 3}
-                loading={loading}
-                onPress={() =>
-                  void read(
-                    (signal) => api.places(query.trim(), signal),
-                    (result) => {
-                      setPlaces(result.places);
-                      setSearched(true);
-                    },
-                  )
-                }
-              />
-            </>
-          )}
-          {searched && !loading && places.length === 0 && (
-            <Copy kind="muted">No places found. Try a different address.</Copy>
-          )}
-          {places.map((place) => (
-            <Button
-              key={place.id}
-              title={place.label}
-              variant="secondary"
-              onPress={() => {
-                cancelRead();
-                if (target === 'pickup') {
-                  setPickup(place);
-                  setTarget('destination');
-                } else setDestination(place);
-                setPlaces([]);
-                setQuery('');
-              }}
-            />
-          ))}
           {pickup && destination && (
             <ServicePicker
               value={service}
