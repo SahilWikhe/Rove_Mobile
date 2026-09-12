@@ -32,3 +32,41 @@ test('synthetic provider refuses deployed environments', () => {
     vi.unstubAllEnvs();
   }
 });
+
+test('synthetic refunds preserve captured totals, bind retries and cap concurrent refunds', async () => {
+  const provider = new LocalPayments();
+  const { payment: snapshot } = await provider.create({
+    rideId: 'refund-ride',
+    attemptId: 'refund-attempt',
+    customerId: 'cus_synthetic',
+    amountCents: 1000,
+  });
+  const { intentId, rideId, attemptId, customerId, amountCents } = snapshot;
+  const payment = { intentId, rideId, attemptId, customerId, amountCents };
+  await expect(provider.refund(payment, 100, 'before-capture')).rejects.toThrow();
+  await provider.capture(payment, 1000);
+  for (const amount of [0, -1, 0.5, NaN, Infinity, 1001])
+    await expect(provider.refund(payment, amount, 'invalid')).rejects.toThrow();
+  await expect(provider.refund(payment, 100, ' ')).rejects.toThrow();
+  const first = await provider.refund(payment, 400, 'first');
+  expect(first).toMatchObject({ status: 'succeeded', amountCents: 400 });
+  await expect(provider.refund(payment, 401, 'first')).rejects.toThrow('retry mismatch');
+  await expect(provider.refund({ ...payment, rideId: 'outsider' }, 400, 'first')).rejects.toThrow(
+    'reference mismatch',
+  );
+  const results = await Promise.allSettled([
+    provider.refund(payment, 600, 'second'),
+    provider.refund(payment, 600, 'third'),
+  ]);
+  expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+  expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
+  expect(await provider.refund(payment, 400, 'first')).toEqual(first);
+  await expect(provider.refund(payment, 1, 'overflow')).rejects.toThrow();
+  expect((await provider.retrieve(payment)).receivedCents).toBe(1000);
+  const otherSnapshot = (
+    await provider.create({ rideId, attemptId: 'other-attempt', customerId, amountCents })
+  ).payment;
+  const other = { ...payment, attemptId: 'other-attempt', intentId: otherSnapshot.intentId };
+  await provider.capture(other, 1000);
+  await expect(provider.refund(other, 400, 'first')).rejects.toThrow('retry mismatch');
+});

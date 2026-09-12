@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type {
   PaymentProvider,
   PaymentCustomerProvider,
@@ -8,6 +9,11 @@ import type {
 /** In-memory provider for the disposable local runtime only. Never contacts Stripe. */
 export class LocalPayments implements PaymentProvider, PaymentCustomerProvider {
   private payments = new Map<string, PaymentSnapshot>();
+  private refunds = new Map<
+    string,
+    { intentId: string; result: { id: string; status: 'succeeded'; amountCents: number } }
+  >();
+  private refundedCents = new Map<string, number>();
   constructor() {
     if (process.env.NODE_ENV === 'production' || process.env.VERCEL)
       throw new Error('Synthetic payments cannot run in a deployment.');
@@ -62,7 +68,27 @@ export class LocalPayments implements PaymentProvider, PaymentCustomerProvider {
     this.payments.set(reference.intentId, updated);
     return { ...updated };
   }
-  async refund(): Promise<never> {
-    throw new Error('Synthetic refunds are not implemented.');
+  async refund(reference: PaymentReference, amountCents: number, key: string) {
+    const payment = await this.retrieve(reference);
+    if (!Number.isSafeInteger(amountCents) || amountCents <= 0 || !key.trim())
+      throw new Error('Invalid synthetic refund request.');
+    const prior = this.refunds.get(key);
+    if (prior) {
+      if (prior.intentId !== reference.intentId || prior.result.amountCents !== amountCents)
+        throw new Error('Synthetic refund retry mismatch.');
+      return { ...prior.result };
+    }
+    const refunded = this.refundedCents.get(reference.intentId) ?? 0;
+    if (payment.status !== 'succeeded' || amountCents > payment.receivedCents - refunded)
+      throw new Error('Synthetic payment is not available for this refund.');
+    // No await between checking and recording: concurrent requests cannot overspend the balance.
+    const result = {
+      id: 're_synthetic' + randomUUID().replaceAll('-', ''),
+      status: 'succeeded' as const,
+      amountCents,
+    };
+    this.refunds.set(key, { intentId: reference.intentId, result });
+    this.refundedCents.set(reference.intentId, refunded + amountCents);
+    return { ...result };
   }
 }
