@@ -1,4 +1,4 @@
-import { EarningsDateRange } from '@rove/contracts';
+import { DriverCoverage, EarningsDateRange } from '@rove/contracts';
 import { WalletSetupRequest, WalletCustomerSession, WalletSetupSession } from '@rove/contracts';
 import type { WalletSessions } from '@rove/server';
 import { getDriverLocation } from './driver-location-queries';
@@ -437,6 +437,12 @@ export function createApp(deps: Dependencies) {
     ),
   );
   app.get('/v1/drivers/me', async (c) => c.json(await drivers.profile(c.var.actor)));
+  app.put('/v1/drivers/me/coverage', async (c) => {
+    const input = await body(c, DriverCoverage);
+    return c.json(
+      await drivers.coverage(c.var.actor, input.radiusMiles, c.req.header('Idempotency-Key') ?? ''),
+    );
+  });
   app.put('/v1/drivers/me/availability', async (c) => {
     const input = await body(
       c,

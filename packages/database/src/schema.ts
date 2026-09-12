@@ -39,22 +39,27 @@ export const users = pgTable(
   },
   (t) => [check('valid_user_role', sql`${t.role} in ('rider', 'driver', 'staff')`)],
 );
-export const drivers = pgTable('drivers', {
-  id: uuid()
-    .primaryKey()
-    .references(() => users.id),
-  approved: boolean().notNull().default(false),
-  online: boolean().notNull().default(false),
-  service: text().notNull().default('standard'),
-  payoutReady: boolean().notNull().default(false),
-  payoutValidUntil: timestamp({ withTimezone: true }),
-  eligibilityExpiresAt: timestamp({ withTimezone: true }),
-  locationSequence: integer().notNull().default(0),
-  location: jsonb(),
-  locationAt: timestamp({ withTimezone: true }),
-  locationSampledAt: timestamp({ withTimezone: true }),
-  vehicle: jsonb(),
-});
+export const drivers = pgTable(
+  'drivers',
+  {
+    coverageRadiusMiles: integer().notNull().default(25),
+    id: uuid()
+      .primaryKey()
+      .references(() => users.id),
+    approved: boolean().notNull().default(false),
+    online: boolean().notNull().default(false),
+    service: text().notNull().default('standard'),
+    payoutReady: boolean().notNull().default(false),
+    payoutValidUntil: timestamp({ withTimezone: true }),
+    eligibilityExpiresAt: timestamp({ withTimezone: true }),
+    locationSequence: integer().notNull().default(0),
+    location: jsonb(),
+    locationAt: timestamp({ withTimezone: true }),
+    locationSampledAt: timestamp({ withTimezone: true }),
+    vehicle: jsonb(),
+  },
+  (t) => [check('driver_coverage_radius_range', sql`${t.coverageRadiusMiles} BETWEEN 1 AND 100`)],
+);
 export const quotes = pgTable('quotes', {
   id: uuid().primaryKey(),
   riderId: uuid()

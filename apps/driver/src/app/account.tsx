@@ -54,6 +54,12 @@ export default function Account() {
           <View style={{ paddingTop: 6 }}>
             <AccountRow
               icon={chevron}
+              label="Coverage radius"
+              disabled={busy}
+              onPress={() => router.push('/coverage')}
+            />
+            <AccountRow
+              icon={chevron}
               label="Edit profile"
               disabled={busy}
               onPress={() => router.push('/profile')}

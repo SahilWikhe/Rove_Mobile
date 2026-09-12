@@ -146,7 +146,10 @@ export const RideDriverLocation = z
   .strict();
 export type RideDriverLocation = z.infer<typeof RideDriverLocation>;
 
+export const DriverCoverage = z.object({ radiusMiles: z.number().int().min(1).max(100) }).strict();
+
 export const DriverProfile = z.object({
+  coverageRadiusMiles: z.number().int().min(1).max(100).default(25),
   eligibilityStatus: z.enum(['review_required', 'expired', 'payout_required', 'eligible']).optional(),
   approved: z.boolean(),
   online: z.boolean(),

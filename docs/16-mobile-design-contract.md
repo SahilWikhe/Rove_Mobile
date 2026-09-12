@@ -325,3 +325,23 @@ acceptance is still required before production release.
 
 The ring pulse was verified by comparing native iOS and Android frames: changed pixels were
 confined to the ring area. Rider types/lint and the cancellation/recovery browser check passed.
+
+## Driver coverage radius
+
+Account → Coverage radius lets drivers save a whole-number pickup radius of 1–100 miles,
+defaulting to 25 miles. This replaces the previous fixed 25-kilometer matching filter.
+Distances are straight-line distances from the driver's latest eligible location. Existing
+pickup-time, service, location freshness and eligibility limits remain in force. Radius
+changes apply to newly created offers; already-issued offers and accepted trips remain intact.
+The saved radius is rechecked under the driver lock after routing, so changing it during a
+provider calculation cannot create a new out-of-radius offer.
+
+`PUT /v1/drivers/me/coverage` accepts `{ radiusMiles }` and an Idempotency-Key. Only the
+signed-in driver can change their preference. The driver profile exposes coverageRadiusMiles;
+older server responses default to 25 in the client contract. Migration 0029 adds the bounded
+column with a default for existing accounts. It was applied to provider staging before code
+publication. The earlier separate staging database was not changed.
+
+Matching tests verify miles conversion, persisted narrowing/widening, validation, replay and
+concurrent changes. The full repository tests passed. The browser settings flow verifies a
+lost-save response and reuse of the same operation key; iOS and Android previews were checked.

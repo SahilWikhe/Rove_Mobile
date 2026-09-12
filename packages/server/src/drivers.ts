@@ -1,5 +1,5 @@
 import type { Pool } from 'pg';
-import { Coordinate, DriverOffer } from '@rove/contracts';
+import { Coordinate, DriverOffer, DriverCoverage } from '@rove/contracts';
 import { DomainError } from './errors';
 import { command } from './transactions';
 import type { Actor } from './rides';
@@ -16,7 +16,7 @@ export class DriverService {
     driverOnly(actor);
     const row = (
       await this.pool.query(
-        'SELECT approved,online,payout_ready,payout_valid_until,eligibility_expires_at,location_at,location_sequence,vehicle,service FROM drivers WHERE id=$1',
+        'SELECT coverage_radius_miles,approved,online,payout_ready,payout_valid_until,eligibility_expires_at,location_at,location_sequence,vehicle,service FROM drivers WHERE id=$1',
         [actor.id],
       )
     ).rows[0];
@@ -32,6 +32,7 @@ export class DriverService {
             ? 'payout_required'
             : 'eligible';
     return {
+      coverageRadiusMiles: row.coverage_radius_miles,
       approved: row.approved,
       online: row.online,
       payoutReady,
@@ -42,6 +43,18 @@ export class DriverService {
       vehicle: row.vehicle,
       service: row.service,
     };
+  }
+  async coverage(actor: Actor, radiusMiles: number, key: string) {
+    driverOnly(actor);
+    DriverCoverage.parse({ radiusMiles });
+    return command(this.pool, actor.id, key, { action: 'coverage', radiusMiles }, async (client) => {
+      const result = await client.query(
+        'UPDATE drivers SET coverage_radius_miles=$2 WHERE id=$1 RETURNING id',
+        [actor.id, radiusMiles],
+      );
+      if (!result.rowCount) throw new DomainError('NOT_FOUND', 'Driver profile not found.', 404);
+      return { radiusMiles };
+    });
   }
   async availability(actor: Actor, online: boolean, coordinate: Coordinate | undefined, key: string) {
     driverOnly(actor);

@@ -45,11 +45,13 @@ test('read-only plan, complete fresh migration, idempotent rerun and stale-plan 
   const f = await isolated();
   try {
     const plan = await releaseMigrations(f.client, f.target, migrations);
-    expect(plan.pending).toHaveLength(29);
+    expect(plan.pending).toHaveLength(migrations.length);
     expect(
       (await f.client.query("SELECT to_regclass('public.users') AS relation")).rows[0].relation,
     ).toBeNull();
-    expect((await releaseMigrations(f.client, f.target, migrations, plan.planHash)).appliedNow).toBe(29);
+    expect((await releaseMigrations(f.client, f.target, migrations, plan.planHash)).appliedNow).toBe(
+      migrations.length,
+    );
     expect(
       (
         await f.client.query(

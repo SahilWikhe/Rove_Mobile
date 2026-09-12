@@ -76,8 +76,8 @@ export class MatchingService {
     if (!ride) return;
     const quote = Quote.parse(ride.snapshot);
     const candidates = (
-      await this.pool.query<{ id: string; location: unknown }>(
-        `SELECT d.id,d.location FROM drivers d JOIN users u ON u.id=d.id
+      await this.pool.query<{ id: string; location: unknown; coverage_radius_miles: number }>(
+        `SELECT d.id,d.location,d.coverage_radius_miles FROM drivers d JOIN users u ON u.id=d.id
       WHERE d.online=true AND d.approved=true AND d.payout_ready=true AND d.payout_valid_until>$1 AND d.eligibility_expires_at>$1 AND u.disabled=false
       AND d.location_at>$1::timestamptz-interval '60 seconds' AND d.location IS NOT NULL
       AND ($2='standard' OR d.service='accessible')
@@ -99,7 +99,9 @@ export class MatchingService {
         const point = Coordinate.safeParse(candidate.location);
         if (!point.success) return [];
         const distance = distanceMeters(point.data, quote.pickup.coordinate);
-        return distance <= 25_000 ? [{ id: candidate.id, coordinate: point.data, distance }] : [];
+        return distance <= candidate.coverage_radius_miles * 1609.344
+          ? [{ id: candidate.id, coordinate: point.data, distance }]
+          : [];
       })
       .sort((a, b) => a.distance - b.distance)
       .slice(0, 5);
@@ -134,15 +136,21 @@ export class MatchingService {
       if (!(await this.inspect(client, rideId))) return;
       for (const candidate of ranked) {
         const current = (
-          await client.query<{ location: unknown }>(
-            `SELECT d.location FROM drivers d JOIN users u ON u.id=d.id
+          await client.query<{ location: unknown; coverage_radius_miles: number }>(
+            `SELECT d.location,d.coverage_radius_miles FROM drivers d JOIN users u ON u.id=d.id
           WHERE d.id=$1 AND d.online=true AND d.approved=true AND d.payout_ready=true AND d.payout_valid_until>$2 AND d.eligibility_expires_at>$2 AND u.disabled=false
           AND d.location_at>$2::timestamptz-interval '60 seconds' AND ($3='standard' OR d.service='accessible') FOR UPDATE OF d SKIP LOCKED`,
             [candidate.id, this.now(), quote.service],
           )
         ).rows[0];
         const point = Coordinate.safeParse(current?.location);
-        if (!point.success || distanceMeters(point.data, candidate.coordinate) > 500) continue;
+        if (
+          !point.success ||
+          !current ||
+          distanceMeters(point.data, candidate.coordinate) > 500 ||
+          distanceMeters(point.data, quote.pickup.coordinate) > current.coverage_radius_miles * 1609.344
+        )
+          continue;
         const busy = await client.query(
           `SELECT id FROM offers WHERE driver_id=$1 AND (ride_id=$2 OR status='pending')
           UNION ALL SELECT id FROM rides WHERE driver_id=$1 AND state IN ('matched','en_route','arrived','in_progress','interrupted')`,

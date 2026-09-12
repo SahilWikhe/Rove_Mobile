@@ -7,7 +7,7 @@ import {
   TripMessage,
   MessageReport,
 } from '@rove/contracts';
-import { EarningsDateRange } from '@rove/contracts';
+import { DriverCoverage, EarningsDateRange } from '@rove/contracts';
 import { WalletCustomerSession, WalletSetupSession, WalletSetupRequest } from '@rove/contracts';
 import { z } from 'zod';
 import {
@@ -384,6 +384,13 @@ export class ApiClient {
   }
   driverProfile(signal?: AbortSignal) {
     return this.request('/v1/drivers/me', DriverProfile, signal ? { signal } : {});
+  }
+  driverCoverage(radiusMiles: number, key: string) {
+    return this.request('/v1/drivers/me/coverage', DriverCoverage, {
+      method: 'PUT',
+      body: { radiusMiles },
+      key,
+    });
   }
   availability(online: boolean, coordinate: Coordinate | undefined, key: string) {
     return this.request('/v1/drivers/me/availability', z.object({ online: z.boolean() }), {

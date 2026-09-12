@@ -269,3 +269,58 @@ test('expired payout freshness blocks candidates and expires their pending offer
   await matcher.tick(request.id);
   expect((await database.pool.query('SELECT status FROM offers')).rows[0].status).toBe('expired');
 });
+
+test('coverage defaults to 25 miles, persists and allows nearby drivers to widen or narrow new offers', async () => {
+  const d = await driver();
+  expect((await driverService.profile(d)).coverageRadiusMiles).toBe(25);
+  // About 33 km / 21 miles: outside the old 25 km limit, inside 25 miles.
+  await database.pool.query('UPDATE drivers SET location=$2 WHERE id=$1', [
+    d.id,
+    { latitude: 36.1, longitude: -78.6 },
+  ]);
+  const r = await ride();
+  await authorize(r.id);
+  await driverService.coverage(d, 10, randomUUID());
+  await matcher.tick(r.id);
+  expect((await driverService.offers(d)).offers).toHaveLength(0);
+  const key = randomUUID();
+  expect(await driverService.coverage(d, 25, key)).toEqual({ radiusMiles: 25 });
+  expect(await driverService.coverage(d, 25, key)).toEqual({ radiusMiles: 25 });
+  await matcher.tick(r.id);
+  expect((await driverService.offers(d)).offers).toHaveLength(1);
+  await driverService.coverage(d, 1, randomUUID());
+  expect((await driverService.offers(d)).offers).toHaveLength(1);
+  expect((await driverService.profile(d)).coverageRadiusMiles).toBe(1);
+});
+test('coverage validates boundaries and restricts writes to drivers', async () => {
+  const d = await driver();
+  for (const value of [0, 101, 1.5, NaN])
+    await expect(driverService.coverage(d, value, randomUUID())).rejects.toThrow();
+  await expect(driverService.coverage({ id: d.id, role: 'rider' }, 30, randomUUID())).rejects.toMatchObject({
+    code: 'FORBIDDEN',
+  });
+  await driverService.coverage(d, 100, randomUUID());
+  expect((await driverService.profile(d)).coverageRadiusMiles).toBe(100);
+});
+test('coverage changes while routing are rechecked before creating an offer', async () => {
+  const d = await driver();
+  await database.pool.query('UPDATE drivers SET location=$2 WHERE id=$1', [
+    d.id,
+    { latitude: 35.9, longitude: -78.6 },
+  ]);
+  const r = await ride();
+  await authorize(r.id);
+  const racing = new MatchingService(
+    database.pool,
+    {
+      ...maps,
+      route: async () => {
+        await driverService.coverage(d, 1, randomUUID());
+        return { durationSeconds: 180, distanceMeters: 1000 };
+      },
+    },
+    () => now,
+  );
+  await racing.tick(r.id);
+  expect((await driverService.offers(d)).offers).toHaveLength(0);
+});
