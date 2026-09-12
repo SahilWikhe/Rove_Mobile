@@ -1,3 +1,4 @@
+import { useCallback, useState } from 'react';
 import { useSession } from '@rove/mobile-core/session';
 import { useMessageUnread } from '@rove/mobile-core/use-messages';
 import { useFocusEffect } from 'expo-router';
@@ -26,11 +27,23 @@ export function DriverNavigation({
   active: (typeof destinations)[number]['path'];
   disabled?: boolean;
 }) {
+  const [focused, setFocused] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      setFocused(true);
+      return () => setFocused(false);
+    }, []),
+  );
   const { api, profile } = useSession();
   const messages = useMessageUnread(api, profile?.id);
   useFocusEffect(messages.focus);
   return (
-    <View style={styles.wrap} pointerEvents="box-none">
+    <View
+      style={styles.wrap}
+      pointerEvents={focused ? 'box-none' : 'none'}
+      accessibilityElementsHidden={!focused}
+      importantForAccessibility={focused ? 'auto' : 'no-hide-descendants'}
+    >
       <View style={styles.bar}>
         {destinations.map(({ label, path, icon }) => (
           <Pressable

@@ -146,7 +146,7 @@ export function MessageThreadView({
       : ['I’m at the front entrance', 'I’ll be there shortly', 'Where should I meet you?'];
   return (
     <SafeAreaView style={styles.screen}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={styles.header}>
           <Pressable
             style={styles.circle}
