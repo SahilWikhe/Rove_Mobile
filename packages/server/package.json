@@ -11,15 +11,15 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "3.1128.0",
-    "@aws-sdk/s3-presigned-post": "3.1128.0",
-    "@aws-sdk/s3-request-presigner": "3.1128.0",
+    "@aws-sdk/client-s3": "3.1129.0",
+    "@aws-sdk/s3-presigned-post": "3.1129.0",
+    "@aws-sdk/s3-request-presigner": "3.1129.0",
     "@rove/contracts": "workspace:*",
     "@rove/database": "workspace:*",
     "drizzle-orm": "0.45.2",
     "pg": "8.23.0",
-    "stripe": "22.6.1",
-    "zod": "4.5.4"
+    "stripe": "22.6.2",
+    "zod": "4.6.1"
   },
   "devDependencies": {
     "@types/pg": "8.23.1"
