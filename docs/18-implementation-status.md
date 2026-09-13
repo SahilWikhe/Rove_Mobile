@@ -1,5 +1,11 @@
 # Implementation status
 
+## Hosted users RLS verified — September 13
+
+Applied migrations 0082–0084 only to reverified disposable br-shy-bar-axjulxqh / neondb, with direct/pooled endpoint and database assertions. Catalog confirms 85 migrations, 47 tables and 45 enabled/forced RLS tables. The full hosted rehearsal exited successfully through rove_staging_app with NOSUPERUSER/NOBYPASSRLS. New signup retry, original-role preservation, name-only profile change, unscoped denial and disabled-account rejection checks passed. Existing synthetic payment, refund/dispute, payout/transfer, tracking, messaging, notification, vehicle, closure/retention, document and outbox workflows passed. All external adapters remained fake; no real provider operation occurred.
+
+Source and isolated-hosted coverage now match at 45/47. Drivers and rides remain, followed by compatible provider-staging rollout and physical-device/provider acceptance. Provider staging and production are unchanged. Driver access tracing identifies availability/location, payout readiness, eligibility and vehicle review as distinct mutation paths for the next policy. This checkpoint is prepared for the authorized main push; remote confirmation follows.
+
 ## Users RLS implemented and verified locally — September 13
 
 Migrations 0082–0084 enable/force users RLS, add related-trip reads and provide a short exact-request closure lookup. Reads cover verified subjects, actor/exact-account/audience scopes, quote ownership, assigned trip counterparts within active/history windows and backend matching driver reads. Profile writes compare full persisted rows with only the selected name changed; closure compares the disabled=true snapshot and requires staff/MFA context, with current permission and financial/retention authorization still enforced by the service. Signup uses INSERT ON CONFLICT DO NOTHING plus a scoped locked read, so retry cannot rewrite an existing identity or role. No user DELETE policy exists. These backend-controlled scopes are defense in depth, not protection from arbitrary SQL using a compromised runtime credential.
