@@ -1,5 +1,11 @@
 # Implementation status
 
+## Reviewed message cleanup transaction — September 13
+
+Implemented the disabled-by-default MessageCleanup domain service for exact reviewed batches of expired messages authored by a closed-account requester. It requires staff MFA/current cleanup permission, matching configured policy, unwithdrawn closure and participant retention checks. Reported conversations and counterpart messages are preserved. User/ride locks serialize cleanup with messaging and hold placement. Deletion, audit and retry receipt are atomic; the receipt does not claim complete erasure.
+
+Verification: all 18 tests passed across the new six PostgreSQL cleanup tests and 12 existing messaging tests, including a concurrent hold committed while cleanup waits and audit rollback. Server typecheck, targeted lint and formatting passed. Initial fixtures attempted to violate existing immutable closure/active-account constraints; corrected fixtures now respect and assert those protections. No cloud deletion or runtime activation occurred. Runtime batch review/entrypoint and policy configuration remain unimplemented, along with wider data/provider/device/production acceptance. Next: wire reviewed cleanup operations into the protected operational interface and continue remaining release checks.
+
 ## Explicit database RLS readiness evidence — September 13
 
 Extended the existing read-only staging database checker to report actual catalog RLS coverage and disabled table names separately from role/grant checks. Current migrations contain no RLS policies or enablement; backend ownership authorization remains the implemented isolation boundary. NOBYPASSRLS is not RLS enablement.
