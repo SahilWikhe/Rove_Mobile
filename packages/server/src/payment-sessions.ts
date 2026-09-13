@@ -1,3 +1,4 @@
+import { bindPaymentAttemptWrite } from './payment-attempt-scope';
 import { enqueueOutbox } from './outbox-enqueue';
 import { bindActorIdentity } from './actor-transaction';
 import type { WalletProvider } from './wallet-sessions';
@@ -121,6 +122,14 @@ export class PaymentSessions {
         )
       ).rows[0];
       if (!ride) throw new DomainError('NOT_FOUND', 'Ride not found.', 404);
+      await bindPaymentAttemptWrite(client, {
+        attemptId: attempt.id,
+        rideId,
+        bindingId: attempt.customer_binding_id,
+        source: this.source,
+        amountCents: attempt.amount_cents,
+        intentId: payment.intentId,
+      });
       const mapped = await client.query(
         'UPDATE payment_attempts SET intent_id=$2 WHERE id=$1 AND (intent_id IS NULL OR intent_id=$2)',
         [attempt.id, payment.intentId],

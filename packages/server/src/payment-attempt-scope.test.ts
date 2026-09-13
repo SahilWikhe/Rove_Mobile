@@ -3,7 +3,7 @@ import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
 import { createDatabase } from '@rove/database';
 import { testDatabase } from '@rove/database/testing';
 import { transaction } from './transactions';
-import { bindPaymentAttemptRead } from './payment-attempt-scope';
+import { bindPaymentAttemptRead, bindPaymentAttemptWrite } from './payment-attempt-scope';
 import { bindPaymentCustomerRead } from './payment-customer-scope';
 let db: Awaited<ReturnType<typeof testDatabase>>;
 let runtime: ReturnType<typeof createDatabase>;
@@ -24,6 +24,12 @@ beforeAll(async () => {
  id=(NULLIF(current_setting('rove.payment_attempt_read',true),'')::jsonb->>'attemptId')::uuid OR
  ride_id=(NULLIF(current_setting('rove.payment_attempt_read',true),'')::jsonb->>'rideId')::uuid OR
  intent_id=NULLIF(current_setting('rove.payment_attempt_read',true),'')::jsonb->>'intentId'));`);
+  await db.pool.query(`CREATE POLICY payment_write_probe ON payment_attempts FOR UPDATE USING (
+    jsonb_build_object('attemptId',id,'rideId',ride_id,'bindingId',customer_binding_id,'source',source,'amountCents',amount_cents)
+    = (NULLIF(current_setting('rove.payment_attempt_write',true),'')::jsonb-'intentId')
+    AND (intent_id IS NULL OR intent_id=NULLIF(current_setting('rove.payment_attempt_write',true),'')::jsonb->>'intentId'))
+    WITH CHECK (jsonb_build_object('attemptId',id,'rideId',ride_id,'bindingId',customer_binding_id,'source',source,'amountCents',amount_cents,'intentId',intent_id)
+    = NULLIF(current_setting('rove.payment_attempt_write',true),'')::jsonb);`);
   const connection = new URL(db.connectionString);
   connection.username = 'payment_read_probe';
   connection.password = password;
@@ -104,5 +110,74 @@ test('invalid provider or ambiguous references cannot establish a lookup scope',
       bindPaymentAttemptRead(c, 'acct_scope:test', { intentId: 'pi_shared', rideId: randomUUID() }),
     ),
   ).rejects.toThrow();
+  expect((await runtime.pool.query('SELECT * FROM payment_attempts')).rowCount).toBe(0);
+});
+
+test('verified result scope preserves the exact payment while rejecting retargeted writes', async () => {
+  const row = records[0]!,
+    other = records[1]!;
+  const scope = {
+    attemptId: row.id,
+    rideId: row.ride,
+    bindingId: row.binding,
+    source: row.source,
+    amountCents: 1000,
+    intentId: row.intent,
+  };
+  await transaction(runtime.pool, async (c) => {
+    await bindPaymentAttemptWrite(c, scope);
+    expect(
+      (
+        await c.query(
+          "UPDATE payment_attempts SET provider_status='succeeded',revision=revision+1 WHERE id=$1",
+          [other.id],
+        )
+      ).rowCount,
+    ).toBe(0);
+    expect(
+      (
+        await c.query(
+          "UPDATE payment_attempts SET provider_status='succeeded',revision=revision+1 WHERE id=$1",
+          [row.id],
+        )
+      ).rowCount,
+    ).toBe(1);
+    await bindPaymentAttemptRead(c, row.source, { attemptId: row.id });
+    expect(
+      (await c.query('UPDATE payment_attempts SET revision=revision+1 WHERE id=$1', [row.id])).rowCount,
+    ).toBe(0);
+  });
+  await expect(
+    transaction(runtime.pool, async (c) => {
+      await bindPaymentAttemptWrite(c, scope);
+      await c.query('UPDATE payment_attempts SET amount_cents=500 WHERE id=$1', [row.id]);
+    }),
+  ).rejects.toMatchObject({ code: '42501' });
+  await transaction(runtime.pool, async (c) => {
+    await bindPaymentAttemptWrite(c, { ...scope, intentId: 'pi_retargeted' });
+    expect(
+      (await c.query("UPDATE payment_attempts SET intent_id='pi_retargeted' WHERE id=$1", [row.id])).rowCount,
+    ).toBe(0);
+  });
+});
+test('a verified in-flight result remains recordable after owner disablement', async () => {
+  const row = records[0]!;
+  await db.pool.query('UPDATE payment_attempts SET intent_id=NULL WHERE id=$1', [row.id]);
+  await db.pool.query('UPDATE users SET disabled=true WHERE id=(SELECT rider_id FROM rides WHERE id=$1)', [
+    row.ride,
+  ]);
+  await transaction(runtime.pool, async (c) => {
+    await bindPaymentAttemptWrite(c, {
+      attemptId: row.id,
+      rideId: row.ride,
+      bindingId: row.binding,
+      source: row.source,
+      amountCents: 1000,
+      intentId: row.intent,
+    });
+    expect(
+      (await c.query('UPDATE payment_attempts SET intent_id=$2 WHERE id=$1', [row.id, row.intent])).rowCount,
+    ).toBe(1);
+  });
   expect((await runtime.pool.query('SELECT * FROM payment_attempts')).rowCount).toBe(0);
 });

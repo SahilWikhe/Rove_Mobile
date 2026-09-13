@@ -1,5 +1,13 @@
 # Implementation status
 
+## Payment-attempt result write preparation — September 13
+
+Payment session result binding and reconciliation now establish an exact write scope from the persisted attempt ID, ride, customer binding, provider source and amount, plus the verified provider intent. Read scope replacement and identity resets clear write authority. Existing provider validation, immutable request matching and optimistic revision predicates remain in place. No payment-attempt application migration is enabled yet.
+
+Five restricted-role prototype tests passed. New checks reject another attempt, amount changes and retargeting an existing intent, verify that switching to a read scope removes write authority, and allow a verified in-flight result to be recorded after owner disablement so recovery is not lost. Full regressions passed 749 server tests and 208 API tests, plus server typechecking and changed-source lint.
+
+Next: payment-attempt insert policy, financial sweep/closure reads and dependent-policy integration, then versioned migration and isolated hosted verification. Source and isolated-hosted RLS remain 43/47; users, drivers, rides and payment_attempts remain. Provider staging/production and physical-device/provider acceptance remain outstanding. This checkpoint is prepared for the authorized main push; remote confirmation follows.
+
 ## Payment-attempt exact read preparation — September 13
 
 Added a validated transaction-local payment lookup scope for exact provider source plus attempt ID, ride ID or intent ID. The shared payment-customer resolver binds it before reading the persisted attempt; common identity resets clear it. No payment-attempt application policy or migration is enabled yet.

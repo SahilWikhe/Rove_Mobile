@@ -1,3 +1,4 @@
+import { bindPaymentAttemptWrite } from './payment-attempt-scope';
 import { enqueueOutbox } from './outbox-enqueue';
 import { bindOfferRide } from './offer-scope';
 import { bindPaymentCustomerRead } from './payment-customer-scope';
@@ -186,6 +187,14 @@ export class PaymentReconciler {
       if (!ride || ride.rider_id !== before.rider_id || ride.fare_cents !== before.amount_cents)
         throw problem();
       // An overlapping fetch must retry after any newer reconciliation, including a no-op one.
+      await bindPaymentAttemptWrite(client, {
+        attemptId: before.id,
+        rideId: before.ride_id,
+        bindingId: before.customer_binding_id,
+        source: this.source,
+        amountCents: before.amount_cents,
+        intentId: before.intent_id,
+      });
       const updated = await client.query(
         `UPDATE payment_attempts SET revision=revision+1,provider_status=$3,reconciled_at=$4
          WHERE id=$1 AND revision=$2 AND intent_id=$5 AND source=$6 AND amount_cents=$7 AND customer_binding_id=$8`,
