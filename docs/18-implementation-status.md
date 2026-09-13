@@ -1,5 +1,13 @@
 # Implementation status
 
+## Driver document-scan RLS — September 13
+
+Migration 0058 enables and forces driver_document_scans RLS. Drivers can read scans for their documents and queue only an initial pending scan after quarantine; they cannot update or delete verdicts. Current MFA staff can read and lock evidence without modifying it. Trusted scanner queue scope can claim pending work but cannot publish verdicts; result transactions require the exact quarantined document scope. Existing lease/version fencing remains in the service.
+
+Verification: 72 focused document lifecycle tests and all 687 server tests passed, with restricted-role scanner execution, denied consumer verdict changes, denied queue-scope verdict writes, foreign target isolation and pooled context reset. Final server/database typechecks, targeted lint and formatting passed. All 208 API tests and 13 database tests also passed, bringing the full regression total to 908. Tests used synthetic providers only.
+
+Source coverage is sixteen of 47 tables; hosted evidence remains eleven tables through 0054. Provider staging and production are unchanged. Next: storage-write receipt policies and compatible hosted rehearsal before staging rollout. Full mobile production acceptance remains incomplete.
+
 ## Driver document-reservation RLS — September 13
 
 RLS remains an explicit release priority. Migration 0057 enables and forces driver_documents row security. Active drivers access their own reservations; current MFA staff have permission-scoped reads and locks without document mutation. Scanner transactions use quarantine queue or exact document scope, and cleanup workers read documents only for their assigned cleanup owner. Actor and worker transactions clear each other's context. Reservation ID conflicts retain the existing domain response.

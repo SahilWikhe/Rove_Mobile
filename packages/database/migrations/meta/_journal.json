@@ -407,6 +407,13 @@
       "when": 1789290600877,
       "tag": "0057_document_reservation_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1789291107593,
+      "tag": "0058_document_scan_rls",
+      "breakpoints": true
     }
   ]
 }

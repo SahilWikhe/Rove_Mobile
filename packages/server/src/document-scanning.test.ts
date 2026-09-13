@@ -292,7 +292,7 @@ test('exhausted scanning reports a support path instead of pretending verificati
 test('scan wakeup follows pending work and recovers crashed leases without hot polling', async () => {
   const now = new Date();
   const worker = new DocumentScanWorker(
-    db.pool,
+    runtimePool,
     { scan: async (value) => ({ ...value, verdict: 'clean' }) },
     () => now,
   );
@@ -329,4 +329,28 @@ test('scanner document reads exclude reservations and exact scope excludes unrel
   });
   await hasCleanDocumentScan(runtimePool, documentId);
   expect((await runtimePool.query('SELECT * FROM driver_documents')).rowCount).toBe(0);
+});
+
+test('scan evidence cannot be forged by drivers or read without scope', async () => {
+  expect((await runtimePool.query('SELECT * FROM driver_document_scans')).rowCount).toBe(0);
+  await transaction(runtimePool, async (c) => {
+    await c.query("SELECT set_config('rove.actor_id',$1,true),set_config('rove.actor_role','driver',true)", [
+      driverId,
+    ]);
+    expect((await c.query('SELECT * FROM driver_document_scans')).rowCount).toBe(1);
+    expect((await c.query("UPDATE driver_document_scans SET state='failed'")).rowCount).toBe(0);
+    expect((await c.query('DELETE FROM driver_document_scans')).rowCount).toBe(0);
+  });
+  await expect(
+    transaction(runtimePool, async (c) => {
+      await c.query("SELECT set_config('rove.scan_queue','true',true)");
+      await c.query("UPDATE driver_document_scans SET state='failed'");
+    }),
+  ).rejects.toMatchObject({ code: '42501' });
+  await transaction(runtimePool, async (c) => {
+    await c.query("SELECT set_config('rove.scan_document',$1,true)", [randomUUID()]);
+    expect((await c.query('SELECT * FROM driver_document_scans')).rowCount).toBe(0);
+    expect((await c.query("UPDATE driver_document_scans SET state='failed'")).rowCount).toBe(0);
+  });
+  expect((await runtimePool.query('SELECT * FROM driver_document_scans')).rowCount).toBe(0);
 });

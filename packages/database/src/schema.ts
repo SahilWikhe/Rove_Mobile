@@ -662,6 +662,29 @@ export const driverDocumentScans = pgTable(
     completedAt: timestamp({ withTimezone: true }),
   },
   (t) => [
+    pgPolicy('scan_actor_read', {
+      for: 'select',
+      using: sql`NULLIF(current_setting('rove.actor_id',true),'') IS NOT NULL AND EXISTS(SELECT 1 FROM public.driver_documents d WHERE d.id=${t.documentId})`,
+    }),
+    pgPolicy('scan_owner_queue', {
+      for: 'insert',
+      withCheck: sql`current_setting('rove.actor_role',true)='driver' AND EXISTS(SELECT 1 FROM public.driver_documents d WHERE d.id=${t.documentId} AND d.driver_id=NULLIF(current_setting('rove.actor_id',true),'')::uuid AND d.state='quarantined') AND ${t.state}='pending' AND ${t.attempts}=0 AND ${t.leaseToken} IS NULL AND ${t.lockedUntil} IS NULL AND ${t.scannedKey} IS NULL AND ${t.scannedVersion} IS NULL AND ${t.scannedSha256} IS NULL AND ${t.completedAt} IS NULL`,
+    }),
+    pgPolicy('scan_staff_lock', { for: 'update', using: rlsDocumentStaff, withCheck: sql`false` }),
+    pgPolicy('scan_worker_read', {
+      for: 'select',
+      using: sql`NULLIF(current_setting('rove.actor_id',true),'') IS NULL AND (current_setting('rove.scan_queue',true)='true' OR ${t.documentId}=NULLIF(current_setting('rove.scan_document',true),'')::uuid) AND EXISTS(SELECT 1 FROM public.driver_documents d WHERE d.id=${t.documentId} AND d.state='quarantined')`,
+    }),
+    pgPolicy('scan_worker_claim', {
+      for: 'update',
+      using: sql`NULLIF(current_setting('rove.actor_id',true),'') IS NULL AND current_setting('rove.scan_queue',true)='true' AND ${t.state}='pending' AND EXISTS(SELECT 1 FROM public.driver_documents d WHERE d.id=${t.documentId} AND d.state='quarantined')`,
+      withCheck: sql`NULLIF(current_setting('rove.actor_id',true),'') IS NULL AND current_setting('rove.scan_queue',true)='true' AND ${t.state}='pending'`,
+    }),
+    pgPolicy('scan_worker_result', {
+      for: 'update',
+      using: sql`NULLIF(current_setting('rove.actor_id',true),'') IS NULL AND ${t.documentId}=NULLIF(current_setting('rove.scan_document',true),'')::uuid AND EXISTS(SELECT 1 FROM public.driver_documents d WHERE d.id=${t.documentId} AND d.state='quarantined')`,
+      withCheck: sql`NULLIF(current_setting('rove.actor_id',true),'') IS NULL AND ${t.documentId}=NULLIF(current_setting('rove.scan_document',true),'')::uuid`,
+    }),
     foreignKey({
       name: 'driver_document_scans_document_id_fkey',
       columns: [t.documentId],
