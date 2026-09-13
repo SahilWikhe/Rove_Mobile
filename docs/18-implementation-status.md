@@ -2,6 +2,14 @@
 
 Updated: September 12, 2026. Current source baseline: `1cd316e536846a45354ff7040b5cf82320a8361d` plus the approved cleanup connection checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Fresh local iOS release verification — September 12
+
+Built rider and driver Release simulator binaries from application source `c26bf2dd2541d303f993feeffee86c6a8b7363cc`, using the existing generated native projects and separate derived-data caches. Both builds succeeded with synthetic mode, dotenv loading disabled and code signing off. Corrected the driver's ignored local `.xcode.env.local` from Node 26 to the repository-required Node 24 runtime before building. Generated native projects were reused, so this is not a fresh-prebuild/store-signing acceptance claim.
+
+Both newly built artifacts passed the unchanged standalone welcome/relaunch flow on separate fresh iOS simulators using the six-minute wrapper. Each contained its JavaScript bundle, showed Get started, relaunched successfully and exited cleanly; the wrapper removed both disposable simulators. These tests replace older-artifact smoke evidence for the current application source. They do not authenticate or test real rides/providers, background GPS or physical devices.
+
+Hosted run 34726005360 remained active at the last read, compiling both iOS Release binaries for its older `8408636` revision. Latest-main hosted acceptance remains unproven. Next: remaining native journeys/Android and physical-device acceptance, uncertain-upload/data cleanup and the separately pending Google route-data approval. The complete application objective remains open.
+
 ## Durable deletion status in both apps — September 12
 
 Connected both account-deletion screens to the existing typed `GET /v1/account-deletion` client method alongside support history. A resolved support ticket no longer makes the form offer another deletion request. Failed initial/status refresh blocks confirmation until reload; lost submission responses still retry the original idempotency key. The shared card distinguishes support resolution from account/data erasure. No backend mutation, retention policy, external provider flow or migration changed.
