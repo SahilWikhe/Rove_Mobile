@@ -32,3 +32,23 @@ export async function inspectStagingPermissions(client: Pick<PoolClient, 'query'
     throw new Error('Application sequence permissions are incomplete.');
   return tables.rows.length;
 }
+
+/** Catalog evidence only: enabled policies still require cross-account behavior verification. */
+export async function inspectRowSecurity(client: Pick<PoolClient, 'query'>) {
+  const result = await client.query<{
+    table: string;
+    enabled: boolean;
+    forced: boolean;
+    runtimeOwner: boolean;
+    policyCount: number;
+  }>(`
+    SELECT c.relname AS table, c.relrowsecurity AS enabled,
+      c.relforcerowsecurity AS forced,
+      c.relowner = (SELECT oid FROM pg_roles WHERE rolname=current_user) AS "runtimeOwner",
+      (SELECT count(*)::int FROM pg_policy p WHERE p.polrelid=c.oid) AS "policyCount"
+    FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND c.relkind IN ('r', 'p')
+    ORDER BY c.relname
+  `);
+  return result.rows;
+}

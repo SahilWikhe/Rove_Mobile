@@ -121,3 +121,11 @@ Use an explicit ignored environment file whose endpoint has already been confirm
 The check validates certificate-authorized TLS on the actual client socket, starts a read-only transaction with a statement timeout, and requires the restricted role, no other role memberships, no dangerous role flags or public-schema creation, individual SELECT/INSERT/UPDATE/DELETE grants on each public application table, no TRUNCATE, and USAGE/SELECT on sequences. A pooler's internal PostgreSQL hop may not use TLS, so `pg_stat_ssl` is not used as evidence for the client connection. Connections are destroyed even on failure. Fixed diagnostic stages help locate failures without printing provider errors or secrets.
 
 On September 9 this passed against clean provider staging with 26 tables. Permission failure cases are tested against disposable local PostgreSQL. The command does not verify migration journal completeness, data cleanliness, per-user application authorization, default grants for future migrations or any external provider. Re-run it after migrations or credential/grant changes; retain the separate migration and API behavior checks.
+
+## Row-level security evidence
+
+The checked-in migrations do not enable PostgreSQL row-level security or create RLS policies. Consumer data access currently depends on authenticated backend resource authorization; mobile clients do not connect directly to PostgreSQL. `NOBYPASSRLS` on the application role does not enable RLS.
+
+`pnpm db:staging:check /path/to/ignored-staging.env` now reads the PostgreSQL catalog in its existing read-only transaction and reports enabled/forced table counts plus RLS-disabled table names. It reads no application row content. Passing its role/grant checks does not mean RLS or cross-account row isolation is verified. A policy can exist while RLS is disabled; even enabled policies require behavior tests using the actual runtime role.
+
+Local PostgreSQL tests cover disabled RLS despite NOBYPASSRLS, enabled tables without policies, forced RLS with a policy, and disabling RLS while retaining policy metadata. The new report has not yet been run against hosted Neon. Introducing RLS requires a separately tested transaction-scoped identity and worker/staff access design; this report does not change authorization or enable policies.

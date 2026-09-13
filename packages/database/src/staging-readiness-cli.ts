@@ -3,7 +3,7 @@ import { parseEnv } from 'node:util';
 import { TLSSocket } from 'node:tls';
 import { Pool } from 'pg';
 import { stagingUrl } from './staging-config';
-import { inspectStagingPermissions } from './staging-readiness';
+import { inspectRowSecurity, inspectStagingPermissions } from './staging-readiness';
 
 const filename = process.argv[2];
 if (!filename || process.argv.length !== 3) {
@@ -30,8 +30,23 @@ if (!filename || process.argv.length !== 3) {
         throw new Error('Verified client TLS required.');
       stage = 'role and grants';
       const count = await inspectStagingPermissions(client);
+      stage = 'row security catalog';
+      const rowSecurity = await inspectRowSecurity(client);
       await client.query('ROLLBACK');
       console.log(`Staging connection passed: verified TLS, restricted role, ${count} table grants.`);
+      console.log(
+        `RLS catalog: ${rowSecurity.filter((table) => table.enabled).length}/${rowSecurity.length} tables enabled; ${rowSecurity.filter((table) => table.forced).length} forced.`,
+      );
+      console.log(
+        'RLS-disabled tables:',
+        rowSecurity
+          .filter((table) => !table.enabled)
+          .map((table) => table.table)
+          .join(', ') || 'none',
+      );
+      console.log(
+        'Catalog settings do not prove policies isolate rider/driver data; NOBYPASSRLS does not enable RLS.',
+      );
       console.log('Read-only check; migration completeness, row isolation and providers are not verified.');
     } finally {
       // Destroy the connection, including any transaction left open by an error.

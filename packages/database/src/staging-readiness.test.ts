@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { testDatabase } from './testing';
-import { inspectStagingPermissions } from './staging-readiness';
+import { inspectRowSecurity, inspectStagingPermissions } from './staging-readiness';
 
 test('real PostgreSQL grants reject missing DML, elevated roles and sequence permissions', async () => {
   const database = await testDatabase();
@@ -42,6 +42,42 @@ test('real PostgreSQL grants reject missing DML, elevated roles and sequence per
     await expect(inspect()).rejects.toThrow('role');
     await client.query('REVOKE privileged_fixture FROM rove_staging_app');
     expect(await inspect()).toBeGreaterThan(0);
+  } finally {
+    client.release(true);
+    await database.close();
+  }
+}, 60_000);
+
+test('row security inventory distinguishes disabled, enabled, forced and policy-free tables', async () => {
+  const database = await testDatabase();
+  const client = await database.pool.connect();
+  try {
+    await client.query('CREATE ROLE rls_reader NOBYPASSRLS');
+    await client.query('CREATE TABLE public.rls_fixture (id integer)');
+    await client.query('GRANT SELECT ON public.rls_fixture TO rls_reader');
+    const inspect = async () => {
+      await client.query('BEGIN READ ONLY');
+      await client.query('SET LOCAL ROLE rls_reader');
+      try {
+        return (await inspectRowSecurity(client)).find((table) => table.table === 'rls_fixture');
+      } finally {
+        await client.query('ROLLBACK');
+      }
+    };
+    expect(await inspect()).toEqual({
+      table: 'rls_fixture',
+      enabled: false,
+      forced: false,
+      runtimeOwner: false,
+      policyCount: 0,
+    });
+    await client.query('ALTER TABLE public.rls_fixture ENABLE ROW LEVEL SECURITY');
+    expect(await inspect()).toMatchObject({ enabled: true, forced: false, policyCount: 0 });
+    await client.query('CREATE POLICY fixture_policy ON public.rls_fixture FOR SELECT USING (false)');
+    await client.query('ALTER TABLE public.rls_fixture FORCE ROW LEVEL SECURITY');
+    expect(await inspect()).toMatchObject({ enabled: true, forced: true, policyCount: 1 });
+    await client.query('ALTER TABLE public.rls_fixture DISABLE ROW LEVEL SECURITY');
+    expect(await inspect()).toMatchObject({ enabled: false, forced: true, policyCount: 1 });
   } finally {
     client.release(true);
     await database.close();

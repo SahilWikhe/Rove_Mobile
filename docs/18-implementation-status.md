@@ -1,5 +1,11 @@
 # Implementation status
 
+## Explicit database RLS readiness evidence — September 13
+
+Extended the existing read-only staging database checker to report actual catalog RLS coverage and disabled table names separately from role/grant checks. Current migrations contain no RLS policies or enablement; backend ownership authorization remains the implemented isolation boundary. NOBYPASSRLS is not RLS enablement.
+
+Verification: two PostgreSQL readiness tests passed, including disabled/enabled/forced/policy-present-but-disabled cases. Database typecheck and targeted lint passed. This does not enable RLS, inspect hosted Neon, or establish production isolation. Remaining release work includes retained-data cleanup, real provider/payment and physical-device acceptance, current native CI evidence, and production setup. Next: continue the cleanup implementation and obtain hosted acceptance evidence; any RLS rollout needs explicit runtime identity and worker/staff policy coverage.
+
 Updated: September 13, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
 ## Account-deletion application-data inventory — September 13
