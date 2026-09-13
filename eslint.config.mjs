@@ -7,6 +7,7 @@ export default ts.config(
     ignores: [
       '**/node_modules/**',
       '**/dist/**',
+      'reports/**',
       '**/.expo/**',
       '**/migrations/meta/**',
       'apps/*/ios/**',
