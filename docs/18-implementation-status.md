@@ -1,5 +1,13 @@
 # Implementation status
 
+## Disabled cleanup preserves approved queued work — September 13
+
+Read-only AWS audit reverified arn:aws:iam::719623059339:user/claude-agent after excluding ambient credentials. The dedicated cleanup role still has the exact staging Vercel OIDC trust, no attached managed policies, and the sole reviewed versioning/prefix-list/exact-version-delete inline policy. This does not prove live OIDC assumption or storage deletion; no AWS resource or object was changed and cleanup stays disabled.
+
+Runtime review found approved document.version-delete jobs were treated as unknown topics when cleanup was disabled, permanently dead-lettering them. OutboxWorker now supports explicit backend-controlled paused topics and excludes them before claims. The drain excludes the same topics from wakeup timing. Disabled cleanup supplies that topic; enabled cleanup uses the normal handler and all existing approval/time/account/hold checks. Attempts, leases and approval evidence remain untouched during the pause. Other jobs progress, unknown topics retain their dead-letter behavior, and previously dead-lettered cleanup still needs audited recovery. No in-flight provider call is recalled by toggling the flag.
+
+Twelve worker/drain/RLS tests passed, including pause without hot-loop, unrelated work and exactly-once resume. The existing full cleanup HTTP flow now verifies an approved job survives disabled runtime composition before ordinary provider failure/recovery. All 213 API tests passed, plus server/API typechecks, changed-file lint/format and all 89 Markdown files. The cleanup runbook records the behavior and replaces stale hosted-migration pending statements with the existing verified staging rollout. Next: verify refreshed CI/Sonar and continue live OIDC/device/provider/recovery acceptance. Production remains incomplete. Prepared for authorized main push; remote confirmation follows.
+
 ## Backup capability inspected and recovery acceptance specified — September 13
 
 Read-only Neon inspection confirms project square-frost-35273983 is on free_v3 with six hours of history, no snapshots, and an empty provider-staging snapshot schedule. Provider staging is a ready root branch; the existing RLS rehearsal is a child that expires September 14 at 08:13:45 UTC. Current official documentation limits instant restore to root branches and identifies snapshots as billed storage and automatic schedules as paid setup. No resource, subscription, recovery setting or database data was changed. Local embedded PostgreSQL lacks pg_dump/pg_restore, so its migration tests cannot establish backup restoration.

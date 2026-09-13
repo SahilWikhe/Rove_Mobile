@@ -63,3 +63,37 @@ test('stops between slow jobs and schedules retry backoff rather than losing fai
     }).run(),
   ).toEqual({ processed: 0, failed: 1, wakeAfterSeconds: 2 });
 });
+
+test('paused topics retain attempts and do not hot-loop or block unrelated work', async () => {
+  await job();
+  await db.pool.query(
+    "INSERT INTO outbox(topic,aggregate_id,payload,dedupe_key,available_at) VALUES('paused',$1,'{}',$2,$3)",
+    [randomUUID(), randomUUID(), new Date(now.getTime() - 1000)],
+  );
+  const pausedWorker = new OutboxWorker(db.pool, { fixture: async () => {} }, () => now, undefined, [
+    'paused',
+  ]);
+  const pausedDrain = new OutboxDrain(db.pool, pausedWorker, () => now);
+  expect(await pausedDrain.run()).toEqual({ processed: 1, failed: 0, wakeAfterSeconds: null });
+  expect(await pausedDrain.run()).toEqual({ processed: 0, failed: 0, wakeAfterSeconds: null });
+  expect(
+    (
+      await db.pool.query(
+        "SELECT attempts,dead_letter_at,lease_token,completed_at FROM outbox WHERE topic='paused'",
+      )
+    ).rows[0],
+  ).toEqual({ attempts: 0, dead_letter_at: null, lease_token: null, completed_at: null });
+  let calls = 0;
+  const resumed = new OutboxWorker(
+    db.pool,
+    {
+      paused: async () => {
+        calls++;
+      },
+    },
+    () => now,
+  );
+  expect(await resumed.runOnce()).toEqual({ processed: 1, failed: 0 });
+  expect(await resumed.runOnce()).toEqual({ processed: 0, failed: 0 });
+  expect(calls).toBe(1);
+});

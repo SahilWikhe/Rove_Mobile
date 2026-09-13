@@ -177,6 +177,14 @@ test('staff API prepares and approves exact versions, worker verifies removal, a
   const key = randomUUID();
   expect((await request(runtime.app, planPath + '/approve', approval, staff.id, key)).status).toBe(200);
   expect(provider.erase).not.toHaveBeenCalled();
+  // A temporary feature shutdown preserves the approved job for the enabled worker.
+  const disabled = composeRuntime(config(false), { ...resources(), documentCleanup: provider });
+  expect(await disabled.drain.run()).toEqual({ processed: 0, failed: 0, wakeAfterSeconds: null });
+  expect(
+    (await db.pool.query("SELECT attempts,dead_letter_at FROM outbox WHERE topic='document.version-delete'"))
+      .rows[0],
+  ).toEqual({ attempts: 0, dead_letter_at: null });
+  expect(provider.erase).not.toHaveBeenCalled();
   provider.erase.mockRejectedValueOnce(new Error('Synthetic provider unavailable'));
   expect(await runtime.worker.runOnce()).toEqual({ processed: 0, failed: 1 });
   expect((await (await request(runtime.app, planPath)).json()).state).toBe('approved');

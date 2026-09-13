@@ -24,6 +24,7 @@ export class OutboxWorker {
     private handlers: Record<string, JobHandler>,
     private now: () => Date = () => new Date(),
     private random: () => number = Math.random,
+    readonly pausedTopics: readonly string[] = [],
   ) {}
   async runOnce(maxJobs = 10): Promise<{ processed: number; failed: number }> {
     let processed = 0;
@@ -36,8 +37,9 @@ export class OutboxWorker {
           client.query<ClaimedRow>(
             `UPDATE outbox SET lease_token=$1,locked_until=$2::timestamptz+interval '60 seconds',attempts=attempts+1
         WHERE id=(SELECT id FROM outbox WHERE completed_at IS NULL AND dead_letter_at IS NULL AND available_at<=$2
+          AND NOT (topic=ANY($3::text[]))
           AND (locked_until IS NULL OR locked_until<=$2) ORDER BY available_at,id FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING *`,
-            [token, claimAt],
+            [token, claimAt, this.pausedTopics],
           ),
         )
       ).rows[0];

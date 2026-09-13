@@ -51,7 +51,7 @@ Staff endpoints (authenticated, MFA and current domain permissions required):
 | `POST /v1/staff/document-cleanup-plans/:id/approve` | Approve the exact manifest/policy/review/quiescence/time contract |
 | `POST /v1/staff/document-cleanup-plans/:id/retry` | Recover exhausted work; strict empty JSON body and idempotency key |
 
-Disabled endpoints return `DOCUMENT_CLEANUP_UNAVAILABLE`; no cleanup provider or handler is constructed. Already queued cleanup jobs reaching a disabled host cannot delete files, but the generic worker may dead-letter them as unknown topics. Keep HTTP/worker activation coordinated and use audited recovery after re-enabling; disabling cannot recall a provider call already dispatched.
+Disabled endpoints return `DOCUMENT_CLEANUP_UNAVAILABLE`; no cleanup provider or handler is constructed. Already queued cleanup jobs remain pending on disabled hosts: the worker excludes document.version-delete before claiming, so attempts, leases and approval evidence are unchanged. The drain also excludes paused jobs from its next-wakeup calculation, avoiding a one-second loop when only paused work remains. Other topics still run and genuinely unknown topics still become visible dead letters. Re-enabling lets the normal worker claim pending cleanup and recheck current approval, timing, account and hold barriers. Previously dead-lettered jobs still require audited recovery. Keep HTTP/worker activation coordinated; disabling cannot recall a provider call already dispatched.
 
 ## Investigating pending uploads
 
@@ -91,16 +91,16 @@ Confirmed upload outcomes now have bounded, idempotent persistence recovery for 
 
 ## RLS rollout status
 
-Migration 0055 enables/forces row isolation on cleanup plans and items. Current MFA staff permissions separate approval from exact-item worker dispatch/receipts. Existing immutable-plan, due-time, hold and settlement guards remain active. Local restricted-role and full server regression tests pass; hosted migration remains pending. See [current RLS rollout evidence](60-neon-staging.md#latest-rls-verification).
+Migration 0055 enables/forces row isolation on cleanup plans and items. Current MFA staff permissions separate approval from exact-item worker dispatch/receipts. Existing immutable-plan, due-time, hold and settlement guards remain active. Local restricted-role tests pass; provider staging now includes this migration in its verified rollout through 0087. See [current RLS rollout evidence](60-neon-staging.md#latest-rls-verification).
 
 ## Reservation visibility under RLS
 
-Migration 0057 limits cleanup-worker reservation reads to the owner of its exact scoped cleanup item. This preserves the owner-wide write-settlement barrier without general document visibility. Existing hold checks and immutable receipts remain active. Local restricted-role cleanup tests passed; this migration has not been applied to hosted staging.
+Migration 0057 limits cleanup-worker reservation reads to the owner of its exact scoped cleanup item. This preserves the owner-wide write-settlement barrier without general document visibility. Existing hold checks and immutable receipts remain active. Local restricted-role cleanup tests passed; this migration is included in the verified provider-staging rollout through 0087.
 
 ## Storage-write receipt row isolation
 
-Migration 0059 protects write evidence. Current MFA privacy staff can inspect relevant rows; workers can read writes for their assigned cleanup owner. Settlement uses the exact document and object key from an already dispatched trusted request, so account closure does not discard a later verified provider result. Driver/staff actors cannot update settlement evidence, and there is no runtime deletion policy. Existing immutable-evidence triggers and owner-wide unsettled-write barriers remain active. Hosted rollout is pending.
+Migration 0059 protects write evidence. Current MFA privacy staff can inspect relevant rows; workers can read writes for their assigned cleanup owner. Settlement uses the exact document and object key from an already dispatched trusted request, so account closure does not discard a later verified provider result. Driver/staff actors cannot update settlement evidence, and there is no runtime deletion policy. Existing immutable-evidence triggers and owner-wide unsettled-write barriers remain active. Provider staging now includes this migration in its verified rollout through 0087.
 
-## Hosted RLS rehearsal evidence
+## Historical hosted RLS rehearsal evidence
 
 The isolated synthetic Neon branch was migrated through 0059 and verified through the pooled restricted application role. A synthetic document upload settled, scanned and received staff review; its account closed, unapproved cleanup was rejected, and approved version cleanup completed with replay avoiding duplicate provider calls. All six document lifecycle tables denied unscoped reads. Provider adapters were fake: this proves hosted database/service compatibility, not actual S3 deletion. Provider staging and production remain unchanged.

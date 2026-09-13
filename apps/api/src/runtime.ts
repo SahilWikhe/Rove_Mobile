@@ -191,7 +191,13 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
     'ride.requested': async (job) => matching.tick(job.aggregateId),
     'matching.tick': async (job) => matching.tick(job.aggregateId),
   };
-  const worker = new OutboxWorker(pool, pushDelivery ? pushDelivery.handlers(handlers) : handlers);
+  const worker = new OutboxWorker(
+    pool,
+    pushDelivery ? pushDelivery.handlers(handlers) : handlers,
+    undefined,
+    undefined,
+    documentCleanup ? [] : ['document.version-delete'],
+  );
   const app = createApp({
     pool,
     ...(config.messageCleanup

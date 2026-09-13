@@ -6,7 +6,7 @@ import type { OutboxWorker } from './outbox';
 export class OutboxDrain {
   constructor(
     private pool: Pool,
-    private worker: Pick<OutboxWorker, 'runOnce'>,
+    private worker: Pick<OutboxWorker, 'runOnce'> & Partial<Pick<OutboxWorker, 'pausedTopics'>>,
     private now: () => Date = () => new Date(),
   ) {}
   async run(): Promise<{ processed: number; failed: number; wakeAfterSeconds: number | null }> {
@@ -24,7 +24,9 @@ export class OutboxDrain {
       await outboxTransaction(this.pool, { kind: 'queue' }, (client) =>
         client.query<{ due: Date | null }>(
           `SELECT min(GREATEST(available_at,COALESCE(locked_until,available_at))) AS due
-       FROM outbox WHERE completed_at IS NULL AND dead_letter_at IS NULL`,
+       FROM outbox WHERE completed_at IS NULL AND dead_letter_at IS NULL
+       AND NOT (topic=ANY($1::text[]))`,
+          [this.worker.pausedTopics ?? []],
         ),
       )
     ).rows[0]?.due;
