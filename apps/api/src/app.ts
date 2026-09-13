@@ -1,5 +1,6 @@
+import { MessageCleanupAuthorization } from '@rove/contracts';
 import { createReadinessCheck } from './readiness';
-import { DocumentCleanup } from '@rove/server';
+import { MessageCleanup, DocumentCleanup } from '@rove/server';
 import { RetentionHolds } from '@rove/server';
 import { AccountDeletions, AccountClosures } from '@rove/server';
 import { DriverCoverage, EarningsDateRange } from '@rove/contracts';
@@ -82,6 +83,7 @@ import { getRide, listRides } from './ride-queries';
 
 type Environment = { Variables: { actor: Actor; subject: string; requestId: string } };
 interface Dependencies {
+  messageCleanup?: MessageCleanup;
   accountClosures?: AccountClosures;
   documentCleanup?: DocumentCleanup;
   refundOperations?: RefundOperations;
@@ -574,6 +576,18 @@ export function createApp(deps: Dependencies) {
     );
   });
   app.get('/v1/account-deletion', async (c) => c.json(await accountDeletions.status(c.var.actor)));
+  app.post('/v1/staff/account-deletions/:id/messages/erase', async (c) => {
+    if (!deps.messageCleanup)
+      throw new DomainError('MESSAGE_CLEANUP_UNAVAILABLE', 'Message cleanup is not enabled.', 503);
+    return c.json(
+      await deps.messageCleanup.erase(
+        c.var.actor,
+        id(c.req.param('id')),
+        await body(c, MessageCleanupAuthorization),
+        c.req.header('Idempotency-Key') ?? '',
+      ),
+    );
+  });
   app.get('/v1/staff/account-deletions/:id/inventory', async (c) =>
     c.json(await accountDeletions.inventory(c.var.actor, id(c.req.param('id')))),
   );

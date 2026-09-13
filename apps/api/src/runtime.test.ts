@@ -743,3 +743,27 @@ test('configured closure HTTP routes queue identity removal and block stale toke
     (await database.pool.query("SELECT name,disabled FROM users WHERE subject='rider'")).rows[0],
   ).toEqual({ name: 'Synthetic', disabled: true });
 });
+
+test('message cleanup stays off by default and requires an explicit valid reviewed policy', () => {
+  expect(readRuntimeConfig(environment()).messageCleanup).toBeUndefined();
+  expect(
+    readRuntimeConfig({
+      ...environment(),
+      MESSAGE_CLEANUP_ENABLED: 'false',
+      MESSAGE_CLEANUP_POLICY_REFERENCE: 'unused',
+    }).messageCleanup,
+  ).toBeUndefined();
+  for (const changes of [
+    { MESSAGE_CLEANUP_ENABLED: 'yes' },
+    { MESSAGE_CLEANUP_ENABLED: 'true' },
+    { MESSAGE_CLEANUP_ENABLED: 'true', MESSAGE_CLEANUP_POLICY_REFERENCE: '  ' },
+  ])
+    expect(() => readRuntimeConfig({ ...environment(), ...changes })).toThrow('messageCleanup');
+  expect(
+    readRuntimeConfig({
+      ...environment(),
+      MESSAGE_CLEANUP_ENABLED: 'true',
+      MESSAGE_CLEANUP_POLICY_REFERENCE: 'synthetic-policy',
+    }).messageCleanup,
+  ).toEqual({ policyReference: 'synthetic-policy' });
+});

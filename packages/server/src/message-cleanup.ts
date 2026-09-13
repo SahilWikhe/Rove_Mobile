@@ -1,21 +1,11 @@
 import { z } from 'zod';
+import { MessageCleanupAuthorization } from '@rove/contracts';
 import type { Pool } from 'pg';
 import type { Actor } from './rides';
 import { DomainError } from './errors';
 import { command, transaction } from './transactions';
 import { requireStaffPermission } from './staff-access';
 import { assertNoRetentionHolds } from './retention-holds';
-
-const inputSchema = z.strictObject({
-  policyReference: z.string().trim().min(1).max(128),
-  reviewReference: z.string().trim().min(1).max(128),
-  createdBefore: z.iso.datetime(),
-  messageIds: z
-    .array(z.uuid())
-    .min(1)
-    .max(100)
-    .refine((ids) => new Set(ids).size === ids.length),
-});
 
 /** Explicit reviewed batches only. No default retention policy or automatic scheduling. */
 export class MessageCleanup {
@@ -26,7 +16,7 @@ export class MessageCleanup {
 
   async erase(actor: Actor, requestId: string, raw: unknown, key: string) {
     z.uuid().parse(requestId);
-    const input = inputSchema.parse(raw);
+    const input = MessageCleanupAuthorization.parse(raw);
     if (!this.policyReference || input.policyReference !== this.policyReference)
       throw new DomainError('CLEANUP_DISABLED', 'A configured cleanup policy is required.', 409);
     await transaction(this.pool, (c) => requireStaffPermission(c, actor, 'privacy.cleanup'));

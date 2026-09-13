@@ -1,3 +1,4 @@
+import { MessageCleanup } from '@rove/server';
 import {
   DocumentCleanup,
   type DocumentCleanupProvider,
@@ -193,6 +194,9 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
   const worker = new OutboxWorker(pool, pushDelivery ? pushDelivery.handlers(handlers) : handlers);
   const app = createApp({
     pool,
+    ...(config.messageCleanup
+      ? { messageCleanup: new MessageCleanup(pool, config.messageCleanup.policyReference) }
+      : {}),
     ...(documentCleanup ? { documentCleanup } : {}),
     ...(accountClosures ? { accountClosures } : {}),
     ...(driverTransfers ? { driverTransfers } : {}),

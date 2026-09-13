@@ -1,3 +1,4 @@
+import { readMessageCleanupConfig } from './message-cleanup-config';
 import { readDocumentCleanupConfig } from './document-cleanup-config';
 import { readAccountClosureConfig } from './account-closure-config';
 import { readVerificationEmailConfig } from './verification-email';
@@ -234,11 +235,13 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
   const documentAwsRoleArn = capture(() => readDocumentRole(env));
   const documentStorage = capture(() => readDocumentStorage(env));
   const documentScanning = capture(() => readDocumentScanning(env));
+  const messageCleanup = capture(() => readMessageCleanupConfig(env));
   const documentCleanup = capture(() => readDocumentCleanupConfig(env));
   const accountClosure = capture(() => readAccountClosureConfig(env));
   const verificationEmail = capture(() => readVerificationEmailConfig(env));
   if (problems.length || !api || !payments) throw new ConfigurationError([...new Set(problems)]);
   return {
+    ...(messageCleanup ? { messageCleanup } : {}),
     ...(documentCleanup ? { documentCleanup } : {}),
     ...(accountClosure ? { accountClosure } : {}),
     ...(verificationEmail ? { verificationEmail } : {}),

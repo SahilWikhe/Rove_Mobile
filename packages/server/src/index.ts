@@ -99,3 +99,5 @@ export { S3DocumentInventory, type DocumentObjectVersion } from './s3-document-i
 export { assertDocumentWritesSettled } from './document-storage-writes';
 
 export { DocumentCleanup, type DocumentCleanupProvider } from './document-cleanup';
+
+export * from './message-cleanup';

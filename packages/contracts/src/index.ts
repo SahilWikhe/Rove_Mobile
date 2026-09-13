@@ -991,3 +991,14 @@ export const DocumentStorageInspection = z
     deleteMarkers: z.number().int().nonnegative(),
   })
   .strict();
+
+export const MessageCleanupAuthorization = z.strictObject({
+  policyReference: z.string().trim().min(1).max(128),
+  reviewReference: z.string().trim().min(1).max(128),
+  createdBefore: z.iso.datetime(),
+  messageIds: z
+    .array(z.uuid())
+    .min(1)
+    .max(100)
+    .refine((ids) => new Set(ids).size === ids.length),
+});

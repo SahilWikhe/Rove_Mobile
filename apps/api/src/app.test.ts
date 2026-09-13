@@ -1,3 +1,4 @@
+import { MessageCleanup } from '@rove/server';
 import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest';
 import { randomUUID, createHash } from 'node:crypto';
 import { testDatabase } from '@rove/database/testing';
@@ -51,6 +52,7 @@ const riderId = randomUUID();
 beforeAll(async () => {
   database = await testDatabase();
   app = createApp({
+    messageCleanup: new MessageCleanup(database.pool, 'synthetic-policy'),
     pool: database.pool,
     walletSessions,
     documentTransfers,
@@ -914,4 +916,72 @@ test('deletion inventory is a protected audited read without message contents', 
     counts: { supportRequests: 1 },
   });
   expect(JSON.stringify(result)).not.toContain('Delete this synthetic account');
+});
+
+test('reviewed message cleanup requires staff MFA and permission and returns an audited retry receipt', async () => {
+  await request('/v1/support-requests', {
+    category: 'account',
+    message: 'Synthetic deletion',
+    deletionConsent: 'account-deletion-v1',
+  });
+  const deletion = (await (await request('/v1/account-deletion')).json()).request.id;
+  const path = `/v1/staff/account-deletions/${deletion}/messages/erase`;
+  const staffId = randomUUID(),
+    driverId = randomUUID(),
+    quote = randomUUID(),
+    ride = randomUUID(),
+    offer = randomUUID(),
+    message = randomUUID();
+  const payload = {
+    policyReference: 'synthetic-policy',
+    reviewReference: 'synthetic-review',
+    createdBefore: new Date(Date.now() - 35 * 86400000).toISOString(),
+    messageIds: [message],
+  };
+  expect((await app.request(path, { method: 'POST' })).status).toBe(401);
+  expect((await request(path, payload)).status).toBe(403);
+  await database.db.insert(users).values([
+    { id: staffId, subject: 'staff', name: 'Synthetic staff', role: 'staff' },
+    { id: driverId, subject: 'driver', name: 'Synthetic driver', role: 'driver' },
+  ]);
+  expect((await request(path, payload, 'staff')).status).toBe(403);
+  await database.pool.query(
+    "INSERT INTO staff_permissions(staff_id,permission) VALUES($1,'privacy.cleanup')",
+    [staffId],
+  );
+  expect((await request(path, payload, 'staff-no-mfa')).status).toBe(403);
+  expect((await request(path, { ...payload, messageIds: [message, message] }, 'staff')).status).toBe(400);
+  await database.pool.query('INSERT INTO drivers(id) VALUES($1)', [driverId]);
+  await database.pool.query("INSERT INTO quotes(id,rider_id,snapshot,expires_at) VALUES($1,$2,'{}',now())", [
+    quote,
+    riderId,
+  ]);
+  await database.pool.query(
+    "INSERT INTO rides(id,quote_id,rider_id,driver_id,state,fare_cents,earnings_cents,search_deadline) VALUES($1,$2,$3,$4,'completed',1000,750,now())",
+    [ride, quote, riderId, driverId],
+  );
+  await database.pool.query(
+    "INSERT INTO offers(id,ride_id,driver_id,status,expires_at,snapshot) VALUES($1,$2,$3,'accepted',now(),'{}')",
+    [offer, ride, driverId],
+  );
+  await database.pool.query(
+    "INSERT INTO trip_messages(id,offer_id,sender_id,request_id,text,created_at) VALUES($1,$2,$3,$4,'Synthetic private body',now()-interval '40 days')",
+    [message, offer, riderId, randomUUID()],
+  );
+  await database.pool.query('UPDATE users SET disabled=true WHERE id=$1', [riderId]);
+  await database.pool.query(
+    "INSERT INTO account_closures(request_id,owner_id,authorized_by,policy_reference,review_reference) VALUES($1,$2,$3,'synthetic-policy','synthetic-review')",
+    [deletion, riderId, staffId],
+  );
+  const key = randomUUID();
+  const first = await request(path, payload, 'staff', key);
+  expect(first.status).toBe(200);
+  const receipt = await first.json();
+  expect(receipt).toEqual({ requestId: deletion, removedMessages: 1, completeErasureVerified: false });
+  expect(await (await request(path, payload, 'staff', key)).json()).toEqual(receipt);
+  expect((await database.pool.query('SELECT id FROM trip_messages WHERE id=$1', [message])).rowCount).toBe(0);
+  expect(
+    (await database.pool.query("SELECT id FROM audit WHERE action='account_deletion.messages_erased'"))
+      .rowCount,
+  ).toBe(1);
 });

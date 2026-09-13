@@ -1,5 +1,11 @@
 # Implementation status
 
+## Protected message-cleanup operational integration — September 13
+
+Completed the current cleanup integration: shared strict batch authorization contract, authenticated staff POST endpoint, independently default-off runtime flag and reviewed policy configuration. The endpoint uses the tested transactional engine and returns an audited idempotent receipt without claiming complete erasure. Hosted policy/batch review and broader retention/backup fulfillment remain release work; no hosted messages or configuration were changed.
+
+Verification: 64 API/runtime tests and six cleanup domain tests passed, including actual synthetic deletion, permission/MFA rejection, duplicate target validation, audit and replay. API/server typechecks, targeted lint and formatting passed. Next priority is the user's requested RLS implementation, isolated-role behavior verification and Neon staging enablement. No RLS settings have yet changed; full production acceptance remains incomplete.
+
 ## User-directed priority order — September 13
 
 Finish the current reviewed message-cleanup operational integration, then prioritize implementing and enabling PostgreSQL RLS in Neon staging. This is an explicit user request for enabled RLS, not only catalog reporting. Implement versioned policies and transaction-scoped identity, cover consumer ownership plus staff/background-worker access, verify cross-account denial and legitimate workflows using the runtime roles on an isolated test branch, then enable and verify staging coverage. Production rollout remains part of the separate production handoff; no production activation is authorized by this priority change.
