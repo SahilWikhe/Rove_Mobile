@@ -603,6 +603,32 @@ export const pushDeliveries = pgTable(
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
+    pgPolicy('push_delivery_recipient_read', {
+      for: 'select',
+      using: sql`${t.eventId}=NULLIF(current_setting('rove.push_event',true),'')::uuid AND ${t.installationId}=NULLIF(current_setting('rove.push_installation',true),'')::uuid AND ${t.revision}=NULLIF(current_setting('rove.push_revision',true),'')::int`,
+    }),
+    pgPolicy('push_delivery_recipient_insert', {
+      for: 'insert',
+      withCheck: sql`${t.eventId}=NULLIF(current_setting('rove.push_event',true),'')::uuid AND ${t.installationId}=NULLIF(current_setting('rove.push_installation',true),'')::uuid AND ${t.revision}=NULLIF(current_setting('rove.push_revision',true),'')::int AND ${t.state}='pending' AND ${t.attempts}=0 AND ${t.receiptAttempts}=0 AND ${t.receiptId} IS NULL AND ${t.acceptedAt} IS NULL AND ${t.leaseToken} IS NULL AND ${t.lockedUntil} IS NULL AND ${t.lastError} IS NULL`,
+    }),
+    pgPolicy('push_delivery_worker_read', {
+      for: 'select',
+      using: sql`${t.id}=NULLIF(current_setting('rove.push_delivery',true),'')::uuid`,
+    }),
+    pgPolicy('push_delivery_worker_update', {
+      for: 'update',
+      using: sql`${t.id}=NULLIF(current_setting('rove.push_delivery',true),'')::uuid`,
+      withCheck: sql`${t.id}=NULLIF(current_setting('rove.push_delivery',true),'')::uuid`,
+    }),
+    pgPolicy('push_delivery_recovery_read', {
+      for: 'select',
+      using: sql`${t.state} IN ('pending','sending','receipt') AND ${t.updatedAt}<NULLIF(current_setting('rove.push_recovery_at',true),'')::timestamptz-interval '20 minutes' AND (${t.lockedUntil} IS NULL OR ${t.lockedUntil}<=NULLIF(current_setting('rove.push_recovery_at',true),'')::timestamptz)`,
+    }),
+    pgPolicy('push_delivery_recovery_lock', {
+      for: 'update',
+      using: sql`${t.state} IN ('pending','sending','receipt') AND ${t.updatedAt}<NULLIF(current_setting('rove.push_recovery_at',true),'')::timestamptz-interval '20 minutes' AND (${t.lockedUntil} IS NULL OR ${t.lockedUntil}<=NULLIF(current_setting('rove.push_recovery_at',true),'')::timestamptz)`,
+      withCheck: sql`false`,
+    }),
     uniqueIndex('push_delivery_recipient').on(t.eventId, t.installationId, t.revision),
     check('push_delivery_revision', sql`${t.revision}>0`),
     check(

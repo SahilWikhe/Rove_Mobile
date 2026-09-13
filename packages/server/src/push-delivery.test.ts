@@ -313,3 +313,56 @@ test('push capacity scope isolates project counters without runtime deletion', a
   ).rejects.toMatchObject({ code: '42501' });
   expect((await runtimePool.query('SELECT * FROM push_rate_windows')).rowCount).toBe(0);
 });
+
+test('delivery scopes deny unassigned reads, fanout mutation and forged initial receipts', async () => {
+  await service.fanout(await job('ride.matched'));
+  const row = (await db.pool.query('SELECT * FROM push_deliveries')).rows[0];
+  expect((await runtimePool.query('SELECT * FROM push_deliveries')).rowCount).toBe(0);
+  await transaction(runtimePool, async (c) => {
+    await c.query("SELECT set_config('rove.push_delivery',$1,true)", [randomUUID()]);
+    expect((await c.query('SELECT * FROM push_deliveries')).rowCount).toBe(0);
+    expect((await c.query("UPDATE push_deliveries SET state='rejected'")).rowCount).toBe(0);
+  });
+  await transaction(runtimePool, async (c) => {
+    await c.query(
+      "SELECT set_config('rove.push_event',$1,true),set_config('rove.push_installation',$2,true),set_config('rove.push_revision',$3,true)",
+      [row.event_id, row.installation_id, String(row.revision)],
+    );
+    expect((await c.query('SELECT * FROM push_deliveries')).rowCount).toBe(1);
+    expect((await c.query("UPDATE push_deliveries SET state='rejected'")).rowCount).toBe(0);
+    expect((await c.query('DELETE FROM push_deliveries')).rowCount).toBe(0);
+  });
+  await expect(
+    transaction(runtimePool, async (c) => {
+      await c.query(
+        "SELECT set_config('rove.push_event',$1,true),set_config('rove.push_installation',$2,true),set_config('rove.push_revision',$3,true)",
+        [row.event_id, row.installation_id, String(row.revision)],
+      );
+      await c.query(
+        "INSERT INTO push_deliveries(event_id,installation_id,revision,state) VALUES($1,$2,$3,'accepted_by_gateway')",
+        [row.event_id, row.installation_id, row.revision],
+      );
+    }),
+  ).rejects.toMatchObject({ code: '42501' });
+  expect((await runtimePool.query('SELECT * FROM push_deliveries')).rowCount).toBe(0);
+});
+
+test('recovery reads and locks stalled deliveries without writing receipts', async () => {
+  await service.fanout(await job('ride.matched'));
+  await transaction(runtimePool, async (c) => {
+    await c.query("SELECT set_config('rove.push_recovery_at',$1,true)", [now.toISOString()]);
+    expect((await c.query('SELECT * FROM push_deliveries')).rowCount).toBe(0);
+  });
+  await db.pool.query("UPDATE push_deliveries SET updated_at=$1::timestamptz-interval '21 minutes'", [now]);
+  await transaction(runtimePool, async (c) => {
+    await c.query("SELECT set_config('rove.push_recovery_at',$1,true)", [now.toISOString()]);
+    expect((await c.query('SELECT * FROM push_deliveries FOR UPDATE')).rowCount).toBe(1);
+    expect((await c.query('DELETE FROM push_deliveries')).rowCount).toBe(0);
+  });
+  await expect(
+    transaction(runtimePool, async (c) => {
+      await c.query("SELECT set_config('rove.push_recovery_at',$1,true)", [now.toISOString()]);
+      await c.query("UPDATE push_deliveries SET state='accepted_by_gateway'");
+    }),
+  ).rejects.toMatchObject({ code: '42501' });
+});

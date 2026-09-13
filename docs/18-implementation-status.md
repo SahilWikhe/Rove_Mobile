@@ -1,5 +1,13 @@
 # Implementation status
 
+## Notification delivery RLS — September 13
+
+Migration 0062 enables and forces push_deliveries RLS. Fanout receives exact event/installation/revision read and initial-pending insert scope; retry no longer requires update rights. Send/receipt handlers bind a single durable delivery ID. Recovery can read and lock only stalled work at its bound scan time, without changing receipt state. Runtime deletion is denied. Existing leases, recipient revalidation, shared project capacity and idempotent outbox scheduling remain active; actor and other worker contexts clear delivery scope.
+
+Verification: 692 server tests, 208 API tests and 13 database tests passed (913 total), plus server/database typechecks, targeted lint, formatting and documentation validation. Restricted-role tests cover foreign/unscoped reads, fanout mutation denial, forged initial receipt rejection, recovery lock access with denied writes, retry, receipt recovery and concurrency. All push provider interactions were synthetic.
+
+Source coverage is twenty of 47 tables; hosted evidence remains seventeen through 0059. Provider staging and production are unchanged. Next: installation ownership and notification audience access, other remaining core/worker policies, and hosted verification before compatible staging rollout. Physical-device and full production acceptance remain incomplete.
+
 ## Push capacity RLS — September 13
 
 Migration 0061 enables and forces push_rate_windows RLS. Capacity transactions resolve the installation's project and bind that exact project locally before the shared atomic upsert. Other projects cannot be read or changed, and no runtime deletion policy exists. Actor and other worker contexts clear push-rate scope. The existing 100-send-per-second project cap, lease fencing and provider retry behavior remain intact.

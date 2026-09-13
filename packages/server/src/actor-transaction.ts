@@ -33,7 +33,7 @@ export async function bindActorIdentity(
   if (!parsed.success) throw new DomainError('FORBIDDEN', 'A verified account is required.', 403);
   // Every field is reset first, even when a connection had unexpected session settings.
   await client.query(`SELECT set_config('rove.actor_id','',true),
-      set_config('rove.actor_role','',true),set_config('rove.actor_mfa','false',true),set_config('rove.push_rate_project','',true),set_config('rove.rate_key','',true),set_config('rove.rate_prune','false',true),set_config('rove.write_document','',true),set_config('rove.write_key','',true),
+      set_config('rove.actor_role','',true),set_config('rove.actor_mfa','false',true),set_config('rove.push_event','',true),set_config('rove.push_installation','',true),set_config('rove.push_revision','',true),set_config('rove.push_delivery','',true),set_config('rove.push_recovery_at','',true),set_config('rove.push_rate_project','',true),set_config('rove.rate_key','',true),set_config('rove.rate_prune','false',true),set_config('rove.write_document','',true),set_config('rove.write_key','',true),
       set_config('rove.notification_message','',true),set_config('rove.notification_offer','',true),set_config('rove.identity_request','',true),set_config('rove.cleanup_item','',true),set_config('rove.closure_guard_owner','',true),set_config('rove.retention_owner','',true),set_config('rove.scan_queue','false',true),set_config('rove.scan_document','',true)`);
   const owner = await client.query(
     `SELECT id FROM users WHERE id=$1 AND role=$2 AND disabled=false ${ownerLock === 'update' ? 'FOR UPDATE' : 'FOR SHARE'}`,

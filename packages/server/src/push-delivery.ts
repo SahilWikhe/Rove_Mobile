@@ -62,13 +62,23 @@ export class PushDelivery {
     const recipients = await this.audience.recipients(job.id);
     await transaction(this.pool, async (client) => {
       for (const recipient of recipients) {
-        const row = (
+        await bindPushDelivery(client, { recipient });
+        const inserted = (
           await client.query<{ id: string }>(
             `INSERT INTO push_deliveries(event_id,installation_id,revision) VALUES($1,$2,$3)
-           ON CONFLICT(event_id,installation_id,revision) DO UPDATE SET event_id=EXCLUDED.event_id RETURNING id`,
+           ON CONFLICT(event_id,installation_id,revision) DO NOTHING RETURNING id`,
             [recipient.eventId, recipient.installationId, recipient.revision],
           )
-        ).rows[0]!;
+        ).rows[0];
+        const row =
+          inserted ??
+          (
+            await client.query<{ id: string }>(
+              'SELECT id FROM push_deliveries WHERE event_id=$1 AND installation_id=$2 AND revision=$3',
+              [recipient.eventId, recipient.installationId, recipient.revision],
+            )
+          ).rows[0];
+        if (!row) throw problem('PUSH_DELIVERY_UNAVAILABLE');
         await this.enqueue(client, 'push.send', row.id, `push-send:${row.id}`, this.now());
       }
     });
@@ -94,6 +104,7 @@ export class PushDelivery {
       : undefined;
     if (!receipt) z.object({}).strict().parse(job.payload);
     return transaction(this.pool, async (client) => {
+      await bindPushDelivery(client, { delivery: job.aggregateId });
       const row = (
         await client.query<Delivery>('SELECT * FROM push_deliveries WHERE id=$1 FOR UPDATE', [
           job.aggregateId,
@@ -121,6 +132,7 @@ export class PushDelivery {
     nextReceipt = false,
   ) {
     return transaction(this.pool, async (client) => {
+      await bindPushDelivery(client, { delivery: row.id });
       const result = await client.query(
         `UPDATE push_deliveries SET state=$3,last_error=$4,lease_token=NULL,
         locked_until=NULL,updated_at=$5,receipt_id=COALESCE($6,receipt_id),
@@ -151,6 +163,7 @@ export class PushDelivery {
   }
   async sweep(): Promise<number> {
     return transaction(this.pool, async (client) => {
+      await bindPushDelivery(client, { recoverAt: this.now() });
       const rows = (
         await client.query<Delivery>(
           `SELECT * FROM push_deliveries
@@ -261,4 +274,34 @@ export class PushDelivery {
       );
     }
   };
+}
+
+/** Backend-only scope derived from a verified audience or durable delivery job. */
+async function bindPushDelivery(
+  client: PoolClient,
+  scope: {
+    recipient?: { eventId: string; installationId: string; revision: number };
+    delivery?: string;
+    recoverAt?: Date;
+  },
+) {
+  const parsed = z
+    .object({
+      recipient: z
+        .object({ eventId: z.uuid(), installationId: z.uuid(), revision: z.number().int().positive() })
+        .optional(),
+      delivery: z.uuid().optional(),
+      recoverAt: z.date().optional(),
+    })
+    .parse(scope);
+  await client.query(
+    "SELECT set_config('rove.push_event',$1,true),set_config('rove.push_installation',$2,true),set_config('rove.push_revision',$3,true),set_config('rove.push_delivery',$4,true),set_config('rove.push_recovery_at',$5,true)",
+    [
+      parsed.recipient?.eventId ?? '',
+      parsed.recipient?.installationId ?? '',
+      parsed.recipient?.revision.toString() ?? '',
+      parsed.delivery ?? '',
+      parsed.recoverAt?.toISOString() ?? '',
+    ],
+  );
 }

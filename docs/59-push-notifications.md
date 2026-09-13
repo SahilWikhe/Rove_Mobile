@@ -176,3 +176,9 @@ Six added journal cases cover empty/nonempty/invalid lists, authorization/accoun
 Migration 0061 enables and forces RLS on push_rate_windows. Before consuming capacity, the worker resolves the target installation's project and binds it transaction-locally. Only that project's window may be read, inserted or updated; no runtime delete policy exists. The atomic 100-send-per-second shared limit remains unchanged. Actor and other worker contexts clear the project scope. Deploy compatible worker code before applying the migration.
 
 The delivery suite runs through a restricted non-owner role and verifies retries, receipts, token invalidation, concurrency, foreign-project denial and scope reset with a synthetic provider. This does not establish RLS on delivery records or installations, or physical-device delivery. Hosted verification of migration 0061 remains pending.
+
+## Delivery record row isolation
+
+Migration 0062 enables and forces RLS on push_deliveries. Fanout binds the exact event, installation and revision selected by the audience service, can read that recipient's delivery, and can insert only an initial pending delivery without receipt or lease fields. Retry uses conflict-do-nothing followed by a read, avoiding fanout update rights. Send and receipt handlers bind one durable delivery ID; existing lease fencing still governs state transitions. Recovery binds its scan time and can read/lock only stale pending, sending or receipt rows; it cannot alter receipts. No runtime delete policy exists.
+
+Local restricted-role tests cover these boundaries alongside delivery retries, concurrent fanout, receipt handling and recovery. Delivery RLS does not imply installation protection or physical-phone delivery. Deploy compatible worker code before migration 0062; hosted verification remains pending.
