@@ -105,6 +105,12 @@ async function persistOutcome(
   for (let attempt = 0; ; attempt++) {
     try {
       await transaction(pool, async (c) => {
+        // This receipt belongs to an already dispatched write and must survive account closure.
+        // Scope is derived from the trusted request's validated reservation and storage key.
+        await c.query(
+          "SELECT set_config('rove.actor_id','',true),set_config('rove.actor_role','',true),set_config('rove.actor_mfa','false',true),set_config('rove.identity_request','',true),set_config('rove.notification_message','',true),set_config('rove.notification_offer','',true),set_config('rove.closure_guard_owner','',true),set_config('rove.retention_owner','',true),set_config('rove.cleanup_item','',true),set_config('rove.scan_queue','false',true),set_config('rove.scan_document','',true),set_config('rove.write_document',$1,true),set_config('rove.write_key',$2,true)",
+          [documentId, key],
+        );
         const row = (
           await c.query(
             'SELECT * FROM document_storage_writes WHERE object_key=$1 AND document_id=$2 FOR UPDATE',

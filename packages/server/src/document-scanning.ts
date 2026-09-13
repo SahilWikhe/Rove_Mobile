@@ -165,7 +165,7 @@ async function scanTransaction<T>(
   if (scope !== 'queue') z.uuid().parse(scope);
   return transaction(pool, async (client) => {
     await client.query(
-      "SELECT set_config('rove.actor_id','',true),set_config('rove.actor_role','',true),set_config('rove.actor_mfa','false',true),set_config('rove.identity_request','',true),set_config('rove.notification_message','',true),set_config('rove.notification_offer','',true),set_config('rove.closure_guard_owner','',true),set_config('rove.retention_owner','',true),set_config('rove.cleanup_item','',true),set_config('rove.scan_queue',$1,true),set_config('rove.scan_document',$2,true)",
+      "SELECT set_config('rove.actor_id','',true),set_config('rove.actor_role','',true),set_config('rove.actor_mfa','false',true),set_config('rove.write_document','',true),set_config('rove.write_key','',true),set_config('rove.identity_request','',true),set_config('rove.notification_message','',true),set_config('rove.notification_offer','',true),set_config('rove.closure_guard_owner','',true),set_config('rove.retention_owner','',true),set_config('rove.cleanup_item','',true),set_config('rove.scan_queue',$1,true),set_config('rove.scan_document',$2,true)",
       [scope === 'queue' ? 'true' : 'false', scope === 'queue' ? '' : scope],
     );
     return work(client);

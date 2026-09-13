@@ -1,3 +1,5 @@
+import { Pool } from 'pg';
+import { actorTransaction } from './actor-transaction';
 import { DocumentWriteNotDispatched } from './document-write-not-dispatched';
 import { S3DocumentStore } from './s3-document-store';
 import { createHash, randomUUID } from 'node:crypto';
@@ -12,14 +14,28 @@ import { transaction } from './transactions';
 import { DocumentCleanup } from './document-cleanup';
 import { assertDocumentWritesSettled, trackedDocumentStore } from './document-storage-writes';
 import type { Actor } from './rides';
+let runtimePool: Pool;
 let db: Awaited<ReturnType<typeof testDatabase>>, driver: Actor, staff: Actor, service: DriverDocumentService;
 const body = new TextEncoder().encode('%PDF-1.7 synthetic document');
 const sha256 = createHash('sha256').update(body).digest('hex');
 const result = { version: 'synthetic-version', sha256, bytes: body.length };
 beforeAll(async () => {
   db = await testDatabase();
+  await db.pool.query("CREATE ROLE rls_writes LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'synthetic-local-only'");
+  await db.pool.query('GRANT USAGE ON SCHEMA public TO rls_writes');
+  await db.pool.query('GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_writes');
+  await db.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_writes');
+  runtimePool = new Pool({
+    host: '127.0.0.1',
+    port: (await db.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
+    database: 'postgres',
+    user: 'rls_writes',
+    password: 'synthetic-local-only',
+    max: 5,
+  });
 }, 60000);
 afterAll(async () => {
+  await runtimePool?.end();
   await db?.close();
 });
 beforeEach(async () => {
@@ -30,10 +46,11 @@ beforeEach(async () => {
     .insert(users)
     .values([driver, staff].map((a) => ({ id: a.id, role: a.role, subject: a.id, name: 'Synthetic' })));
   await db.db.insert(drivers).values({ id: driver.id });
-  await db.pool.query("INSERT INTO staff_permissions(staff_id,permission) VALUES($1,'privacy.close')", [
-    staff.id,
-  ]);
-  service = new DriverDocumentService(db.pool);
+  await db.pool.query(
+    "INSERT INTO staff_permissions(staff_id,permission) VALUES($1,'privacy.close'),($1,'privacy.cleanup')",
+    [staff.id],
+  );
+  service = new DriverDocumentService(runtimePool);
 });
 async function reserve() {
   const id = randomUUID();
@@ -47,13 +64,17 @@ async function reserve() {
   return id;
 }
 async function closeAccount() {
-  await new SupportService(db.pool).create(
+  await new SupportService(runtimePool).create(
     driver,
     { category: 'account', message: 'Delete synthetic account', deletionConsent: 'account-deletion-v1' },
     randomUUID(),
   );
-  const request = (await new AccountDeletions(db.pool).status(driver)).request!;
-  await new AccountClosures(db.pool, { erase: async () => ({ status: 'absent' }) }, 'synthetic-v1').authorize(
+  const request = (await new AccountDeletions(runtimePool).status(driver)).request!;
+  await new AccountClosures(
+    runtimePool,
+    { erase: async () => ({ status: 'absent' }) },
+    'synthetic-v1',
+  ).authorize(
     staff,
     request.id,
     { policyReference: 'synthetic-v1', reviewReference: 'synthetic-review' },
@@ -61,7 +82,7 @@ async function closeAccount() {
   );
 }
 async function barrier() {
-  return transaction(db.pool, (c) => assertDocumentWritesSettled(c, driver.id));
+  return actorTransaction(runtimePool, staff, (c) => assertDocumentWritesSettled(c, driver.id));
 }
 async function expire() {
   await db.pool.query("UPDATE driver_documents SET expires_at=now()-interval '1 second'");
@@ -140,7 +161,7 @@ test.each(['timeout', 'bad-receipt'])(
 test('a disabled account cannot dispatch through a previously constructed store', async () => {
   const id = await reserve(),
     put = vi.fn(async () => result);
-  const store = trackedDocumentStore(db.pool, driver, id, { put });
+  const store = trackedDocumentStore(runtimePool, driver, id, { put });
   await closeAccount();
   await expect(
     store.put({
@@ -244,7 +265,7 @@ test('inspection exposes unresolved uploads without settling them and paginates 
     `driver-documents/quarantine/${other}/${randomUUID()}`,
     other,
   ]);
-  const cleanup = new DocumentCleanup(db.pool, { discover: vi.fn(), erase: vi.fn() }, 'synthetic-policy');
+  const cleanup = new DocumentCleanup(runtimePool, { discover: vi.fn(), erase: vi.fn() }, 'synthetic-policy');
   const active = await cleanup.inspectUploads(staff, id);
   expect(active.accessClosed).toBe(false);
   expect(active.reservationActive).toBe(true);
@@ -354,7 +375,7 @@ test.each([
     const id = await reserve();
     let providerFinished = false;
     let injected = false;
-    const pool = new Proxy(db.pool, {
+    const pool = new Proxy(runtimePool, {
       get(target, property) {
         if (property === 'connect')
           return async () => {
@@ -418,7 +439,7 @@ test('persistent database connection failure bounds receipt retries and leaves t
   const id = await reserve();
   let providerFinished = false;
   let attempts = 0;
-  const pool = new Proxy(db.pool, {
+  const pool = new Proxy(runtimePool, {
     get(target, property) {
       if (property === 'connect')
         return async () => {
@@ -453,4 +474,50 @@ test('persistent database connection failure bounds receipt retries and leaves t
   await closeAccount();
   await expire();
   await expect(barrier()).rejects.toMatchObject({ code: 'DOCUMENT_WRITES_PENDING' });
+});
+
+test('receipt rows deny unscoped access, consumer settlement and foreign write scope', async () => {
+  const id = await reserve();
+  await expect(
+    service.upload(driver, id, body, {
+      put: async () => {
+        throw new Error('Synthetic uncertain write');
+      },
+    }),
+  ).rejects.toMatchObject({ code: 'DOCUMENT_STORAGE_UNAVAILABLE' });
+  const row = (await db.pool.query('SELECT * FROM document_storage_writes')).rows[0];
+  expect((await runtimePool.query('SELECT * FROM document_storage_writes')).rowCount).toBe(0);
+  await actorTransaction(runtimePool, driver, async (c) => {
+    expect((await c.query('SELECT * FROM document_storage_writes')).rowCount).toBe(1);
+    expect(
+      (await c.query('UPDATE document_storage_writes SET not_dispatched_at=clock_timestamp()')).rowCount,
+    ).toBe(0);
+    expect((await c.query('DELETE FROM document_storage_writes')).rowCount).toBe(0);
+  });
+  await actorTransaction(runtimePool, staff, async (c) => {
+    expect((await c.query('SELECT * FROM document_storage_writes')).rowCount).toBe(1);
+    expect(
+      (await c.query('UPDATE document_storage_writes SET not_dispatched_at=clock_timestamp()')).rowCount,
+    ).toBe(0);
+  });
+  await transaction(runtimePool, async (c) => {
+    await c.query("SELECT set_config('rove.write_document',$1,true),set_config('rove.write_key',$2,true)", [
+      id,
+      row.object_key + '-foreign',
+    ]);
+    expect((await c.query('SELECT * FROM document_storage_writes')).rowCount).toBe(0);
+    expect(
+      (await c.query('UPDATE document_storage_writes SET not_dispatched_at=clock_timestamp()')).rowCount,
+    ).toBe(0);
+  });
+  await closeAccount();
+  await transaction(runtimePool, async (c) => {
+    await c.query("SELECT set_config('rove.write_document',$1,true),set_config('rove.write_key',$2,true)", [
+      id,
+      row.object_key,
+    ]);
+    expect((await c.query('SELECT * FROM document_storage_writes')).rowCount).toBe(1);
+    expect((await c.query('DELETE FROM document_storage_writes')).rowCount).toBe(0);
+  });
+  expect((await runtimePool.query('SELECT * FROM document_storage_writes')).rowCount).toBe(0);
 });

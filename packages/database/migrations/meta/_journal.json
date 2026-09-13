@@ -414,6 +414,13 @@
       "when": 1789291107593,
       "tag": "0058_document_scan_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1789291358949,
+      "tag": "0059_document_write_rls",
+      "breakpoints": true
     }
   ]
 }

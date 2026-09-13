@@ -96,3 +96,7 @@ Migration 0055 enables/forces row isolation on cleanup plans and items. Current 
 ## Reservation visibility under RLS
 
 Migration 0057 limits cleanup-worker reservation reads to the owner of its exact scoped cleanup item. This preserves the owner-wide write-settlement barrier without general document visibility. Existing hold checks and immutable receipts remain active. Local restricted-role cleanup tests passed; this migration has not been applied to hosted staging.
+
+## Storage-write receipt row isolation
+
+Migration 0059 protects write evidence. Current MFA privacy staff can inspect relevant rows; workers can read writes for their assigned cleanup owner. Settlement uses the exact document and object key from an already dispatched trusted request, so account closure does not discard a later verified provider result. Driver/staff actors cannot update settlement evidence, and there is no runtime deletion policy. Existing immutable-evidence triggers and owner-wide unsettled-write barriers remain active. Hosted rollout is pending.

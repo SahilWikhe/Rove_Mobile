@@ -1235,6 +1235,27 @@ export const documentStorageWrites = pgTable(
     notDispatchedAt: timestamp({ withTimezone: true }),
   },
   (t) => [
+    pgPolicy('storage_write_actor_read', {
+      for: 'select',
+      using: sql`(current_setting('rove.actor_role',true)='driver' OR ${rlsStaff('privacy.read')} OR ${rlsStaff('privacy.cleanup')}) AND EXISTS(SELECT 1 FROM public.driver_documents d WHERE d.id=${t.documentId})`,
+    }),
+    pgPolicy('storage_write_owner_insert', {
+      for: 'insert',
+      withCheck: sql`current_setting('rove.actor_role',true)='driver' AND EXISTS(SELECT 1 FROM public.driver_documents d WHERE d.id=${t.documentId} AND d.driver_id=NULLIF(current_setting('rove.actor_id',true),'')::uuid AND d.state='reserved' AND d.expires_at>clock_timestamp()) AND ${t.settledAt} IS NULL AND ${t.notDispatchedAt} IS NULL AND ${t.objectVersion} IS NULL`,
+    }),
+    pgPolicy('storage_write_cleanup_read', {
+      for: 'select',
+      using: sql`NULLIF(current_setting('rove.actor_id',true),'') IS NULL AND NULLIF(current_setting('rove.cleanup_item',true),'') IS NOT NULL AND EXISTS(SELECT 1 FROM public.driver_documents d WHERE d.id=${t.documentId})`,
+    }),
+    pgPolicy('storage_write_receipt_read', {
+      for: 'select',
+      using: sql`NULLIF(current_setting('rove.actor_id',true),'') IS NULL AND ${t.documentId}=NULLIF(current_setting('rove.write_document',true),'')::uuid AND ${t.objectKey}=current_setting('rove.write_key',true)`,
+    }),
+    pgPolicy('storage_write_receipt_update', {
+      for: 'update',
+      using: sql`NULLIF(current_setting('rove.actor_id',true),'') IS NULL AND ${t.documentId}=NULLIF(current_setting('rove.write_document',true),'')::uuid AND ${t.objectKey}=current_setting('rove.write_key',true)`,
+      withCheck: sql`NULLIF(current_setting('rove.actor_id',true),'') IS NULL AND ${t.documentId}=NULLIF(current_setting('rove.write_document',true),'')::uuid AND ${t.objectKey}=current_setting('rove.write_key',true)`,
+    }),
     index('document_storage_writes_pending')
       .on(t.documentId)
       .where(sql`${t.settledAt} is null and ${t.notDispatchedAt} is null`),

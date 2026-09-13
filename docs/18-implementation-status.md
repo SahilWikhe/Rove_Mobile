@@ -1,5 +1,13 @@
 # Implementation status
 
+## Document storage-write RLS — September 13
+
+Migration 0059 enables and forces document_storage_writes RLS. Active document owners may create unsettled intents; current MFA privacy staff and assigned cleanup workers have scoped reads. Settlement transactions bind only the trusted dispatched document and storage key, preserving verified outcomes after account closure. Consumer/staff actors cannot forge settlement, and runtime deletion has no policy. Existing immutable evidence, retry idempotency and cleanup settlement barriers remain intact. Actor, identity, scanner and cleanup transactions clear receipt scope.
+
+Verification: 688 server tests, 208 API tests and 13 database tests passed (909 total), plus server/database typechecks, targeted lint and formatting. The storage-write suite now runs application services and fault-injection pools as a restricted non-owner role. Tests cover closure during provider I/O, late receipts, retry/lost-commit recovery, unscoped/foreign reads, consumer/staff settlement denial and scope reset. An initial new-test assertion expected a raw provider error; corrected it to the existing sanitized domain error, then reran the full passing server suite. Synthetic providers only were used.
+
+Source RLS coverage is seventeen of 47 tables. Hosted evidence remains eleven tables through 0054; no provider-staging or production changes occurred. Next: rehearse the six new protected tables in isolated Neon, then continue remaining data/worker policies and compatible staging rollout. Full mobile production acceptance remains incomplete.
+
 ## Driver document-scan RLS — September 13
 
 Migration 0058 enables and forces driver_document_scans RLS. Drivers can read scans for their documents and queue only an initial pending scan after quarantine; they cannot update or delete verdicts. Current MFA staff can read and lock evidence without modifying it. Trusted scanner queue scope can claim pending work but cannot publish verdicts; result transactions require the exact quarantined document scope. Existing lease/version fencing remains in the service.
