@@ -27,7 +27,6 @@ The workflow is published on main. YAML parsing, official actionlint v1.7.12, fo
 
 References: [official scanner action](https://github.com/SonarSource/sonarqube-scan-action), [GitHub Actions setup](https://docs.sonarsource.com/sonarqube-cloud/advanced-setup/ci-based-analysis/github-actions-for-sonarcloud), [JavaScript/TypeScript coverage](https://docs.sonarsource.com/sonarqube-cloud/enriching/test-coverage/javascript-typescript-test-coverage).
 
-
 ## Existing security findings — September 13
 
 Authenticated CLI review found 24 open security-impacting findings on main. The passing new-code gate does not clear this existing backlog. None were marked accepted or false positive during this review.
