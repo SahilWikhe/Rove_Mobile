@@ -1,3 +1,4 @@
+import { bindActorIdentity } from './actor-transaction';
 import type { Pool } from 'pg';
 import { z } from 'zod';
 import { command, transaction } from './transactions';
@@ -39,6 +40,7 @@ export class DriverEligibilityService {
       { action: 'driver.eligibility', driverId, ...input },
       async (client) => {
         await authorize(client);
+        await bindActorIdentity(client, actor);
         const driver = (
           await client.query(
             'SELECT d.*,u.disabled FROM drivers d JOIN users u ON u.id=d.id WHERE d.id=$1 FOR UPDATE OF d,u',

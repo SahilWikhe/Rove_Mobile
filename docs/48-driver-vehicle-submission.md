@@ -41,3 +41,7 @@ Refine the driver form against native device behavior. Add secure document intak
 ## Document pipeline
 
 See [driver document upload and review](65-driver-documents.md) for the implemented quarantine/scanning/review boundary and remaining hosted acceptance. Vehicle submission alone never establishes document approval.
+
+## Database row isolation
+
+Migration 0050 enables/forces RLS on submissions and immutable history, with driver ownership and explicit staff permission policies. The service now verifies the current active actor inside its database transaction, including reads. An unknown or disabled account is rejected. Pending-only driver write policies prevent self-approval; immutable history has no runtime update/delete policy. Local tests run the actual migrations under a restricted non-owner role. Hosted rollout remains pending; see [Neon staging](60-neon-staging.md).

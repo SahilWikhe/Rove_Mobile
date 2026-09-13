@@ -1,5 +1,13 @@
 # Implementation status
 
+## Vehicle onboarding RLS — September 13
+
+Migration 0050 enables and forces RLS on current vehicle submissions, immutable submission history and immutable review decisions. Drivers receive ownership-scoped access and can write only pending submissions; staff review requires current vehicle-review permission and MFA. Eligibility reviewers have read access to current submissions without vehicle-edit authority. Driver reads/submissions, staff review and eligibility command transactions now bind verified actor identity.
+
+Verification: 36 related domain tests, 208 API tests and 13 database tests passed (257 total), plus server/database typechecks, targeted lint and formatting. Vehicle/eligibility behavior suites use non-owner NOSUPERUSER/NOBYPASSRLS connections. Checks cover foreign/no-context access, driver self-approval rejection, history/decision deletion denial, MFA/revoked permissions, correction DTO privacy, concurrent submissions/reviews and eligibility approval. Restricted-role tests exposed a missing staff identity binding; fixed before the passing run. Invalid/nonexistent account reads now return FORBIDDEN rather than an empty submission.
+
+Source policy coverage is seven of 47 tables; hosted rehearsal evidence still covers only the prior four. Provider staging remains unchanged. Next: remaining application/worker policy coverage and a compatible staged migration rollout. RLS enforces row access; API projections and domain commands still enforce private-column exposure, audit and lifecycle rules. Full product/production acceptance remains incomplete.
+
 ## Isolated Neon RLS rehearsal — September 13
 
 Applied all 50 versioned migrations through 0049 to an isolated Neon branch cloned from the older staging branch after verifying that every existing user had a synthetic subject. The rehearsal branch expires September 14. Live catalog inspection confirmed 47 tables, with four enabled/forced RLS tables. Production and provider-staging settings were not changed.

@@ -1,9 +1,12 @@
+import { Pool } from 'pg';
+import { actorTransaction } from './actor-transaction';
 import { beforeAll, beforeEach, afterAll, test, expect } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { testDatabase } from '@rove/database/testing';
 import { users, drivers, staffPermissions } from '@rove/database';
 import { VehicleSubmissionService } from './vehicle-submissions';
 import { VehicleReviewService } from './vehicle-review';
+let runtimePool: Pool;
 let db: Awaited<ReturnType<typeof testDatabase>>;
 let review: VehicleReviewService, submissions: VehicleSubmissionService;
 let driver: { id: string; role: 'driver' },
@@ -20,10 +23,26 @@ const vehicle = {
 };
 beforeAll(async () => {
   db = await testDatabase();
-  review = new VehicleReviewService(db.pool);
-  submissions = new VehicleSubmissionService(db.pool);
+  await db.pool.query(
+    "CREATE ROLE rls_vehicle LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'synthetic-local-only'",
+  );
+  await db.pool.query('GRANT USAGE ON SCHEMA public TO rls_vehicle');
+  await db.pool.query('GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_vehicle');
+  await db.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_vehicle');
+  runtimePool = new Pool({
+    host: '127.0.0.1',
+    port: (await db.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
+    database: 'postgres',
+    user: 'rls_vehicle',
+    password: 'synthetic-local-only',
+    max: 5,
+  });
+
+  review = new VehicleReviewService(runtimePool);
+  submissions = new VehicleSubmissionService(runtimePool);
 }, 60000);
 afterAll(async () => {
+  await runtimePool?.end();
   await db?.close();
 });
 beforeEach(async () => {
@@ -158,7 +177,13 @@ test('drivers receive only correction categories for their current rejected revi
   expect(visible.corrections).toEqual(corrections);
   expect(JSON.stringify(visible)).not.toContain('Private synthetic');
   expect(visible).not.toHaveProperty('reviewerId');
-  expect((await submissions.get({ id: randomUUID(), role: 'driver' })).submission).toBeNull();
+  const other = { id: randomUUID(), role: 'driver' as const };
+  await db.db.insert(users).values({ ...other, subject: other.id, name: 'Synthetic other' });
+  await db.db.insert(drivers).values({ id: other.id });
+  expect((await submissions.get(other)).submission).toBeNull();
+  await expect(submissions.get({ id: randomUUID(), role: 'driver' })).rejects.toMatchObject({
+    code: 'FORBIDDEN',
+  });
   const next = (
     await submissions.submit(driver, {
       vehicle: { ...vehicle, color: 'White' },
@@ -194,4 +219,23 @@ test('correction guidance is required for rejection and cannot be free-form or a
     await expect(review.decide(staff, driver.id, change, randomUUID())).rejects.toThrow();
   }
   expect((await db.pool.query('SELECT id FROM vehicle_review_decisions')).rowCount).toBe(0);
+});
+
+test('RLS keeps review decisions immutable and scoped to owners and current MFA reviewers', async () => {
+  await grant();
+  await review.decide(staff, driver.id, approve(), randomUUID());
+  expect((await runtimePool.query('SELECT * FROM vehicle_review_decisions')).rowCount).toBe(0);
+  await actorTransaction(runtimePool, driver, async (client) => {
+    expect((await client.query('SELECT * FROM vehicle_review_decisions')).rowCount).toBe(1);
+    expect((await client.query('DELETE FROM vehicle_review_decisions')).rowCount).toBe(0);
+    expect((await client.query('DELETE FROM driver_vehicle_history')).rowCount).toBe(0);
+  });
+  await actorTransaction(runtimePool, { ...staff, mfa: false }, async (client) => {
+    expect((await client.query('SELECT * FROM driver_vehicle_submissions')).rowCount).toBe(0);
+    expect((await client.query('SELECT * FROM vehicle_review_decisions')).rowCount).toBe(0);
+  });
+  await db.pool.query('DELETE FROM staff_permissions WHERE staff_id=$1', [staff.id]);
+  await actorTransaction(runtimePool, staff, async (client) => {
+    expect((await client.query('SELECT * FROM vehicle_review_decisions')).rowCount).toBe(0);
+  });
 });

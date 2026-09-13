@@ -1,3 +1,4 @@
+import { actorTransaction, bindActorIdentity } from './actor-transaction';
 import type { Pool, PoolClient } from 'pg';
 import { VehicleReviewDecision, VehicleSubmission } from '@rove/contracts';
 import { command, transaction } from './transactions';
@@ -9,7 +10,7 @@ const authorize = (client: PoolClient, actor: Actor) =>
 export class VehicleReviewService {
   constructor(private pool: Pool) {}
   async inspect(actor: Actor, driverId: string) {
-    return transaction(this.pool, async (client) => {
+    return actorTransaction(this.pool, actor, async (client) => {
       await authorize(client, actor);
       const row = (
         await client.query(
@@ -41,6 +42,7 @@ export class VehicleReviewService {
       { action: 'vehicle.review', driverId, ...input },
       async (client) => {
         await authorize(client, actor);
+        await bindActorIdentity(client, actor);
         const driver = (
           await client.query('SELECT id,online FROM drivers WHERE id=$1 FOR UPDATE', [driverId])
         ).rows[0];

@@ -1,9 +1,12 @@
+import { Pool } from 'pg';
+import { actorTransaction } from './actor-transaction';
 import { readFile } from 'node:fs/promises';
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { testDatabase } from '@rove/database/testing';
 import { users, drivers } from '@rove/database';
 import { VehicleSubmissionService } from './vehicle-submissions';
+let runtimePool: Pool;
 let db: Awaited<ReturnType<typeof testDatabase>>;
 let service: VehicleSubmissionService;
 let actor: { id: string; role: 'driver' };
@@ -18,9 +21,25 @@ const vehicle = {
 };
 beforeAll(async () => {
   db = await testDatabase();
-  service = new VehicleSubmissionService(db.pool);
+  await db.pool.query(
+    "CREATE ROLE rls_vehicle LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'synthetic-local-only'",
+  );
+  await db.pool.query('GRANT USAGE ON SCHEMA public TO rls_vehicle');
+  await db.pool.query('GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_vehicle');
+  await db.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_vehicle');
+  runtimePool = new Pool({
+    host: '127.0.0.1',
+    port: (await db.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
+    database: 'postgres',
+    user: 'rls_vehicle',
+    password: 'synthetic-local-only',
+    max: 5,
+  });
+
+  service = new VehicleSubmissionService(runtimePool);
 }, 60000);
 afterAll(async () => {
+  await runtimePool?.end();
   await db?.close();
 });
 beforeEach(async () => {
@@ -174,12 +193,33 @@ test('history migration backfills the current submission from the previous schem
   await db.pool.query(
     'ALTER TABLE vehicle_review_decisions DROP CONSTRAINT vehicle_review_decisions_revision_driver_vehicle_history_revision_fk',
   );
+  const policy = (
+    await db.pool.query(
+      "SELECT qual FROM pg_policies WHERE tablename='vehicle_review_decisions' AND policyname='vehicle_decision_read'",
+    )
+  ).rows[0].qual;
+  await db.pool.query('DROP POLICY vehicle_decision_read ON vehicle_review_decisions');
   await db.pool.query('DROP TABLE driver_vehicle_history; DROP FUNCTION prevent_vehicle_history_update()');
   const migration = await readFile(
     new URL('../../database/migrations/0013_vehicle_submission_history.sql', import.meta.url),
     'utf8',
   );
   await db.pool.query(migration);
+  await db.pool.query(
+    `CREATE POLICY vehicle_decision_read ON vehicle_review_decisions FOR SELECT USING (${policy})`,
+  );
+  await db.pool.query('GRANT SELECT,INSERT,UPDATE,DELETE ON driver_vehicle_history TO rls_vehicle');
+  const rlsMigration = await readFile(
+    new URL('../../database/migrations/0050_vehicle_rls.sql', import.meta.url),
+    'utf8',
+  );
+  for (const statement of rlsMigration.split('--> statement-breakpoint')) {
+    if (
+      /^(ALTER TABLE|CREATE POLICY).*ON "driver_vehicle_history"/s.test(statement.trim()) ||
+      /^ALTER TABLE "driver_vehicle_history"/.test(statement.trim())
+    )
+      await db.pool.query(statement);
+  }
   await db.pool.query(
     'ALTER TABLE vehicle_review_decisions ADD CONSTRAINT vehicle_review_decisions_revision_driver_vehicle_history_revision_fk FOREIGN KEY(revision) REFERENCES driver_vehicle_history(revision) ON DELETE CASCADE',
   );
@@ -192,4 +232,33 @@ test('history migration backfills the current submission from the previous schem
   expect(row.revision).toBe(current.revision);
   expect(row.vehicle).toEqual(vehicle);
   expect(row.submitted_at.toISOString()).toBe(current.submittedAt);
+});
+
+test('RLS denies unscoped and foreign vehicle access and driver self-approval', async () => {
+  await service.submit(actor, { vehicle, expectedRevision: null });
+  const other = { id: randomUUID(), role: 'driver' as const };
+  await db.db.insert(users).values({ ...other, subject: other.id, name: 'Synthetic other' });
+  await db.db.insert(drivers).values({ id: other.id });
+  for (const table of ['driver_vehicle_submissions', 'driver_vehicle_history']) {
+    expect((await runtimePool.query(`SELECT * FROM ${table}`)).rowCount).toBe(0);
+    await actorTransaction(runtimePool, other, async (client) => {
+      expect((await client.query(`SELECT * FROM ${table}`)).rowCount).toBe(0);
+      expect((await client.query(`DELETE FROM ${table}`)).rowCount).toBe(0);
+    });
+  }
+  await expect(
+    actorTransaction(runtimePool, actor, (client) =>
+      client.query("UPDATE driver_vehicle_submissions SET status='approved' WHERE driver_id=$1", [actor.id]),
+    ),
+  ).rejects.toMatchObject({ code: '42501' });
+  await expect(
+    actorTransaction(runtimePool, other, (client) =>
+      client.query(
+        "INSERT INTO driver_vehicle_history(revision,driver_id,vehicle,submitted_at) VALUES($1,$2,'{}',now())",
+        [randomUUID(), actor.id],
+      ),
+    ),
+  ).rejects.toMatchObject({ code: '42501' });
+  await db.pool.query('UPDATE users SET disabled=true WHERE id=$1', [actor.id]);
+  await expect(service.get(actor)).rejects.toMatchObject({ code: 'FORBIDDEN' });
 });

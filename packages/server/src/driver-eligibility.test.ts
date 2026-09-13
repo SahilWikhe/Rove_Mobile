@@ -1,3 +1,4 @@
+import { Pool } from 'pg';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
 import { testDatabase } from '@rove/database/testing';
@@ -9,6 +10,7 @@ import { DriverDocumentService } from './driver-documents';
 import { DocumentReviewService } from './document-review';
 import { DocumentScanWorker } from './document-scanning';
 import { DriverService } from './drivers';
+let runtimePool: Pool;
 let db: Awaited<ReturnType<typeof testDatabase>>;
 let service: DriverEligibilityService;
 let staff: { id: string; role: 'staff'; mfa: boolean };
@@ -16,9 +18,25 @@ let driver: { id: string; role: 'driver' };
 let vehicleRevision: string, documentIds: string[], documentExpiry: string;
 beforeAll(async () => {
   db = await testDatabase();
-  service = new DriverEligibilityService(db.pool);
+  await db.pool.query(
+    "CREATE ROLE rls_vehicle LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'synthetic-local-only'",
+  );
+  await db.pool.query('GRANT USAGE ON SCHEMA public TO rls_vehicle');
+  await db.pool.query('GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_vehicle');
+  await db.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_vehicle');
+  runtimePool = new Pool({
+    host: '127.0.0.1',
+    port: (await db.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
+    database: 'postgres',
+    user: 'rls_vehicle',
+    password: 'synthetic-local-only',
+    max: 5,
+  });
+
+  service = new DriverEligibilityService(runtimePool);
 }, 60_000);
 afterAll(async () => {
+  await runtimePool?.end();
   await db?.close();
 });
 beforeEach(async () => {
@@ -36,7 +54,7 @@ beforeEach(async () => {
     })),
   );
   vehicleRevision = (
-    await new VehicleSubmissionService(db.pool).submit(driver, {
+    await new VehicleSubmissionService(runtimePool).submit(driver, {
       expectedRevision: null,
       vehicle: {
         make: 'Synthetic',
@@ -49,7 +67,7 @@ beforeEach(async () => {
       },
     })
   ).submission!.revision;
-  await new VehicleReviewService(db.pool).decide(
+  await new VehicleReviewService(runtimePool).decide(
     staff,
     driver.id,
     {

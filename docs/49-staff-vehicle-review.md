@@ -47,3 +47,7 @@ Authenticated support intake and secure document upload are now implemented; sta
 ## Document pipeline
 
 See [driver document upload and review](65-driver-documents.md) for the implemented quarantine/scanning/review boundary and remaining hosted acceptance. Vehicle submission alone never establishes document approval.
+
+## Database row isolation
+
+Migration 0050 protects review decisions and the submission/history rows they reference. Current vehicle-review permission and verified MFA are required by staff policies; inserted decisions must identify the current reviewer. Review and eligibility transactions bind actor identity, and eligibility permission grants only current-submission reads. Decisions and submitted history have no runtime update/delete policies. Driver API projections still hide private review notes. Restricted-role tests cover legitimate review/retry, missing MFA, revoked permission and immutable records; hosted rollout remains pending.

@@ -3,16 +3,18 @@ import type { Pool } from 'pg';
 import { VehicleSubmissionUpdate, VehicleReviewResponse } from '@rove/contracts';
 import { driverOnly } from './drivers';
 import type { Actor } from './rides';
-import { transaction } from './transactions';
+import { actorTransaction } from './actor-transaction';
 import { DomainError } from './errors';
 export class VehicleSubmissionService {
   constructor(private pool: Pool) {}
   async get(actor: Actor) {
     driverOnly(actor);
     const row = (
-      await this.pool.query(
-        'SELECT s.revision,s.vehicle,s.status,s.submitted_at,d.corrections FROM driver_vehicle_submissions s LEFT JOIN vehicle_review_decisions d ON d.revision=s.revision WHERE s.driver_id=$1',
-        [actor.id],
+      await actorTransaction(this.pool, actor, (client) =>
+        client.query(
+          'SELECT s.revision,s.vehicle,s.status,s.submitted_at,d.corrections FROM driver_vehicle_submissions s LEFT JOIN vehicle_review_decisions d ON d.revision=s.revision WHERE s.driver_id=$1',
+          [actor.id],
+        ),
       )
     ).rows[0];
     return VehicleReviewResponse.parse({
@@ -30,7 +32,7 @@ export class VehicleSubmissionService {
   async submit(actor: Actor, raw: unknown) {
     driverOnly(actor);
     const input = VehicleSubmissionUpdate.parse(raw);
-    return transaction(this.pool, async (client) => {
+    return actorTransaction(this.pool, actor, async (client) => {
       const driver = (
         await client.query(
           'SELECT d.online,u.disabled FROM drivers d JOIN users u ON u.id=d.id WHERE d.id=$1 FOR UPDATE OF d',

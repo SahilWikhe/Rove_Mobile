@@ -299,11 +299,16 @@ export const ledgerPostings = pgTable(
 // Identity is installed only by trusted backend transactions; no anonymous/default access.
 const rlsActor = sql`NULLIF(current_setting('rove.actor_id', true), '')::uuid`;
 const rlsStaff = (
-  permission: 'privacy.read' | 'privacy.close' | 'privacy.cleanup',
+  permission:
+    | 'privacy.read'
+    | 'privacy.close'
+    | 'privacy.cleanup'
+    | 'driver.vehicle.review'
+    | 'driver.eligibility.review',
 ) => sql`current_setting('rove.actor_role', true) = 'staff'
   AND current_setting('rove.actor_mfa', true) = 'true'
   AND EXISTS (SELECT 1 FROM public.users u JOIN public.staff_permissions p ON p.staff_id=u.id
-    WHERE u.id=${rlsActor} AND u.role='staff' AND u.disabled=false AND ${permission === 'privacy.read' ? sql`p.permission='privacy.read'` : permission === 'privacy.close' ? sql`p.permission='privacy.close'` : sql`p.permission='privacy.cleanup'`})`;
+    WHERE u.id=${rlsActor} AND u.role='staff' AND u.disabled=false AND ${permission === 'privacy.read' ? sql`p.permission='privacy.read'` : permission === 'privacy.close' ? sql`p.permission='privacy.close'` : permission === 'privacy.cleanup' ? sql`p.permission='privacy.cleanup'` : permission === 'driver.vehicle.review' ? sql`p.permission='driver.vehicle.review'` : sql`p.permission='driver.eligibility.review'`})`;
 
 export const savedPlaces = pgTable(
   'saved_places',
@@ -338,6 +343,11 @@ export const savedPlaces = pgTable(
   ],
 );
 
+const rlsDriver = (
+  owner: SQLWrapper,
+) => sql`${owner}=${rlsActor} AND current_setting('rove.actor_role',true)='driver'
+  AND EXISTS(SELECT 1 FROM public.users u WHERE u.id=${rlsActor} AND u.role='driver' AND u.disabled=false)`;
+
 export const driverVehicleSubmissions = pgTable(
   'driver_vehicle_submissions',
   {
@@ -350,6 +360,19 @@ export const driverVehicleSubmissions = pgTable(
     submittedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
+    pgPolicy('vehicle_submission_read', {
+      for: 'select',
+      using: sql`${rlsDriver(table.driverId)} OR ${rlsStaff('driver.vehicle.review')} OR ${rlsStaff('driver.eligibility.review')}`,
+    }),
+    pgPolicy('vehicle_submission_insert', {
+      for: 'insert',
+      withCheck: sql`${rlsDriver(table.driverId)} AND ${table.status}='pending'`,
+    }),
+    pgPolicy('vehicle_submission_update', {
+      for: 'update',
+      using: sql`${rlsDriver(table.driverId)} OR ${rlsStaff('driver.vehicle.review')}`,
+      withCheck: sql`(${rlsDriver(table.driverId)} AND ${table.status}='pending') OR ${rlsStaff('driver.vehicle.review')}`,
+    }),
     check('driver_vehicle_submission_status', sql`${table.status} IN ('pending', 'approved', 'rejected')`),
   ],
 );
@@ -365,7 +388,14 @@ export const driverVehicleHistory = pgTable(
     vehicle: jsonb().notNull(),
     submittedAt: timestamp({ withTimezone: true }).notNull(),
   },
-  (table) => [index('driver_vehicle_history_owner').on(table.driverId, table.submittedAt)],
+  (table) => [
+    index('driver_vehicle_history_owner').on(table.driverId, table.submittedAt),
+    pgPolicy('vehicle_history_read', {
+      for: 'select',
+      using: sql`${rlsDriver(table.driverId)} OR ${rlsStaff('driver.vehicle.review')}`,
+    }),
+    pgPolicy('vehicle_history_insert', { for: 'insert', withCheck: rlsDriver(table.driverId) }),
+  ],
 );
 
 export const staffPermissions = pgTable(
@@ -396,7 +426,17 @@ export const vehicleReviewDecisions = pgTable(
     corrections: jsonb().notNull().default([]),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [check('vehicle_review_decision_value', sql`${table.decision} IN ('approved','rejected')`)],
+  (table) => [
+    check('vehicle_review_decision_value', sql`${table.decision} IN ('approved','rejected')`),
+    pgPolicy('vehicle_decision_read', {
+      for: 'select',
+      using: sql`${rlsStaff('driver.vehicle.review')} OR EXISTS(SELECT 1 FROM public.driver_vehicle_history h WHERE h.revision=${table.revision} AND h.driver_id=${rlsActor} AND current_setting('rove.actor_role',true)='driver')`,
+    }),
+    pgPolicy('vehicle_decision_insert', {
+      for: 'insert',
+      withCheck: sql`${rlsStaff('driver.vehicle.review')} AND ${table.reviewerId}=${rlsActor}`,
+    }),
+  ],
 );
 
 export const supportRequests = pgTable(

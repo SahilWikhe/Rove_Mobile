@@ -351,6 +351,13 @@
       "when": 1789286851271,
       "tag": "0049_trip_messaging_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1789288204232,
+      "tag": "0050_vehicle_rls",
+      "breakpoints": true
     }
   ]
 }
