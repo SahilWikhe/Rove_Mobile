@@ -240,6 +240,8 @@ jobs:
           unzip -q "$RUNNER_TEMP/maestro.zip" -d "$RUNNER_TEMP/maestro-cli"
       - name: Launch standalone iOS release and verify account entry
         env:
+          # Cold XCTest startup exceeded the default 120s on macos-26. App assertions retain their own deadlines.
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: '240000'
           MAESTRO_BINARY: ${{ runner.temp }}/maestro-cli/maestro/bin/maestro
         run: node scripts/ios-release-smoke.mjs ${{ matrix.role }} "$RUNNER_TEMP/rove-native-build/Build/Products/Release-iphonesimulator/${{ matrix.scheme }}.app"
       - name: Retain native launch evidence

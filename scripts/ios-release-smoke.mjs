@@ -57,8 +57,8 @@ try {
       'native-tests/release-welcome.yaml',
     ],
     `reports/native-smoke/ios-${role}-maestro.log`,
-    // Includes cold XCTest startup, flow execution, and runner shutdown.
-    360000,
+    // Includes the CI 240s cold XCTest startup budget, unchanged flow assertions, and shutdown.
+    480000,
   );
   simctl('io', device, 'screenshot', `reports/native-smoke/${role}.png`);
   console.log(`${role}: standalone welcome and account-entry control verified on a fresh iOS simulator.`);

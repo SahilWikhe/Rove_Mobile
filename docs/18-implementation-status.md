@@ -1,5 +1,11 @@
 # Implementation status
 
+## iOS XCTest startup timeout diagnosed and budget verified locally — September 13
+
+Downloaded failed driver job 103793356904 from run 34782892925. Release compilation succeeded; Maestro failed before app assertions because its XCTest driver exceeded the default two-minute startup wait. Retained XCTest logs show the server starting about thirty seconds after that failure. Pinned upstream 2.10.0 source confirms the timeout environment variable is milliseconds. CI now gives both iOS roles a four-minute startup budget and the wrapper allows eight minutes overall; the sixty-second screen assertions and welcome/relaunch requirements are unchanged.
+
+Using the existing local driver Release artifact and the same startup setting, the fresh-simulator wrapper exited successfully; the complete release-welcome flow passed in nine seconds after startup. Only the owned simulator was shut down/deleted. This verifies the harness with that artifact, not a newly built CI binary. All three native command tests, changed-script lint and script/workflow formatting passed. Documentation/diff checks are rerun before commit. Sonar and latest CI remain queued/running; production still requires current-head native/provider/device/recovery acceptance. Next: inspect fresh hosted iOS results and remaining release gates. Prepared for authorized main push; remote confirmation follows.
+
 ## Disabled cleanup preserves approved queued work — September 13
 
 Read-only AWS audit reverified arn:aws:iam::719623059339:user/claude-agent after excluding ambient credentials. The dedicated cleanup role still has the exact staging Vercel OIDC trust, no attached managed policies, and the sole reviewed versioning/prefix-list/exact-version-delete inline policy. This does not prove live OIDC assumption or storage deletion; no AWS resource or object was changed and cleanup stays disabled.
