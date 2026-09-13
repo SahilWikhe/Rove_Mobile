@@ -1,6 +1,6 @@
 # Database backup and recovery acceptance
 
-This is the recovery procedure and evidence required before production activation. It is not a completed restore rehearsal. A successful migration, healthy API, database branch clone or configured history window does not prove recovery.
+This is the recovery procedure and evidence required before production activation. A local synthetic logical restore has passed as described below; a hosted Neon restore and external-provider reconciliation remain unverified. A successful migration, healthy API, database branch clone or configured history window does not prove recovery.
 
 ## Verified staging inventory — September 13, 2026
 
@@ -14,6 +14,22 @@ Read-only Neon API inspection of project `square-frost-35273983` returned:
 No recovery settings, subscriptions, snapshots, branches or application endpoints were changed by this inspection. Production recovery has not been configured or verified. Recheck these live values when preparing a release; this inventory is dated evidence, not a monitor.
 
 Neon's current [backup documentation](https://neon.com/docs/guides/backup-restore) describes billed snapshot storage and paid automatic schedules. Paid setup remains deferred under the owner's instruction. Choose the acceptable data-loss interval, recovery time, backup retention and budget before enabling a schedule or expanding history. Do not interpret the current six-hour window as an approved production policy.
+
+## Local logical restore rehearsal — September 13, 2026
+
+Run from the repository root with installed PostgreSQL 18 client tools:
+
+```sh
+ROVE_PG_CLIENT_BIN=/path/to/postgresql/bin pnpm db:restore:rehearsal
+```
+
+On this Mac the verified directory is `/opt/homebrew/opt/libpq/bin` (Homebrew libpq 18.6). This command accepts no database URL or target arguments. It creates a fresh embedded PostgreSQL server, applies repository migrations, inserts synthetic rider/driver records and dumps a custom-format archive. Client connections are restricted to this server's loopback address and fixed owned database names; ambient PostgreSQL settings are excluded. No cloud credentials or hosted database are used.
+
+The command changes the source after the backup, restores the archive into a separate empty database and compares every public/drizzle table's records with the pre-backup state. For schema verification it independently parses the plain schema dump into a third empty database, then compares the canonical dumps including policies, grants and ownership. This accounts for PostgreSQL flattening equivalent nested boolean expressions when it reads its own dumped constraints. It also checks enabled/forced RLS on every application table and exercises unscoped, owned and unrelated-account reads and denied unrelated writes through an actual non-owner, NOSUPERUSER/NOBYPASSRLS runtime login.
+
+Verified result: 47 application tables, all 88 migration journal entries, matching schema and pre-backup data, post-backup changes absent, and runtime isolation passed. The measured pg_restore phase was 142 milliseconds; this tiny synthetic dataset is not a production recovery-time estimate. A temporary fault-injected run changed a restored record, failed the data comparison and exited 1 after cleanup. The passing run exited 0. Result reporting occurs only after closing clients, stopping the owned server and removing temporary archives; failures preserve a nonzero exit status despite the embedded server's exit hook.
+
+The databases share one disposable server and its locally created runtime role. Logical database archives do not establish recovery of cluster roles, provider configuration or external state. Most application tables are empty in this fixture; financial outcomes, active trips, outbox replay, later closures/holds/erasures, physical devices and Neon point-in-time recovery remain covered by the required acceptance scenarios below, not by this local result. No paid storage or backup schedule was enabled.
 
 ## Prepare an isolated restore rehearsal
 

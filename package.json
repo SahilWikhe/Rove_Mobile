@@ -36,7 +36,8 @@
     "release:check": "node scripts/release-evidence.mjs",
     "payments:transfer:check": "node --import tsx packages/server/src/transfer-staging-readiness-cli.ts",
     "test:coverage": "turbo run test:coverage",
-    "tooling:coverage": "mkdir -p coverage && node --test --experimental-test-coverage --test-coverage-include='**/*.mjs' --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/tooling.lcov scripts/*.test.mjs"
+    "tooling:coverage": "mkdir -p coverage && node --test --experimental-test-coverage --test-coverage-include='**/*.mjs' --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/tooling.lcov scripts/*.test.mjs",
+    "db:restore:rehearsal": "node --import tsx scripts/backup-restore-rehearsal.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
