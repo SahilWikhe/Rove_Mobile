@@ -1,5 +1,13 @@
 # Implementation status
 
+## First versioned RLS policies and staff compatibility — September 13
+
+Added Drizzle migration 0048 enabling and forcing RLS on saved_places. Owner policies require the matching active rider; staff privacy reads and closure deletion require MFA/current distinct permissions, with deletion restricted to disabled accounts. Inventory and account-closure transactions now install staff identity. Tests use the real migrated policies rather than a temporary substitute.
+
+Verification: 33 related domain tests, 13 database tests and 64 API/runtime tests passed. Restricted-role checks cover owner access, foreign mutations, no-context denial, staff MFA, revoked/read-only permissions, active-account deletion denial, actual inventory and reviewed closure. Server/database typechecks, targeted lint and formatting passed. Generated SQL initially parameterized permission literals; regenerated with static SQL permission expressions before testing, with no unresolved SQL bind placeholders.
+
+RLS coverage is currently one application table in source, not completed app-wide or enabled on hosted staging. Next: cover remaining domain/staff/worker paths and rehearse migrations on an isolated Neon branch, then apply to staging only after verifying compatible API deployment. Production activation remains unauthorized and broader launch acceptance remains incomplete.
+
 ## RLS transaction identity foundation — September 13
 
 Started the requested RLS implementation with an explicit backend actor transaction helper and migrated saved-place service operations to it. The helper validates the current active database role and installs identity/MFA settings only within the transaction. Read/write owner locks preserve revocation and avoid concurrent write lock upgrades. No implicit service bypass or hosted RLS enablement was added.

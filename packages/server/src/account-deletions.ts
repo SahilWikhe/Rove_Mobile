@@ -1,3 +1,4 @@
+import { actorTransaction } from './actor-transaction';
 import { z } from 'zod';
 import type { Pool, PoolClient } from 'pg';
 import { AccountDeletionInventory, AccountDeletionStatus } from '@rove/contracts';
@@ -99,7 +100,7 @@ export class AccountDeletions {
   }
   async inventory(actor: Actor, requestId: string) {
     z.uuid().parse(requestId);
-    return transaction(this.pool, async (client) => {
+    return actorTransaction(this.pool, actor, async (client) => {
       await requireStaffPermission(client, actor, 'privacy.read');
       // One SQL statement observes all counts at the same database snapshot. Counts do not imply eligibility.
       const row = (

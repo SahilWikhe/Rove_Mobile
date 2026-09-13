@@ -1,3 +1,4 @@
+import { bindActorIdentity } from './actor-transaction';
 import { assertNoRetentionHolds } from './retention-holds';
 import { z } from 'zod';
 import type { Pool, PoolClient } from 'pg';
@@ -47,6 +48,7 @@ export class AccountClosures {
     await transaction(this.pool, (c) => this.permitted(c, actor));
     return command(this.pool, actor.id, key, { action: 'account.close', requestId, ...input }, async (c) => {
       await this.permitted(c, actor);
+      await bindActorIdentity(c, actor);
       const request = (
         await c.query('SELECT owner_id FROM account_deletion_requests WHERE id=$1', [requestId])
       ).rows[0];

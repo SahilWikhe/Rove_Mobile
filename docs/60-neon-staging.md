@@ -124,11 +124,11 @@ On September 9 this passed against clean provider staging with 26 tables. Permis
 
 ## Row-level security evidence
 
-The checked-in migrations do not enable PostgreSQL row-level security or create RLS policies. Consumer data access currently depends on authenticated backend resource authorization; mobile clients do not connect directly to PostgreSQL. `NOBYPASSRLS` on the application role does not enable RLS.
+Migration 0048 now enables and forces PostgreSQL RLS on saved_places with owner and permission-scoped staff policies. Other application tables do not yet have RLS policies. Hosted deployment of 0048 has not been verified. Consumer data access currently depends on authenticated backend resource authorization; mobile clients do not connect directly to PostgreSQL. `NOBYPASSRLS` on the application role does not enable RLS.
 
 `pnpm db:staging:check /path/to/ignored-staging.env` now reads the PostgreSQL catalog in its existing read-only transaction and reports enabled/forced table counts plus RLS-disabled table names. It reads no application row content. Passing its role/grant checks does not mean RLS or cross-account row isolation is verified. A policy can exist while RLS is disabled; even enabled policies require behavior tests using the actual runtime role.
 
-Local PostgreSQL tests cover disabled RLS despite NOBYPASSRLS, enabled tables without policies, forced RLS with a policy, and disabling RLS while retaining policy metadata. The new report has not yet been run against hosted Neon. Introducing RLS requires a separately tested transaction-scoped identity and worker/staff access design; this report does not change authorization or enable policies.
+Local PostgreSQL tests cover disabled RLS despite NOBYPASSRLS, enabled tables without policies, forced RLS with a policy, and disabling RLS while retaining policy metadata. The new report has not yet been run against hosted Neon. Extending RLS requires transaction-scoped identity and worker/staff access coverage; the catalog report itself does not change authorization or enable policies.
 
 ## RLS implementation in progress
 
@@ -136,8 +136,16 @@ The backend now has an explicit `actorTransaction` helper: validate the backend-
 
 The actor must originate from verified backend authentication; these settings are not an independent authentication mechanism and must never be filled from arbitrary request headers or body fields. A compromised database credential capable of issuing arbitrary SQL is outside this identity-setting boundary. No implicit worker or staff bypass is provided. Existing backend resource authorization remains required.
 
-Local tests temporarily enable and force RLS on the actual saved_places table in a disposable PostgreSQL database and connect with a separate non-owner, NOSUPERUSER/NOBYPASSRLS login. They exercise cross-account read/update/delete denial, foreign inserts, legitimate saved-place service behavior, concurrent first writes, pooled identity isolation after commit/rollback/interleaving, and forged/disabled/missing actors. These test-only policies are not deployed migrations or hosted evidence.
+Local tests apply the versioned migrations to a disposable PostgreSQL database, assert saved_places has enabled/forced RLS, and connect with a separate non-owner, NOSUPERUSER/NOBYPASSRLS login. They exercise cross-account read/update/delete denial, foreign inserts, legitimate saved-place service behavior, concurrent first writes, pooled identity isolation after commit/rollback/interleaving, and forged/disabled/missing actors. The tests now exercise the actual generated migration policies, including staff inventory and account closure; they are not hosted evidence.
 
-Remaining before staging enablement: versioned production policies, authentication lookup/bootstrap policy, all direct pool reads and domain transaction coverage, explicit staff/worker privileges, cleanup and financial workflow compatibility, isolated Neon branch verification and rollout against the confirmed staging branch. Current application-table migrations still do not enable RLS.
+Remaining before staging enablement: versioned production policies, authentication lookup/bootstrap policy, all direct pool reads and domain transaction coverage, explicit staff/worker privileges, cleanup and financial workflow compatibility, isolated Neon branch verification and rollout against the confirmed staging branch. Only saved_places is covered by the first RLS migration; complete application-table coverage remains unfinished.
 
 PostgreSQL documents [row security policy behavior](https://www.postgresql.org/docs/current/ddl-rowsecurity.html), including default denial and owner/superuser bypass, and [transaction-local configuration](https://www.postgresql.org/docs/current/functions-admin.html).
+
+### Saved-place RLS migration and deployment ordering
+
+Migration `0048_saved_places_rls` is generated from Drizzle pgPolicy declarations; a reviewed SQL statement additionally forces RLS because the schema snapshot represents enablement/policies but not FORCE. Owners can access their own saved places only while their database account is active and its role is rider. Staff privacy reads require MFA and current `privacy.read`. Staff closure SELECT/DELETE requires MFA, current `privacy.close` and a disabled target account. Staff read permission alone cannot delete, and closure permission cannot delete an active account's saved places. The API inventory transaction and closure command now install verified staff identity before touching saved_places.
+
+Deploy the compatible API code before applying this migration to staging. Old binaries use unscoped queries and would lose saved-place access under RLS. Do not apply it blindly to a target running older code. The current migration does not affect other tables or authorize anonymous/default workers to read saved places. Do not grant runtime roles ownership, superuser or BYPASSRLS to make failing flows pass.
+
+Local verification passed 33 related domain tests (including six restricted-role identity/policy tests), 13 database tests and 64 API/runtime tests. Hosted branch rehearsal, deployment ordering and catalog/behavior evidence remain pending.

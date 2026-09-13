@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   pgTable,
+  pgPolicy,
   pgEnum,
   text,
   uuid,
@@ -295,6 +296,15 @@ export const ledgerPostings = pgTable(
 );
 
 // Persist user-chosen labels and provider IDs, not indefinitely cached provider addresses.
+// Identity is installed only by trusted backend transactions; no anonymous/default access.
+const rlsActor = sql`NULLIF(current_setting('rove.actor_id', true), '')::uuid`;
+const rlsStaff = (
+  permission: 'privacy.read' | 'privacy.close',
+) => sql`current_setting('rove.actor_role', true) = 'staff'
+  AND current_setting('rove.actor_mfa', true) = 'true'
+  AND EXISTS (SELECT 1 FROM public.users u JOIN public.staff_permissions p ON p.staff_id=u.id
+    WHERE u.id=${rlsActor} AND u.role='staff' AND u.disabled=false AND ${permission === 'privacy.read' ? sql`p.permission='privacy.read'` : sql`p.permission='privacy.close'`})`;
+
 export const savedPlaces = pgTable(
   'saved_places',
   {
@@ -306,6 +316,22 @@ export const savedPlaces = pgTable(
     placeId: text().notNull(),
   },
   (table) => [
+    pgPolicy('saved_places_owner', {
+      for: 'all',
+      using: sql`${table.riderId}=${rlsActor} AND current_setting('rove.actor_role',true)='rider'
+        AND EXISTS(SELECT 1 FROM public.users u WHERE u.id=${rlsActor} AND u.role='rider' AND u.disabled=false)`,
+      withCheck: sql`${table.riderId}=${rlsActor} AND current_setting('rove.actor_role',true)='rider'
+        AND EXISTS(SELECT 1 FROM public.users u WHERE u.id=${rlsActor} AND u.role='rider' AND u.disabled=false)`,
+    }),
+    pgPolicy('saved_places_privacy_read', { for: 'select', using: rlsStaff('privacy.read') }),
+    pgPolicy('saved_places_closure_read', {
+      for: 'select',
+      using: sql`${rlsStaff('privacy.close')} AND EXISTS(SELECT 1 FROM public.users u WHERE u.id=${table.riderId} AND u.disabled=true)`,
+    }),
+    pgPolicy('saved_places_closure_delete', {
+      for: 'delete',
+      using: sql`${rlsStaff('privacy.close')} AND EXISTS(SELECT 1 FROM public.users u WHERE u.id=${table.riderId} AND u.disabled=true)`,
+    }),
     uniqueIndex('saved_places_rider_kind').on(table.riderId, table.kind),
     check('saved_places_kind', sql`${table.kind} IN ('home', 'work')`),
     check('saved_places_id_length', sql`length(${table.placeId}) BETWEEN 1 AND 512`),
