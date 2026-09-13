@@ -1,5 +1,11 @@
 # Implementation status
 
+## Hosted ledger RLS verified — September 13
+
+Applied 0078 only to the reverified disposable br-shy-bar-axjulxqh / neondb branch. The live catalog confirms 79 migrations and 41 enabled/forced RLS tables. The complete pooled rove_staging_app rehearsal exited successfully with NOSUPERUSER/NOBYPASSRLS. Ledger payment/owner isolation, mutation denial and deferred rejection of an empty journal passed alongside capture, refunds, disputes, reviewed loss allocation, transfers/reversals, payout reconciliation, messaging, tracking, push, retention, closure and document cleanup. All external provider adapters were synthetic.
+
+Provider staging and production remain unchanged. Latest source/hosted RLS coverage is 41 of 47 tables; the six remaining tables are users, drivers, rides, offers, payment_attempts and outbox. Next: offer access scopes and policies, then remaining core tables and compatible staging rollout. Physical-device and real-provider acceptance remain outstanding.
+
 ## Ledger RLS implemented locally — September 13
 
 Migration 0078 enables/forces RLS on ledger_journals and ledger_postings. Reads require the selected payment, selected closure owner (postings only), or the current transaction’s newly appended journal. A source-specific capture sweep exposes capture headers only. Appends bind exact journal fields and allowed posting values; no UPDATE/DELETE policy exists. Current-transaction visibility preserves the existing deferred balance and same-transaction posting constraints. Financial service authorization/locks remain required; scopes are backend-controlled defense in depth.
