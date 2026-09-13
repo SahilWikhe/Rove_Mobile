@@ -1,5 +1,13 @@
 # Implementation status
 
+## Payment-attempt exact read preparation — September 13
+
+Added a validated transaction-local payment lookup scope for exact provider source plus attempt ID, ride ID or intent ID. The shared payment-customer resolver binds it before reading the persisted attempt; common identity resets clear it. No payment-attempt application policy or migration is enabled yet.
+
+Three disposable restricted-role prototype tests passed: exact-reference selection, isolation when two sources share the same intent ID, read-only access, scope expiry, wrong-source denial, resolved customer ownership, clearing a missing lookup and rejected ambiguous/invalid references. Full regressions passed 747 server tests and 208 API tests, plus server typechecking and changed-source lint. Outbox Sonar run 34775062543 on b8b2aeb completed successfully.
+
+Next: payment-attempt session/result and reconciliation write scopes, sweep/closure access and policy dependency checks, followed by its versioned migration and hosted verification. Source/isolated-hosted RLS remains 43/47. Users, drivers, rides and payment_attempts remain; compatible provider-staging rollout and device/provider acceptance are still required. Provider staging and production are unchanged. This checkpoint is prepared for the authorized main push; remote confirmation follows.
+
 ## Hosted outbox RLS verified — September 13
 
 Applied migration 0080 only to reverified disposable branch br-shy-bar-axjulxqh / neondb, with explicit direct/pooled endpoint and database assertions. The catalog confirms 81 migrations and 43 tables with RLS enabled and forced. The full pooled rove_staging_app rehearsal exited successfully with NOSUPERUSER/NOBYPASSRLS. Synthetic financial, messaging, push, tracking, closure and document cleanup workflows passed. New hosted checks verify enqueue deduplication, exact read-only notification scope, unscoped denial, a failed job's retry and successful acknowledgement. Only a newly created synthetic job was dispatched, scheduled before existing pending work; external providers remained fake adapters.

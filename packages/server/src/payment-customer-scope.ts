@@ -1,3 +1,4 @@
+import { bindPaymentAttemptRead } from './payment-attempt-scope';
 import type { PoolClient } from 'pg';
 import { z } from 'zod';
 
@@ -23,6 +24,7 @@ export async function bindPaymentCustomerRead(client: PoolClient, source: string
     "SELECT set_config('rove.customer_source',$1,true),set_config('rove.customer_read','',true),set_config('rove.customer_write','',true),set_config('rove.customer_result','',true)",
     [source],
   );
+  await bindPaymentAttemptRead(client, source, reference);
   const row = (
     await client.query<{ customer_binding_id: string }>(
       `SELECT customer_binding_id FROM payment_attempts WHERE source=$1 AND ${field}=$2`,
