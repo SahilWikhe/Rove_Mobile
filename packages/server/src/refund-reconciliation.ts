@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util';
 import { bindRefundScope } from './refund-scope';
 import { bindPaymentCustomerRead } from './payment-customer-scope';
 import { z } from 'zod';
@@ -147,14 +148,16 @@ export class RefundReconciler {
       const next = refunds.find((r) => r.id === old.id)!;
       for (const movement of old.balanceTransactions ?? []) {
         if (
-          JSON.stringify(next.balanceTransactions?.find((b) => b.id === movement.id)) !==
-          JSON.stringify(movement)
+          !isDeepStrictEqual(
+            next.balanceTransactions?.find((b) => b.id === movement.id),
+            movement,
+          )
         )
           throw mismatch();
       }
     }
     const changed =
-      JSON.stringify(previous) !== JSON.stringify(refunds) ||
+      !isDeepStrictEqual(previous, refunds) ||
       before.received_cents !== payment.receivedCents ||
       !before.verified_at;
     const verifiedAt = this.now();

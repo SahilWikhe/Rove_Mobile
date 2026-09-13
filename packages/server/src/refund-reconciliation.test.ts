@@ -283,8 +283,10 @@ test('refund accounting and verified observations commit together and retry afte
   expect(
     (await database.pool.query("SELECT * FROM ledger_journals WHERE kind='refund_balance'")).rowCount,
   ).toBe(0);
+  const observationsBefore = (await history()).length;
   await reconcile.reconcile(reference.intentId);
   await reconcile.reconcile(reference.intentId);
+  expect((await history()).length).toBe(observationsBefore + 1);
   expect((await stored()).refunds[0].status).toBe('pending');
   expect(
     (await database.pool.query("SELECT * FROM ledger_journals WHERE kind='refund_balance'")).rowCount,

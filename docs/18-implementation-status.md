@@ -1,5 +1,17 @@
 # Implementation status
 
+## Hosted 32-table RLS verification and refund retry fix — September 13
+
+The isolated synthetic Neon branch br-shy-bar-axjulxqh passed the complete expanded workflow through the pooled rove_staging_app role (NOSUPERUSER/NOBYPASSRLS). Catalog verification confirms 72 migrations through 0071, 47 tables and 32 enabled/forced RLS tables. New hosted checks cover staff-authorized refund retry, reviewed loss allocation, driver transfer retry/reversal and immutable transfer receipts. Existing ownership, messaging, notification, vehicle, retention, closure and document cleanup checks passed again. Every external provider adapter was fake.
+
+The first run found unchanged refund balance evidence creating duplicate observations because snapshot comparison depended on object property order. Refund reconciliation now compares parsed values structurally; the regression asserts one new observation across repeated reconciliation while retaining one financial journal. Verification: all 708 server tests passed, server typecheck and changed-file lint passed, documentation and diff checks passed, and the full hosted rehearsal passed after the fix.
+
+Provider staging was inspected read-only: 31 migrations, 32 tables, zero RLS-enabled/forced tables. Production was not changed. Fifteen tables still require policies. Next: remaining payout/ledger, identity/trip and worker protections, restricted-role verification and compatible provider-staging rollout. Physical-device and complete production acceptance remain open.
+
+## User priority: complete RLS enablement
+
+After the task currently in hand, prioritize completing Neon row-level security (RLS): finish the remaining table policies, verify rider/driver isolation and authorized worker access using restricted database roles, and roll out compatible staging changes. Existing partial implementation does not constitute completed enablement; production rollout remains a separate release step.
+
 ## Driver transfer operation and movement RLS — September 13
 
 Migration 0071 enables and forces RLS on driver_transfer_operations and driver_transfer_movements. Current MFA staff with payments.transfer can create only initial queued authorizations attributed to themselves. Execution/recovery binds one existing operation; source-specific attempt reads preserve competing-transfer and refund holds. Sweep discovery has read/lock access and scopes each selected write. Current MFA privacy.close permits target-driver reads so pending transfers remain closure holds. Movement receipts are append-only through the runtime role, with exact source/balance lookup for collision checks. Existing authorization invariants remain; actor/worker helpers clear transfer scope.

@@ -1,6 +1,6 @@
 # Driver transfer reservations and reconciliation
 
-Updated: September 12, 2026. Implemented locally behind a default-off flag. No hosted migration, provider transfer or production enablement is asserted.
+Updated: September 13, 2026. Implemented behind a default-off flag and verified on isolated Neon with fake provider adapters. No actual provider transfer or production enablement is asserted.
 
 ## Staff workflow and authorization
 
@@ -60,4 +60,4 @@ Migration 0071 enables and forces RLS on driver_transfer_operations and driver_t
 
 Movement receipts are readable for the exact operation; collision checks may additionally read the exact observed source/balance reference. Inserts require the operation write scope. No movement update/delete or operation delete policy exists, and original authorization/movement invariants remain. Actor and other worker helpers clear transfer contexts.
 
-Restricted-role tests cover authorization, retry/reversal, denied worker authorizations, read-only scope, immutable receipts, source isolation, refund holds and hidden pending-transfer closure denial. Hosted verification of 0071 remains pending. Deploy compatible API/worker code before applying it; provider staging and production were not changed.
+Restricted-role tests cover authorization, retry/reversal, denied worker authorizations, read-only scope, immutable receipts, source isolation, refund holds and hidden pending-transfer closure denial. Hosted verification of 0071 passed on the isolated synthetic Neon branch using the restricted runtime role, including authorized transfer execution, retry, reversal and immutable movement receipts; all provider adapters were fake. Deploy compatible API/worker code before applying it; provider staging and production were not changed.
