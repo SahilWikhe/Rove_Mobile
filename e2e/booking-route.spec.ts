@@ -7,6 +7,7 @@ test('compact route panel supports destination-first entry and editing without l
   await page.goto('http://localhost:8091');
   await page.getByRole('button', { name: 'Get started', exact: true }).click();
   await page.getByRole('button', { name: 'Where are you going?', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Home & Work', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Enter destination address', exact: true }).click();
   await page.getByRole('textbox', { name: 'Destination address', exact: true }).fill('Work');
   await page.getByRole('button', { name: 'Search places', exact: true }).click();

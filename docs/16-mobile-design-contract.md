@@ -439,3 +439,7 @@ The user requested a zoomed-out road route on confirmation and direct saved Home
 ## Driver earnings settings — September 13 approved adjustment
 
 The earnings summary owns a 44-point circular, translucent black settings control in its top-right header. Last 7 days, This month and custom recorded-date controls are collapsed by default and revealed together inside the card. Selecting a preset or applying valid dates closes the controls; validation errors remain visible. This replaces the separate filter rows above the card without changing earnings calculations or date semantics.
+
+## Rider booking saved-place duplication — September 13
+
+Booking no longer repeats the Home & Work management card beneath search results. Saved destinations remain shortcuts on Ride, empty slots open setup, and Account → Saved places owns editing/removal. Booking retains manual route entry and nearby suggestions. A missing saved destination directs the rider to search again or update saved places in Account.

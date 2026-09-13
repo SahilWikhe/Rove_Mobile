@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from 'react';
 import { createLatestRequest } from '@rove/mobile-core/latest-request';
 import { useOperations } from '@rove/mobile-core/use-operations';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { SavedPlaceControls } from '../booking/saved-places';
 import { QuoteConfirmation } from '../booking/quote-confirmation';
 import { ServicePicker } from '../booking/service-picker';
 import type { Place, Quote, SavedPlaceKind } from '@rove/contracts';
@@ -107,7 +106,7 @@ function BookingForm({ fromRide, savedKind }: { fromRide?: string; savedKind?: S
       .catch(() => {
         if (current)
           setError(
-            'Your saved destination could not be loaded. Search for it again or manage Home & Work below.',
+            'Your saved destination could not be loaded. Search for it again, or update your saved places from Account.',
           );
       })
       .finally(() => {
@@ -314,30 +313,6 @@ function BookingForm({ fromRide, savedKind }: { fromRide?: string; savedKind?: S
             <PlaceResult key={place.id} place={place} onPress={() => selectPlace(place)} />
           ))}
           <NearbyPlaces visible={!query.trim() && (!pickup || !destination)} onSelect={selectPlace} />
-          <SavedPlaceControls
-            api={api}
-            selected={destination ?? pickup}
-            target={target}
-            busy={loading}
-            onUse={(kind) =>
-              void read(
-                (signal) => api.savedPlace(kind, signal),
-                (place) => {
-                  setQuote(null);
-                  setPlaces([]);
-                  setSearched(false);
-                  setQuery('');
-                  if (target === 'pickup') {
-                    setPickup(place);
-                    setTarget('destination');
-                  } else {
-                    setDestination(place);
-                    if (!pickup) setTarget('pickup');
-                  }
-                },
-              )
-            }
-          />
           {pickup && destination && (
             <ServicePicker
               value={service}

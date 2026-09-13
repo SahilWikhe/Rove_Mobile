@@ -1,6 +1,12 @@
 # Implementation status
 
-Updated: September 12, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 13, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Rider booking saved-place cleanup — September 13
+
+Removed the duplicate Home & Work management card from booking, following the user's earlier feedback. Ride retains saved destination shortcuts and empty-slot setup; Account retains saved-place editing/removal. Missing shortcut addresses now point to Account or manual search instead of a removed control. Nearby suggestions and reviewed quote submission remain in booking.
+
+Verification: all six route, saved-shortcut and saved-place Account browser journeys passed in 11 seconds, including stale-write recovery, removal, unavailable pickup and no unintended booking. Rider typecheck and targeted lint passed. Updated the design contract and booking guide. No native dependencies changed; native visual acceptance of this cleanup is still pending. CI for prior main remained queued at inspection. Next: continue release acceptance and resolve remaining hosted native evidence and production gaps.
 
 ## CI failure audit and corrections — September 13
 
