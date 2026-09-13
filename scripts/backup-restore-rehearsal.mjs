@@ -1,3 +1,8 @@
+import {
+  seedRestoreFinancialFixture,
+  changeFinancialSourceAfterBackup,
+  verifyRestoredFinancialFixture,
+} from './restore-financial-fixture.mjs';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -15,6 +20,7 @@ let stage = 'client tools';
 let source;
 let restored;
 let runtime;
+let sourceRuntime;
 let directory;
 const quote = (name) => '"' + name.replaceAll('"', '""') + '"';
 function client(tool, args, connectionString) {
@@ -81,10 +87,17 @@ try {
     NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOREPLICATION NOINHERIT;
     GRANT USAGE ON SCHEMA public TO rove_restore_runtime;
     GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rove_restore_runtime`);
+  const sourceRuntimeUrl = new URL(source.connectionString);
+  sourceRuntimeUrl.username = 'rove_restore_runtime';
+  sourceRuntimeUrl.password = password;
+  sourceRuntime = createDatabase(sourceRuntimeUrl.toString());
+  stage = 'synthetic financial and review fixture';
+  const financial = await seedRestoreFinancialFixture(source.pool, sourceRuntime.pool);
   const before = await records(source.pool);
   const beforeSchema = schema(source.connectionString);
   stage = 'dump';
   client('pg_dump', ['--format=custom', '--file', archive], source.connectionString);
+  await changeFinancialSourceAfterBackup(sourceRuntime.pool, financial);
   // Deliberately create divergence after the completed backup.
   await source.pool.query(`UPDATE users SET name='Changed after backup' WHERE id=$1`, [rider]);
   await source.pool.query(
@@ -161,7 +174,15 @@ try {
     c.release();
   }
   assert.equal((await runtime.pool.query('SELECT id FROM users')).rowCount, 0);
+  stage = 'restored financial/review behavior';
+  const financialEvidence = await verifyRestoredFinancialFixture(
+    restored.pool,
+    runtime.pool,
+    financial,
+    rider,
+  );
   result = {
+    financialEvidence,
     localSyntheticRestoreVerified: true,
     applicationTables: security.length,
     migrations: migrationCount,
@@ -179,6 +200,7 @@ try {
 } finally {
   for (const close of [
     () => runtime?.close(),
+    () => sourceRuntime?.close(),
     () => restored?.close(),
     () => source?.close(),
     () => directory && rm(directory, { recursive: true, force: true }),

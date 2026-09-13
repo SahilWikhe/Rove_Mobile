@@ -1,5 +1,11 @@
 # Implementation status
 
+## Financial and review records survive local restore — September 13
+
+Expanded the isolated PostgreSQL 18 logical restore rehearsal with synthetic payment capture/allocation, an owned receipt and a durable payment-review case. Restricted services verify the restored receipt and ownership denial, balanced immutable journals, reconciliation retry without duplicate journals, review intake/acknowledgment retries, and absence of an acknowledgment made after the backup. Full schema/data comparisons and enabled/forced RLS checks remain intact. Corrected missing driver-profile and invalid synthetic provider identifier fixtures without changing application validation.
+
+The complete rehearsal exited 0: 48 application tables, 89 migrations, matching schema/data and all financial/review assertions passed. The tiny fixture restore phase was 148 milliseconds, not a production RTO. Provider responses are purely synthetic; hosted restore, external reconciliation, actual staff MFA/dashboard, native payments, physical-device GPS/push and final release checks remain outstanding. No cloud changes or paid resources. Final lint, formatting, boundaries and documentation checks run before the authorized push. Next: continue native/provider and operational recovery acceptance; production remains incomplete. Remote push confirmation follows separately.
+
 ## Payment-review intake verified in provider staging — September 13
 
 Applied migration 0088 to the exact provider-staging endpoint; verified TLS, restricted runtime grants, and enabled/forced RLS on all 48 application tables. Enabled PAYMENT_REVIEWS_ENABLED only in rove-api-staging and redeployed its ready code; dpl_BunBUKS6kDR6N1qPuxTCtTKkbEBp serves the staging alias. One synthetic review event on the terminal released sandbox fixture completed through the hosted worker and created a durable case. Restricted service verification passed rider/no-MFA denial, exact historical dead-letter recovery and retry, acknowledgment retry, unscoped read denial and no ledger entries. The original dead letter was preserved. Temporary database-only staff permission was removed and the verifier identity disabled.
