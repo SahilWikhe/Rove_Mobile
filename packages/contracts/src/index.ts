@@ -958,3 +958,15 @@ export const DocumentUploadInspection = z
     nextCursor: z.string().max(300).nullable(),
   })
   .strict();
+
+/** Counts from complete discovery; an empty observation does not prove write quiescence. */
+export const DocumentStorageInspection = z
+  .object({
+    documentId: z.uuid(),
+    startedAt: z.iso.datetime(),
+    observedAt: z.iso.datetime(),
+    manifestHash: z.string().regex(/^[a-f0-9]{64}$/),
+    objectVersions: z.number().int().nonnegative(),
+    deleteMarkers: z.number().int().nonnegative(),
+  })
+  .strict();

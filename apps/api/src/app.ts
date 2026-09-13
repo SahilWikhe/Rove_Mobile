@@ -448,6 +448,12 @@ export function createApp(deps: Dependencies) {
       ),
     ),
   );
+  app.post('/v1/staff/documents/:id/storage-inspection', async (c) => {
+    if (!deps.documentCleanup)
+      throw new DomainError('DOCUMENT_CLEANUP_UNAVAILABLE', 'Document cleanup is not enabled.', 503);
+    await body(c, z.object({}).strict());
+    return c.json(await deps.documentCleanup.inspectStorage(c.var.actor, id(c.req.param('id'))));
+  });
   app.get('/v1/staff/documents/:id/upload-inspection', async (c) => {
     if (!deps.documentCleanup)
       throw new DomainError('DOCUMENT_CLEANUP_UNAVAILABLE', 'Document cleanup is not enabled.', 503);

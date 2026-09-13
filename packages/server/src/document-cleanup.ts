@@ -1,7 +1,12 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import type { Pool, PoolClient } from 'pg';
-import { DocumentCleanupApproval, DocumentCleanupPlan, DocumentUploadInspection } from '@rove/contracts';
+import {
+  DocumentCleanupApproval,
+  DocumentCleanupPlan,
+  DocumentStorageInspection,
+  DocumentUploadInspection,
+} from '@rove/contracts';
 import type { Actor } from './rides';
 import type { JobHandler } from './outbox';
 import type { DocumentObjectVersion } from './s3-document-inventory';
@@ -102,15 +107,7 @@ export class DocumentCleanup {
       return result;
     });
   }
-  async prepare(actor: Actor, documentId: string, key: string) {
-    z.uuid().parse(documentId);
-    const ownerId = await transaction(this.pool, async (c) => {
-      await requireStaffPermission(c, actor, 'privacy.cleanup');
-      const row = (await c.query('SELECT driver_id FROM driver_documents WHERE id=$1', [documentId])).rows[0];
-      if (!row) throw new DomainError('NOT_FOUND', 'Document not found.', 404);
-      await this.ready(c, row.driver_id);
-      return row.driver_id as string;
-    });
+  private async inventory(documentId: string) {
     const inventory = z
       .array(Entry)
       .max(10000)
@@ -136,7 +133,48 @@ export class DocumentCleanup {
       seen.add(identity);
     }
     inventory.sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b), 'en'));
-    const manifestHash = createHash('sha256').update(JSON.stringify(inventory)).digest('hex');
+    return { inventory, manifestHash: createHash('sha256').update(JSON.stringify(inventory)).digest('hex') };
+  }
+  /** A fresh observation, never a quiescence or account-erasure certificate. */
+  async inspectStorage(actor: Actor, documentId: string) {
+    z.uuid().parse(documentId);
+    const authorize = async (c: PoolClient) => {
+      await requireStaffPermission(c, actor, 'privacy.read');
+      if (!(await c.query('SELECT id FROM driver_documents WHERE id=$1', [documentId])).rowCount)
+        throw new DomainError('NOT_FOUND', 'Document not found.', 404);
+    };
+    await transaction(this.pool, authorize);
+    const startedAt = new Date().toISOString();
+    // No database locks are held while requesting the complete provider inventory.
+    const { inventory, manifestHash } = await this.inventory(documentId);
+    const result = DocumentStorageInspection.parse({
+      documentId,
+      startedAt,
+      observedAt: new Date().toISOString(),
+      manifestHash,
+      objectVersions: inventory.filter((entry) => entry.kind === 'object').length,
+      deleteMarkers: inventory.filter((entry) => entry.kind === 'delete_marker').length,
+    });
+    return transaction(this.pool, async (c) => {
+      // Permissions can be revoked during provider I/O; fail before returning evidence.
+      await authorize(c);
+      await c.query(
+        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'document.storage_inspected',$2,$3)",
+        [actor.id, documentId, JSON.stringify(result)],
+      );
+      return result;
+    });
+  }
+  async prepare(actor: Actor, documentId: string, key: string) {
+    z.uuid().parse(documentId);
+    const ownerId = await transaction(this.pool, async (c) => {
+      await requireStaffPermission(c, actor, 'privacy.cleanup');
+      const row = (await c.query('SELECT driver_id FROM driver_documents WHERE id=$1', [documentId])).rows[0];
+      if (!row) throw new DomainError('NOT_FOUND', 'Document not found.', 404);
+      await this.ready(c, row.driver_id);
+      return row.driver_id as string;
+    });
+    const { inventory, manifestHash } = await this.inventory(documentId);
     return command(
       this.pool,
       actor.id,

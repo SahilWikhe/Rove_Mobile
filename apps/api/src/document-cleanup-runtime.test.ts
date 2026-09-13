@@ -216,3 +216,17 @@ test('upload inspection is audited, staff-only, MFA-protected and default-off', 
   expect(provider.discover).not.toHaveBeenCalled();
   expect(provider.erase).not.toHaveBeenCalled();
 });
+
+test('fresh storage inspection is authenticated, audited, read-only and default-off', async () => {
+  const path = `/v1/staff/documents/${documentId}/storage-inspection`;
+  const runtime = composeRuntime(config(), { ...resources(), documentCleanup: provider });
+  expect((await runtime.app.request(path, { method: 'POST', body: '{}' })).status).toBe(401);
+  expect((await request(runtime.app, path, {}, 'staff-no-mfa')).status).toBe(403);
+  expect((await request(runtime.app, path, { key: 'untrusted' })).status).toBe(400);
+  const response = await request(runtime.app, path, {});
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ documentId, objectVersions: 1, deleteMarkers: 0 });
+  expect(provider.erase).not.toHaveBeenCalled();
+  const disabled = composeRuntime(config(false), { ...resources(), documentCleanup: provider });
+  expect((await request(disabled.app, path, {})).status).toBe(503);
+});

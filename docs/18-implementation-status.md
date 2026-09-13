@@ -2,6 +2,12 @@
 
 Updated: September 12, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Fresh residual document-storage inspection — September 12
+
+Implemented a default-off, MFA-protected staff endpoint that performs fresh complete version discovery and audits the inventory hash, observation interval and separate object/delete-marker counts. It detects versions remaining or arriving after an approved cleanup without changing that approval, dispatching deletion or claiming full account erasure. Authorization is rechecked after provider I/O; failed discovery or failed audit persistence cannot produce successful empty-storage evidence. The prepare path now shares the same inventory validation.
+
+Local verification: all 62 server test files / 643 tests passed, including residual/empty observations, authorization revocation, malformed discovery and audit rollback; all four cleanup runtime/API tests passed; server and API TypeScript checks passed. No hosted migration, provider request, cleanup activation or production mutation occurred. Remaining: uncertain-write/inbox reconciliation, full erasure obligations and hosted synthetic cleanup acceptance, plus physical-device/provider verification and remaining UI/release work. Next: reconcile uncertain writes using definitive provider evidence without treating elapsed time or absent listings as settlement.
+
 ## Android native location display and expiry verified — September 12
 
 The complete Android location scenario passed in 264.046 seconds with zero failures, including pickup/in-trip checks, ride completion and paid synthetic receipt. Screenshots show the blue driver marker on Google Maps with Following driver; the expired in-trip screenshot shows no driver marker or reporting time and the unavailable notice. Expiry assertions completed at 22:13:11.518 and 22:14:36.895 PDT. The helper verified three changing assigned-rider API samples per phase. Artifacts, JUnit and event/peer logs are retained under reports/native-trip-android/android-driver-details/2026-09-12_221019; the owned emulator was removed after exit zero.

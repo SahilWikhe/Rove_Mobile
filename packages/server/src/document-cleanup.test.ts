@@ -302,3 +302,95 @@ test('failed result audit leaves attempted evidence and recovers from provider-c
   await service.removeVersion(id);
   expect((await service.inspect(staff, p.id)).removed).toBe(1);
 });
+
+test('fresh storage inspection detects residual versions without changing approved targets or deleting', async () => {
+  const p = await plan();
+  await service.approve(staff, p.id, approval(p.manifestHash), randomUUID());
+  const items = (await db.pool.query('SELECT id FROM document_cleanup_items')).rows;
+  for (const row of items) await service.removeVersion(row.id);
+  provider.erase.mockClear();
+  provider.discover.mockResolvedValue([
+    {
+      documentId,
+      key: `driver-documents/inbox/${documentId}/${randomUUID()}`,
+      version: 'late-version',
+      kind: 'object',
+    },
+    {
+      documentId,
+      key: `driver-documents/inbox/${documentId}/${randomUUID()}`,
+      version: 'marker',
+      kind: 'delete_marker',
+    },
+  ]);
+  const residual = await service.inspectStorage(staff, documentId);
+  expect(residual).toMatchObject({ documentId, objectVersions: 1, deleteMarkers: 1 });
+  expect(residual.manifestHash).not.toBe(p.manifestHash);
+  expect((await service.inspect(staff, p.id)).state).toBe('versions_removed');
+  provider.discover.mockResolvedValue([]);
+  expect(await service.inspectStorage(staff, documentId)).toMatchObject({
+    objectVersions: 0,
+    deleteMarkers: 0,
+  });
+  expect(provider.erase).not.toHaveBeenCalled();
+  expect((await db.pool.query('SELECT count(*)::int AS n FROM document_cleanup_items')).rows[0].n).toBe(
+    items.length,
+  );
+  const audits = (
+    await db.pool.query(
+      "SELECT metadata FROM audit WHERE action='document.storage_inspected' ORDER BY created_at",
+    )
+  ).rows;
+  expect(audits).toHaveLength(2);
+  expect(audits[0].metadata).toEqual(residual);
+});
+
+test('storage inspection rejects missing permission, MFA, missing documents and permission revocation during discovery', async () => {
+  await expect(service.inspectStorage(driver, documentId)).rejects.toMatchObject({ status: 403 });
+  await expect(service.inspectStorage({ ...staff, mfa: false }, documentId)).rejects.toMatchObject({
+    status: 403,
+  });
+  await expect(service.inspectStorage(staff, randomUUID())).rejects.toMatchObject({ status: 404 });
+  expect(provider.discover).not.toHaveBeenCalled();
+  provider.discover.mockImplementationOnce(async () => {
+    await db.pool.query("DELETE FROM staff_permissions WHERE staff_id=$1 AND permission='privacy.read'", [
+      staff.id,
+    ]);
+    return [];
+  });
+  await expect(service.inspectStorage(staff, documentId)).rejects.toMatchObject({ status: 403 });
+  expect(
+    (await db.pool.query("SELECT 1 FROM audit WHERE action='document.storage_inspected'")).rowCount,
+  ).toBe(0);
+});
+
+test('invalid or failed discovery never produces empty-storage evidence', async () => {
+  provider.discover.mockRejectedValueOnce(new Error('Synthetic listing failure'));
+  await expect(service.inspectStorage(staff, documentId)).rejects.toThrow('Synthetic listing failure');
+  provider.discover.mockResolvedValueOnce([
+    {
+      documentId,
+      key: `driver-documents/inbox/${randomUUID()}/${randomUUID()}`,
+      version: 'foreign',
+      kind: 'object',
+    },
+  ]);
+  await expect(service.inspectStorage(staff, documentId)).rejects.toMatchObject({
+    code: 'DOCUMENT_INVENTORY_UNAVAILABLE',
+  });
+  expect(
+    (await db.pool.query("SELECT 1 FROM audit WHERE action='document.storage_inspected'")).rowCount,
+  ).toBe(0);
+});
+
+test('storage inspection refuses unaudited evidence when the audit transaction fails', async () => {
+  provider.discover.mockResolvedValue([]);
+  await db.pool.query(
+    "CREATE FUNCTION reject_storage_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.action='document.storage_inspected' THEN RAISE EXCEPTION 'synthetic'; END IF; RETURN NEW; END $$; CREATE TRIGGER reject_storage_audit BEFORE INSERT ON audit FOR EACH ROW EXECUTE FUNCTION reject_storage_audit()",
+  );
+  try {
+    await expect(service.inspectStorage(staff, documentId)).rejects.toThrow('synthetic');
+  } finally {
+    await db.pool.query('DROP TRIGGER reject_storage_audit ON audit; DROP FUNCTION reject_storage_audit()');
+  }
+});

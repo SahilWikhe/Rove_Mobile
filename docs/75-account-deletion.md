@@ -81,7 +81,7 @@ Partial, malformed, repeated, cross-scope, unversioned/null-version or excessive
 
 This read-only provider requires `s3:ListBucketVersions` on the configured bucket, restricted to the intended document prefixes and expected account. It does not authorize deletion or claim an atomic snapshot: concurrent uploads can create later versions. The cleanup workflow must fence new uploads, account for previously issued forms and in-flight storage requests, persist and approve the manifest, then rediscover after cleanup. Delete markers are not file-content erasure; they remain distinct review items and are not passed to the object-version erasure adapter. Document reservations must be retained until storage discovery/proof and restore-replay obligations are satisfied.
 
-No discovery route, live storage request or permission grant is enabled by this implementation. Durable manifest authorization/execution and upload fencing remain the next integration work. See AWS [ListObjectVersions](https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectVersions.html) for both pagination markers and version/delete-marker responses.
+Fresh discovery is now exposed through the default-off staff storage-inspection route described in docs/77-document-cleanup-plans.md. Durable manifest authorization/execution and tracked upload fencing are implemented; uncertain-write reconciliation and final erasure fulfillment remain incomplete. No live storage request or permission grant is performed by these local changes. See AWS [ListObjectVersions](https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectVersions.html) for both pagination markers and version/delete-marker responses.
 
 ## Storage-write settlement barrier
 

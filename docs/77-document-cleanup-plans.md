@@ -78,3 +78,11 @@ Local tests cover full prepare/approve/outbox execution, manifest/MFA/policy fai
 Remaining work includes live OIDC/storage acceptance, review UI, uncertain-write and inbox reconciliation, residual-version rediscovery, marker/copy handling, retained application-data cleanup and backup replay. Apply migration 0044 only as part of the reviewed rollout after migrations 0041–0043. Production activation and policy/commercial decisions remain final handoff items.
 
 See [account deletion](75-account-deletion.md), [retention holds](76-retention-holds.md), and the [production setup checklist](production-setup.md).
+
+## Fresh storage inspection
+
+`POST /v1/staff/documents/:id/storage-inspection` accepts an empty JSON object and performs complete fresh inbox/quarantine version discovery. It requires verified staff MFA and `privacy.read`, rechecks authorization after provider I/O, and commits `document.storage_inspected` audit evidence before returning. The response uses `DocumentStorageInspection`: document ID, discovery start/end timestamps, canonical inventory hash, object-version count and separate delete-marker count. It exposes no file contents or signed URLs. Failed or invalid discovery and failed audit persistence do not return successful evidence.
+
+Use this after approved version jobs finish to identify residual or later-created versions. The operation never changes an approved manifest, settles uncertain writes, deletes objects or marks the account erased. An empty inventory is only an observation across the reported discovery interval; it is not an atomic storage snapshot or proof that outstanding writes cannot finish later. Nonempty results require a separately prepared and approved manifest under the existing barriers. Delete markers, external copies, retained application data and restore replay remain separate obligations.
+
+The route shares the default-off cleanup runtime and existing discovery permission. No migration, cloud permission change or live storage request is introduced by this checkpoint. Synthetic database/domain and HTTP tests cover residual detection, empty observations, permission/MFA rejection and revocation during I/O, audit failure, invalid discovery and disabled runtime behavior. Hosted acceptance remains outstanding.
