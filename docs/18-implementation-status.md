@@ -2,6 +2,12 @@
 
 Updated: September 13, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Android release-smoke failure evidence — September 13
+
+Switched the standalone Android release runner to the same persistent-output helper already used for iOS/account journeys. Maestro output now survives command failure, timeout and output exceeding pipe buffer limits, and is included in the existing always-uploaded native-smoke artifact. The runner still fails on launch/test failure and performs its owned-emulator cleanup; no retry or success bypass was added.
+
+All three helper tests passed (large output, nonzero exit, timeout), plus targeted lint and formatting. This wiring was not a fresh standalone Android acceptance run. Rechecked run 34742179860: it completed, both iOS native jobs passed, and the Android rider job had lost ADB connectivity. Its targeted retry was accepted; final hosted retry evidence is outstanding. Next: inspect that result and continue release acceptance, including provider/payment and physical-device gaps. The prior turn made source and verification progress; the full app goal remains incomplete.
+
 ## Rider booking saved-place cleanup — September 13
 
 Removed the duplicate Home & Work management card from booking, following the user's earlier feedback. Ride retains saved destination shortcuts and empty-slot setup; Account retains saved-place editing/removal. Missing shortcut addresses now point to Account or manual search instead of a removed control. Nearby suggestions and reviewed quote submission remain in booking.

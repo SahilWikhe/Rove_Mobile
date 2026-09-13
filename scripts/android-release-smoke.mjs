@@ -1,3 +1,4 @@
+import { nativeSmokeCommand } from './native-smoke-command.mjs';
 import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, mkdirSync, openSync, closeSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -120,7 +121,7 @@ try {
     ['-s', serial, 'logcat', '-v', 'threadtime', 'AndroidRuntime:E', 'ActivityManager:I', '*:S'],
     { stdio: ['ignore', logcatFile, logcatFile] },
   );
-  run(
+  nativeSmokeCommand(
     process.env.MAESTRO_BINARY || 'maestro',
     [
       '--device',
@@ -138,7 +139,8 @@ try {
       `reports/native-smoke/android-${role}-debug`,
       'native-tests/release-welcome.yaml',
     ],
-    { timeout: 180000 },
+    `reports/native-smoke/android-${role}-maestro.log`,
+    180000,
   );
   console.log(`${role}: standalone Android welcome and relaunch verified on a fresh emulator.`);
 } catch (error) {

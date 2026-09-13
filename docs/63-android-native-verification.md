@@ -46,3 +46,9 @@ Both temporary Android Auth0 identities were blocked with independent readback a
 ## Automated standalone startup
 
 Android CI now includes a fresh-emulator Release welcome/relaunch check in addition to compilation and embedded-JavaScript validation. See [the runner and prerequisites](mobile-staging-builds.md#standalone-android-ci-launch-smoke). Local and hosted outcomes remain separate in [implementation status](18-implementation-status.md); this smoke does not cover authentication, payment or locked-device location.
+
+## Release smoke diagnostics
+
+The Android standalone-release runner now writes Maestro stdout/stderr directly to `reports/native-smoke/android-<role>-maestro.log`, alongside its emulator/runtime logs, JUnit and detailed artifacts. The existing CI artifact step retains this directory even on failure. Large output, nonzero exit and timeout do not discard the console evidence; the failure message identifies the log path. This does not retry assertions or turn an offline emulator into a passing launch.
+
+Run 34742179860 compiled the rider release but lost the emulator connection during launch (`device offline`). Both iOS native jobs completed successfully. The isolated Android rider retry was accepted after the original run completed; its result remains to be verified. This is runner evidence, not physical-device acceptance.
