@@ -1,6 +1,14 @@
 # Implementation status
 
-Updated: September 12, 2026. Current source baseline: `1cd316e536846a45354ff7040b5cf82320a8361d` plus the approved cleanup connection checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+Updated: September 12, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
+
+## Fresh local Android release verification — September 12
+
+Built both Android Release APKs from revision `cd45732afea4aca62177102c6dbc813fa2222ab4` (application code unchanged from `c26bf2d`), using the existing generated projects, Node 24, Java 21 and the installed Android SDK. Builds ran sequentially against shared local native outputs, regenerated their JavaScript bundles and succeeded in synthetic mode with dotenv loading disabled. Both APKs contain nonempty embedded JavaScript.
+
+Rider and driver independently passed the unchanged standalone welcome/relaunch test on fresh API 36 ARM64 Google APIs emulators. The wrappers used distinct emulator ports and removed their disposable AVDs afterward. Existing user devices were not reused. Combined with the fresh iOS evidence below, all four app/platform combinations now have current-code local Release startup verification. Android used existing native projects/caches and local ARM64 emulators, not a clean hosted x86 build or store-signed release.
+
+No application code or cloud setting changed in this checkpoint. Remaining acceptance includes full native authenticated journeys, real integrations, locked-phone GPS/push/navigation and production release setup. Google rider route-line implementation remains unapplied pending the explicit data-use approval requested after automatic review rejected it. Cleanup reconciliation/retained-data fulfillment and remaining Figma journeys are still incomplete.
 
 ## Fresh local iOS release verification — September 12
 
