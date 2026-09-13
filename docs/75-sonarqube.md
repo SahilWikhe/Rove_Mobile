@@ -26,3 +26,20 @@ If SonarQube Cloud Automatic Analysis is enabled, turn it off in the project's A
 The workflow is published on main. YAML parsing, official actionlint v1.7.12, formatting and documentation checks passed. Project SahilWikhe_Rove_Mobile / organization sahilwikhe and matching GitHub variables were verified. SONAR_TOKEN was saved without exposing its value. Attempt 1 authenticated but hit an Automatic Analysis conflict; the user disabled that setting. Attempt 2 of [run 34768505120](https://github.com/SahilWikhe/Rove_Mobile/actions/runs/34768505120) completed analysis and failed only the new-code coverage condition: 0% against 80%, because no LCOV report was supplied. Reliability, security, maintainability, duplication and hotspot-review gate conditions passed. V8 coverage reporting passed in all six local suites (11 successful Turbo tasks including dependency typechecks), with server line coverage of 92.26% and repository-relative LCOV paths verified. The subsequent [run 34769028925](https://github.com/SahilWikhe/Rove_Mobile/actions/runs/34769028925) passed on aaa9adbc529a5cb04abbaf2e555f4c257594121e. All six quality-gate conditions passed: new-code coverage 98% against 80%, duplication 0% against 3%, hotspot review 100%, and reliability/security/maintainability ratings A. This measures new code, not whole-app acceptance. SQL parser warnings on PostgreSQL migration syntax mean the scan is not complete SQL validation; the actual migration and restricted-role database tests remain authoritative. The scan is not a substitute for native-device or real-provider acceptance checks.
 
 References: [official scanner action](https://github.com/SonarSource/sonarqube-scan-action), [GitHub Actions setup](https://docs.sonarsource.com/sonarqube-cloud/advanced-setup/ci-based-analysis/github-actions-for-sonarcloud), [JavaScript/TypeScript coverage](https://docs.sonarsource.com/sonarqube-cloud/enriching/test-coverage/javascript-typescript-test-coverage).
+
+
+## Existing security findings — September 13
+
+Authenticated CLI review found 24 open security-impacting findings on main. The passing new-code gate does not clear this existing backlog. None were marked accepted or false positive during this review.
+
+| Area | Findings | Review state |
+| --- | ---: | --- |
+| Test PostgreSQL credentials | 3 | Fixed constants replaced with generated per-run credentials in the disposable database helper and build verifier; scanner confirmation pending. |
+| Local realtime proxy | 3 | SSRF, response-header prototype pollution and redirect findings require data-flow review and regression checks. Proxy binds loopback; this limits exposure but does not dismiss the findings. |
+| CLI evidence paths | 5 | File-path inputs in production/staging/payment/transfer checks need traversal and output-boundary review. |
+| GitHub workflows | 5 | Job permission scope, lifecycle script policy and HTTPS download enforcement need review against build requirements. |
+| Development executable lookup | 6 | PATH resolution in six local tooling scripts needs trust-boundary review. |
+| Realtime retry jitter | 1 | Randomness is used for reconnect timing, not authentication; retain for explicit review. |
+| Android emulator address | 1 | The development host alias 10.0.2.2 needs environment-boundary confirmation. |
+
+The password findings concern synthetic fixtures, not known production credentials. The generated database password is retained only in the test fixture for additional test connections; tests continue to use disposable local PostgreSQL. The build verifier retains its explicit child environment and example.test database host. No cloud credentials were read or rotated.

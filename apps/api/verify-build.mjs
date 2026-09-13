@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 const rates = {
   version: 'synthetic-build-fixture',
@@ -10,6 +11,9 @@ const rates = {
   driverCentsPerMinute: 20,
   driverMinimumCents: 550,
 };
+const databaseUrl = new URL('postgresql://db.example.test/rove?sslmode=verify-full');
+databaseUrl.username = 'fixture';
+databaseUrl.password = randomBytes(32).toString('hex');
 // Explicit child environment: never inherit cloud/database credentials into build verification.
 const result = spawnSync(
   process.execPath,
@@ -65,7 +69,7 @@ const result = spawnSync(
       NODE_ENV: 'production',
       CRON_SECRET: 'build-fixture-not-a-real-secret-00000000',
       ROVE_ENVIRONMENT: 'staging',
-      DATABASE_URL: 'postgresql://fixture:fixture@db.example.test/rove?sslmode=verify-full',
+      DATABASE_URL: databaseUrl.toString(),
       OIDC_ISSUER: 'https://identity.example.test/',
       OIDC_AUDIENCE: 'rove-api',
       OIDC_JWKS_URL: 'https://identity.example.test/jwks',

@@ -4,8 +4,7 @@ import { testDatabase } from './testing';
 
 test('close drains every established connection and is safe to call twice', async () => {
   const fixture = await testDatabase();
-  const port = (await fixture.pool.query('SELECT inet_server_port() AS port')).rows[0].port;
-  const database = createDatabase(`postgresql://rove_test:local-fixture-only@127.0.0.1:${port}/postgres`);
+  const database = createDatabase(fixture.connectionString);
   let live = 0;
   database.pool.on('connect', (client) => {
     live++;

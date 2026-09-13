@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import EmbeddedPostgres from 'embedded-postgres';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -15,16 +16,18 @@ export async function testDatabase() {
   if (!address || typeof address === 'string') throw new Error('No test port');
   const port = address.port;
   await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+  const password = randomBytes(32).toString('hex');
   const postgres = new EmbeddedPostgres({
     databaseDir: await mkdtemp(join(tmpdir(), 'rove-postgres-')),
     port,
     user: 'rove_test',
-    password: 'local-fixture-only',
+    password,
     persistent: false,
   });
   await postgres.initialise();
   await postgres.start();
-  const database = createDatabase(`postgresql://rove_test:local-fixture-only@127.0.0.1:${port}/postgres`);
+  const connectionString = `postgresql://rove_test:${password}@127.0.0.1:${port}/postgres`;
+  const database = createDatabase(connectionString);
   try {
     await migrate(database.db, {
       migrationsFolder: fileURLToPath(new URL('../migrations/', import.meta.url)),
@@ -36,6 +39,7 @@ export async function testDatabase() {
   }
   return {
     ...database,
+    connectionString,
     close: async () => {
       await database.close();
       await postgres.stop();
