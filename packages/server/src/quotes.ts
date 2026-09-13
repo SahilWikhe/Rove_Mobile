@@ -1,3 +1,5 @@
+import { transaction } from './transactions';
+import { bindQuoteOwner } from './quote-scope';
 import { randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 import { Quote, type Place, type Coordinate, type Service } from '@rove/contracts';
@@ -33,10 +35,13 @@ export class QuoteService {
   ) {}
   async preview(actor: Actor, quoteId: string) {
     if (actor.role !== 'rider') throw new DomainError('FORBIDDEN', 'Only riders can view quotes.', 403);
-    const result = await this.pool.query<{ snapshot: unknown }>(
-      'SELECT snapshot FROM quotes WHERE id=$1 AND rider_id=$2',
-      [quoteId, actor.id],
-    );
+    const result = await transaction(this.pool, async (client) => {
+      await bindQuoteOwner(client, actor.id);
+      return client.query<{ snapshot: unknown }>('SELECT snapshot FROM quotes WHERE id=$1 AND rider_id=$2', [
+        quoteId,
+        actor.id,
+      ]);
+    });
     if (!result.rows[0]) throw new DomainError('NOT_FOUND', 'Quote not found.', 404);
     const quote = Quote.parse(result.rows[0].snapshot);
     if (Date.parse(quote.expiresAt) <= this.now().getTime())
@@ -76,12 +81,15 @@ export class QuoteService {
       rateVersion: price.rateVersion,
       expiresAt: new Date(this.now().getTime() + 120_000).toISOString(),
     });
-    await this.pool.query('INSERT INTO quotes (id,rider_id,snapshot,expires_at) VALUES ($1,$2,$3,$4)', [
-      quote.id,
-      actor.id,
-      JSON.stringify(quote),
-      quote.expiresAt,
-    ]);
+    await transaction(this.pool, async (client) => {
+      await bindQuoteOwner(client, actor.id);
+      await client.query('INSERT INTO quotes (id,rider_id,snapshot,expires_at) VALUES ($1,$2,$3,$4)', [
+        quote.id,
+        actor.id,
+        JSON.stringify(quote),
+        quote.expiresAt,
+      ]);
+    });
     return quote;
   }
 }

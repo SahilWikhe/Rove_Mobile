@@ -211,3 +211,7 @@ Source RLS coverage reaches 38 of 47 tables. Audit inserts require the exact tra
 Local verification passed 729 server, 208 API and 13 database tests, including restricted-role field mismatch, unscoped insertion, history mutation/read denial and rollback tests. Hosted rehearsal remains at migration 0075 (37 tables) until the next explicit rehearsal. Provider staging and production remain unchanged.
 
 Hosted follow-up: migration 0076 was applied only to br-shy-bar-axjulxqh / neondb after verifying its exact endpoint mapping. The catalog confirms 77 migrations and 38 enabled/forced tables. The complete synthetic hosted workflow rehearsal passed with the restricted runtime role, including audit append isolation, mutation/read denial and rollback. Provider staging and production are unchanged.
+
+## Quote policies — migration 0077
+
+Source RLS reaches 39 of 47 tables. Active rider owners can insert/read their fare quotes; lock-only policy supports booking without allowing snapshot mutation. Backend matching/acceptance uses an exact associated-ride read scope. Compatible quote creation/preview transactions and scope resets must deploy before migration. Local verification passed 731 server, 208 API and 13 database tests. Hosted verification remains 38 tables through 0076; provider staging and production are unchanged.

@@ -1,3 +1,4 @@
+import { bindQuoteRide } from './quote-scope';
 import { randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { Coordinate, DriverOffer, Quote, type Place } from '@rove/contracts';
@@ -34,6 +35,7 @@ export class MatchingService {
     private now: () => Date = () => new Date(),
   ) {}
   private async inspect(client: PoolClient, rideId: string): Promise<SearchRow | null> {
+    await bindQuoteRide(client, rideId);
     const ride = (
       await client.query<SearchRow>(
         'SELECT r.*,q.snapshot FROM rides r JOIN quotes q ON q.id=r.quote_id WHERE r.id=$1 FOR UPDATE OF r',

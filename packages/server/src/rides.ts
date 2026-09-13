@@ -1,3 +1,4 @@
+import { bindQuoteOwner, bindQuoteRide } from './quote-scope';
 import { scheduleSearchExpiry } from './search-expiry';
 import type { Pool, PoolClient } from 'pg';
 import { Quote, type RideState } from '@rove/contracts';
@@ -54,6 +55,7 @@ export class RideService {
         [actor.id],
       );
       if (!owner.rowCount) throw new DomainError('ACCOUNT_DISABLED', 'Account is unavailable.', 403);
+      await bindQuoteOwner(client, actor.id);
       const found = await client.query<{ snapshot: unknown }>(
         'SELECT snapshot FROM quotes WHERE id=$1 AND rider_id=$2 FOR UPDATE',
         [quoteId, actor.id],
@@ -130,6 +132,7 @@ export class RideService {
       ) {
         throw new DomainError('DRIVER_UNAVAILABLE', 'Go online with a current location to accept rides.');
       }
+      await bindQuoteRide(client, ride.id);
       const quote = Quote.parse(
         (
           await client.query<{ snapshot: unknown }>('SELECT snapshot FROM quotes WHERE id=$1', [

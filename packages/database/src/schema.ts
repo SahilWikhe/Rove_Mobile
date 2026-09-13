@@ -61,15 +61,29 @@ export const drivers = pgTable(
   },
   (t) => [check('driver_coverage_radius_range', sql`${t.coverageRadiusMiles} BETWEEN 1 AND 100`)],
 );
-export const quotes = pgTable('quotes', {
-  id: uuid().primaryKey(),
-  riderId: uuid()
-    .notNull()
-    .references(() => users.id),
-  snapshot: jsonb().notNull(),
-  expiresAt: timestamp({ withTimezone: true }).notNull(),
-  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
-});
+const quoteOwner = (t: { riderId: unknown }) =>
+  sql`${t.riderId}=NULLIF(current_setting('rove.quote_owner',true),'')::uuid AND EXISTS(SELECT 1 FROM public.users u WHERE u.id=${t.riderId} AND u.role='rider' AND u.disabled=false)`;
+export const quotes = pgTable(
+  'quotes',
+  {
+    id: uuid().primaryKey(),
+    riderId: uuid()
+      .notNull()
+      .references(() => users.id),
+    snapshot: jsonb().notNull(),
+    expiresAt: timestamp({ withTimezone: true }).notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    pgPolicy('quote_owner_read', { for: 'select', using: quoteOwner(t) }),
+    pgPolicy('quote_owner_insert', { for: 'insert', withCheck: quoteOwner(t) }),
+    pgPolicy('quote_owner_lock', { for: 'update', using: quoteOwner(t), withCheck: sql`false` }),
+    pgPolicy('quote_ride_read', {
+      for: 'select',
+      using: sql`EXISTS(SELECT 1 FROM public.rides r WHERE r.id=NULLIF(current_setting('rove.quote_ride',true),'')::uuid AND r.quote_id=${t.id})`,
+    }),
+  ],
+);
 export const rides = pgTable(
   'rides',
   {

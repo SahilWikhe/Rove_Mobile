@@ -1,5 +1,13 @@
 # Implementation status
 
+## Quote RLS implemented locally — September 13
+
+Migration 0077 enables/forces RLS on quotes. Active rider owners can create and read their quotes; quote row locks remain available for booking while mutation/deletion is denied. Matching and authorized offer acceptance bind the exact associated ride for backend quote reads. Quote creation/preview now use transactions, and actor/worker identity resets clear quote scopes. Service authorization remains required; backend-controlled scope is not an arbitrary-SQL compromise defense.
+
+Final verification passed 731 server, 208 API and 13 database tests, database/server typechecking and changed-source lint. Restricted-role checks prove owner isolation, disabled-owner denial, foreign insertion denial, immutable snapshots, exact-ride reads and cleared access after actor/transaction changes.
+
+Source RLS reaches 39 of 47 tables; hosted rehearsal remains verified at 38 until the next migration/check. Provider staging and production are unchanged. Next: hosted quote verification, remaining eight table policies, compatible staging rollout and device/provider acceptance. Coverage-fix Sonar run 34772127493 was last observed in progress.
+
 ## Coverage provider overlap corrected — September 13
 
 Investigated the failed new-code coverage gate at line level. Node tooling LCOV included 104 TypeScript files in addition to Vitest’s application reports; Sonar displayed uncovered type/signature and multiline expression lines in audit.ts while Vitest recorded all five executable statements covered. Node tooling coverage now includes only .mjs files; TypeScript application/backend coverage remains supplied by the existing Vitest reports. No source analysis exclusions or quality thresholds changed.
