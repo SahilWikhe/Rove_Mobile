@@ -187,7 +187,8 @@ jobs:
   native-ios:
     name: native-ios (${{ matrix.role }})
     runs-on: macos-26
-    timeout-minutes: 60
+    # Cold dual-configuration rider builds took 53m; preserve time for bounded simulator/UI checks.
+    timeout-minutes: 80
     strategy:
       fail-fast: false
       matrix:

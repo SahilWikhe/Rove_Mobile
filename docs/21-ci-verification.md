@@ -46,3 +46,9 @@ CI run `34443714671` failed in `security` and `mobile`: the documentation linter
 Both apps and shared mobile-core now require Expo `~57.0.21`, with app routers at `~57.0.20`. The lockfile records the matching patch dependencies. A narrowly scoped `markdownlint-cli2>smol-toml: 1.7.1` override fixes [GHSA-7w5x-hrqm-74c2](https://github.com/advisories/GHSA-7w5x-hrqm-74c2) while preserving the current linter. Remove the override once a deliberately upgraded linter depends on a patched parser itself. No advisory exclusions, severity reductions or compatibility-check bypasses were added.
 
 Local verification passed: workspace typechecks and tests, both Expo compatibility checks, both apps' iOS/Android/web exports, dependency audit, peer validation and formatting. All ten browser journeys and frozen-lockfile installation also passed. Native exports are compilation evidence, not physical-device tests. Deployment remains separately gated.
+
+## iOS job budget — September 13, 2026
+
+Run 34785366398 completed rider Debug and Release compilation and JavaScript-bundle verification, but GitHub cancelled job 103799754713 at its one-hour job ceiling. The check annotation explicitly reports maximum execution time exceeded. Setup and both builds consumed approximately 53 minutes; simulator preparation took another four minutes. Maestro began at 22:55:23 UTC and GitHub cancelled it at 22:58:33, before its existing four-minute XCTest startup allowance could expire. The driver iOS and both Android jobs passed in the same run.
+
+The overall iOS job budget is now 80 minutes for both roles. The four-minute XCTest startup allowance, eight-minute Maestro wrapper limit, application assertion deadlines, Debug/Release builds and required launch/relaunch checks are unchanged. This addresses the outer cancellation budget; a fresh hosted rider result is still required to establish UI acceptance.

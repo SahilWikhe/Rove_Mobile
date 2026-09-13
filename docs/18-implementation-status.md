@@ -1,5 +1,11 @@
 # Implementation status
 
+## Rider iOS outer job timeout identified — September 13
+
+GitHub job 103799754713 in run 34785366398 is terminal cancelled. Its annotation states that the maximum one-hour execution time was exceeded. Both rider Debug/Release builds and bundled-JavaScript verification passed. Setup/builds consumed approximately 53 minutes and simulator preparation another four; the logs show Maestro starting at 22:55:23 UTC and external cancellation at 22:58:33, before its existing four-minute startup allowance expired. Driver iOS and both Android jobs passed. This is not rider UI acceptance or a current-main green run.
+
+Raised only the overall iOS workflow budget from 60 to 80 minutes, retaining both build configurations, XCTest/wrapper/assertion deadlines and required initial-launch/relaunch checks. Workflow formatting, native command regression tests, documentation and diff checks are run before the authorized push. Next: verify a fresh hosted rider run and continue payment/device/recovery acceptance. Production remains incomplete; push confirmation follows separately.
+
 ## Hosted rider refund receipt verified — September 13
 
 Enabled only PAYMENT_REFUNDS_ENABLED on the existing rove-api-staging project and redeployed its existing ready deployment. Vercel target production here belongs to the staging project; the real production environment was not activated. Deployment dpl_G4f1sWGZy2ZE9UdfD9oVQmd8mJrc is READY and owns the staging alias. Fresh dedicated Auth0 rider access returned the original 200-cent capture and exactly one succeeded 200-cent refund with a verification timestamp matching the persisted sandbox fixture. Driver access returned 404; anonymous access returned 401. No new charge or refund was created.
