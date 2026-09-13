@@ -2,6 +2,14 @@
 
 Updated: September 12, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Native location freshness acceptance in progress — September 12
+
+Added an optional pickup/in-trip native location subflow and loopback-only synthetic location peer. The peer uploads three changing samples in each phase and verifies the assigned rider API returns the exact coordinates/sample time, then stops updates so normal expiry can occur. Both runners expose the optional switch. No app GPS or expiry behavior changed.
+
+The first iOS attempt failed at initial sign-in before creating a ride; local API/proxy health and an empty ride list were verified afterward. A fresh simulator retry reached pickup, read all three samples, showed the latest reporting time and passed stale-location removal/unavailable state. In-trip sampling also completed and its reporting time appeared, but the rider unexpectedly returned to the home screen before the expiry assertion; that run remains failed. Evidence is retained under reports/native-trip-ios/details/2026-09-12_214947, with failure.png at the parent report directory. No full location pass is claimed.
+
+Screenshot inspection shows Google tiles, correcting the earlier assumption that this run used Apple preview. The test scroll panned the map away from the driver, so the subflow now selects Follow driver before its visual capture; that refinement has not yet passed a run. Targeted tooling lint/formatting and documentation/diff checks passed. Next: diagnose the unexpected in-trip navigation and rerun with explicit camera following, then Android map/location acceptance. Physical GPS, locked-phone delivery, remaining Figma, erasure and production setup remain open.
+
 ## Android native outage and reconnect acceptance — September 12
 
 The complete Android outage variant passed in 189.396 seconds with zero failures. Both normal foreground message exchanges passed; the rider then remained in its conversation during an eight-second socket outage, recovered the outage reply through HTTP fallback, received a later pushed reply after a fresh ready socket, and returned through the driver's recovered conversation to complete the trip and rider paid synthetic receipt. The runner exited zero and removed its owned emulator.

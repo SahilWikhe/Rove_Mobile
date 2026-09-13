@@ -27,3 +27,7 @@ PostgreSQL tests cover ownership/role boundaries, terminal and unassigned rides,
 Workspace tests, typechecking, lint, packaged API smoke and iOS/Android/web exports passed for this implementation. These checks use synthetic data. Provider staging has migrations through 0030, including location notifications. Google SDK maps and camera following are implemented. Physical-device GPS/background delivery, full Figma/accessibility acceptance and end-to-end provider behavior remain release requirements.
 
 Historical initial-map evidence: the iPhone 17 Pro / iOS 26.5 simulator smoke passed against an accepted synthetic trip. Screenshot inspection confirmed the timestamp and blue driver marker near the gold pickup marker: [native tracking preview](screenshots/rider-native-driver-location.png). This verifies the native display using a synthetic heartbeat and Apple map tiles, not physical GPS or production Google Maps.
+
+### Native freshness scenario in progress
+
+The optional two-app scenario supplies changing synthetic samples during pickup and in-progress states, checks native reporting and waits for normal expiry. The September 12 iOS retry verified all six samples through the assigned rider API, displayed reporting times for both phases, and passed pickup expiry. In-trip expiry was not verified because the rider returned to home during the wait. Google tiles were visible, but test scrolling moved the camera away from the driver; explicit Follow driver was added for the next run. This remains a failed full scenario, not complete native location acceptance.

@@ -107,6 +107,8 @@ try {
       `ENABLE_MESSAGES=${process.env.NATIVE_TRIP_MESSAGES === '1' ? '1' : '0'}`,
       '-e',
       `ENABLE_RECONNECT=${process.env.NATIVE_RECONNECT === '1' ? '1' : '0'}`,
+      '-e',
+      `ENABLE_LOCATION=${process.env.NATIVE_TRIP_LOCATION === '1' ? '1' : '0'}`,
       '--format',
       'junit',
       '--output',

@@ -114,6 +114,12 @@ appId: co.roveride.driver
 - extendedWaitUntil:
     visible: I’ve arrived
     timeout: 30000
+- runFlow:
+    when:
+      true: ${ENABLE_LOCATION === "1"}
+    env:
+      LOCATION_PHASE: pickup
+    file: complete-trip-location.yaml
 - tapOn: I’ve arrived
 - tapOn: 'Confirm: I’ve arrived'
 - extendedWaitUntil:
@@ -124,6 +130,12 @@ appId: co.roveride.driver
 - extendedWaitUntil:
     visible: Complete trip
     timeout: 30000
+- runFlow:
+    when:
+      true: ${ENABLE_LOCATION === "1"}
+    env:
+      LOCATION_PHASE: in-trip
+    file: complete-trip-location.yaml
 - tapOn: Complete trip
 - tapOn: 'Confirm: Complete trip'
 - extendedWaitUntil:

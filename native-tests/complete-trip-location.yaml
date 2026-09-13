@@ -1,0 +1,32 @@
+appId: co.roveride.rider
+---
+- launchApp:
+    appId: co.roveride.rider
+    stopApp: false
+    permissions: {}
+- extendedWaitUntil:
+    visible: 'On the way to you\.|You’re on your way\.'
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      text: '.*Driver location last reported at.*'
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- runFlow:
+    when:
+      visible: Follow driver
+    commands:
+      - tapOn: Follow driver
+- assertVisible: Following driver
+- assertVisible: '.*Trip map with pickup, destination and last reported driver location.*'
+- takeScreenshot: ${LOCATION_PHASE}-driver-location
+- extendedWaitUntil:
+    visible: 'Driver location is unavailable. Check your trip status or contact support.'
+    timeout: 90000
+- assertNotVisible: '.*Trip map with pickup, destination and last reported driver location.*'
+- takeScreenshot: ${LOCATION_PHASE}-location-expired
+- launchApp:
+    appId: co.roveride.driver
+    stopApp: false
+    permissions: {}
