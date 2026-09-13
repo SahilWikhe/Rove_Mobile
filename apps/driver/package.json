@@ -11,7 +11,8 @@
     "build": "expo export --platform all",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "eas-build-pre-install": "node ../../scripts/mobile-build-check.mjs driver"
+    "eas-build-pre-install": "node ../../scripts/mobile-build-check.mjs driver",
+    "test:coverage": "vitest run --config ../../vitest.coverage.config.ts"
   },
   "dependencies": {
     "@expo-google-fonts/manrope": "0.4.2",

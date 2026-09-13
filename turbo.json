@@ -2,8 +2,23 @@
   "$schema": "https://turborepo.dev/schema.json",
   "globalDependencies": ["tsconfig.base.json"],
   "tasks": {
-    "typecheck": { "dependsOn": ["^typecheck"], "outputs": [] },
-    "test": { "dependsOn": ["^typecheck"], "outputs": [], "cache": false },
-    "dev": { "cache": false, "persistent": true }
+    "typecheck": {
+      "dependsOn": ["^typecheck"],
+      "outputs": []
+    },
+    "test": {
+      "dependsOn": ["^typecheck"],
+      "outputs": [],
+      "cache": false
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "test:coverage": {
+      "dependsOn": ["^typecheck"],
+      "outputs": ["coverage/**"],
+      "cache": false
+    }
   }
 }
