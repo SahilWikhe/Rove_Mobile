@@ -1,5 +1,15 @@
 # Implementation status
 
+## Command-result RLS and SonarQube workflow — September 13
+
+Migration 0075 enables and forces RLS on commands. A result is readable only for the exact active actor/key; insertion additionally binds the current command fingerprint. Runtime updates/deletions are denied. The command wrapper restores write scope after callbacks reset actor context. Account validation preserves NOT_FOUND and ACCOUNT_DISABLED responses. An initial shared account lock caused lock-upgrade contention in concurrent support/deletion callbacks; removing that unnecessary lock retained active-account checks and existing domain locks, and the regression suite passed.
+
+Verification: 723 server, 208 API and 13 database tests passed. Five restricted-role tests cover concurrent retry, callback context reset, fingerprint conflict, actor/key isolation, immutable results, disabled replay denial, rollback and concurrent callbacks taking account locks. Server/database typechecks and changed-file lint passed. Source coverage is 37 of 47 tables; hosted evidence remains 36 through 0074. Provider staging and production were not changed.
+
+The requested SonarQube Cloud workflow is prepared for pushes to main, same-repository PRs and manual runs, using the official scanner pinned to v8.2.1 and waiting for the quality gate. Fork/Dependabot PRs do not receive the credential. Public project SahilWikhe_Rove_Mobile / organization sahilwikhe were verified, and matching GitHub repository variables were configured/read back. YAML parsing and official actionlint v1.7.12 passed, along with formatting/docs checks. GitHub secret metadata confirms SONAR_TOKEN was saved on September 13. Token validity, Automatic Analysis state and the first hosted scan remain unverified. Coverage reports are not yet produced by the existing test workflow and are not fabricated or excluded from gate requirements. See docs/75-sonarqube.md for activation steps.
+
+Next: finish Sonar authentication/first scan, hosted command-policy verification and the remaining ten core tables, followed by compatible staging rollout. Physical-device/provider acceptance and full production readiness remain incomplete.
+
 ## Tracking-session RLS and hosted 36-table verification — September 13
 
 Migration 0074 enables and forces RLS on driver_tracking_sessions. Active owners can read/revoke their own grant; issuance binds the exact generated hash and requires an online driver. Token-based reads/revocation target only the matching hash. Sample writes additionally bind the driver resolved from that grant, preventing token rotation or reassignment through sample scope. Read locks cannot write. Account closure uses exact disabled-owner scope with current MFA privacy.close permission. Issuance and availability bind actor identity; actor/unrelated worker helpers reset tracking contexts.

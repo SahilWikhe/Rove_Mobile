@@ -128,3 +128,7 @@ Platform references: [Expo monorepos](https://docs.expo.dev/guides/monorepos/), 
 ## Feature access boundary
 
 Scheduling uses a server-side FeatureAccess port with a recommended Vercel Flags core-library adapter for Hono, subject to integration proof. Mobile clients consume sanitized effective capabilities from the core API; they do not import server SDKs or hold provider keys. Flags gate new commitments, not execution/cancellation of accepted work. See [scheduling rollout](17-scheduling-feature-flags.md).
+
+## Command-result row security
+
+Migration 0075 protects retry results with exact active actor/key SELECT scope and fingerprint-bound INSERT scope. Results are immutable through the runtime role. The command wrapper rebinds result scope after service callbacks reset actor context. It does not add an account-row lock before callbacks, avoiding lock upgrades; domain-specific account/resource locks remain authoritative. Disabled accounts cannot replay stored results. Restricted-role concurrency, isolation, rollback and disablement tests cover this boundary. Hosted verification and compatible staging rollout remain pending.

@@ -145,7 +145,17 @@ export const commands = pgTable(
     result: jsonb().notNull(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex('actor_command_key').on(t.actorId, t.key)],
+  (t) => [
+    uniqueIndex('actor_command_key').on(t.actorId, t.key),
+    pgPolicy('command_result_read', {
+      for: 'select',
+      using: sql`${t.actorId}=NULLIF(current_setting('rove.command_actor',true),'')::uuid AND ${t.key}=current_setting('rove.command_key',true) AND EXISTS(SELECT 1 FROM public.users u WHERE u.id=${t.actorId} AND u.disabled=false)`,
+    }),
+    pgPolicy('command_result_insert', {
+      for: 'insert',
+      withCheck: sql`${sql`${t.actorId}=NULLIF(current_setting('rove.command_actor',true),'')::uuid AND ${t.key}=current_setting('rove.command_key',true) AND EXISTS(SELECT 1 FROM public.users u WHERE u.id=${t.actorId} AND u.disabled=false)`} AND ${t.fingerprint}=NULLIF(current_setting('rove.command_fingerprint',true),'')`,
+    }),
+  ],
 );
 export const outbox = pgTable('outbox', {
   id: uuid().primaryKey().defaultRandom(),
