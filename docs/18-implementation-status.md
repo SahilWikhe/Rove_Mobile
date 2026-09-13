@@ -1,5 +1,11 @@
 # Implementation status
 
+## Coverage provider overlap corrected — September 13
+
+Investigated the failed new-code coverage gate at line level. Node tooling LCOV included 104 TypeScript files in addition to Vitest’s application reports; Sonar displayed uncovered type/signature and multiline expression lines in audit.ts while Vitest recorded all five executable statements covered. Node tooling coverage now includes only .mjs files; TypeScript application/backend coverage remains supplied by the existing Vitest reports. No source analysis exclusions or quality thresholds changed.
+
+All 70 tooling tests passed. The resulting Node report contains only JavaScript files, retains native-realtime-proxy.mjs coverage and has no TypeScript overlap; the Vitest audit report remains present. Scanner confirmation requires the next CI run. Hosted RLS remains verified at 38 of 47 tables, with nine core tables still pending. Next: verify the coverage gate and continue remaining RLS, staging rollout and provider/device acceptance.
+
 ## Hosted audit RLS verified — September 13
 
 Applied migration 0076 only to disposable branch br-shy-bar-axjulxqh / neondb after Neon API verification of the exact endpoint/branch/database mapping. The initial command was rejected by automatic approval review for proving only the hostname; the verified retry was approved. Live catalog reports 77 migrations and 38 of 47 tables with RLS enabled and forced.

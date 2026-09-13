@@ -46,3 +46,7 @@ The password findings concern synthetic fixtures, not known production credentia
 ## Maintainability review — September 13
 
 The authenticated issue inventory listed three open maintainability Blockers: two tests without explicit assertions (S2699), and the session expiration helper always returning null (S3516). Tests now assert successful validation/subprocess completion; expiration performs its side effects through a void return contract while token callers preserve null results. All 172 mobile-core tests and 11 targeted Node tests passed, plus typechecking and lint. Scanner closure requires the next analysis; no findings were manually dismissed. Medium findings are deferred per user direction.
+
+## Coverage provider boundaries
+
+Node’s tooling coverage is restricted to .mjs files. Vitest remains responsible for TypeScript application/backend coverage. The prior Node report also included 104 TypeScript files and overlapped the Vitest statement mapping, causing Sonar to count type/signature and multiline-expression lines as uncovered. The corrected tooling command passed all 70 tests and retains realtime proxy coverage. No quality threshold or source-analysis scope was reduced; confirmation awaits the next scan.
