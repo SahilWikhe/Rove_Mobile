@@ -10,7 +10,7 @@ Deploy the updated API and rebuild the rider native app to include the location 
 
 Local verification: Google adapter/API tests and two browser journeys cover nearby request bounds, authentication, input validation, visible initial suggestions, route selection, automatic text search and failure fallback. Synthetic browser evidence does not prove live Google results or OS permission behavior.
 
-Provider reference: https://developers.google.com/maps/documentation/places/web-service/nearby-search
+Provider reference: [Google Nearby Search](https://developers.google.com/maps/documentation/places/web-service/nearby-search).
 
 ## Saved shortcuts and confirmation map
 

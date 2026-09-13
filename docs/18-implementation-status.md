@@ -2,6 +2,12 @@
 
 Updated: September 12, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## CI failure audit and corrections — September 13
+
+Inspected CI run 34742179860 for commit 048cb14. Quality failed on a bare provider URL in docs/78; converted it to a Markdown link. Browser failed on a destination label matching both the selected route and nearby results, plus the older saved-shortcut expectation. Scoped the route assertion to Change destination and updated the current route-edit action label; the saved-shortcut tests were already updated by subsequent route-preview work.
+
+Documentation validation passed across 87 files, and all four route/saved-shortcut browser tests passed in 11 seconds total on current code. The full browser suite also passed: 60 journeys in 5.3 minutes. Android rider compiled both binaries but its release smoke lost ADB connectivity (device offline) during launch; the retained native logs contain no app fatal exception. This is an unresolved runner failure, not evidence of a passing release launch. GitHub refused a targeted retry while the original run was still in progress. The driver Android/iOS jobs, unit tests, mobile exports, security, infrastructure and CodeQL had passed; rider iOS was still running. New main runs remain queued behind active runs. Next: push the verified corrections and obtain fresh hosted native evidence. Production acceptance remains separate.
+
 ## Compact driver earnings settings — September 13
 
 Moved Last 7 days, This month and custom recorded-date controls behind a 44-point circular translucent black settings button in the summary card's top-right corner, per the user's screenshot request. The panel starts collapsed, exposes its expanded state to accessibility APIs and closes on valid range selection. Existing custom-date validation and all-recorded-dates behavior remain available. No earnings calculations or backend changes.
