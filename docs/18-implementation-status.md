@@ -1,5 +1,11 @@
 # Implementation status
 
+## Production promotion now requires Sonar quality-gate evidence — September 13
+
+Release verifier inspection found that production creation/promotion required CI and staging-provider success but did not require the separate Sonar workflow. Added mandatory Sonar run input to both manual workflows, candidate validation and the read-only release CLI. Evidence now verifies all three workflows against the exact SHA, main branch, repository, expected workflow path, successful required job and current attempt. After job pagination it rechecks all three runs so reruns/status changes invalidate the result. Candidate creation and promotion use the same verifier; no new credential or production activation was introduced.
+
+Twelve release/gate tests passed, including mandatory Sonar evidence, skipped/stale jobs, wrong branch/repository/commit/workflow and a Sonar rerun during CLI collection. CLI reports include the Sonar run/attempt while productionAuthorized remains false. Updated production and Sonar setup instructions for the new required input. Changed-file lint/format and docs/diff checks are rerun before commit. Current native CI and Sonar analysis are running on 856d718/61c4a85 respectively; no exact-current-head green claim. Remaining device/provider/recovery and paid production setup still prevent release. Next: verify the active jobs and continue acceptance work. Prepared for authorized main push; remote confirmation follows.
+
 ## iOS XCTest startup timeout diagnosed and budget verified locally — September 13
 
 Downloaded failed driver job 103793356904 from run 34782892925. Release compilation succeeded; Maestro failed before app assertions because its XCTest driver exceeded the default two-minute startup wait. Retained XCTest logs show the server starting about thirty seconds after that failure. Pinned upstream 2.10.0 source confirms the timeout environment variable is milliseconds. CI now gives both iOS roles a four-minute startup budget and the wrapper allows eight minutes overall; the sixty-second screen assertions and welcome/relaunch requirements are unchanged.

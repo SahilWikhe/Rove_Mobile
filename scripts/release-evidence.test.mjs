@@ -22,7 +22,8 @@ function fixture() {
     conclusion: 'success',
   });
   const ci = run(1, '.github/workflows/ci.yml'),
-    providers = run(2, '.github/workflows/staging-providers.yml');
+    providers = run(2, '.github/workflows/staging-providers.yml'),
+    sonar = run(3, '.github/workflows/sonarqube.yml');
   const job = (name, run) => ({
     name,
     run_id: run.id,
@@ -36,6 +37,8 @@ function fixture() {
     sha,
     ci,
     providers,
+    sonar,
+    sonarJobs: [job('SonarQube analysis', sonar)],
     ciJobs: [
       'quality',
       'tests',
@@ -69,7 +72,7 @@ test('old commits, fork runs, other workflows, PR events and pending/failed runs
     { status: 'in_progress' },
     { conclusion: 'failure' },
   ]) {
-    for (const key of ['ci', 'providers']) {
+    for (const key of ['ci', 'providers', 'sonar']) {
       const input = fixture();
       Object.assign(input[key], change);
       assert.throws(() => checkReleaseEvidence(input));
@@ -98,7 +101,7 @@ test('missing, skipped, duplicate, old-attempt and wrong-commit jobs fail closed
   assert.throws(() => checkReleaseEvidence(skipped));
 });
 
-function command(t, modify = () => {}, args = [repository, sha, '1', '2']) {
+function command(t, modify = () => {}, args = [repository, sha, '1', '2', '3']) {
   const directory = mkdtempSync(join(tmpdir(), 'rove-release-evidence-'));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const data = fixture();
@@ -106,6 +109,8 @@ function command(t, modify = () => {}, args = [repository, sha, '1', '2']) {
   const responses = {
     [`${base}/1`]: [data.ci, data.ci],
     [`${base}/2`]: [data.providers, data.providers],
+    [`${base}/3`]: [data.sonar, data.sonar],
+    [`${base}/3/attempts/2/jobs?per_page=100&page=1`]: [{ total_count: 1, jobs: data.sonarJobs }],
     [`${base}/1/attempts/2/jobs?per_page=100&page=1`]: [{ total_count: 12, jobs: data.ciJobs.slice(0, 6) }],
     [`${base}/1/attempts/2/jobs?per_page=100&page=2`]: [{ total_count: 12, jobs: data.ciJobs.slice(6) }],
     [`${base}/2/attempts/2/jobs?per_page=100&page=1`]: [{ total_count: 1, jobs: data.providerJobs }],
@@ -147,17 +152,17 @@ console.log(JSON.stringify(response));
   return { ...result, calls: existsSync(callsPath) ? JSON.parse(readFileSync(callsPath, 'utf8')) : [] };
 }
 
-test('CLI collects paginated jobs and rechecks both current attempts before passing', (t) => {
+test('CLI collects paginated jobs and rechecks all three current attempts before passing', (t) => {
   const result = command(t);
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stderr, '');
   assert.match(result.stdout, /"checksPassed": true/);
   assert.match(result.stdout, /"productionAuthorized": false/);
-  assert.equal(result.calls.length, 7);
+  assert.equal(result.calls.length, 10);
 });
 
 test('CLI fails if a workflow is rerun or loses success during collection', (t) => {
-  for (const id of ['1', '2']) {
+  for (const id of ['1', '2', '3']) {
     for (const change of [{ run_attempt: 3 }, { status: 'in_progress', conclusion: null }]) {
       const result = command(t, (responses, base) => {
         responses[`${base}/${id}`][1] = { ...responses[`${base}/${id}`][1], ...change };
@@ -179,7 +184,12 @@ test('CLI rejects incomplete or changing pagination', (t) => {
 });
 
 test('CLI rejects malformed input without invoking gh and redacts provider errors', (t) => {
-  for (const args of [[], [repository, sha, '1', '2', 'extra'], [repository, 'main', '1', '2']]) {
+  for (const args of [
+    [],
+    [repository, sha, '1', '2', '3', 'extra'],
+    [repository, sha, '1', '2'],
+    [repository, 'main', '1', '2'],
+  ]) {
     const result = command(t, undefined, args);
     assert.equal(result.status, 1);
     assert.match(result.stderr, /^Usage:/);
@@ -192,4 +202,19 @@ test('CLI rejects malformed input without invoking gh and redacts provider error
   assert.equal(failed.stdout, '');
   assert.match(failed.stderr, /No deployment performed/);
   assert.ok(!failed.stderr.includes('private-provider-token'));
+});
+
+test('Sonar evidence is mandatory and cannot use missing, skipped or stale analysis jobs', () => {
+  for (const change of [
+    undefined,
+    [],
+    [{ ...fixture().sonarJobs[0], conclusion: 'skipped' }],
+    [{ ...fixture().sonarJobs[0], run_attempt: 1 }],
+  ]) {
+    assert.throws(() => checkReleaseEvidence({ ...fixture(), sonarJobs: change }));
+  }
+  assert.throws(() => checkReleaseEvidence({ ...fixture(), sonar: undefined }));
+  const result = checkReleaseEvidence(fixture());
+  assert.equal(result.sonarRun, 3);
+  assert.equal(result.sonarAttempt, 2);
 });

@@ -12,6 +12,7 @@ const input = {
   repository: 'example/rove',
   ciId: '123',
   providerId: '456',
+  sonarId: '789',
 };
 test('release inputs reject refs, abbreviated hashes and shell/option-like values before executing git', () => {
   for (const change of [
@@ -21,6 +22,8 @@ test('release inputs reject refs, abbreviated hashes and shell/option-like value
     { sha: 'a'.repeat(39) },
     { ciId: '1;echo secret' },
     { providerId: '-1' },
+    { sonarId: undefined },
+    { sonarId: '1;echo secret' },
     { repository: 'example/rove/../../other' },
     { workflowSha: '' },
   ])

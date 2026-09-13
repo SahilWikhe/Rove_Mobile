@@ -3,7 +3,16 @@ import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
 /** Validate provenance as well as success; names alone are not trusted evidence. */
-export function checkReleaseEvidence({ repository, sha, ci, providers, ciJobs, providerJobs }) {
+export function checkReleaseEvidence({
+  repository,
+  sha,
+  ci,
+  providers,
+  sonar,
+  ciJobs,
+  providerJobs,
+  sonarJobs,
+}) {
   const fail = (reason) => {
     throw new Error(reason);
   };
@@ -12,6 +21,7 @@ export function checkReleaseEvidence({ repository, sha, ci, providers, ciJobs, p
   for (const [run, path] of [
     [ci, '.github/workflows/ci.yml'],
     [providers, '.github/workflows/staging-providers.yml'],
+    [sonar, '.github/workflows/sonarqube.yml'],
   ]) {
     if (
       run?.head_sha !== sha ||
@@ -46,6 +56,7 @@ export function checkReleaseEvidence({ repository, sha, ci, providers, ciJobs, p
   for (const [run, jobs, names] of [
     [ci, ciJobs, required],
     [providers, providerJobs, ['providers']],
+    [sonar, sonarJobs, ['SonarQube analysis']],
   ]) {
     if (!Array.isArray(jobs)) fail('Job evidence is missing.');
     for (const name of names) {
@@ -68,6 +79,8 @@ export function checkReleaseEvidence({ repository, sha, ci, providers, ciJobs, p
     ciAttempt: ci.run_attempt,
     providerRun: providers.id,
     providerAttempt: providers.run_attempt,
+    sonarRun: sonar.id,
+    sonarAttempt: sonar.run_attempt,
     checksPassed: true,
     productionAuthorized: false,
   };
@@ -103,27 +116,31 @@ function jobs(repository, run) {
   throw new Error('Job pagination exceeded');
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const [repository, sha, ciId, providerId, ...rest] = process.argv.slice(2);
+  const [repository, sha, ciId, providerId, sonarId, ...rest] = process.argv.slice(2);
   if (
     rest.length ||
     !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository ?? '') ||
     !/^[a-f0-9]{40}$/.test(sha ?? '') ||
     !/^[1-9][0-9]*$/.test(ciId ?? '') ||
-    !/^[1-9][0-9]*$/.test(providerId ?? '')
+    !/^[1-9][0-9]*$/.test(providerId ?? '') ||
+    !/^[1-9][0-9]*$/.test(sonarId ?? '')
   ) {
     console.error(
-      'Usage: pnpm release:check <owner/repository> <full-sha> <ci-run-id> <staging-provider-run-id>',
+      'Usage: pnpm release:check <owner/repository> <full-sha> <ci-run-id> <staging-provider-run-id> <sonar-run-id>',
     );
     process.exitCode = 1;
   } else {
     try {
       const ci = api(`repos/${repository}/actions/runs/${ciId}`),
-        providers = api(`repos/${repository}/actions/runs/${providerId}`);
+        providers = api(`repos/${repository}/actions/runs/${providerId}`),
+        sonar = api(`repos/${repository}/actions/runs/${sonarId}`);
       const evidence = {
         repository,
         sha,
         ci,
         providers,
+        sonar,
+        sonarJobs: jobs(repository, sonar),
         ciJobs: jobs(repository, ci),
         providerJobs: jobs(repository, providers),
       };
@@ -131,14 +148,22 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       // A rerun invalidates the attempt whose jobs were just collected.
       const latestCi = api(`repos/${repository}/actions/runs/${ciId}`);
       const latestProviders = api(`repos/${repository}/actions/runs/${providerId}`);
+      const latestSonar = api(`repos/${repository}/actions/runs/${sonarId}`);
       if (
+        latestSonar.id !== sonar.id ||
+        latestSonar.run_attempt !== sonar.run_attempt ||
         latestCi.id !== ci.id ||
         latestProviders.id !== providers.id ||
         latestCi.run_attempt !== ci.run_attempt ||
         latestProviders.run_attempt !== providers.run_attempt
       )
         throw new Error('Run attempt changed during collection');
-      const result = checkReleaseEvidence({ ...evidence, ci: latestCi, providers: latestProviders });
+      const result = checkReleaseEvidence({
+        ...evidence,
+        ci: latestCi,
+        providers: latestProviders,
+        sonar: latestSonar,
+      });
       console.log(JSON.stringify(result, null, 2));
       console.log(
         'These checks do not authorize production or replace hosted app/device acceptance, migration review and backup verification.',

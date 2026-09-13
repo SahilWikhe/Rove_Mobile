@@ -15,6 +15,10 @@ on:
         description: 'Successful staging provider run ID for that exact commit'
         required: true
         type: string
+      sonar_run_id:
+        description: 'Successful SonarQube quality-gate run for the exact SHA'
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -41,6 +45,7 @@ jobs:
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
           CI_RUN_ID: ${{ inputs.ci_run_id }}
           PROVIDER_RUN_ID: ${{ inputs.provider_run_id }}
+          SONAR_RUN_ID: ${{ inputs.sonar_run_id }}
       - name: Retain verified evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:

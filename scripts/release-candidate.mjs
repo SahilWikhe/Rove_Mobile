@@ -3,17 +3,18 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export function validateCandidate(input) {
-  const { sha, workflowSha, ref, repository, ciId, providerId } = input;
+  const { sha, workflowSha, ref, repository, ciId, providerId, sonarId } = input;
   if (
     ref !== 'refs/heads/main' ||
     !/^[a-f0-9]{40}$/.test(sha ?? '') ||
     !/^[a-f0-9]{40}$/.test(workflowSha ?? '') ||
     !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository ?? '') ||
     !/^[1-9][0-9]*$/.test(ciId ?? '') ||
-    !/^[1-9][0-9]*$/.test(providerId ?? '')
+    !/^[1-9][0-9]*$/.test(providerId ?? '') ||
+    !/^[1-9][0-9]*$/.test(sonarId ?? '')
   )
     throw new Error('Use main, a full commit SHA and numeric run IDs.');
-  return { sha, workflowSha, ref, repository, ciId, providerId };
+  return { sha, workflowSha, ref, repository, ciId, providerId, sonarId };
 }
 
 export function verifyAncestry(input, run = execFileSync) {
@@ -33,6 +34,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       repository: process.env.GITHUB_REPOSITORY,
       ciId: process.env.CI_RUN_ID,
       providerId: process.env.PROVIDER_RUN_ID,
+      sonarId: process.env.SONAR_RUN_ID,
     });
     const report = execFileSync(
       process.execPath,
@@ -42,6 +44,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         candidate.sha,
         candidate.ciId,
         candidate.providerId,
+        candidate.sonarId,
       ],
       { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 180000 },
     );
@@ -53,7 +56,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     if (process.env.GITHUB_STEP_SUMMARY)
       writeFileSync(
         process.env.GITHUB_STEP_SUMMARY,
-        `## Release evidence verified\n\nCandidate: \`${candidate.sha}\`\n\nCI run: ${candidate.ciId}; staging provider run: ${candidate.providerId}.\n\nThis is a point-in-time evidence report. No deployment, migration, provider request or production approval occurred. Device acceptance and release setup remain separate requirements.\n`,
+        `## Release evidence verified\n\nCandidate: \`${candidate.sha}\`\n\nCI run: ${candidate.ciId}; staging provider run: ${candidate.providerId}; Sonar quality-gate run: ${candidate.sonarId}.\n\nThis is a point-in-time evidence report. No deployment, migration, provider request or production approval occurred. Device acceptance and release setup remain separate requirements.\n`,
         { flag: 'a' },
       );
     console.log('Release evidence verified. Report: release-readiness/evidence.txt');

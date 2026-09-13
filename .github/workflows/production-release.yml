@@ -15,6 +15,10 @@ on:
         description: 'Successful staging-provider run for the exact SHA'
         required: true
         type: string
+      sonar_run_id:
+        description: 'Successful SonarQube quality-gate run for the exact SHA'
+        required: true
+        type: string
       review_reference:
         description: 'Reviewed device, migration, restore and release acceptance record'
         required: true
@@ -34,6 +38,7 @@ env:
   CANDIDATE_SHA: ${{ inputs.candidate_sha }}
   CI_RUN_ID: ${{ inputs.ci_run_id }}
   PROVIDER_RUN_ID: ${{ inputs.provider_run_id }}
+  SONAR_RUN_ID: ${{ inputs.sonar_run_id }}
   RELEASE_REVIEW_REFERENCE: ${{ inputs.review_reference }}
 
 jobs:
