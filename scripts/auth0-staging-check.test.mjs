@@ -65,6 +65,18 @@ for (const [name, mutate, expected] of [
     },
     'rider client',
   ],
+  ...[
+    ['duplicate grants', ['authorization_code', 'authorization_code']],
+    ['missing grants', undefined],
+    ['non-array grants', 'authorization_code refresh_token'],
+    ['non-string grant', ['authorization_code', 123]],
+  ].map(([name, grants]) => [
+    name,
+    (value) => {
+      value.clients.rider.grant_types = grants;
+    },
+    'rider client',
+  ]),
   [
     'wildcard callback',
     (v) => {

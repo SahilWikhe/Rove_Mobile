@@ -1,5 +1,11 @@
 # Implementation status
 
+## High-priority Sonar sorting findings addressed — September 13
+
+Authenticated SonarCloud inspection returned four open HIGH/BLOCKER-filtered findings, all S2871 reliability findings about implicit sorting. Message cleanup now explicitly uses locale-independent UUID ordering before participant retention locks, preserving the existing lock order. Configuration diagnostics use explicit English string comparison. The Auth0 staging inspector checks the exact two permitted grants directly, including array shape, count and membership, without sorting untyped provider values. No findings were suppressed or marked resolved manually; a new hosted analysis must confirm closure. Medium issues remain deferred as requested.
+
+Focused verification passed fifteen message-cleanup/retention-hold database tests, fourteen API configuration/production-preflight tests and fifteen Auth0 inspector tests, including duplicate, missing, non-array and non-string grants. Changed-source lint/format passed before the added test cases; final lint, docs and diff checks are rerun below before commit. The previous Android workaround commit a939095 is present in GitHub with CI and Sonar queued behind active runs. Fresh native CI, physical-device/background GPS, payment-provider acceptance and production setup remain incomplete. Next: verify the queued Android jobs and refreshed Sonar results, then continue device/provider release gates. Prepared for authorized main push; remote confirmation follows.
+
 ## Android release launch workaround verified locally — September 13
 
 The pinned Maestro 2.10.0 source and upstream issue 3451 identify a failing dadb shell path despite healthy ordinary ADB. Direct host/port experiments did not solve it and were removed. The Android runner now resolves the installed APK launcher activity, validates its package/component, force-stops and launches it with targeted ADB, requires am start Status: ok, then runs Maestro visible-screen assertions. It repeats the full stop/launch/UI check for relaunch. No assertion, missing-bundle check or failure requirement is skipped; no blanket retry or global ADB restart is added. iOS retains its existing flow.

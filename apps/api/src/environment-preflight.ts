@@ -21,5 +21,8 @@ export function inspectEnvironment(
   } catch {
     problems.push('CRON_SECRET');
   }
-  return { valid: problems.length === 0, problems: [...new Set(problems)].sort() };
+  return {
+    valid: problems.length === 0,
+    problems: [...new Set(problems)].sort((left, right) => left.localeCompare(right, 'en')),
+  };
 }

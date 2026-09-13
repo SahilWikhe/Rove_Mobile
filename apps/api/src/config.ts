@@ -62,7 +62,10 @@ export type ApiConfig = z.infer<typeof Schema>;
 /** Only field names escape parsing failures; Zod input and secret values never enter errors. */
 export class ConfigurationError extends Error {
   constructor(readonly fields: string[]) {
-    super('Invalid API configuration: ' + [...new Set(fields)].sort().join(', '));
+    super(
+      'Invalid API configuration: ' +
+        [...new Set(fields)].sort((left, right) => left.localeCompare(right, 'en')).join(', '),
+    );
     this.name = 'ConfigurationError';
   }
 }

@@ -64,7 +64,13 @@ export class MessageCleanup {
         participants.add(row.driver_id);
         if (row.current_driver) participants.add(row.current_driver);
       }
-      for (const id of [...participants].sort()) await assertNoRetentionHolds(c, id);
+      // UUID lock order must be independent of the host locale, matching other participant locks.
+      const orderedParticipants = [...participants].sort((left, right) => {
+        if (left < right) return -1;
+        if (left > right) return 1;
+        return 0;
+      });
+      for (const id of orderedParticipants) await assertNoRetentionHolds(c, id);
       await bindUserRead(c, request.owner_id);
       const closure = await c.query(
         `SELECT a.owner_id FROM account_deletion_requests a JOIN account_closures x ON x.request_id=a.id

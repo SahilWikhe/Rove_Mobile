@@ -34,7 +34,10 @@ export function inspectAuth0({ api, clients, connectionClients, discovery, jwks 
       c.token_endpoint_auth_method !== 'none' ||
       c.oidc_conformant !== true ||
       c.is_first_party !== true ||
-      !equal([...(c.grant_types ?? [])].sort(), ['authorization_code', 'refresh_token']) ||
+      !Array.isArray(c.grant_types) ||
+      c.grant_types.length !== 2 ||
+      !c.grant_types.includes('authorization_code') ||
+      !c.grant_types.includes('refresh_token') ||
       !equal(c.callbacks, [`rove-${role}://auth/callback`]) ||
       !equal(c.allowed_logout_urls, [`rove-${role}://auth/callback`])
     )
