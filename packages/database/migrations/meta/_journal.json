@@ -330,6 +330,13 @@
       "when": 1789260960655,
       "tag": "0046_account_deletion_withdrawal",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1789261673704,
+      "tag": "0047_document_write_not_dispatched",
+      "breakpoints": true
     }
   ]
 }

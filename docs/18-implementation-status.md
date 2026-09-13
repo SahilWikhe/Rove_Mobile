@@ -2,6 +2,16 @@
 
 Updated: September 12, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Definitive document upload preflight failures — September 12
+
+Migration 0047 records immutable `not_dispatched_at` evidence when the S3 adapter fails its read-only privacy/versioning preflight before invoking PutObject. The tracked store commits that outcome with its audit; matching error text cannot create proof, audit failure leaves the intent unresolved, and database constraints forbid clearing the outcome or replacing it with a successful version. Pending-upload inspection and cleanup barriers exclude only these proven non-dispatched intents. Reservation expiry, account closure, retention holds and inventory requirements remain in force.
+
+Separated the adapter's preflight and write error paths. Errors after invoking PutObject, malformed receipts and timeouts remain uncertain, even when an injected write error resembles the internal pre-dispatch type. No age-based settlement, provider-absence assumption, real file operation or AWS permission change was introduced. Existing uncertain attempts are unchanged.
+
+Verification: 36 focused storage/write/cleanup tests passed; all 11 application test tasks passed (four unchanged tasks cached), workspace/E2E types, full source lint, API build, schema/snapshot no-diff and docs checks passed. No mobile UI changed. Hosted CI run 34728867127 remained in progress for older `a01b7bd`; latest `0d31934` was pending and superseded pending withdrawal run was cancelled. This does not establish current hosted success.
+
+Migration 0047 remains local, to be applied before compatible HTTP/worker deployment together with predecessor rollout requirements. Cleanup remains off. Next: reconciliation of genuinely dispatched/uncertain writes and presigned inbox activity, retained application/backup data fulfillment and remaining native/provider/Figma acceptance. Full application completion is not yet established.
+
 ## Source lint excludes generated reports — September 12
 
 The withdrawal checkpoint's full lint invocation picked up the untracked `reports/push-reset-ui` generated bundle and diagnostic harness. Added the already git-ignored reports directory to ESLint's generated-output exclusions; source application and test rules remain unchanged. The earlier checkpoint's lint wording is corrected rather than treating that failed invocation as success. The full source lint rerun passed with zero warnings/errors. Next: preserve migration rollout limits and continue uncertain-upload/data fulfillment and native/provider acceptance.

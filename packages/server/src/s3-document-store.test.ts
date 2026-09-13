@@ -1,3 +1,4 @@
+import { DocumentWriteNotDispatched } from './document-write-not-dispatched';
 import { createHash, randomUUID } from 'node:crypto';
 import { test, expect, vi } from 'vitest';
 import { S3DocumentStore, type S3DocumentOperations } from './s3-document-store';
@@ -93,4 +94,16 @@ test('provider failure is sanitized and cannot expose storage credentials', asyn
   const f = fixture();
   f.operations.put.mockRejectedValue(new Error('private-provider-credential'));
   await expect(f.store.put(f.input)).rejects.not.toThrow('private-provider-credential');
+});
+
+test('read-only preflight failure has definitive no-dispatch evidence, but put failures never do', async () => {
+  const f = fixture();
+  f.operations.versioning.mockRejectedValue(new Error('private-preflight-detail'));
+  await expect(f.store.put(f.input)).rejects.toBeInstanceOf(DocumentWriteNotDispatched);
+  expect(f.operations.put).not.toHaveBeenCalled();
+  const g = fixture();
+  // Even a misleading error from the write operation cannot escape as no-dispatch proof.
+  g.operations.put.mockRejectedValue(new DocumentWriteNotDispatched());
+  await expect(g.store.put(g.input)).rejects.not.toBeInstanceOf(DocumentWriteNotDispatched);
+  expect(g.operations.put).toHaveBeenCalledTimes(1);
 });

@@ -1,3 +1,4 @@
+import { DocumentWriteNotDispatched } from './document-write-not-dispatched';
 import { z } from 'zod';
 import type { Pool, PoolClient } from 'pg';
 import type { DocumentQuarantineStore } from './document-intake';
@@ -52,8 +53,25 @@ export function trackedDocumentStore(
           [actor.id, documentId],
         );
       });
-      // Any failure leaves an unsettled intent: even a timeout may have stored bytes.
-      const receipt = await store.put(input);
+      // Only explicit pre-dispatch proof clears a failed intent; a timeout may have stored bytes.
+      let receipt;
+      try {
+        receipt = await store.put(input);
+      } catch (error) {
+        if (error instanceof DocumentWriteNotDispatched) {
+          await transaction(pool, async (c) => {
+            await c.query(
+              'UPDATE document_storage_writes SET not_dispatched_at=clock_timestamp() WHERE object_key=$1',
+              [input.key],
+            );
+            await c.query(
+              "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'driver.document_write_not_dispatched',$2,'{}')",
+              [actor.id, documentId],
+            );
+          });
+        }
+        throw error;
+      }
       const result = z
         .object({
           version: z
@@ -90,7 +108,7 @@ export async function assertDocumentWritesSettled(c: PoolClient, ownerId: string
     throw new DomainError('ACCOUNT_CLOSURE_REQUIRED', 'Close account access before document cleanup.', 409);
   const blocked = await c.query(
     `SELECT d.id FROM driver_documents d WHERE d.driver_id=$1
-    AND (d.expires_at>clock_timestamp() OR EXISTS(SELECT 1 FROM document_storage_writes w WHERE w.document_id=d.id AND w.settled_at IS NULL)) LIMIT 1`,
+    AND (d.expires_at>clock_timestamp() OR EXISTS(SELECT 1 FROM document_storage_writes w WHERE w.document_id=d.id AND w.settled_at IS NULL AND w.not_dispatched_at IS NULL)) LIMIT 1`,
     [ownerId],
   );
   if (blocked.rowCount)

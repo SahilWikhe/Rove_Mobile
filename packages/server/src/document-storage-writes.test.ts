@@ -1,3 +1,5 @@
+import { DocumentWriteNotDispatched } from './document-write-not-dispatched';
+import { S3DocumentStore } from './s3-document-store';
 import { createHash, randomUUID } from 'node:crypto';
 import { beforeAll, afterAll, beforeEach, test, expect, vi } from 'vitest';
 import { testDatabase } from '@rove/database/testing';
@@ -267,4 +269,76 @@ test('inspection exposes unresolved uploads without settling them and paginates 
   expect(
     (await db.pool.query('SELECT * FROM document_storage_writes WHERE settled_at IS NOT NULL')).rowCount,
   ).toBe(0);
+});
+
+test('a failed bucket preflight records terminal no-dispatch evidence and does not block cleanup after closure', async () => {
+  const id = await reserve();
+  const put = vi.fn();
+  const store = new S3DocumentStore(
+    { bucket: 'synthetic-private-bucket', region: 'us-east-2', ownerAccountId: '123456789012' },
+    {
+      versioning: async () => ({ $metadata: {}, Status: 'Suspended' }),
+      publicAccess: async () => ({ $metadata: {} }),
+      put,
+    },
+  );
+  await expect(service.upload(driver, id, body, store)).rejects.toMatchObject({
+    code: 'DOCUMENT_STORAGE_UNAVAILABLE',
+  });
+  expect(put).not.toHaveBeenCalled();
+  const row = (await db.pool.query('SELECT * FROM document_storage_writes')).rows[0];
+  expect(row.not_dispatched_at).toBeInstanceOf(Date);
+  expect(row.settled_at).toBeNull();
+  expect(row.object_version).toBeNull();
+  for (const sql of [
+    'UPDATE document_storage_writes SET not_dispatched_at=NULL',
+    'UPDATE document_storage_writes SET not_dispatched_at=clock_timestamp()',
+    "UPDATE document_storage_writes SET not_dispatched_at=NULL,settled_at=clock_timestamp(),object_version='fake'",
+  ])
+    await expect(db.pool.query(sql)).rejects.toThrow('immutable');
+  await closeAccount();
+  await expect(barrier()).rejects.toMatchObject({ code: 'DOCUMENT_WRITES_PENDING' });
+  await expire();
+  await expect(barrier()).resolves.toBeUndefined();
+});
+
+test('no-dispatch audit failure preserves an unresolved barrier; matching error text is never proof', async () => {
+  const id = await reserve();
+  await db.pool.query(
+    `CREATE FUNCTION reject_no_dispatch_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.action='driver.document_write_not_dispatched' THEN RAISE EXCEPTION 'synthetic audit outage'; END IF; RETURN NEW; END $$; CREATE TRIGGER reject_no_dispatch_audit BEFORE INSERT ON audit FOR EACH ROW EXECUTE FUNCTION reject_no_dispatch_audit();`,
+  );
+  try {
+    await expect(
+      service.upload(driver, id, body, {
+        put: async () => {
+          throw new DocumentWriteNotDispatched();
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'DOCUMENT_STORAGE_UNAVAILABLE' });
+    expect(
+      (await db.pool.query('SELECT not_dispatched_at FROM document_storage_writes')).rows[0]
+        .not_dispatched_at,
+    ).toBeNull();
+  } finally {
+    await db.pool.query(
+      'DROP TRIGGER reject_no_dispatch_audit ON audit; DROP FUNCTION reject_no_dispatch_audit()',
+    );
+  }
+  await expect(
+    service.upload(driver, id, body, {
+      put: async () => {
+        throw Object.assign(new Error('not dispatched'), { code: 'DOCUMENT_STORAGE_UNAVAILABLE' });
+      },
+    }),
+  ).rejects.toMatchObject({ code: 'DOCUMENT_STORAGE_UNAVAILABLE' });
+  expect(
+    (
+      await db.pool.query(
+        'SELECT object_key FROM document_storage_writes WHERE not_dispatched_at IS NOT NULL',
+      )
+    ).rowCount,
+  ).toBe(0);
+  await closeAccount();
+  await expire();
+  await expect(barrier()).rejects.toMatchObject({ code: 'DOCUMENT_WRITES_PENDING' });
 });

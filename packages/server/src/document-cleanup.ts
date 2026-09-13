@@ -75,7 +75,7 @@ export class DocumentCleanup {
         u.disabled AND EXISTS(SELECT 1 FROM account_closures a WHERE a.owner_id=u.id) AS access_closed,
         COALESCE((SELECT jsonb_agg(x ORDER BY x.object_key) FROM
           (SELECT w.object_key,w.started_at FROM document_storage_writes w
-           WHERE w.document_id=d.id AND w.settled_at IS NULL AND w.object_key>$2
+           WHERE w.document_id=d.id AND w.settled_at IS NULL AND w.not_dispatched_at IS NULL AND w.object_key>$2
            ORDER BY w.object_key LIMIT 101) x),'[]'::jsonb) AS pending
         FROM driver_documents d JOIN users u ON u.id=d.driver_id WHERE d.id=$1`,
           [documentId, after ?? ''],

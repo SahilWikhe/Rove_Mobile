@@ -972,14 +972,15 @@ export const documentStorageWrites = pgTable(
     startedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     settledAt: timestamp({ withTimezone: true }),
     objectVersion: text(),
+    notDispatchedAt: timestamp({ withTimezone: true }),
   },
   (t) => [
     index('document_storage_writes_pending')
       .on(t.documentId)
-      .where(sql`${t.settledAt} is null`),
+      .where(sql`${t.settledAt} is null and ${t.notDispatchedAt} is null`),
     check(
       'document_storage_write_result',
-      sql`(${t.settledAt} is null and ${t.objectVersion} is null) or (${t.settledAt} is not null and ${t.settledAt}>=${t.startedAt} and ${t.objectVersion} is not null and length(${t.objectVersion}) between 1 and 1024 and ${t.objectVersion}<>'null')`,
+      sql`(${t.settledAt} is null and ${t.objectVersion} is null and (${t.notDispatchedAt} is null or ${t.notDispatchedAt}>=${t.startedAt})) or (${t.notDispatchedAt} is null and ${t.settledAt} is not null and ${t.settledAt}>=${t.startedAt} and ${t.objectVersion} is not null and length(${t.objectVersion}) between 1 and 1024 and ${t.objectVersion}<>'null')`,
     ),
   ],
 );

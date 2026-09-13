@@ -1,3 +1,4 @@
+import { DocumentWriteNotDispatched } from './document-write-not-dispatched';
 import type { S3ClientConfig } from '@aws-sdk/client-s3';
 import { S3DocumentConfig as Config } from './s3-document-config';
 import { createHash } from 'node:crypto';
@@ -85,6 +86,12 @@ export class S3DocumentStore implements DocumentQuarantineStore {
         !block.RestrictPublicBuckets
       )
         throw new Error('Private bucket required');
+      signal.throwIfAborted();
+    } catch {
+      // Only read-only preflight has run. No PutObject invocation can be in flight.
+      throw new DocumentWriteNotDispatched();
+    }
+    try {
       const result = await this.operations.put(
         {
           Bucket: this.config.bucket,
