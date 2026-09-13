@@ -1,3 +1,4 @@
+import { appendAudit } from './audit';
 import { bindTransferScope } from './transfer-scope';
 import { bindRefundOperationScope } from './refund-operation-scope';
 import { bindRefundScope } from './refund-scope';
@@ -141,9 +142,12 @@ export class RefundOperations {
           `INSERT INTO outbox(topic,aggregate_id,payload,dedupe_key) VALUES('refund.execute',$1,$2,$3)`,
           [op.id, JSON.stringify({ source: this.source, operationId: op.id }), `refund-execute:${op.id}`],
         );
-        await client.query(
-          `INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'staff.refund_authorized',$2,$3)`,
-          [actor.id, op.id, JSON.stringify({ rideId, amountCents: input.amountCents, reason: input.reason })],
+        await appendAudit(
+          client,
+          actor.id,
+          'staff.refund_authorized',
+          op.id,
+          JSON.stringify({ rideId, amountCents: input.amountCents, reason: input.reason }),
         );
         return this.dto(op);
       },
@@ -220,10 +224,7 @@ export class RefundOperations {
         op.id,
         matches[0]!.id,
       ]);
-      await client.query(
-        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'refund.submission_recovered',$2,'{}')",
-        [actorId ?? null, op.id],
-      );
+      await appendAudit(client, actorId ?? null, 'refund.submission_recovered', op.id, '{}');
       return true;
     });
   }
@@ -292,10 +293,7 @@ export class RefundOperations {
       if (op.provider_refund_id || op.state === 'review_required') return null;
       if (op.first_attempt_at && op.first_attempt_at.getTime() <= this.now().getTime() - 23 * 3600000) {
         await client.query("UPDATE refund_operations SET state='review_required' WHERE id=$1", [op.id]);
-        await client.query(
-          "INSERT INTO audit(action,aggregate_id,metadata) VALUES('refund.review_required',$1,'{}')",
-          [op.id],
-        );
+        await appendAudit(client, null, 'refund.review_required', op.id, '{}');
         return null;
       }
       return { reference, op };

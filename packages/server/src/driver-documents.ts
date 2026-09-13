@@ -1,3 +1,4 @@
+import { appendAudit } from './audit';
 import { actorTransaction, bindActorIdentity } from './actor-transaction';
 import { trackedDocumentStore } from './document-storage-writes';
 import { z } from 'zod';
@@ -83,9 +84,12 @@ export class DriverDocumentService {
           'This upload request is unavailable. Start a new upload.',
           409,
         );
-      await client.query(
-        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'driver.document_reserved',$2,$3)",
-        [actor.id, input.id, JSON.stringify({ kind: input.kind })],
+      await appendAudit(
+        client,
+        actor.id,
+        'driver.document_reserved',
+        input.id,
+        JSON.stringify({ kind: input.kind }),
       );
       return this.summary(row);
     });
@@ -270,9 +274,12 @@ export class DriverDocumentService {
       await client.query('UPDATE drivers SET approved=false,eligibility_expires_at=NULL WHERE id=$1', [
         actor.id,
       ]);
-      await client.query(
-        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'driver.document_quarantined',$2,$3)",
-        [actor.id, receipt.documentId, JSON.stringify({ kind: receipt.kind })],
+      await appendAudit(
+        client,
+        actor.id,
+        'driver.document_quarantined',
+        receipt.documentId,
+        JSON.stringify({ kind: receipt.kind }),
       );
       return this.summary(saved);
     });

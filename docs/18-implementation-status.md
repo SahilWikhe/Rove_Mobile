@@ -1,5 +1,13 @@
 # Implementation status
 
+## Audit append preparation — September 13
+
+Centralized the server’s audit inserts behind appendAudit, preserving each caller’s transaction, actor, action, aggregate and JSON metadata. This prepares one enforcement point for audit RLS; it does not yet enable an audit policy or migrate hosted environments.
+
+All 726 server tests passed on the final run, with server typechecking and changed-source lint passing. The initial run passed test assertions but failed on an unhandled PostgreSQL shutdown error from retention-holds.test.ts. That fixture now uses the existing connection-draining database close helper before stopping PostgreSQL; the complete rerun exited successfully.
+
+Next: add the versioned audit policy and restricted-role tests, then verify on the isolated synthetic branch. Ten core tables remain without RLS; provider staging rollout and physical-device/provider acceptance remain outstanding. Medium Sonar findings remain deferred.
+
 ## Maintainability blocker cleanup — September 13
 
 Reviewed all three open maintainability Blocker findings through the authenticated Sonar CLI. Build validation and decoder timeout tests now explicitly assert successful completion. The session expiration helper returns void; token callers continue to return null after expiration, preserving credential clearing and refresh failure propagation. Existing race/outage/storage-failure coverage remains in place.

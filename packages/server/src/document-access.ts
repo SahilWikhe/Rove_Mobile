@@ -1,3 +1,4 @@
+import { appendAudit } from './audit';
 import { bindActorIdentity } from './actor-transaction';
 import type { Pool } from 'pg';
 import { z } from 'zod';
@@ -55,10 +56,7 @@ export class DocumentAccessService {
           503,
         );
       }
-      await client.query(
-        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'staff.document_access_issued',$2,'{}')",
-        [actor.id, documentId],
-      );
+      await appendAudit(client, actor.id, 'staff.document_access_issued', documentId, '{}');
       return link;
     });
   }

@@ -1,3 +1,4 @@
+import { appendAudit } from './audit';
 import { bindCommandScope } from './command-scope';
 import { createHash } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
@@ -70,12 +71,7 @@ export async function event(
   version: number,
   payload: Record<string, unknown> = {},
 ): Promise<void> {
-  await client.query('INSERT INTO audit (actor_id,action,aggregate_id,metadata) VALUES ($1,$2,$3,$4)', [
-    actorId,
-    action,
-    aggregateId,
-    JSON.stringify({ version }),
-  ]);
+  await appendAudit(client, actorId, action, aggregateId, JSON.stringify({ version }));
   await client.query(
     'INSERT INTO outbox (topic,aggregate_id,payload,dedupe_key) VALUES ($1,$2,$3,$4) ON CONFLICT (dedupe_key) DO NOTHING',
     [action, aggregateId, JSON.stringify(payload), `${aggregateId}:${version}:${action}`],

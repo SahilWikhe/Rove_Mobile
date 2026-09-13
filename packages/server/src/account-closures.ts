@@ -1,3 +1,4 @@
+import { appendAudit } from './audit';
 import { bindTrackingClosure } from './tracking-scope';
 import { bindActorIdentity } from './actor-transaction';
 import { assertNoRetentionHolds } from './retention-holds';
@@ -137,10 +138,7 @@ export class AccountClosures {
           [requestId, ownerId, actor.id, input.policyReference, input.reviewReference],
         )
       ).rows[0];
-      await c.query(
-        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'account.closed',$2,$3)",
-        [actor.id, requestId, JSON.stringify(input)],
-      );
+      await appendAudit(c, actor.id, 'account.closed', requestId, JSON.stringify(input));
       await c.query(
         "INSERT INTO outbox(topic,aggregate_id,payload,dedupe_key) VALUES('account.identity-delete',$1,'{}',$2) ON CONFLICT(dedupe_key) DO NOTHING",
         [requestId, 'account.identity-delete:' + requestId],
@@ -155,10 +153,7 @@ export class AccountClosures {
       await bindActorIdentity(c, actor);
       const row = (await c.query('SELECT * FROM account_closures WHERE request_id=$1', [requestId])).rows[0];
       if (!row) throw new DomainError('NOT_FOUND', 'Account closure not found.', 404);
-      await c.query(
-        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'account.closure_viewed',$2,'{}')",
-        [actor.id, requestId],
-      );
+      await appendAudit(c, actor.id, 'account.closure_viewed', requestId, '{}');
       return dto(row);
     });
   }
@@ -179,9 +174,12 @@ export class AccountClosures {
         AND (locked_until IS NULL OR locked_until<=now()) RETURNING id`,
         ['account.identity-delete:' + requestId],
       );
-      await c.query(
-        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'account.identity_retry',$2,$3)",
-        [actor.id, requestId, JSON.stringify({ requeued: !!changed.rowCount })],
+      await appendAudit(
+        c,
+        actor.id,
+        'account.identity_retry',
+        requestId,
+        JSON.stringify({ requeued: !!changed.rowCount }),
       );
       return { requeued: !!changed.rowCount };
     });
@@ -257,10 +255,7 @@ export class AccountClosures {
       await c.query('UPDATE account_closures SET identity_removed_at=clock_timestamp() WHERE request_id=$1', [
         requestId,
       ]);
-      await c.query(
-        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES(NULL,'account.identity_removed',$1,'{}')",
-        [requestId],
-      );
+      await appendAudit(c, null, 'account.identity_removed', requestId, '{}');
     });
   }
 }

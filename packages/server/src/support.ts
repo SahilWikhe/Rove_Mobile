@@ -1,3 +1,4 @@
+import { appendAudit } from './audit';
 import { bindActorIdentity } from './actor-transaction';
 import type { Pool, PoolClient } from 'pg';
 import {
@@ -79,9 +80,12 @@ export class SupportService {
       );
       const request = dto(result.rows[0]);
       if (input.deletionConsent) await recordDeletionConsent(client, actor, request.id);
-      await client.query(
-        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'support.created',$2,$3)",
-        [actor.id, request.id, JSON.stringify({ category: input.category })],
+      await appendAudit(
+        client,
+        actor.id,
+        'support.created',
+        request.id,
+        JSON.stringify({ category: input.category }),
       );
       return request;
     });
@@ -104,9 +108,12 @@ export class SupportService {
       );
       const rows = result.rows.slice(0, 50);
       const last = rows.at(-1);
-      await client.query(
-        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'support.queue_viewed',$1,$2)",
-        [actor.id, JSON.stringify({ status: input.status, count: rows.length })],
+      await appendAudit(
+        client,
+        actor.id,
+        'support.queue_viewed',
+        actor.id,
+        JSON.stringify({ status: input.status, count: rows.length }),
       );
       return SupportQueue.parse({
         requests: rows.map((row) => ({
@@ -149,10 +156,7 @@ export class SupportService {
           "UPDATE support_requests SET status='resolved',response=$2,resolved_at=now(),resolved_by=$3 WHERE id=$1 RETURNING id,category,message,status,created_at,response,resolved_at",
           [requestId, input.response, actor.id],
         );
-        await client.query(
-          "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'support.resolved',$2,'{}')",
-          [actor.id, requestId],
-        );
+        await appendAudit(client, actor.id, 'support.resolved', requestId, '{}');
         return dto(result.rows[0]);
       },
     );
@@ -166,10 +170,7 @@ export class SupportService {
         [requestId],
       );
       if (!result.rows[0]) throw new DomainError('NOT_FOUND', 'Support request not found.', 404);
-      await client.query(
-        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'support.viewed',$2,'{}')",
-        [actor.id, requestId],
-      );
+      await appendAudit(client, actor.id, 'support.viewed', requestId, '{}');
       return dto(result.rows[0]);
     });
   }
@@ -183,8 +184,11 @@ async function recordDeletionConsent(client: PoolClient, actor: Actor, supportRe
     [actor.id, supportRequestId],
   );
   if (inserted.rows[0])
-    await client.query(
-      "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'account_deletion.requested',$2,$3)",
-      [actor.id, inserted.rows[0].id, JSON.stringify({ consentVersion: 'account-deletion-v1' })],
+    await appendAudit(
+      client,
+      actor.id,
+      'account_deletion.requested',
+      inserted.rows[0].id,
+      JSON.stringify({ consentVersion: 'account-deletion-v1' }),
     );
 }

@@ -1,16 +1,17 @@
 import { actorTransaction } from './actor-transaction';
 import { transaction } from './transactions';
-import { Pool } from 'pg';
+import type { Pool } from 'pg';
 import { randomUUID } from 'node:crypto';
 import { beforeAll, afterAll, beforeEach, test, expect, vi } from 'vitest';
 import { testDatabase } from '@rove/database/testing';
-import { users } from '@rove/database';
+import { users, createDatabase } from '@rove/database';
 import type { Actor } from './rides';
 import { RetentionHolds } from './retention-holds';
 import { AccountClosures } from './account-closures';
 import { AccountDeletions } from './account-deletions';
 import { SupportService } from './support';
 let runtimePool: Pool;
+let runtimeDatabase: ReturnType<typeof createDatabase>;
 let db: Awaited<ReturnType<typeof testDatabase>>, holds: RetentionHolds, closures: AccountClosures;
 let rider: Actor, other: Actor, staff: Actor;
 const input = { kind: 'legal', reasonReference: 'synthetic-case-1', reviewAt: '2020-01-01T00:00:00.000Z' };
@@ -24,18 +25,15 @@ beforeAll(async () => {
   await db.pool.query('GRANT USAGE ON SCHEMA public TO rls_cleanup');
   await db.pool.query('GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_cleanup');
   await db.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_cleanup');
-  runtimePool = new Pool({
-    host: '127.0.0.1',
-    port: (await db.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
-    database: 'postgres',
-    user: 'rls_cleanup',
-    password: 'synthetic-local-only',
-    max: 5,
-  });
+  const connection = new URL(db.connectionString);
+  connection.username = 'rls_cleanup';
+  connection.password = 'synthetic-local-only';
+  runtimeDatabase = createDatabase(connection.toString());
+  runtimePool = runtimeDatabase.pool;
   holds = new RetentionHolds(runtimePool);
 }, 60000);
 afterAll(async () => {
-  await runtimePool?.end();
+  await runtimeDatabase?.close();
   await db?.close();
 });
 beforeEach(async () => {

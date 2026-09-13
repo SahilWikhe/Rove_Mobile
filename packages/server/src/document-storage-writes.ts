@@ -1,3 +1,4 @@
+import { appendAudit } from './audit';
 import { bindActorIdentity } from './actor-transaction';
 import { DocumentWriteNotDispatched } from './document-write-not-dispatched';
 import { z } from 'zod';
@@ -50,10 +51,7 @@ export function trackedDocumentStore(
           input.key,
           documentId,
         ]);
-        await c.query(
-          "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'driver.document_write_dispatched',$2,'{}')",
-          [actor.id, documentId],
-        );
+        await appendAudit(c, actor.id, 'driver.document_write_dispatched', documentId, '{}');
       });
       // Only explicit pre-dispatch proof clears a failed intent; a timeout may have stored bytes.
       let receipt;
@@ -138,13 +136,15 @@ async function persistOutcome(
             [key],
           );
         }
-        await c.query("INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,$2,$3,'{}')", [
+        await appendAudit(
+          c,
           actor.id,
           outcome.kind === 'stored'
             ? 'driver.document_write_settled'
             : 'driver.document_write_not_dispatched',
           documentId,
-        ]);
+          '{}',
+        );
       });
       return;
     } catch (error) {

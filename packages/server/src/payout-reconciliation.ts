@@ -1,3 +1,4 @@
+import { appendAudit } from './audit';
 import { bindPayoutScope } from './payout-scope';
 import { z } from 'zod';
 import type { Pool } from 'pg';
@@ -65,11 +66,13 @@ export class PayoutReconciler {
         FROM users u WHERE drivers.id=$1 AND u.id=drivers.id`,
         [binding.driver_id, ready, validUntil],
       );
-      await client.query('INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES(NULL,$1,$2,$3)', [
+      await appendAudit(
+        client,
+        null,
         'payout.status_checked',
         binding.driver_id,
         JSON.stringify({ status, source: this.source, revision: binding.sync_revision }),
-      ]);
+      );
     });
     if (failed)
       throw new DomainError('PAYOUT_PROVIDER_UNAVAILABLE', 'Payout status could not be verified.', 503);

@@ -1,3 +1,4 @@
+import { appendAudit } from './audit';
 import { bindActorIdentity } from './actor-transaction';
 import type { Pool } from 'pg';
 import { z } from 'zod';
@@ -52,9 +53,12 @@ export class DriverEligibilityService {
           await client.query('UPDATE drivers SET approved=false,eligibility_expires_at=NULL WHERE id=$1', [
             driverId,
           ]);
-          await client.query(
-            "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'staff.driver_eligibility_revoked',$2,$3)",
-            [actor.id, driverId, JSON.stringify({ reason: input.reason })],
+          await appendAudit(
+            client,
+            actor.id,
+            'staff.driver_eligibility_revoked',
+            driverId,
+            JSON.stringify({ reason: input.reason }),
           );
           return { approved: false, expiresAt: null };
         }
@@ -113,19 +117,18 @@ export class DriverEligibilityService {
           driverId,
           expiry,
         ]);
-        await client.query(
-          "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'staff.driver_eligibility_approved',$2,$3)",
-          [
-            actor.id,
-            driverId,
-            JSON.stringify({
-              vehicleRevision: input.vehicleRevision,
-              documentIds: input.documentIds,
-              clearanceReference: input.clearanceReference,
-              clearanceExpiresAt: input.clearanceExpiresAt,
-              expiresAt: expiry.toISOString(),
-            }),
-          ],
+        await appendAudit(
+          client,
+          actor.id,
+          'staff.driver_eligibility_approved',
+          driverId,
+          JSON.stringify({
+            vehicleRevision: input.vehicleRevision,
+            documentIds: input.documentIds,
+            clearanceReference: input.clearanceReference,
+            clearanceExpiresAt: input.clearanceExpiresAt,
+            expiresAt: expiry.toISOString(),
+          }),
         );
         return { approved: true, expiresAt: expiry.toISOString() };
       },

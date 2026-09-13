@@ -1,3 +1,4 @@
+import { appendAudit } from './audit';
 import { bindActorIdentity } from './actor-transaction';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
@@ -102,10 +103,7 @@ export class DocumentCleanup {
         })),
         nextCursor: pending.length > 100 ? page.at(-1)!.object_key : null,
       });
-      await c.query(
-        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'document.uploads_inspected',$2,'{}')",
-        [actor.id, documentId],
-      );
+      await appendAudit(c, actor.id, 'document.uploads_inspected', documentId, '{}');
       return result;
     });
   }
@@ -161,10 +159,7 @@ export class DocumentCleanup {
     return transaction(this.pool, async (c) => {
       // Permissions can be revoked during provider I/O; fail before returning evidence.
       await authorize(c);
-      await c.query(
-        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'document.storage_inspected',$2,$3)",
-        [actor.id, documentId, JSON.stringify(result)],
-      );
+      await appendAudit(c, actor.id, 'document.storage_inspected', documentId, JSON.stringify(result));
       return result;
     });
   }
@@ -210,13 +205,12 @@ export class DocumentCleanup {
         SELECT $1,key,version FROM jsonb_to_recordset($2::jsonb) AS x(key text,version text)`,
           [plan.id, JSON.stringify(inventory.filter((r) => r.kind === 'object'))],
         );
-        await c.query(
-          "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'document.cleanup_prepared',$2,$3)",
-          [
-            actor.id,
-            plan.id,
-            JSON.stringify({ manifestHash, objects: inventory.filter((r) => r.kind === 'object').length }),
-          ],
+        await appendAudit(
+          c,
+          actor.id,
+          'document.cleanup_prepared',
+          plan.id,
+          JSON.stringify({ manifestHash, objects: inventory.filter((r) => r.kind === 'object').length }),
         );
         return dto((await c.query(select, [plan.id])).rows[0]);
       },
@@ -229,10 +223,7 @@ export class DocumentCleanup {
       await bindActorIdentity(c, actor);
       const row = (await c.query(select, [planId])).rows[0];
       if (!row) throw new DomainError('NOT_FOUND', 'Cleanup plan not found.', 404);
-      await c.query(
-        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'document.cleanup_viewed',$2,'{}')",
-        [actor.id, planId],
-      );
+      await appendAudit(c, actor.id, 'document.cleanup_viewed', planId, '{}');
       return dto(row);
     });
   }
@@ -292,10 +283,7 @@ export class DocumentCleanup {
         SELECT 'document.version-delete',id,'{}'::jsonb,'document.version-delete:'||id::text,$2::timestamptz FROM document_cleanup_items WHERE plan_id=$1`,
           [planId, input.notBefore],
         );
-        await c.query(
-          "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'document.cleanup_approved',$2,$3)",
-          [actor.id, planId, JSON.stringify(input)],
-        );
+        await appendAudit(c, actor.id, 'document.cleanup_approved', planId, JSON.stringify(input));
         return dto((await c.query(select, [planId])).rows[0]);
       },
     );
@@ -316,9 +304,12 @@ export class DocumentCleanup {
         AND o.completed_at IS NULL AND o.dead_letter_at IS NOT NULL AND (o.locked_until IS NULL OR o.locked_until<=clock_timestamp()) RETURNING o.id`,
         [planId, plan.not_before],
       );
-      await c.query(
-        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'document.cleanup_retry',$2,$3)",
-        [actor.id, planId, JSON.stringify({ requeued: changed.rowCount ?? 0 })],
+      await appendAudit(
+        c,
+        actor.id,
+        'document.cleanup_retry',
+        planId,
+        JSON.stringify({ requeued: changed.rowCount ?? 0 }),
       );
       return { requeued: changed.rowCount ?? 0 };
     });
@@ -371,10 +362,7 @@ export class DocumentCleanup {
       if (row.removed_at) return;
       // A later hold blocks new dispatch, not truthful evidence of the earlier request.
       await c.query('UPDATE document_cleanup_items SET removed_at=clock_timestamp() WHERE id=$1', [itemId]);
-      await c.query(
-        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES(NULL,'document.version_removed',$1,'{}')",
-        [itemId],
-      );
+      await appendAudit(c, null, 'document.version_removed', itemId, '{}');
     });
   }
 }

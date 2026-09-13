@@ -1,3 +1,4 @@
+import { appendAudit } from './audit';
 import { bindActorIdentity } from './actor-transaction';
 import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
@@ -34,10 +35,7 @@ export class DocumentReviewService {
          WHERE d.driver_id=$1 ORDER BY d.created_at DESC,d.id DESC LIMIT 30`,
         [driverId],
       );
-      await client.query(
-        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'staff.documents_listed',$2,'{}')",
-        [actor.id, driverId],
-      );
+      await appendAudit(client, actor.id, 'staff.documents_listed', driverId, '{}');
       return {
         documents: rows.rows.map((row) => ({
           id: row.id as string,
@@ -132,9 +130,12 @@ export class DocumentReviewService {
             ],
           )
         ).rows[0];
-        await client.query(
-          "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'staff.document_reviewed',$2,$3)",
-          [actor.id, documentId, JSON.stringify({ decision: input.decision })],
+        await appendAudit(
+          client,
+          actor.id,
+          'staff.document_reviewed',
+          documentId,
+          JSON.stringify({ decision: input.decision }),
         );
         return DriverDocumentReviewResult.parse({
           documentId,

@@ -1,3 +1,4 @@
+import { appendAudit } from './audit';
 import { actorTransaction, bindActorIdentity } from './actor-transaction';
 import type { Pool, PoolClient } from 'pg';
 import { VehicleReviewDecision, VehicleSubmission } from '@rove/contracts';
@@ -19,9 +20,12 @@ export class VehicleReviewService {
         )
       ).rows[0];
       if (!row) throw new DomainError('NOT_FOUND', 'Vehicle submission not found.', 404);
-      await client.query(
-        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'staff.vehicle_viewed',$2,$3)",
-        [actor.id, driverId, JSON.stringify({ revision: row.revision })],
+      await appendAudit(
+        client,
+        actor.id,
+        'staff.vehicle_viewed',
+        driverId,
+        JSON.stringify({ revision: row.revision }),
       );
       return {
         revision: row.revision,
@@ -99,9 +103,12 @@ export class VehicleReviewService {
               input.verifiedService,
             ],
           );
-        await client.query(
-          "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'staff.vehicle_reviewed',$2,$3)",
-          [actor.id, driverId, JSON.stringify({ revision: input.revision, decision: input.decision })],
+        await appendAudit(
+          client,
+          actor.id,
+          'staff.vehicle_reviewed',
+          driverId,
+          JSON.stringify({ revision: input.revision, decision: input.decision }),
         );
         return { revision: input.revision, status: input.decision };
       },

@@ -1,3 +1,4 @@
+import { appendAudit } from './audit';
 import { randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
@@ -114,9 +115,12 @@ export class DocumentScanWorker {
           [target.documentId, token, result.verdict, target.key, target.version, target.sha256, this.now()],
         );
         if (!saved.rowCount) return 'stale';
-        await client.query(
-          "INSERT INTO audit(action,aggregate_id,metadata) VALUES('driver.document_scanned',$1,$2)",
-          [target.documentId, JSON.stringify({ verdict: result.verdict })],
+        await appendAudit(
+          client,
+          null,
+          'driver.document_scanned',
+          target.documentId,
+          JSON.stringify({ verdict: result.verdict }),
         );
         // Clean is malware evidence only; never grant driver eligibility here.
         return result.verdict;

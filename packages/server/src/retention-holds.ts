@@ -1,3 +1,4 @@
+import { appendAudit } from './audit';
 import { bindActorIdentity } from './actor-transaction';
 import { z } from 'zod';
 import type { Pool, PoolClient } from 'pg';
@@ -73,17 +74,16 @@ export class RetentionHolds {
           [ownerId, input.kind, input.reasonReference, input.reviewAt, actor.id],
         )
       ).rows[0];
-      await c.query(
-        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'retention.held',$2,$3)",
-        [
-          actor.id,
-          row.id,
-          JSON.stringify({
-            kind: input.kind,
-            reasonReference: input.reasonReference,
-            reviewAt: input.reviewAt,
-          }),
-        ],
+      await appendAudit(
+        c,
+        actor.id,
+        'retention.held',
+        row.id,
+        JSON.stringify({
+          kind: input.kind,
+          reasonReference: input.reasonReference,
+          reviewAt: input.reviewAt,
+        }),
       );
       return dto((await c.query(select + ' WHERE h.id=$1', [row.id])).rows[0]);
     });
@@ -112,10 +112,7 @@ export class RetentionHolds {
         'UPDATE retention_holds SET released_at=now(),released_by=$2,release_reference=$3 WHERE id=$1',
         [holdId, actor.id, input.releaseReference],
       );
-      await c.query(
-        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'retention.released',$2,$3)",
-        [actor.id, holdId, JSON.stringify(input)],
-      );
+      await appendAudit(c, actor.id, 'retention.released', holdId, JSON.stringify(input));
       return dto((await c.query(select + ' WHERE h.id=$1', [holdId])).rows[0]);
     });
   }
@@ -135,9 +132,12 @@ export class RetentionHolds {
       );
       const rows = result.rows.slice(0, 50),
         last = rows.at(-1);
-      await c.query(
-        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'retention.queue_viewed',$1,$2)",
-        [actor.id, JSON.stringify({ status: q.status, count: rows.length })],
+      await appendAudit(
+        c,
+        actor.id,
+        'retention.queue_viewed',
+        actor.id,
+        JSON.stringify({ status: q.status, count: rows.length }),
       );
       return RetentionHoldQueue.parse({
         holds: rows.map(dto),

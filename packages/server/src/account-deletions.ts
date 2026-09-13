@@ -1,3 +1,4 @@
+import { appendAudit } from './audit';
 import { actorTransaction, bindActorIdentity } from './actor-transaction';
 import { z } from 'zod';
 import type { Pool, PoolClient } from 'pg';
@@ -82,10 +83,7 @@ export class AccountDeletions {
             'UPDATE account_deletion_requests SET withdrawn_at=clock_timestamp() WHERE id=$1',
             [requestId],
           );
-          await client.query(
-            "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'account_deletion.withdrawn',$2,'{}')",
-            [actor.id, requestId],
-          );
+          await appendAudit(client, actor.id, 'account_deletion.withdrawn', requestId, '{}');
         }
         return AccountDeletionStatus.parse({
           request: {
@@ -138,17 +136,16 @@ export class AccountDeletions {
         },
         completeErasureVerified: false,
       });
-      await client.query(
-        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'account_deletion.inventory_viewed',$2,$3)",
-        [
-          actor.id,
-          requestId,
-          JSON.stringify({
-            observedAt: result.observedAt,
-            counts: result.counts,
-            activeHoldCount: result.activeHoldCount,
-          }),
-        ],
+      await appendAudit(
+        client,
+        actor.id,
+        'account_deletion.inventory_viewed',
+        requestId,
+        JSON.stringify({
+          observedAt: result.observedAt,
+          counts: result.counts,
+          activeHoldCount: result.activeHoldCount,
+        }),
       );
       return result;
     });
@@ -163,10 +160,7 @@ export class AccountDeletions {
         )
       ).rows[0];
       if (!row) throw new DomainError('NOT_FOUND', 'Deletion request not found.', 404);
-      await client.query(
-        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'account_deletion.viewed',$2,'{}')",
-        [actor.id, requestId],
-      );
+      await appendAudit(client, actor.id, 'account_deletion.viewed', requestId, '{}');
       return AccountDeletionStatus.parse({
         request: {
           id: row.id,

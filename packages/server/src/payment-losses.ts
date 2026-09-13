@@ -1,3 +1,4 @@
+import { appendAudit } from './audit';
 import { bindDisputeScope } from './dispute-scope';
 import { bindRefundScope } from './refund-scope';
 import { createHash, randomUUID } from 'node:crypto';
@@ -195,9 +196,12 @@ export class PaymentLosses {
           `INSERT INTO payment_loss_allocations(id,journal_id,authorized_by,policy_reference) VALUES($1,$2,$3,$4)`,
           [id, journalId, actor.id, input.policyReference],
         );
-        await c.query(
-          `INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'staff.payment_loss_allocated',$2,$3)`,
-          [actor.id, id, JSON.stringify({ rideId, ...input, journalId })],
+        await appendAudit(
+          c,
+          actor.id,
+          'staff.payment_loss_allocated',
+          id,
+          JSON.stringify({ rideId, ...input, journalId }),
         );
         return { id, journalId };
       },

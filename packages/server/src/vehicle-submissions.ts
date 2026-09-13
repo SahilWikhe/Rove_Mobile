@@ -1,3 +1,4 @@
+import { appendAudit } from './audit';
 import { randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 import { VehicleSubmissionUpdate, VehicleReviewResponse } from '@rove/contracts';
@@ -95,10 +96,7 @@ export class VehicleSubmissionService {
         [actor.id],
       );
       await client.query('DELETE FROM driver_tracking_sessions WHERE driver_id=$1', [actor.id]);
-      await client.query(
-        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'driver.vehicle_submitted',$1,$2)",
-        [actor.id, JSON.stringify({ revision })],
-      );
+      await appendAudit(client, actor.id, 'driver.vehicle_submitted', actor.id, JSON.stringify({ revision }));
       // Unverified details never replace the effective vehicle/service visible to riders.
       return VehicleReviewResponse.parse({
         submission: {

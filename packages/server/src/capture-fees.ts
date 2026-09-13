@@ -1,3 +1,4 @@
+import { appendAudit } from './audit';
 import { bindPaymentCustomerRead } from './payment-customer-scope';
 import { createHash, randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
@@ -212,11 +213,7 @@ export class CaptureFees {
     if (!outcome) throw review();
   }
   private async audit(c: PoolClient, ref: PaymentReference, action: string, detail: object) {
-    await c.query('INSERT INTO audit(aggregate_id,action,metadata) VALUES($1,$2,$3)', [
-      ref.rideId,
-      action,
-      JSON.stringify(detail),
-    ]);
+    await appendAudit(c, null, action, ref.rideId, JSON.stringify(detail));
   }
   private async bindScope(c: PoolClient, mode: 'read' | 'write' | 'sweep', attemptId?: string) {
     if (mode !== 'sweep') z.uuid().parse(attemptId);

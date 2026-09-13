@@ -1,3 +1,4 @@
+import { appendAudit } from './audit';
 import { bindPayoutScope } from './payout-scope';
 import { bindTransferScope } from './transfer-scope';
 import { bindRefundOperationScope } from './refund-operation-scope';
@@ -327,9 +328,12 @@ export class DriverTransfers {
           `INSERT INTO outbox(topic,aggregate_id,payload,dedupe_key) VALUES('transfer.execute',$1,$2,$3)`,
           [op.id, JSON.stringify({ source: this.source, operationId: op.id }), `transfer-execute:${op.id}`],
         );
-        await c.query(
-          `INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'staff.driver_transfer_authorized',$2,$3)`,
-          [actor.id, op.id, JSON.stringify({ rideId, ...input })],
+        await appendAudit(
+          c,
+          actor.id,
+          'staff.driver_transfer_authorized',
+          op.id,
+          JSON.stringify({ rideId, ...input }),
         );
         return this.dto(op);
       },
@@ -376,10 +380,7 @@ export class DriverTransfers {
             [op.id],
           )
         ).rows[0]!;
-        await c.query(
-          "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'staff.driver_transfer_canceled',$2,'{}')",
-          [actor.id, op.id],
-        );
+        await appendAudit(c, actor.id, 'staff.driver_transfer_canceled', op.id, '{}');
         return this.dto(updated);
       },
     );
@@ -480,13 +481,12 @@ export class DriverTransfers {
         ],
       );
       if (actorId || !op.provider_transfer_id || op.reversed_cents !== result.reversedCents)
-        await c.query(
-          `INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'driver_transfer.verified',$2,$3)`,
-          [
-            actorId ?? null,
-            op.id,
-            JSON.stringify({ transferId: result.id, reversedCents: result.reversedCents }),
-          ],
+        await appendAudit(
+          c,
+          actorId ?? null,
+          'driver_transfer.verified',
+          op.id,
+          JSON.stringify({ transferId: result.id, reversedCents: result.reversedCents }),
         );
       return true;
     });

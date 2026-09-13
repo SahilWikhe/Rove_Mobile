@@ -1,3 +1,4 @@
+import { appendAudit } from './audit';
 import { bindActorIdentity } from './actor-transaction';
 import { z } from 'zod';
 import { MessageCleanupAuthorization } from '@rove/contracts';
@@ -86,9 +87,12 @@ export class MessageCleanup {
         removedMessages: input.messageIds.length,
         completeErasureVerified: false as const,
       };
-      await c.query(
-        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'account_deletion.messages_erased',$2,$3)",
-        [actor.id, requestId, JSON.stringify({ ...input, removedMessages: receipt.removedMessages })],
+      await appendAudit(
+        c,
+        actor.id,
+        'account_deletion.messages_erased',
+        requestId,
+        JSON.stringify({ ...input, removedMessages: receipt.removedMessages }),
       );
       return receipt;
     });
