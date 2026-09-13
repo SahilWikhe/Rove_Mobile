@@ -337,7 +337,7 @@ test('allocation evidence requires current permission and exact payment scope an
   expect((await runtimePool.query('SELECT * FROM payment_loss_allocations')).rowCount).toBe(0);
   const scope = async (c: import('pg').PoolClient) =>
     c.query(
-      "SELECT set_config('rove.loss_source','acct_fixture:test',true),set_config('rove.loss_attempt',$1,true)",
+      "SELECT set_config('rove.loss_source','acct_fixture:test',true),set_config('rove.loss_attempt',$1,true),set_config('rove.ledger_attempt',$1,true)",
       [input.attemptId],
     );
   await actorTransaction(runtimePool, staff, async (c) => {

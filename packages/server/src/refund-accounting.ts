@@ -1,3 +1,4 @@
+import { bindLedgerAttempt } from './ledger-scope';
 import { appendLedgerJournal } from './ledger-append';
 import { createHash } from 'node:crypto';
 import type { PoolClient } from 'pg';
@@ -52,6 +53,7 @@ export async function recordRefundBalances(
     return parsed.data;
   });
   if (!movements.length) return;
+  await bindLedgerAttempt(client, input.attemptId);
   const capture = (
     await client.query(
       `SELECT count(*)::int AS count,sum(p.amount_cents)::int AS amount

@@ -1,3 +1,4 @@
+import { bindLedgerAttempt } from './ledger-scope';
 import { appendLedgerJournal } from './ledger-append';
 import { appendAudit } from './audit';
 import { bindDisputeScope } from './dispute-scope';
@@ -42,6 +43,7 @@ export class PaymentLosses {
       "SELECT set_config('rove.loss_source',$1,true),set_config('rove.loss_attempt',$2,true),set_config('rove.loss_journal','',true)",
       [this.source, p.id],
     );
+    await bindLedgerAttempt(c, p.id);
     return p;
   }
   private async balances(c: PoolClient, p: Payment) {

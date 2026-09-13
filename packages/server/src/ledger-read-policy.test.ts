@@ -21,17 +21,6 @@ beforeAll(async () => {
   connection.username = 'ledger_policy_probe';
   connection.password = password;
   runtime = createDatabase(connection.toString());
-  // Local policy prototype: validate explicit posting scope before generating a deployable migration.
-  await database.pool.query(`
-    ALTER TABLE ledger_journals ENABLE ROW LEVEL SECURITY;
-    ALTER TABLE ledger_journals FORCE ROW LEVEL SECURITY;
-    ALTER TABLE ledger_postings ENABLE ROW LEVEL SECURITY;
-    ALTER TABLE ledger_postings FORCE ROW LEVEL SECURITY;
-    CREATE POLICY probe_journal_read ON ledger_journals FOR SELECT USING(attempt_id=NULLIF(current_setting('rove.ledger_attempt',true),'')::uuid);
-    CREATE POLICY probe_posting_read ON ledger_postings FOR SELECT USING(
-      EXISTS(SELECT 1 FROM ledger_journals j WHERE j.id=journal_id AND j.attempt_id=NULLIF(current_setting('rove.ledger_attempt',true),'')::uuid)
-      OR owner_id=NULLIF(current_setting('rove.ledger_owner',true),'')::uuid);
-  `);
 }, 60000);
 afterAll(async () => {
   await runtime?.close();
@@ -82,7 +71,7 @@ beforeEach(async () => {
   };
 });
 test('unscoped ledger access is denied; payment scope reveals only its own journal and postings', async () => {
-  await transaction(database.pool, (c) => recordCapturedFunds(c, input));
+  await transaction(runtime.pool, (c) => recordCapturedFunds(c, input));
   expect((await runtime.pool.query('SELECT * FROM ledger_journals')).rowCount).toBe(0);
   expect((await runtime.pool.query('SELECT * FROM ledger_postings')).rowCount).toBe(0);
   await transaction(runtime.pool, async (c) => {
@@ -97,7 +86,7 @@ test('unscoped ledger access is denied; payment scope reveals only its own journ
   expect((await runtime.pool.query('SELECT * FROM ledger_postings')).rowCount).toBe(0);
 });
 test('closure balance scope sees only that owner and no journal headers', async () => {
-  await transaction(database.pool, (c) => recordCapturedFunds(c, input));
+  await transaction(runtime.pool, (c) => recordCapturedFunds(c, input));
   await transaction(runtime.pool, async (c) => {
     await c.query("SELECT set_config('rove.ledger_owner',$1,true)", [input.driverId]);
     const rows = (await c.query('SELECT owner_id,amount_cents FROM ledger_postings')).rows;
@@ -106,4 +95,38 @@ test('closure balance scope sees only that owner and no journal headers', async 
     await c.query("SELECT set_config('rove.ledger_owner',$1,true)", [randomUUID()]);
     expect((await c.query('SELECT * FROM ledger_postings')).rowCount).toBe(0);
   });
+});
+
+test('unscoped appends fail and deferred balance checks reject malformed journals', async () => {
+  const { appendLedgerJournal } = await import('./ledger-append');
+  const journal = () => ({
+    key: randomUUID(),
+    fingerprint: 'synthetic',
+    attemptId: input.attemptId,
+    rideId: input.rideId,
+    kind: 'capture',
+  });
+  await expect(
+    transaction(runtime.pool, (c) =>
+      c.query(
+        "INSERT INTO ledger_journals(key,fingerprint,attempt_id,ride_id,kind) VALUES($1,'synthetic',$2,$3,'capture')",
+        [randomUUID(), input.attemptId, input.rideId],
+      ),
+    ),
+  ).rejects.toMatchObject({ code: '42501' });
+  for (const postings of [[], [{ account: 'stripe_clearing', ownerId: null, amountCents: 100 }]]) {
+    await expect(
+      transaction(runtime.pool, (c) => appendLedgerJournal(c, journal(), postings)),
+    ).rejects.toMatchObject({ code: '23514' });
+  }
+  expect((await database.pool.query('SELECT * FROM ledger_journals')).rowCount).toBe(0);
+  await transaction(runtime.pool, async (c) => {
+    await appendLedgerJournal(c, journal(), [
+      { account: 'stripe_clearing', ownerId: null, amountCents: 100 },
+      { account: 'rider_funds', ownerId: input.riderId, amountCents: -100 },
+    ]);
+    await c.query("SELECT set_config('rove.ledger_attempt',$1,true)", [randomUUID()]);
+  });
+  expect((await database.pool.query('SELECT * FROM ledger_journals')).rowCount).toBe(1);
+  expect((await runtime.pool.query('SELECT * FROM ledger_postings')).rowCount).toBe(0);
 });

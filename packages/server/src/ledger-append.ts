@@ -12,6 +12,17 @@ export async function appendLedgerJournal(
   postings: LedgerPosting[],
 ): Promise<string> {
   const id = journal.id ?? randomUUID();
+  await client.query("SELECT set_config('rove.ledger_append',$1,true)", [
+    JSON.stringify({
+      id,
+      key: journal.key,
+      fingerprint: journal.fingerprint,
+      attempt: journal.attemptId,
+      ride: journal.rideId,
+      kind: journal.kind,
+      postings,
+    }),
+  ]);
   await client.query(
     'INSERT INTO ledger_journals(id,key,fingerprint,attempt_id,ride_id,kind) VALUES($1,$2,$3,$4,$5,$6)',
     [id, journal.key, journal.fingerprint, journal.attemptId, journal.rideId, journal.kind],
@@ -21,5 +32,6 @@ export async function appendLedgerJournal(
       'INSERT INTO ledger_postings(journal_id,account,owner_id,amount_cents) VALUES($1,$2,$3,$4)',
       [id, posting.account, posting.ownerId, posting.amountCents],
     );
+  await client.query("SELECT set_config('rove.ledger_append','',true)");
   return id;
 }

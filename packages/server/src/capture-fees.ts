@@ -1,3 +1,4 @@
+import { bindLedgerAttempt } from './ledger-scope';
 import { appendLedgerJournal } from './ledger-append';
 import { appendAudit } from './audit';
 import { bindPaymentCustomerRead } from './payment-customer-scope';
@@ -73,6 +74,7 @@ export class CaptureFees {
     return ref;
   }
   private async capture(c: PoolClient, ref: PaymentReference) {
+    await bindLedgerAttempt(c, ref.attemptId);
     const rows = (
       await c.query(
         `SELECT j.id,j.key,p.account,p.owner_id,p.amount_cents FROM ledger_journals j

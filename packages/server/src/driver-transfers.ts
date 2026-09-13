@@ -1,3 +1,4 @@
+import { bindLedgerAttempt } from './ledger-scope';
 import { appendLedgerJournal } from './ledger-append';
 import { appendAudit } from './audit';
 import { bindPayoutScope } from './payout-scope';
@@ -202,6 +203,7 @@ export class DriverTransfers {
       )
     )
       throw review();
+    await bindLedgerAttempt(c, p.attemptId);
     const sums = (
       await c.query(
         `SELECT l.account,COALESCE(sum(l.amount_cents),0)::int AS amount FROM ledger_postings l
@@ -248,6 +250,7 @@ export class DriverTransfers {
     return { bindingId: b.id as string, accountId: b.account_id as string, payable };
   }
   private async reserved(c: PoolClient, p: Context, op: Operation) {
+    await bindLedgerAttempt(c, p.attemptId);
     const rows = (
       await c.query(
         `SELECT l.account,l.owner_id,l.amount_cents FROM ledger_journals j
@@ -274,6 +277,7 @@ export class DriverTransfers {
     const fingerprint = createHash('sha256')
       .update(JSON.stringify({ attemptId: p.attemptId, rideId: p.rideId, kind, postings }))
       .digest('hex');
+    await bindLedgerAttempt(c, p.attemptId);
     const prior = (await c.query('SELECT id,fingerprint FROM ledger_journals WHERE key=$1', [key])).rows[0];
     if (prior) {
       if (prior.fingerprint !== fingerprint) throw review();

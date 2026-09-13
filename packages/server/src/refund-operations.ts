@@ -1,3 +1,4 @@
+import { bindLedgerAttempt } from './ledger-scope';
 import { appendAudit } from './audit';
 import { bindTransferScope } from './transfer-scope';
 import { bindRefundOperationScope } from './refund-operation-scope';
@@ -82,6 +83,7 @@ export class RefundOperations {
       check.verified_at.getTime() > this.now().getTime() + 10000
     )
       throw unavailable();
+    await bindLedgerAttempt(client, reference.attemptId);
     const captures = (
       await client.query(
         `SELECT sum(p.amount_cents)::int AS amount,count(*)::int AS count FROM ledger_journals j

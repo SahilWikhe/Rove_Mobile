@@ -371,22 +371,40 @@ export const paymentAttempts = pgTable(
   ],
 );
 
-export const ledgerJournals = pgTable('ledger_journals', {
-  id: uuid().primaryKey().defaultRandom(),
-  key: text().notNull().unique(),
-  fingerprint: text().notNull(),
-  attemptId: uuid()
-    .notNull()
-    .references(() => paymentAttempts.id),
-  rideId: uuid()
-    .notNull()
-    .references(() => rides.id),
-  kind: text().notNull(),
-  createdTransaction: text()
-    .notNull()
-    .default(sql`pg_current_xact_id()::text`),
-  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
-});
+const ledgerAppend = sql`NULLIF(current_setting('rove.ledger_append',true),'')::jsonb`;
+export const ledgerJournals = pgTable(
+  'ledger_journals',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    key: text().notNull().unique(),
+    fingerprint: text().notNull(),
+    attemptId: uuid()
+      .notNull()
+      .references(() => paymentAttempts.id),
+    rideId: uuid()
+      .notNull()
+      .references(() => rides.id),
+    kind: text().notNull(),
+    createdTransaction: text()
+      .notNull()
+      .default(sql`pg_current_xact_id()::text`),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    pgPolicy('ledger_payment_read', {
+      for: 'select',
+      using: sql`${t.attemptId}=NULLIF(current_setting('rove.ledger_attempt',true),'')::uuid OR ${t.createdTransaction}=pg_current_xact_id()::text`,
+    }),
+    pgPolicy('ledger_capture_sweep', {
+      for: 'select',
+      using: sql`current_setting('rove.capture_sweep',true)='true' AND ${t.kind}='capture' AND EXISTS(SELECT 1 FROM public.payment_attempts p WHERE p.id=${t.attemptId} AND p.source=current_setting('rove.capture_source',true))`,
+    }),
+    pgPolicy('ledger_journal_append', {
+      for: 'insert',
+      withCheck: sql`jsonb_build_object('id',${t.id},'key',${t.key},'fingerprint',${t.fingerprint},'attempt',${t.attemptId},'ride',${t.rideId},'kind',${t.kind}) = (${ledgerAppend}-'postings') AND ${t.createdTransaction}=pg_current_xact_id()::text`,
+    }),
+  ],
+);
 export const ledgerPostings = pgTable(
   'ledger_postings',
   {
@@ -399,6 +417,14 @@ export const ledgerPostings = pgTable(
     amountCents: integer().notNull(),
   },
   (t) => [
+    pgPolicy('ledger_posting_read', {
+      for: 'select',
+      using: sql`EXISTS(SELECT 1 FROM public.ledger_journals j WHERE j.id=${t.journalId} AND (j.attempt_id=NULLIF(current_setting('rove.ledger_attempt',true),'')::uuid OR j.created_transaction=pg_current_xact_id()::text)) OR ${t.ownerId}=NULLIF(current_setting('rove.ledger_owner',true),'')::uuid`,
+    }),
+    pgPolicy('ledger_posting_append', {
+      for: 'insert',
+      withCheck: sql`${t.journalId}=(${ledgerAppend}->>'id')::uuid AND (${ledgerAppend}->'postings') @> jsonb_build_array(jsonb_build_object('account',${t.account},'ownerId',${t.ownerId},'amountCents',${t.amountCents}))`,
+    }),
     index('ledger_postings_journal').on(t.journalId),
     index('ledger_postings_owner_account').on(t.ownerId, t.account),
     check('ledger_nonzero_amount', sql`${t.amountCents} <> 0`),

@@ -1,3 +1,4 @@
+import { bindLedgerAttempt } from './ledger-scope';
 import { appendLedgerJournal } from './ledger-append';
 import { bindDisputeScope } from './dispute-scope';
 import { bindPaymentCustomerRead } from './payment-customer-scope';
@@ -56,6 +57,7 @@ async function recordBalances(
 ) {
   const movements = disputes.flatMap((d) => d.balanceTransactions).sort((a, b) => a.id.localeCompare(b.id));
   if (!movements.length) return;
+  await bindLedgerAttempt(client, reference.attemptId);
   const capture = (
     await client.query(
       `SELECT count(*)::int AS count,sum(l.amount_cents)::int AS amount FROM ledger_journals j JOIN ledger_postings l ON l.journal_id=j.id AND l.account='stripe_clearing' WHERE j.attempt_id=$1 AND j.ride_id=$2 AND j.kind='capture'`,

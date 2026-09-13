@@ -1,3 +1,4 @@
+import { bindLedgerAttempt } from './ledger-scope';
 import { appendLedgerJournal } from './ledger-append';
 import { createHash } from 'node:crypto';
 import type { PoolClient } from 'pg';
@@ -23,6 +24,7 @@ async function journal(
   kind: 'capture' | 'allocation',
   postings: Posting[],
 ) {
+  await bindLedgerAttempt(client, capture.attemptId);
   const key = `${capture.attemptId}:${kind}`;
   const fingerprint = createHash('sha256')
     .update(JSON.stringify({ rideId: capture.rideId, postings }))

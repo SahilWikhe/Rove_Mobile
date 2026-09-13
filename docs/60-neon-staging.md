@@ -219,3 +219,9 @@ Source RLS reaches 39 of 47 tables. Active rider owners can insert/read their fa
 Hosted quote verification: 0077 is applied on the disposable rehearsal branch; catalog confirms 78 migrations and 39 enabled/forced tables. Restricted-role quote creation, preview, booking lock, exact-ride reads, foreign/unscoped access denial, immutability and disabled-owner denial passed with synthetic maps. Provider staging and production remain unchanged.
 
 Ledger preparation: journal/posting inserts now use a shared transaction-bound append helper across financial services, preserving existing authorization/idempotency checks and database balance constraints. This is preparation only; ledger_journals and ledger_postings still require policies and a versioned migration. Local server/API regressions passed; hosted coverage remains 39 tables.
+
+## Ledger policies — migration 0078
+
+Source RLS reaches 41 of 47 tables. Exact payment and closure-owner read scopes, current-transaction journal visibility and exact append payloads protect ledger headers/postings. Capture sweep permits source-specific capture headers. Existing deferred balance, immutable history and same-transaction posting constraints remain active. Backend authorization and compatible scope binding must deploy before migration.
+
+Local verification passed 734 server, 208 API and 13 database tests plus typechecks and lint. The initial direct loss-policy test was updated to include the ledger scope already bound by the production service. Hosted verification remains 39 tables through 0077 until the next isolated financial rehearsal; provider staging and production are unchanged.

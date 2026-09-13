@@ -1,5 +1,13 @@
 # Implementation status
 
+## Ledger RLS implemented locally — September 13
+
+Migration 0078 enables/forces RLS on ledger_journals and ledger_postings. Reads require the selected payment, selected closure owner (postings only), or the current transaction’s newly appended journal. A source-specific capture sweep exposes capture headers only. Appends bind exact journal fields and allowed posting values; no UPDATE/DELETE policy exists. Current-transaction visibility preserves the existing deferred balance and same-transaction posting constraints. Financial service authorization/locks remain required; scopes are backend-controlled defense in depth.
+
+All 734 server, 208 API and 13 database tests passed, with database/server typechecks and changed-source lint. Restricted-role tests now exercise the actual migration rather than a prototype, including runtime capture/allocation, unscoped/foreign reads, owner balances, mutation denial, rejected unscoped appends, rejected empty/unbalanced journals and balance validation after scope changes. The initial run exposed a direct loss-policy test missing the new ledger scope; it now matches the production service’s combined scopes and the full rerun passed.
+
+Source RLS reaches 41 of 47 tables; hosted rehearsal remains at 39 pending migration and financial workflow verification. Next: hosted ledger checks, then users/drivers/rides/offers/payment_attempts/outbox policies and compatible staging rollout. Provider staging/production and physical-device/provider acceptance remain outstanding.
+
 ## Ledger policy isolation prototype verified — September 13
 
 Automatic approval review rejected the initial ledger migration proposal because the posting-read predicate appeared too broad and focused isolation tests were absent. No proposed source or migration edits executed. A safer local PostgreSQL prototype now explicitly binds posting reads to the selected payment, with a separate owner-only posting scope for closure balances.
