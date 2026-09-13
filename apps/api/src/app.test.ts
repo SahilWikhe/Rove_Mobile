@@ -14,6 +14,7 @@ const place = {
 };
 const maps: MapsProvider = {
   search: async () => [place],
+  nearby: vi.fn(async () => [place]),
   resolve: async () => place,
   route: async () => ({ distanceMeters: 5000, durationSeconds: 720 }),
 };
@@ -853,4 +854,17 @@ test('database failure returns generic readiness 503 while liveness remains avai
   } finally {
     query.mockRestore();
   }
+});
+
+test('nearby places require authentication and a valid bounded coordinate', async () => {
+  expect((await app.request('/v1/places/nearby', { method: 'POST' })).status).toBe(401);
+  expect((await request('/v1/places/nearby', { coordinate: { latitude: 91, longitude: 0 } })).status).toBe(
+    400,
+  );
+  expect((await request('/v1/places/nearby', { coordinate: place.coordinate, radius: 999999 })).status).toBe(
+    400,
+  );
+  const response = await request('/v1/places/nearby', { coordinate: place.coordinate });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ places: [place] });
 });

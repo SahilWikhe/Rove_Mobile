@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
-import { Quote, type Place, type Service } from '@rove/contracts';
+import { Quote, type Place, type Coordinate, type Service } from '@rove/contracts';
 import { DomainError } from './errors';
 import { priceRoute, type RatePolicy } from './pricing';
 import type { Actor } from './rides';
@@ -12,6 +12,7 @@ export interface MapsProvider {
     service: Service,
   ): Promise<{ distanceMeters: number; durationSeconds: number }>;
   search(query: string): Promise<Place[]>;
+  nearby?(coordinate: Coordinate): Promise<Place[]>;
   resolve(id: string): Promise<Place>;
 }
 export interface ServiceArea {

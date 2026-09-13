@@ -52,6 +52,7 @@ const places = [
   },
 ];
 const maps: MapsProvider = {
+  nearby: async () => places,
   search: async (query) =>
     places.filter((place) => `${place.label} ${place.area}`.toLowerCase().includes(query.toLowerCase())),
   resolve: async (id) => {

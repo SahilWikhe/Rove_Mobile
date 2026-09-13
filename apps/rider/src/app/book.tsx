@@ -1,3 +1,4 @@
+import { NearbyPlaces } from '../booking/nearby-places';
 import { BookingHeader, RouteEntry, PlaceResult } from '../booking/route-entry';
 import { useEffect, useRef, useState } from 'react';
 import { createLatestRequest } from '@rove/mobile-core/latest-request';
@@ -30,6 +31,7 @@ function BookingForm({ fromRide, savedKind }: { fromRide?: string; savedKind?: S
   const [target, setTarget] = useState<'pickup' | 'destination'>('pickup');
   const [query, setQuery] = useState('');
   const requests = useRef(createLatestRequest());
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const mounted = useRef(true);
   const submitting = useRef(false);
   useEffect(() => {
@@ -149,6 +151,7 @@ function BookingForm({ fromRide, savedKind }: { fromRide?: string; savedKind?: S
   }
 
   function search() {
+    clearTimeout(searchTimer.current);
     if (query.trim().length < 3) return;
     void read(
       (signal) => api.places(query.trim(), signal),
@@ -157,6 +160,35 @@ function BookingForm({ fromRide, savedKind }: { fromRide?: string; savedKind?: S
         setSearched(true);
       },
     );
+  }
+
+  useEffect(() => {
+    if (query.trim().length < 3 || copyingRoute || quote || restoring || pending || recoveryError) return;
+    searchTimer.current = setTimeout(() => {
+      setLoading(true);
+      setError(null);
+      void requests.current.run((signal) => api.places(query.trim(), signal), {
+        data: (result) => {
+          setPlaces(result.places);
+          setSearched(true);
+        },
+        error: (failure) =>
+          setError(failure instanceof Error ? failure.message : 'Place search is unavailable.'),
+        settled: () => setLoading(false),
+      });
+    }, 500);
+    return () => clearTimeout(searchTimer.current);
+  }, [api, query, target, copyingRoute, quote, restoring, pending, recoveryError]);
+  function selectPlace(place: Place) {
+    cancelRead();
+    if (target === 'pickup') {
+      setPickup(place);
+      setTarget('destination');
+    } else {
+      setDestination(place);
+      if (!pickup) setTarget('pickup');
+    }
+    setQuery('');
   }
 
   if (!profile)
@@ -255,7 +287,7 @@ function BookingForm({ fromRide, savedKind }: { fromRide?: string; savedKind?: S
             onEdit={edit}
             onSearch={search}
           />
-          {(!pickup || !destination) && (
+          {(!pickup || !destination) && query.trim().length > 0 && (
             <Button
               title="Search places"
               disabled={query.trim().length < 3}
@@ -267,23 +299,9 @@ function BookingForm({ fromRide, savedKind }: { fromRide?: string; savedKind?: S
             <Copy kind="muted">No places found. Try a different address.</Copy>
           )}
           {places.map((place) => (
-            <PlaceResult
-              key={place.id}
-              place={place}
-              onPress={() => {
-                cancelRead();
-                if (target === 'pickup') {
-                  setPickup(place);
-                  setTarget('destination');
-                } else {
-                  setDestination(place);
-                  if (!pickup) setTarget('pickup');
-                }
-                setPlaces([]);
-                setQuery('');
-              }}
-            />
+            <PlaceResult key={place.id} place={place} onPress={() => selectPlace(place)} />
           ))}
+          <NearbyPlaces visible={!query.trim() && (!pickup || !destination)} onSelect={selectPlace} />
           <SavedPlaceControls
             api={api}
             selected={destination ?? pickup}

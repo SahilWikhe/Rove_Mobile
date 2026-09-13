@@ -91,6 +91,25 @@ export class GoogleMapsProvider implements MapsProvider {
       return place.success ? [placeFromGoogle(place.data)] : [];
     });
   }
+  async nearby(coordinate: Coordinate): Promise<Place[]> {
+    const center = Coordinate.parse(coordinate);
+    const result = await this.call(
+      'https://places.googleapis.com/v1/places:searchNearby',
+      fields
+        .split(',')
+        .map((field) => `places.${field}`)
+        .join(','),
+      {
+        maxResultCount: 5,
+        rankPreference: 'DISTANCE',
+        languageCode: 'en',
+        locationRestriction: { circle: { center, radius: 5000 } },
+      },
+    );
+    const parsed = z.object({ places: z.array(GooglePlace).optional() }).safeParse(result);
+    if (!parsed.success) throw new MapsProviderUnavailable();
+    return (parsed.data.places ?? []).map(placeFromGoogle);
+  }
   async resolve(id: string): Promise<Place> {
     if (!/^[A-Za-z0-9_-]{3,200}$/.test(id))
       throw new DomainError('INVALID_PLACE', 'Select a place from search.', 400);

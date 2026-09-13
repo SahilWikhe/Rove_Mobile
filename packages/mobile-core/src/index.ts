@@ -312,6 +312,13 @@ export class ApiClient {
   capabilities() {
     return this.request('/v1/me/capabilities', Capabilities);
   }
+  nearbyPlaces(coordinate: Coordinate, signal?: AbortSignal) {
+    return this.request('/v1/places/nearby', z.object({ places: z.array(Place) }), {
+      method: 'POST',
+      body: { coordinate },
+      ...(signal ? { signal } : {}),
+    });
+  }
   places(query: string, signal?: AbortSignal) {
     return this.request(
       `/v1/places?q=${encodeURIComponent(query)}`,

@@ -116,3 +116,20 @@ test('transport failures never retain raw exceptions in diagnostic properties', 
     expect(String(error)).not.toMatch(/private-endpoint|synthetic-secret/);
   }
 });
+
+test('nearby uses a bounded distance-ranked circle and rejects malformed coordinates before dispatch', async () => {
+  const transport = vi.fn(
+    async (_url: string, _options: RequestInit) => new Response(JSON.stringify({ places: [fixture] })),
+  );
+  const maps = new GoogleMapsProvider('fixture-key', area, transport);
+  expect(await maps.nearby(fixture.location)).toHaveLength(1);
+  const [url, options] = transport.mock.calls[0]!;
+  expect(url).toBe('https://places.googleapis.com/v1/places:searchNearby');
+  expect(JSON.parse(String(options.body))).toMatchObject({
+    maxResultCount: 5,
+    rankPreference: 'DISTANCE',
+    locationRestriction: { circle: { center: fixture.location, radius: 5000 } },
+  });
+  await expect(maps.nearby({ latitude: 91, longitude: 0 })).rejects.toThrow();
+  expect(transport).toHaveBeenCalledTimes(1);
+});

@@ -2,6 +2,14 @@
 
 Updated: September 12, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Rider nearby booking suggestions — September 12
+
+Compared rider Figma 4:20 with booking: the suggestion rows were missing until explicit text search. Added foreground-location nearby suggestions using existing Figma place-row assets, automatic 500ms text search with obsolete-result cancellation, and manual-search recovery. Already-granted location permits automatic lookup; otherwise Suggest places around me requests permission explicitly. Rider location is used for one lookup, not background tracking. Synthetic sessions use local fixtures and the label Suggested places. Empty nearby results and provider/location failures retain manual search. No fabricated pickup is selected automatically.
+
+Added authenticated POST /v1/places/nearby with validated coordinates and existing places rate limits. Google Nearby Search uses distance ranking, five results and a fixed 5km circle; coordinates travel in the body, keys remain server-side. Expo location and its foreground permission explanation are configured for rider builds. Existing provider adapters without nearby support return an explicit unavailable response.
+
+Verification: 12 Google adapter tests and 37 API tests passed; two Playwright booking journeys passed (8.9 seconds), including selection, automatic search and provider failure. Screenshot /tmp/rove-booking-nearby.png was visually reviewed at 390x844. Rider/API typechecks and targeted lint passed. No live Google lookup or hosted/native deployment is claimed. The rider native app needs rebuilding for the new module, and hosted API rollout plus physical permission/provider acceptance remain pending. Broader production requirements remain open. Next: native rider rebuild and nearby acceptance with permitted foreground location, then continue remaining release gaps.
+
 ## In-trip tracking recovery controls — September 12
 
 Drive, offers and active trips now share native Reconnect location and Open location settings actions alongside tracking errors. Previously only Drive offered reconnection, leaving the active-trip warning without a direct recovery action. The controls reuse existing secondary buttons, suppress overlapping taps, surface recovery failures and respect pending screen actions. Native recovery controls remain hidden for synthetic/web sessions. Settings opens app settings; reconnection preserves ride state and availability and reuses permission checks and serialized tracking lifecycle.

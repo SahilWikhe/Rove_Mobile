@@ -261,7 +261,12 @@ export function createApp(deps: Dependencies) {
     const identity = await deps.verifyIdentity(match[1]);
     c.set('subject', identity.subject);
     let policy: RequestLimit = c.req.method === 'GET' ? 'read' : 'mutation';
-    if (c.req.path === '/v1/places' || c.req.path.startsWith('/v1/saved-places/')) policy = 'places';
+    if (
+      c.req.path === '/v1/places' ||
+      c.req.path.startsWith('/v1/places/') ||
+      c.req.path.startsWith('/v1/saved-places/')
+    )
+      policy = 'places';
     else if (
       (c.req.path === '/v1/support-requests' || /^\/v1\/conversations\/[^/]+\/report$/.test(c.req.path)) &&
       c.req.method === 'POST'
@@ -384,6 +389,16 @@ export function createApp(deps: Dependencies) {
     if (!deps.driverPayouts)
       throw new DomainError('PAYOUT_SETUP_UNAVAILABLE', 'Payout setup is not available yet.', 503);
     return c.json(await deps.driverPayouts.start(c.var.actor));
+  });
+  app.post('/v1/places/nearby', async (c) => {
+    const input = await body(c, z.object({ coordinate: Coordinate }).strict());
+    if (!deps.maps.nearby)
+      throw new DomainError(
+        'MAPS_UNAVAILABLE',
+        'Nearby places are unavailable. Search by address instead.',
+        503,
+      );
+    return c.json({ places: await deps.maps.nearby(input.coordinate) });
   });
   app.get('/v1/places', async (c) => {
     const q = c.req.query('q')?.trim() ?? '';

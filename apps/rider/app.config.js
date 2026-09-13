@@ -16,6 +16,10 @@ module.exports = ({ config }) => ({
     ...(config.plugins ?? []),
     ['expo-notifications', { defaultChannel: 'default' }],
     'expo-font',
+    [
+      'expo-location',
+      { locationWhenInUsePermission: 'Allow Rove to suggest pickup and destination places near you.' },
+    ],
     './plugins/with-font-scale',
     [
       'react-native-maps',
