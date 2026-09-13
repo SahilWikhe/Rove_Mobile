@@ -1,3 +1,4 @@
+import { bindRefundOperationScope } from './refund-operation-scope';
 import { bindRefundScope } from './refund-scope';
 import { bindPaymentCustomerRead } from './payment-customer-scope';
 import type { CaptureFees } from './capture-fees';
@@ -183,6 +184,7 @@ export class DriverTransfers {
       )
       .parse(f.refunds);
     if (refunds.some((r) => ['pending', 'requires_action'].includes(r.status))) throw review();
+    await bindRefundOperationScope(c, this.source, { attemptId: p.attemptId });
     const operations = (
       await c.query('SELECT provider_refund_id,amount_cents FROM refund_operations WHERE attempt_id=$1', [
         p.attemptId,

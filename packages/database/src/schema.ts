@@ -342,6 +342,7 @@ export const ledgerPostings = pgTable(
 // Identity is installed only by trusted backend transactions; no anonymous/default access.
 const rlsActor = sql`NULLIF(current_setting('rove.actor_id', true), '')::uuid`;
 const rlsPermissions = {
+  'payments.refund': sql`p.permission='payments.refund'`,
   'payments.dispute.review': sql`p.permission='payments.dispute.review'`,
   'privacy.read': sql`p.permission='privacy.read'`,
   'privacy.close': sql`p.permission='privacy.close'`,
@@ -1050,6 +1051,8 @@ export const paymentRefundObservations = pgTable(
   ],
 );
 
+const refundOperationSource = (attempt: SQLWrapper) =>
+  sql`EXISTS(SELECT 1 FROM public.payment_attempts p WHERE p.id=${attempt} AND p.source=current_setting('rove.refund_operation_source',true))`;
 export const refundOperations = pgTable(
   'refund_operations',
   {
@@ -1068,7 +1071,26 @@ export const refundOperations = pgTable(
     firstAttemptAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index('refund_operations_attempt').on(t.attemptId)],
+  (t) => [
+    pgPolicy('refund_operation_read', {
+      for: 'select',
+      using: sql`${refundOperationSource(t.attemptId)} AND (${t.attemptId}=NULLIF(current_setting('rove.refund_operation_attempt',true),'')::uuid OR ${t.id}=NULLIF(current_setting('rove.refund_operation_read',true),'')::uuid OR ${t.id}=NULLIF(current_setting('rove.refund_operation_write',true),'')::uuid)`,
+    }),
+    pgPolicy('refund_operation_authorize', {
+      for: 'insert',
+      withCheck: sql`${refundOperationSource(t.attemptId)} AND ${t.attemptId}=NULLIF(current_setting('rove.refund_operation_attempt',true),'')::uuid AND ${rlsStaff('payments.refund')} AND ${t.authorizedBy}=${rlsActor} AND ${t.state}='queued' AND ${t.providerRefundId} IS NULL AND ${t.firstAttemptAt} IS NULL`,
+    }),
+    pgPolicy('refund_operation_execute', {
+      for: 'update',
+      using: sql`${refundOperationSource(t.attemptId)} AND ${t.id}=NULLIF(current_setting('rove.refund_operation_write',true),'')::uuid`,
+      withCheck: sql`${refundOperationSource(t.attemptId)} AND ${t.id}=NULLIF(current_setting('rove.refund_operation_write',true),'')::uuid`,
+    }),
+    pgPolicy('refund_operation_closure_read', {
+      for: 'select',
+      using: sql`${rlsStaff('privacy.close')} AND EXISTS(SELECT 1 FROM public.payment_attempts p JOIN public.rides r ON r.id=p.ride_id WHERE p.id=${t.attemptId} AND (r.rider_id=NULLIF(current_setting('rove.refund_closure_owner',true),'')::uuid OR r.driver_id=NULLIF(current_setting('rove.refund_closure_owner',true),'')::uuid))`,
+    }),
+    index('refund_operations_attempt').on(t.attemptId),
+  ],
 );
 
 const disputeSource = (attempt: SQLWrapper) =>

@@ -1,5 +1,13 @@
 # Implementation status
 
+## Refund authorization and execution RLS — September 13
+
+Migration 0069 enables and forces RLS on refund_operations. Source-specific attempt reads preserve cumulative limits and transfer holds. Only current MFA staff with payments.refund can insert queued authorizations attributed to themselves; workers cannot create authorizations. Execution/recovery updates bind the exact existing operation. Original authorization immutability triggers remain, and runtime deletion is denied. Account closure uses an owner-scoped read policy gated by current MFA privacy.close permission, preserving pending-refund holds. Actor and other worker contexts clear these scopes.
+
+Verification: all 705 server, 208 API and 13 database tests passed (926 total), plus server/database typechecks, targeted lint, formatting and diff checks. Restricted-role tests verify existing refund retries/recovery, staff read mutation denial, worker insertion denial, foreign-source isolation and pooled reset. A new closure regression proves a hidden pending refund blocks closure, and closure proceeds only after the synthetic operation is submitted with no other obligations. Providers were fake; no real refund or identity operation occurred.
+
+Source coverage is twenty-nine of 47 tables; eighteen remain. Hosted evidence remains twenty-eight through 0068. Provider staging and production were not changed. Next: remaining transfer/ledger, identity/trip and worker policies, hosted verification of new migrations, then compatible provider-staging rollout. Full mobile physical-device and production acceptance remain incomplete.
+
 ## Twenty-eight-table hosted RLS verification — September 13
 
 Applied migrations 0067–0068 only to the confirmed isolated synthetic Neon branch br-shy-bar-axjulxqh. Fresh catalog inspection shows 69 migrations, 47 tables and twenty-eight tables with RLS enabled and forced. Separate read-only inspection confirms provider staging remains at 31 migrations, 32 tables and zero RLS-enabled/forced tables. Production was not changed.

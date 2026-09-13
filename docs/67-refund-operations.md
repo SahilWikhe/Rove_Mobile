@@ -46,3 +46,9 @@ Metadata recovery and processor refund/failure journals are now implemented. Rem
 ## Disputed-payment hold
 
 When dispute tracking is enabled, authorization and each provider-mutation attempt require fresh clear dispute records. The worker refreshes disputes before applying the hold. Read-only recovery can still bind an existing correlated refund. See [dispute safeguards](69-disputes.md).
+
+## Refund operation row security
+
+Migration 0069 enables and forces RLS on refund_operations. Source-specific attempt reads support cumulative refund limits and transfer holds. Only current MFA staff with payments.refund may insert an initial queued authorization attributed to themselves; a worker cannot insert a new authorization. Execution and recovery transactions bind only the exact existing operation for updates. Original authorization immutability triggers remain in force, and no runtime deletion policy exists. Provider calls remain outside database transactions.
+
+Account closure uses a separate owner-specific read policy requiring current MFA privacy.close permission. Pending refunds therefore remain visible to closure safeguards without granting general refund access. Actor and other worker helpers clear refund-operation contexts. Restricted-role tests verify normal/retried execution, foreign-source isolation, denied staff-read updates and worker insertion, transfer holds and hidden pending-refund closure denial. Hosted verification of 0069 remains pending; deploy compatible API/worker code before applying it. Provider staging and production were not changed.

@@ -1,3 +1,5 @@
+import { actorTransaction } from './actor-transaction';
+import { bindRefundOperationScope } from './refund-operation-scope';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
@@ -374,4 +376,34 @@ test('an enabled dispute guard blocks both authorization and a dispute discovere
   await expect(execute(op.id)).rejects.toMatchObject({ code: 'DISPUTE_PAYMENT_HOLD' });
   expect(refund).not.toHaveBeenCalled();
   expect((await row(op.id)).first_attempt_at).toBeNull();
+});
+
+test('refund authorization cannot be forged by worker read scope or changed by staff read access', async () => {
+  const op = await operations.authorize(staff, reference.rideId, authorization, 'rls-refund');
+  expect((await runtimePool.query('SELECT * FROM refund_operations')).rowCount).toBe(0);
+  await actorTransaction(runtimePool, staff, async (c) => {
+    await bindRefundOperationScope(c, source, { attemptId: reference.attemptId });
+    expect((await c.query('SELECT id FROM refund_operations')).rows).toEqual([{ id: op.id }]);
+    expect((await c.query("UPDATE refund_operations SET state='review_required'")).rowCount).toBe(0);
+    expect((await c.query('DELETE FROM refund_operations')).rowCount).toBe(0);
+  });
+  await expect(
+    transaction(runtimePool, async (c) => {
+      await bindRefundOperationScope(c, source, {
+        attemptId: reference.attemptId,
+        operationId: op.id,
+        writable: true,
+      });
+      await c.query(
+        "INSERT INTO refund_operations(attempt_id,authorized_by,amount_cents,reason,policy_reference) VALUES($1,$2,100,'customer_request','fixture')",
+        [reference.attemptId, staff.id],
+      );
+    }),
+  ).rejects.toMatchObject({ code: '42501' });
+  await transaction(runtimePool, async (c) => {
+    await bindRefundOperationScope(c, 'acct_other:test', { operationId: op.id, writable: true });
+    expect((await c.query('SELECT * FROM refund_operations')).rowCount).toBe(0);
+    expect((await c.query("UPDATE refund_operations SET state='review_required'")).rowCount).toBe(0);
+  });
+  expect((await runtimePool.query('SELECT * FROM refund_operations')).rowCount).toBe(0);
 });

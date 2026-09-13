@@ -384,3 +384,37 @@ test('closure RLS hides records without weakening the closed-account access trig
     expect((await c.query('SELECT * FROM account_closures')).rowCount).toBe(0);
   });
 });
+
+test('pending refund remains a closure hold when runtime refund rows are otherwise hidden', async () => {
+  const requestId = await request();
+  const ride = randomUUID(),
+    binding = randomUUID(),
+    attempt = randomUUID(),
+    operation = randomUUID();
+  await db.pool.query(
+    "INSERT INTO rides(id,quote_id,rider_id,state,fare_cents,earnings_cents,search_deadline) VALUES($1,$2,$3,'cancelled',1050,790,now())",
+    [ride, await quote(), rider.id],
+  );
+  await db.pool.query(
+    "INSERT INTO payment_customers(id,rider_id,source,customer_id) VALUES($1,$2,'acct_closure:test','cus_closure')",
+    [binding, rider.id],
+  );
+  await db.pool.query(
+    "INSERT INTO payment_attempts(id,ride_id,customer_binding_id,source,intent_id,amount_cents,provider_status) VALUES($1,$2,$3,'acct_closure:test','pi_closure',1050,'succeeded')",
+    [attempt, ride, binding],
+  );
+  await db.pool.query(
+    "INSERT INTO refund_operations(id,attempt_id,authorized_by,amount_cents,reason,policy_reference) VALUES($1,$2,$3,100,'customer_request','fixture')",
+    [operation, attempt, staff.id],
+  );
+  expect((await runtimePool.query('SELECT * FROM refund_operations')).rowCount).toBe(0);
+  await expect(service.authorize(staff, requestId, policy, randomUUID())).rejects.toMatchObject({
+    code: 'ACCOUNT_CLOSURE_HOLD',
+  });
+  await db.pool.query(
+    "UPDATE refund_operations SET state='submitted',provider_refund_id='re_closure' WHERE id=$1",
+    [operation],
+  );
+  expect((await service.authorize(staff, requestId, policy, randomUUID())).state).toBe('closed');
+  expect(erase).not.toHaveBeenCalled();
+});

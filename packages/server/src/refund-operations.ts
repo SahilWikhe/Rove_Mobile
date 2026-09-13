@@ -1,3 +1,4 @@
+import { bindRefundOperationScope } from './refund-operation-scope';
 import { bindRefundScope } from './refund-scope';
 import { bindPaymentCustomerRead } from './payment-customer-scope';
 import { z } from 'zod';
@@ -46,6 +47,7 @@ export class RefundOperations {
       )
     ).rows[0];
     if (!row) throw unavailable();
+    await bindRefundOperationScope(client, this.source, { attemptId: row.id });
     return {
       attemptId: row.id,
       rideId,
@@ -171,6 +173,11 @@ export class RefundOperations {
     await this.reconciliation.reconcile(reference.intentId);
     return transaction(this.pool, async (client) => {
       await this.reference(client, rideId);
+      await bindRefundOperationScope(client, this.source, {
+        attemptId: reference.attemptId,
+        operationId,
+        writable: true,
+      });
       const op = (
         await client.query<Operation>(
           'SELECT * FROM refund_operations WHERE id=$1 AND attempt_id=$2 FOR UPDATE',
@@ -237,6 +244,7 @@ export class RefundOperations {
     await this.recoverKnown(operationId, rideId, actor.id);
     return transaction(this.pool, async (client) => {
       await requireStaffPermission(client, actor, permission);
+      await bindRefundOperationScope(client, this.source, { operationId });
       const op = (await client.query<Operation>('SELECT * FROM refund_operations WHERE id=$1', [operationId]))
         .rows[0]!;
       return this.dto(op);
@@ -247,12 +255,15 @@ export class RefundOperations {
       .object({ source: z.literal(this.source), operationId: z.uuid() })
       .strict()
       .parse(job.payload);
-    const initial = (
-      await this.pool.query(
-        `SELECT o.*,p.ride_id,p.intent_id,p.source FROM refund_operations o JOIN payment_attempts p ON p.id=o.attempt_id WHERE o.id=$1 AND p.source=$2`,
-        [input.operationId, this.source],
-      )
-    ).rows[0];
+    const initial = await transaction(this.pool, async (client) => {
+      await bindRefundOperationScope(client, this.source, { operationId: input.operationId });
+      return (
+        await client.query(
+          `SELECT o.*,p.ride_id,p.intent_id,p.source FROM refund_operations o JOIN payment_attempts p ON p.id=o.attempt_id WHERE o.id=$1 AND p.source=$2`,
+          [input.operationId, this.source],
+        )
+      ).rows[0];
+    });
     if (!initial) throw unavailable();
     if (
       initial.first_attempt_at &&
@@ -268,6 +279,11 @@ export class RefundOperations {
     // Retry is bounded by the first persisted attempt, not by the age of the most recent job.
     const prepared = await transaction(this.pool, async (client) => {
       const reference = await this.reference(client, initial.ride_id);
+      await bindRefundOperationScope(client, this.source, {
+        attemptId: reference.attemptId,
+        operationId: initial.id,
+        writable: true,
+      });
       const op = (
         await client.query<Operation>('SELECT * FROM refund_operations WHERE id=$1 FOR UPDATE', [initial.id])
       ).rows[0]!;
@@ -290,6 +306,11 @@ export class RefundOperations {
     await this.disputes?.reconcile(prepared.reference.intentId);
     const ready = await transaction(this.pool, async (client) => {
       const reference = await this.reference(client, initial.ride_id);
+      await bindRefundOperationScope(client, this.source, {
+        attemptId: reference.attemptId,
+        operationId: initial.id,
+        writable: true,
+      });
       const op = (
         await client.query<Operation>('SELECT * FROM refund_operations WHERE id=$1 FOR UPDATE', [initial.id])
       ).rows[0]!;
@@ -316,6 +337,7 @@ export class RefundOperations {
     if (!/^re_[a-zA-Z0-9]{1,96}$/.test(result.id) || result.amountCents !== ready.op.amount_cents)
       throw unavailable();
     await transaction(this.pool, async (client) => {
+      await bindRefundOperationScope(client, this.source, { operationId: initial.id, writable: true });
       const current = (
         await client.query<Operation>('SELECT * FROM refund_operations WHERE id=$1 FOR UPDATE', [initial.id])
       ).rows[0]!;
