@@ -31,3 +31,9 @@ This covers the original capture processing fee only. Transfer, refund and dispu
 ## Local evidence
 
 Tests use disposable PostgreSQL and mocked provider transport. They cover fee and zero-fee accounting, pending/available transitions, immutable changed-fact holds, idempotency, stale reads, source isolation, cross-payment balance reuse, freshness, missing gross capture and audit rollback. An outbox integration test traverses payment reconciliation into fee accounting. Transfer tests prove fee holds preserve reserved earnings and block new mutations. API/runtime/scheduler tests cover opt-in configuration, creation dependencies and recovery ordering. Current executed check results are in [implementation status](18-implementation-status.md).
+
+## Capture-check row isolation
+
+Migration 0065 enables and forces RLS on payment_capture_checks. Reconciliation binds the configured provider source and one payment attempt for reads/writes. Readiness checks use a separate read/lock scope that rejects mutations. Sweep discovery reads only the configured source, then binds each selected attempt before scheduling it. Duplicate-balance lookup reads only the exact observed balance reference within that source. No runtime deletion policy exists. Actor and other worker contexts clear capture scopes.
+
+Restricted-role tests cover concurrent/retried reconciliation, stale observations, immutable fee evidence, source isolation and readiness lock access with denied writes. Existing transfer tests remain compatible. Deploy scoped capture-accounting code before the migration. Hosted verification remains pending; these policies do not imply row isolation for customer, attempt, transfer or ledger tables.

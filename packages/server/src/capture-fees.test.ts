@@ -1,3 +1,4 @@
+import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { testDatabase } from '@rove/database/testing';
@@ -6,6 +7,7 @@ import type { CaptureBalanceSnapshot, CaptureBalanceProvider } from './capture-b
 import { CaptureFees } from './capture-fees';
 import { recordCapturedFunds } from './ledger';
 import { transaction } from './transactions';
+let runtimePool: Pool;
 let database: Awaited<ReturnType<typeof testDatabase>>;
 let reference: PaymentReference;
 let now: Date;
@@ -25,8 +27,25 @@ const snapshot = (): CaptureBalanceSnapshot => ({
 });
 beforeAll(async () => {
   database = await testDatabase();
+  await database.pool.query(
+    "CREATE ROLE rls_capture LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'synthetic-local-only'",
+  );
+  await database.pool.query('GRANT USAGE ON SCHEMA public TO rls_capture');
+  await database.pool.query(
+    'GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_capture',
+  );
+  await database.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_capture');
+  runtimePool = new Pool({
+    host: '127.0.0.1',
+    port: (await database.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
+    database: 'postgres',
+    user: 'rls_capture',
+    password: 'synthetic-local-only',
+    max: 5,
+  });
 }, 60_000);
 afterAll(async () => {
+  await runtimePool?.end();
   await database?.close();
 });
 beforeEach(async () => {
@@ -89,10 +108,10 @@ beforeEach(async () => {
   );
   retrieve.mockReset();
   retrieve.mockImplementation(async () => snapshot());
-  service = new CaptureFees(database.pool, { retrieve }, source, () => now);
+  service = new CaptureFees(runtimePool, { retrieve }, source, () => now);
 });
 const reconcile = () => service.reconcile(reference.intentId);
-const ready = () => transaction(database.pool, (c) => service.assertReady(c, reference.attemptId, 1050));
+const ready = () => transaction(runtimePool, (c) => service.assertReady(c, reference.attemptId, 1050));
 async function stored() {
   return (
     await database.pool.query('SELECT * FROM payment_capture_checks WHERE attempt_id=$1', [
@@ -213,7 +232,7 @@ test('invalid arithmetic and wrong amount cannot create a verified record', asyn
   await expect(ready()).rejects.toMatchObject({ code: 'CAPTURE_ACCOUNTING_REVIEW' });
 });
 test('source isolation rejects another account without contacting the provider', async () => {
-  const other = new CaptureFees(database.pool, { retrieve }, 'acct_other:test', () => now);
+  const other = new CaptureFees(runtimePool, { retrieve }, 'acct_other:test', () => now);
   await expect(other.reconcile(reference.intentId)).rejects.toMatchObject({
     code: 'CAPTURE_ACCOUNTING_REVIEW',
   });
@@ -309,9 +328,9 @@ test('one provider balance cannot be claimed by two payments, including zero-fee
   expect(
     (await database.pool.query('SELECT * FROM payment_capture_checks WHERE balance_id IS NOT NULL')).rowCount,
   ).toBe(1);
-  await expect(
-    transaction(database.pool, (c) => service.assertReady(c, attempt, 1050)),
-  ).rejects.toMatchObject({ code: 'CAPTURE_ACCOUNTING_REVIEW' });
+  await expect(transaction(runtimePool, (c) => service.assertReady(c, attempt, 1050))).rejects.toMatchObject({
+    code: 'CAPTURE_ACCOUNTING_REVIEW',
+  });
 });
 
 test('a paid status without the original gross ledger capture cannot book fees', async () => {
@@ -338,4 +357,29 @@ test('a paid status without the original gross ledger capture cannot book fees',
   );
   await expect(service.reconcile('pi_other')).rejects.toMatchObject({ code: 'CAPTURE_ACCOUNTING_REVIEW' });
   expect(retrieve).not.toHaveBeenCalled();
+});
+
+test('capture readiness scope cannot alter accounting and foreign sources remain hidden', async () => {
+  await service.reconcile(reference.intentId!);
+  expect((await runtimePool.query('SELECT * FROM payment_capture_checks')).rowCount).toBe(0);
+  await transaction(runtimePool, async (c) => {
+    await service.assertReady(c, reference.attemptId, 1050);
+    expect((await c.query('SELECT * FROM payment_capture_checks')).rowCount).toBe(1);
+    expect((await c.query('DELETE FROM payment_capture_checks')).rowCount).toBe(0);
+  });
+  await expect(
+    transaction(runtimePool, async (c) => {
+      await service.assertReady(c, reference.attemptId, 1050);
+      await c.query('UPDATE payment_capture_checks SET review_required=true');
+    }),
+  ).rejects.toMatchObject({ code: '42501' });
+  await transaction(runtimePool, async (c) => {
+    await c.query(
+      "SELECT set_config('rove.capture_source','acct_foreign:test',true),set_config('rove.capture_write',$1,true)",
+      [reference.attemptId],
+    );
+    expect((await c.query('SELECT * FROM payment_capture_checks')).rowCount).toBe(0);
+    expect((await c.query('UPDATE payment_capture_checks SET review_required=true')).rowCount).toBe(0);
+  });
+  expect((await runtimePool.query('SELECT * FROM payment_capture_checks')).rowCount).toBe(0);
 });

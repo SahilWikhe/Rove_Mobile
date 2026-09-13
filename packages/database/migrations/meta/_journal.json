@@ -456,6 +456,13 @@
       "when": 1789293451635,
       "tag": "0064_staff_permission_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1789293985086,
+      "tag": "0065_capture_check_rls",
+      "breakpoints": true
     }
   ]
 }

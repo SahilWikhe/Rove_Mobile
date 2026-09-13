@@ -93,6 +93,7 @@ export class CaptureFees {
   async reconcile(intentId: string) {
     const before = await transaction(this.pool, async (c) => {
       const ref = await this.context(c, intentId);
+      await this.bindScope(c, 'write', ref.attemptId);
       await this.capture(c, ref);
       await c.query(
         'INSERT INTO payment_capture_checks(attempt_id,source) VALUES($1,$2) ON CONFLICT DO NOTHING',
@@ -112,6 +113,7 @@ export class CaptureFees {
     const b = result.data;
     const outcome = await transaction(this.pool, async (c) => {
       const ref = await this.context(c, intentId);
+      await this.bindScope(c, 'write', ref.attemptId);
       if (JSON.stringify(ref) !== JSON.stringify(before.ref)) throw review();
       await this.capture(c, ref);
       const stored = (
@@ -144,6 +146,7 @@ export class CaptureFees {
       }
       const key = `capture-fee:${this.source}:${b.balanceId}`;
       await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [key]);
+      await c.query("SELECT set_config('rove.capture_balance',$1,true)", [b.balanceId]);
       const reused = (
         await c.query('SELECT attempt_id FROM payment_capture_checks WHERE source=$1 AND balance_id=$2', [
           this.source,
@@ -213,7 +216,20 @@ export class CaptureFees {
       JSON.stringify(detail),
     ]);
   }
+  private async bindScope(c: PoolClient, mode: 'read' | 'write' | 'sweep', attemptId?: string) {
+    if (mode !== 'sweep') z.uuid().parse(attemptId);
+    await c.query(
+      "SELECT set_config('rove.capture_source',$1,true),set_config('rove.capture_write',$2,true),set_config('rove.capture_read',$3,true),set_config('rove.capture_sweep',$4,true),set_config('rove.capture_balance','',true)",
+      [
+        this.source,
+        mode === 'write' ? attemptId! : '',
+        mode === 'read' ? attemptId! : '',
+        mode === 'sweep' ? 'true' : 'false',
+      ],
+    );
+  }
   async assertReady(c: PoolClient, attemptId: string, amountCents: number) {
+    await this.bindScope(c, 'read', attemptId);
     const row = (
       await c.query('SELECT * FROM payment_capture_checks WHERE attempt_id=$1 AND source=$2 FOR SHARE', [
         attemptId,
@@ -233,6 +249,7 @@ export class CaptureFees {
   }
   async sweep() {
     return transaction(this.pool, async (c) => {
+      await this.bindScope(c, 'sweep');
       const rows = (
         await c.query(
           `SELECT p.id,p.intent_id FROM payment_attempts p WHERE p.source=$1 AND p.intent_id IS NOT NULL
@@ -243,6 +260,7 @@ export class CaptureFees {
         )
       ).rows;
       for (const r of rows) {
+        await this.bindScope(c, 'write', r.id);
         await c.query(
           'INSERT INTO payment_capture_checks(attempt_id,source,requested_at) VALUES($1,$2,$3) ON CONFLICT(attempt_id) DO UPDATE SET requested_at=EXCLUDED.requested_at',
           [r.id, this.source, this.now()],

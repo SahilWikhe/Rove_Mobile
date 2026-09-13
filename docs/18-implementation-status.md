@@ -1,5 +1,17 @@
 # Implementation status
 
+## Capture-accounting RLS — September 13
+
+Migration 0065 enables and forces row security on payment_capture_checks. Reconciliation binds the configured provider source and exact attempt; readiness checks retain share locks but cannot alter accounting. Sweep discovery is source-scoped and writes bind each selected attempt. Balance-reuse checks expose only the exact observed provider balance reference. Runtime deletion is denied, and actor/other worker transactions clear capture scopes.
+
+Verification: 699 server tests, 208 API tests and 13 database tests passed (920 total). Capture tests now execute through a non-owner NOSUPERUSER/NOBYPASSRLS role, including readiness mutation denial, foreign-source isolation and context reset. Server/database typechecks, targeted ESLint, formatting, documentation validation and diff checks passed. Providers were mocked; no real payment operation occurred.
+
+Source coverage is twenty-three of 47 tables. Hosted evidence remains twenty-one through 0063; provider staging and production were not changed. Next: complete remaining financial, identity and trip policies and their worker access paths, rehearse the new migration delta on isolated synthetic Neon, then perform the compatible staging rollout. Full mobile and production acceptance remain incomplete.
+
+## User priority: complete and enable RLS
+
+After the task currently in progress, prioritize completing Neon row-level security: define rider, driver, staff and worker access policies; verify isolation using a restricted application database role; and validate a compatible staging rollout before production. Keep this priority open until deployed enforcement is verified. Existing partial implementation and isolated rehearsal evidence do not establish complete staging or production coverage.
+
 ## Payment customer and wallet actor boundaries — September 13
 
 Customer reservation now binds verified active-rider context after its existing account lock. Reusing a rider/source binding uses conflict-do-nothing followed by a read, removing the unnecessary unchanged-row update. Wallet mapping reads now verify and lock the active actor in the same transaction, including post-provider revalidation. Provider calls remain outside transactions; confirmed customer mappings are still retained when account disablement races the response, while further setup and secret return are rejected.

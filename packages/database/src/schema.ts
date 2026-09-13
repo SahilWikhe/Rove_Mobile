@@ -1173,6 +1173,25 @@ export const paymentCaptureChecks = pgTable(
     reviewRequired: boolean().notNull().default(false),
   },
   (t) => [
+    pgPolicy('capture_check_read', {
+      for: 'select',
+      using: sql`${t.source}=current_setting('rove.capture_source',true) AND (${t.attemptId}=NULLIF(current_setting('rove.capture_write',true),'')::uuid OR ${t.attemptId}=NULLIF(current_setting('rove.capture_read',true),'')::uuid OR ${t.balanceId}=NULLIF(current_setting('rove.capture_balance',true),'') OR current_setting('rove.capture_sweep',true)='true')`,
+    }),
+    pgPolicy('capture_check_insert', {
+      for: 'insert',
+      withCheck: sql`${t.source}=current_setting('rove.capture_source',true) AND ${t.attemptId}=NULLIF(current_setting('rove.capture_write',true),'')::uuid`,
+    }),
+    pgPolicy('capture_check_update', {
+      for: 'update',
+      using: sql`${t.source}=current_setting('rove.capture_source',true) AND ${t.attemptId}=NULLIF(current_setting('rove.capture_write',true),'')::uuid`,
+      withCheck: sql`${t.source}=current_setting('rove.capture_source',true) AND ${t.attemptId}=NULLIF(current_setting('rove.capture_write',true),'')::uuid`,
+    }),
+    pgPolicy('capture_check_read_lock', {
+      for: 'update',
+      using: sql`${t.source}=current_setting('rove.capture_source',true) AND ${t.attemptId}=NULLIF(current_setting('rove.capture_read',true),'')::uuid`,
+      withCheck: sql`false`,
+    }),
+
     uniqueIndex('capture_balance_source').on(t.source, t.balanceId),
     check('capture_check_revision', sql`${t.revision} >= 0`),
     check('capture_check_source', sql`${t.source} ~ '^acct_[a-zA-Z0-9]{1,96}:(test|live)$'`),
