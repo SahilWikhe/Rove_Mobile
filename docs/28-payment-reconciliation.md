@@ -40,3 +40,7 @@ Fourteen reconciliation tests and one pickup-authorization test use disposable P
 ## Remaining work
 
 Customer provisioning, durable payment sessions, native PaymentSheet/CustomerSheet, saved methods, capture/allocation ledger, receipts, earnings and runtime/worker composition are implemented; see [native payments](31-native-rider-payments.md), [ledger](32-captured-funds-ledger.md), [earnings](37-driver-earnings.md) and [runtime](34-backend-runtime.md). Remaining: complete physical-device PaymentSheet/3DS and sandbox journey acceptance, refund/dispute authorization and journals, actual driver transfers/settlement, periodic reconciliation/review operations, retention and approved production policies. Staging evidence is not production activation.
+
+## Hosted payment-review gap — September 13, 2026
+
+Sandbox decline/authentication-required acceptance verified that unauthorised funding blocks pickup and capture while preserving rider cancellation. Broader inspection found one payment.review_required dead letter per isolated fixture because runtime has no escalation consumer. Implement durable staff review intake and authorized visibility, including retry/deduplication and audited dead-letter recovery, before production. Do not silently discard these events. The payment.updated consumer now exists and pauses its work when push is disabled; the older worker-wiring paragraph above records the initial implementation checkpoint. See [sandbox acceptance](payment-sandbox-acceptance.md#decline-and-authentication-required-guards).

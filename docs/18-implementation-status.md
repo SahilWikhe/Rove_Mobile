@@ -1,5 +1,11 @@
 # Implementation status
 
+## Sandbox payment guards passed; staff review intake remains missing — September 13
+
+Verified separate dedicated matched fixtures using Stripe official generic-decline and authentication-required methods. Provider states were requires_payment_method/card_declined and requires_action, with zero authorized/collected funds. Restricted reconciliation set review_required for these already assigned rides. Authenticated driver pickup progression returned 409/PAYMENT_REQUIRED; capture handlers rejected PAYMENT_OPERATION_NOT_ALLOWED. Rider cancellation and same-key retries passed. Hosted cancellation/release jobs completed once, repeated release handling remained safe, final funding was released, and no ledger journals or matching jobs existed. Both fixtures are terminal and private. No native challenge UI or full booking claim. Authentication reconciliation resumed original keys after the expected webhook revision conflict.
+
+Fresh outbox inspection found one payment.review_required dead letter in each fixture; source confirms the escalation consumer is missing. Payment.updated correctly remains pending without attempts while push is off. Existing dead letters were preserved. Next priority is durable staff payment-review intake/visibility and recovery, followed by native provider/device and remaining launch acceptance. Production remains incomplete. Documentation/diff checks run before the authorized push; remote confirmation follows separately.
+
 ## Hosted rider cancellation releases sandbox authorization — September 13
 
 Verified a separate persisted $2 synthetic matched ride with the dedicated Auth0 rider/driver identities, expected Stripe sandbox and provider-staging restricted runtime. The rider cancelled through the hosted transitions API and repeated the original key/body; both returned the same cancelled response. Hosted ride.cancelled and payment.release jobs each completed once without dead letters. Provider readback was canceled with zero received/capturable cents and local payment state released. Two explicit release-handler retries preserved the result. No ledger journals or matching jobs were created; the terminal fixture and original keys are retained privately. No production, Maps, live money or driver transfer operations.

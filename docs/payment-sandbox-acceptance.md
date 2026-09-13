@@ -37,6 +37,14 @@ Stripe readback showed canceled with zero received and zero capturable cents; th
 
 The first reconciliation encountered the expected concurrent-webhook revision conflict and resumed the same persisted attempt. An evidence query initially referenced a nonexistent outbox status column; it was corrected to completed_at/dead_letter_at. A later HTTP retry returned 401 after the test token expired; dedicated Universal Login/PKCE was refreshed and the complete same-fixture check then exited successfully. None of these retries created a replacement payment. Native cancellation controls, process-death recovery and the complete booking journey still need separate acceptance.
 
+## Decline and authentication-required guards
+
+Two further isolated matched-ride fixtures used Stripe's documented pm_card_visa_chargeDeclined and pm_card_authenticationRequired test methods. The first returned card_declined/generic_decline and requires_payment_method; the second returned requires_action. Both had zero capturable and received cents. These deliberately preassigned fixtures verify protection when an assigned ride lacks authorization, not initial booking/matching or the native 3DS challenge. See [Stripe test instruments](https://docs.stripe.com/testing#regulatory-cards).
+
+Restricted reconciliation retained matched state with review_required funding. Authenticated driver en_route transitions returned 409/PAYMENT_REQUIRED, and direct capture handlers rejected PAYMENT_OPERATION_NOT_ALLOWED. Authenticated rider cancellation and same-key retries succeeded. Hosted cancellation/release jobs each completed once, final provider status was canceled, local funding was released, repeated release handling was safe and no ledger journals or matching jobs existed. Both private fixtures are terminal; no collected funds or real production changes occurred. Authentication-required reconciliation initially encountered a concurrent-webhook revision conflict and resumed the same intent/keys successfully.
+
+The broader outbox inspection exposed one dead-lettered payment.review_required event for each fixture. Runtime has no handler for that escalation topic. This remains an explicit production blocker: implement durable staff review intake/visibility with authorization, deduplication and recovery rather than discard or pretend to deliver the event. Existing dead letters were preserved. The three payment.updated events per fixture correctly remained unclaimed with push disabled. Payment safety guards passed, but staff escalation and native decline/3DS presentation are not proven.
+
 ## Remaining acceptance and setup
 
 - The staging key's Accounts v2 list request returned HTTP 403/forbidden. Connect onboarding and driver transfers remain disabled. Review the sandbox key's Accounts v2 access before provisioning a dedicated recipient; this check does not establish account creation, account-link creation or recipient capability readiness.
