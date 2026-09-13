@@ -1,3 +1,5 @@
+import { bindUserRead } from './user-scope';
+import { transaction } from './transactions';
 import type { Pool } from 'pg';
 import { Profile, ProfileNameUpdate } from '@rove/contracts';
 import type { Actor } from './rides';
@@ -13,12 +15,21 @@ export async function updateProfileName(pool: Pool, actor: Actor, raw: unknown) 
     throw new DomainError('PROFILE_CHANGED', 'Your signed-in account changed. Reopen your profile.', 409);
   // Compare and update in one statement. A retry of an already applied value is
   // harmless; a different edit from another device must be reviewed first.
-  const result = await pool.query(
-    `UPDATE users SET name=$2 WHERE id=$1 AND role=$4 AND NOT disabled
-     AND (name=$3 OR name=$2) RETURNING id,name,role`,
-    [actor.id, input.name, input.expectedName, actor.role],
-  );
-  if (!result.rows[0])
-    throw new DomainError('PROFILE_CHANGED', 'Your profile changed. Reload it before saving again.', 409);
-  return Profile.parse(result.rows[0]);
+  return transaction(pool, async (client) => {
+    await bindUserRead(client, actor.id);
+    // Snapshot every persisted field; the future RLS write policy permits only the selected name change.
+    await client.query(
+      `SELECT set_config('rove.user_profile_write',(to_jsonb(u)||jsonb_build_object('name',$2::text))::text,true)
+       FROM users u WHERE id=$1 AND role=$3 AND NOT disabled FOR UPDATE`,
+      [actor.id, input.name, actor.role],
+    );
+    const result = await client.query(
+      `UPDATE users SET name=$2 WHERE id=$1 AND role=$4 AND NOT disabled
+       AND (name=$3 OR name=$2) RETURNING id,name,role`,
+      [actor.id, input.name, input.expectedName, actor.role],
+    );
+    if (!result.rows[0])
+      throw new DomainError('PROFILE_CHANGED', 'Your profile changed. Reload it before saving again.', 409);
+    return Profile.parse(result.rows[0]);
+  });
 }

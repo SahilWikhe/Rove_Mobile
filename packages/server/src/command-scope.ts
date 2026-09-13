@@ -1,3 +1,4 @@
+import { bindUserRead } from './user-scope';
 import type { PoolClient } from 'pg';
 import { z } from 'zod';
 import { DomainError } from './errors';
@@ -11,6 +12,7 @@ export async function bindCommandScope(c: PoolClient, actorId: string, key: stri
     z.string()
       .regex(/^[a-f0-9]{64}$/)
       .parse(fingerprint);
+  await bindUserRead(c, actorId);
   const user = (await c.query('SELECT id,disabled FROM users WHERE id=$1', [actorId])).rows[0];
   if (!user) throw new DomainError('NOT_FOUND', 'Account not found.', 404);
   if (user.disabled) throw new DomainError('ACCOUNT_DISABLED', 'This account is disabled.', 403);

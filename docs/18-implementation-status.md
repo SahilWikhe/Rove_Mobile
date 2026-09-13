@@ -1,5 +1,11 @@
 # Implementation status
 
+## Account lookup and profile write preparation — September 13
+
+Actor authorization and command retry setup now bind an exact account lookup before checking persisted role/disabled state. Profile updates run in a transaction, lock the selected account and snapshot the full persisted row with only the intended display name replaced. Identity-subject and account scopes clear each other's write authority. Existing stale-edit comparisons and disabled-account behavior are preserved.
+
+Two restricted-role prototype tests verify exact account visibility/locks, unscoped and foreign denial, read-only mutation denial, profile name updates, stale edits, denied role/subject/id/disabled changes and write revocation after scope replacement. The initial test fixture lacked authentication and trigger-table grants; it now uses a generated password and actual-runtime-equivalent table grants. All 757 server and 208 API tests passed, plus server typechecking, changed-source lint and diff checks. No users policy is enabled in application migrations yet. Source/isolated hosted RLS remains 44/47. Next: integrate worker/staff user reads and remaining core policies, avoiding parent/child policy recursion; then compatible provider-staging rollout and device/provider acceptance. This checkpoint is prepared for the authorized main push; remote confirmation follows.
+
 ## Verified identity lookup and atomic signup preparation — September 13
 
 API identity middleware and verification-email eligibility now resolve the already-verified subject through a shared transaction-local identity scope. Signup uses that scope and a strictly validated rider/driver payload; creation of the user and default driver record now commits atomically. Existing accounts retain their original name/role, disabled accounts cannot be reactivated by signup, and public signup cannot create staff. Token verification still precedes every identity lookup; no Auth0 configuration changed.
