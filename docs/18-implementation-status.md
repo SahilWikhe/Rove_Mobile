@@ -2,6 +2,18 @@
 
 Updated: September 12, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Both Android participants receive live messages; iOS trip verification started — September 12
+
+The expanded two-app Android scenario passed in 149.513 seconds with zero failures. Each native participant sent a message and stayed in its conversation for a delayed reply from the dedicated synthetic counterpart. The driver then reopened its conversation and saw the rider's message; the scenario continued through the completed ride and paid rider receipt. Per-run JUnit, proxy/peer events and screenshots are retained under reports/native-trip-android/android-driver-details/2026-09-12_205948. Ready WebSocket connections 45 and 48 received messages.changed at 04:01:31.521 and 04:01:49.659 UTC; native assertions completed at 21:01:32.221 and 21:01:50.376 PDT. These are observed local foreground events, not production latency guarantees.
+
+The rider test now waits for the confirmed-driver screen before pulling the lower panel upward; earlier attempts dragged the map or acted before that screen was ready. No trip rule or app UI was weakened. The synthetic peer now supplies both delayed replies. Added an iOS two-app wrapper around the existing isolated simulator lifecycle runner.
+
+The first iOS trip run reached the accepted trip and driver conversation, then failed to find the Message composer before sending. Its screenshot shows a debug warning banner overlapping the composer; Metro recorded onAnimatedValueUpdate with no listeners. The root cause remains unresolved. Evidence is retained under reports/native-trip-ios/details/2026-09-12_210420 and reports/native-trip-ios/failure.png. No warning suppression or iOS pass is claimed. The runner removed its owned simulator.
+
+Targeted tooling ESLint/Prettier, all 86 documentation files, diff checks and both proxy forwarding/log-redaction regression tests passed.
+
+Next: resolve the iOS composer obstruction and verify the same full trip/message scenario, then native location/reconnect and physical/provider acceptance. Remaining Figma, data-erasure fulfillment and production setup remain open. No hosted migration, cleanup activation, provider change or production activation occurred.
+
 ## Android foreground WebSocket messaging acceptance — September 12
 
 The optional messaging segment passed inside the complete Android trip scenario in 125.4 seconds. The native driver opened Message rider, typed/sent the test message, stayed in the conversation while a dedicated synthetic rider peer replied after a five-second delay, saw the reply, returned through View this trip and completed the ride through the rider's paid receipt. The final conversation screenshot was inspected.

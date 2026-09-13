@@ -20,4 +20,39 @@ appId: co.roveride.driver
     visible: Native live reply received.
     timeout: 15000
 - takeScreenshot: driver-live-message
+- launchApp:
+    appId: co.roveride.rider
+    stopApp: false
+    permissions: {}
+- extendedWaitUntil:
+    visible: Your driver is confirmed.
+    timeout: 15000
+- swipe:
+    start: 50%, 90%
+    end: 50%, 40%
+    duration: 500
+- scrollUntilVisible:
+    element:
+      text: Message driver
+    direction: DOWN
+    timeout: 30000
+- tapOn: Message driver
+- extendedWaitUntil:
+    visible: Native pickup check.
+    timeout: 15000
+- tapOn: Message
+- inputText: Native rider check.
+- tapOn: Send message
+- extendedWaitUntil:
+    visible: Native driver reply received.
+    timeout: 15000
+- takeScreenshot: rider-live-message
+- tapOn: View this trip
+- launchApp:
+    appId: co.roveride.driver
+    stopApp: false
+    permissions: {}
+- extendedWaitUntil:
+    visible: Native rider check.
+    timeout: 15000
 - tapOn: View this trip

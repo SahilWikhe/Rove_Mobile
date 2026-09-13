@@ -17,9 +17,21 @@ if (
   );
   process.exit(1);
 }
+const companion = process.env.TRIP_RIDER_APP;
+const riderPort = process.env.TRIP_RIDER_METRO_PORT || '8192';
+const trip = Boolean(companion);
+if (
+  trip &&
+  (role !== 'driver' ||
+    !/^\d+$/.test(riderPort) ||
+    +riderPort < 1024 ||
+    +riderPort > 65535 ||
+    +riderPort === +port)
+)
+  throw new Error('Trip mode requires driver primary app and distinct valid Metro ports.');
 const app = resolve(artifact);
 const bundle = `co.roveride.${role}`;
-const output = `reports/native-account-${role}`;
+const output = trip ? 'reports/native-trip-ios' : `reports/native-account-${role}`;
 const command = (binary, args, timeout = 60000) =>
   execFileSync(binary, args, {
     encoding: 'utf8',
@@ -45,6 +57,24 @@ try {
   const response = await fetch(`http://127.0.0.1:${port}/status`, { signal: AbortSignal.timeout(5000) });
   if (!response.ok || !(await response.text()).includes('packager-status:running'))
     throw new Error('Local Metro is not ready.');
+  if (trip) {
+    const riderApp = resolve(companion);
+    if (
+      command('/usr/libexec/PlistBuddy', ['-c', 'Print :CFBundleIdentifier', `${riderApp}/Info.plist`]) !==
+      'co.roveride.rider'
+    )
+      throw new Error('Companion must be the rider simulator app.');
+    const riderExecutable = command('/usr/libexec/PlistBuddy', [
+      '-c',
+      'Print :CFBundleExecutable',
+      `${riderApp}/Info.plist`,
+    ]);
+    if (!existsSync(`${riderApp}/${riderExecutable}.debug.dylib`))
+      throw new Error('Companion must be a Debug artifact.');
+    const metro = await fetch(`http://127.0.0.1:${riderPort}/status`, { signal: AbortSignal.timeout(5000) });
+    if (!metro.ok || !(await metro.text()).includes('packager-status:running'))
+      throw new Error('Rider Metro is not ready.');
+  }
   const { runtimes } = JSON.parse(simctl('list', 'runtimes', '--json'));
   const runtime = runtimes
     .filter((r) => r.isAvailable && r.identifier.includes('.iOS-'))
@@ -60,6 +90,10 @@ try {
   simctl('boot', device);
   simctl('bootstatus', device, '-b');
   simctl('install', device, app);
+  if (trip) {
+    simctl('install', device, resolve(companion));
+    simctl('launch', device, 'co.roveride.rider', '-RCT_jsLocation', `127.0.0.1:${riderPort}`);
+  }
   simctl('launch', device, bundle, '-RCT_jsLocation', `127.0.0.1:${port}`);
   nativeSmokeCommand(
     process.env.MAESTRO_BINARY || 'maestro',
@@ -69,18 +103,24 @@ try {
       'test',
       '-e',
       `APP_ID=${bundle}`,
+      '-e',
+      `ENABLE_MESSAGES=${process.env.NATIVE_TRIP_MESSAGES === '1' ? '1' : '0'}`,
       '--format',
       'junit',
       '--output',
       `${output}/results.xml`,
       '--test-output-dir',
       `${output}/details`,
-      'native-tests/account-deletion.yaml',
+      trip ? 'native-tests/complete-trip.yaml' : 'native-tests/account-deletion.yaml',
     ],
     `${output}/maestro.log`,
-    360000,
+    trip ? 600000 : 360000,
   );
-  console.log(`${role}: native account deletion and withdrawal passed.`);
+  console.log(
+    trip
+      ? 'iOS complete trip verified across both apps.'
+      : `${role}: native account deletion and withdrawal passed.`,
+  );
 } catch (error) {
   console.error(`Native account journey failed: ${error.message}`);
   process.exitCode = 1;

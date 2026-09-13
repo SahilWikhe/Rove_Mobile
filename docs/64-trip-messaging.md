@@ -90,3 +90,9 @@ from proving cloud deployment and real push delivery.
 ### Native Android foreground evidence
 
 On September 12 the driver sent through the native composer and received a delayed synthetic rider reply while the conversation stayed open. A transparent local proxy captured the authenticated connection's ready/message-change events, and Maestro verified the remote text before navigating back to the trip. The same scenario then completed the ride and rider paid receipt (125.4 seconds, zero failures). This proves local foreground WebSocket delivery to the Android driver; it does not establish native rider receiving, iOS, push, background/locked-phone delivery or live Auth0 acceptance. Run instructions and evidence requirements are in [native messaging acceptance](08-cicd-and-environments.md#native-foreground-messaging-evidence).
+
+### Both Android participants verified
+
+The expanded September 12 run passed in 149.513 seconds with zero failures. Both native Android participants sent through their composers and received delayed synthetic counterpart replies while remaining in the conversation. Recorded ready WebSocket connections received the corresponding messages.changed events before the native visible-text assertions. The driver also saw the rider message after reopening, and the ride continued through the paid receipt. Artifacts are under reports/native-trip-android/android-driver-details/2026-09-12_205948. This extends the earlier driver-only evidence; it does not prove background, reconnect, physical-device or live-provider acceptance.
+
+The new iOS trip runner reached the driver conversation but failed at the composer assertion with a debug warning banner overlapping that area. The cause remains under investigation; no iOS messaging pass is recorded.
