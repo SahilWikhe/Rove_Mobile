@@ -591,6 +591,8 @@ export const pushRateWindows = pgTable('push_rate_windows', {
   count: integer().notNull(),
 });
 
+const rlsDocumentStaff = sql`${rlsStaff('driver.document.review')} OR ${rlsStaff('driver.eligibility.review')} OR ${rlsStaff('privacy.read')} OR ${rlsStaff('privacy.cleanup')}`;
+
 export const driverDocuments = pgTable(
   'driver_documents',
   {
@@ -609,6 +611,26 @@ export const driverDocuments = pgTable(
     expiresAt: timestamp({ withTimezone: true }).notNull(),
   },
   (t) => [
+    pgPolicy('document_owner_read', { for: 'select', using: rlsDriver(t.driverId) }),
+    pgPolicy('document_owner_insert', {
+      for: 'insert',
+      withCheck: sql`${rlsDriver(t.driverId)} AND ${t.state}='reserved'`,
+    }),
+    pgPolicy('document_owner_update', {
+      for: 'update',
+      using: rlsDriver(t.driverId),
+      withCheck: rlsDriver(t.driverId),
+    }),
+    pgPolicy('document_staff_read', { for: 'select', using: rlsDocumentStaff }),
+    pgPolicy('document_staff_lock', { for: 'update', using: rlsDocumentStaff, withCheck: sql`false` }),
+    pgPolicy('document_scanner_read', {
+      for: 'select',
+      using: sql`NULLIF(current_setting('rove.actor_id',true),'') IS NULL AND ${t.state}='quarantined' AND (current_setting('rove.scan_queue',true)='true' OR ${t.id}=NULLIF(current_setting('rove.scan_document',true),'')::uuid)`,
+    }),
+    pgPolicy('document_cleanup_read', {
+      for: 'select',
+      using: sql`NULLIF(current_setting('rove.actor_id',true),'') IS NULL AND EXISTS(SELECT 1 FROM public.document_cleanup_items i JOIN public.document_cleanup_plans p ON p.id=i.plan_id WHERE i.id=NULLIF(current_setting('rove.cleanup_item',true),'')::uuid AND p.owner_id=${t.driverId})`,
+    }),
     index('driver_documents_owner').on(t.driverId, t.createdAt),
     check(
       'driver_documents_kind',

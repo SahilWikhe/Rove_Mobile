@@ -1,5 +1,13 @@
 # Implementation status
 
+## Driver document-reservation RLS — September 13
+
+RLS remains an explicit release priority. Migration 0057 enables and forces driver_documents row security. Active drivers access their own reservations; current MFA staff have permission-scoped reads and locks without document mutation. Scanner transactions use quarantine queue or exact document scope, and cleanup workers read documents only for their assigned cleanup owner. Actor and worker transactions clear each other's context. Reservation ID conflicts retain the existing domain response.
+
+Verification: 686 server tests, 208 API tests and 13 database tests passed (907 total), plus final server/database typechecks. Restricted-role tests cover foreign/unscoped access, staff locks with denied writes, scanner scope and context reset. Synthetic providers only were used.
+
+Source coverage is fifteen of 47 tables; hosted verification remains eleven tables through 0054. Provider staging and production are unchanged. Next: protect scan records and storage-write receipts, complete remaining table policies, and rehearse the full migration delta before compatible staging rollout. Full mobile production acceptance remains incomplete.
+
 ## Driver document-review RLS — September 13
 
 Migration 0056 enables/forces driver_document_reviews RLS. Active drivers read only reviews attached to their documents; current MFA document/eligibility reviewers have scoped staff reads, and only document reviewers can insert decisions under their own actor identity. No runtime update/delete policy exists. Eligibility no longer requires UPDATE permission merely to lock an immutable review row.

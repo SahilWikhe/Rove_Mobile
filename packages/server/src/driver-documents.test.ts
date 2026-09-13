@@ -1,3 +1,4 @@
+import { actorTransaction } from './actor-transaction';
 import { Pool } from 'pg';
 import { createHash, randomUUID } from 'node:crypto';
 import { quarantineDriverDocument } from './document-intake';
@@ -269,4 +270,39 @@ test('disabling an account during storage I/O prevents completion', async () => 
   expect(
     (await db.pool.query('SELECT state FROM driver_documents WHERE id=$1', [reservation.id])).rows[0].state,
   ).toBe('reserved');
+});
+
+test('document RLS denies foreign writes and grants reviewers locks without edits', async () => {
+  const body = input();
+  await service.reserve(actor, body);
+  expect((await runtimePool.query('SELECT * FROM driver_documents')).rowCount).toBe(0);
+  const other = { id: randomUUID(), role: 'driver' as const };
+  const staff = { id: randomUUID(), role: 'staff' as const, mfa: true };
+  await db.db.insert(users).values([other, staff].map((a) => ({ ...a, subject: a.id, name: 'Synthetic' })));
+  await db.db.insert(drivers).values({ id: other.id });
+  await db.pool.query(
+    "INSERT INTO staff_permissions(staff_id,permission) VALUES($1,'driver.document.review')",
+    [staff.id],
+  );
+  await actorTransaction(runtimePool, other, async (c) => {
+    expect((await c.query('SELECT * FROM driver_documents')).rowCount).toBe(0);
+    expect(
+      (await c.query('UPDATE driver_documents SET expected_bytes=200 WHERE id=$1', [body.id])).rowCount,
+    ).toBe(0);
+  });
+  await actorTransaction(runtimePool, actor, async (c) => {
+    expect((await c.query('DELETE FROM driver_documents')).rowCount).toBe(0);
+  });
+  await actorTransaction(runtimePool, staff, async (c) => {
+    expect((await c.query('SELECT id FROM driver_documents FOR UPDATE')).rowCount).toBe(1);
+  });
+  await expect(
+    actorTransaction(runtimePool, staff, (c) =>
+      c.query('UPDATE driver_documents SET expected_bytes=200 WHERE id=$1', [body.id]),
+    ),
+  ).rejects.toMatchObject({ code: '42501' });
+  await expect(service.reserve(other, body)).rejects.toMatchObject({ code: 'DOCUMENT_CONFLICT' });
+  await actorTransaction(runtimePool, { ...staff, mfa: false }, async (c) => {
+    expect((await c.query('SELECT * FROM driver_documents')).rowCount).toBe(0);
+  });
 });

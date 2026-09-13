@@ -38,4 +38,4 @@ Migration 0056 enables/forces RLS on driver_document_reviews. Active drivers may
 
 Document-service paths now bind verified actor identity, preserving driver/user mutation lock order and rechecking account state after provider I/O. Unknown or disabled actors receive FORBIDDEN; valid foreign owners continue to see no owned documents. Review rows are immutable, so eligibility reads no longer request their UPDATE privilege via FOR SHARE.
 
-Local restricted-role, full server, API and migration tests passed. Document reservation, scanning and storage-write tables still lack RLS; their complete lifecycle policies remain in progress. Hosted rollout of migration 0056 is pending.
+Local restricted-role, full server, API and migration tests passed. Migration 0057 additionally enables/forces reservation RLS: active owners access their documents, current MFA staff have permission-scoped reads and locks without writes, scanners read quarantined queue entries or an exact target, and cleanup workers read their assigned owner's documents. Scan records and storage-write tables still need policies. Hosted rollout of migrations 0056–0057 is pending.

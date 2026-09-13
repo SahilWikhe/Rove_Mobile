@@ -92,3 +92,7 @@ Confirmed upload outcomes now have bounded, idempotent persistence recovery for 
 ## RLS rollout status
 
 Migration 0055 enables/forces row isolation on cleanup plans and items. Current MFA staff permissions separate approval from exact-item worker dispatch/receipts. Existing immutable-plan, due-time, hold and settlement guards remain active. Local restricted-role and full server regression tests pass; hosted migration remains pending. See [current RLS rollout evidence](60-neon-staging.md#latest-rls-verification).
+
+## Reservation visibility under RLS
+
+Migration 0057 limits cleanup-worker reservation reads to the owner of its exact scoped cleanup item. This preserves the owner-wide write-settlement barrier without general document visibility. Existing hold checks and immutable receipts remain active. Local restricted-role cleanup tests passed; this migration has not been applied to hosted staging.

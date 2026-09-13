@@ -6,7 +6,7 @@ Updated: September 13, 2026.
 
 The isolated synthetic rehearsal branch now has all 55 migrations through 0054. Live catalog inspection confirms eleven of 47 tables have RLS enabled and forced. Hosted restricted pooled-role checks passed for saved places, vehicle review, messaging/read notifications, support-backed consent, inventory, closure, retention enforcement/release and reviewed message cleanup. The full local server suite passed 681 tests. These checks used synthetic data and did not invoke push delivery, external identity erasure or payments. The temporary branch expires September 14.
 
-Provider staging was separately checked read-only and remains at 31 migrations, 32 tables and zero RLS-enabled tables. The implementation and rehearsal sections below record earlier checkpoints; statements that newer policies had not been rehearsed are superseded by this result. No provider-staging or production migration has occurred. Thirty-six current-schema tables still need policies, and compatible backend/worker deployment must precede the reviewed staging migration delta.
+Provider staging was separately checked read-only and remains at 31 migrations, 32 tables and zero RLS-enabled tables. The implementation and rehearsal sections below record earlier checkpoints; statements that newer policies had not been rehearsed are superseded by this result. No provider-staging or production migration has occurred. Source migrations through 0057 now cover fifteen tables; the remaining four have local test evidence only. Thirty-two current-schema tables still need policies, and compatible backend/worker deployment must precede the reviewed staging migration delta.
 
 ## Current environment selection
 

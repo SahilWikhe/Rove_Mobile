@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
 import { transaction } from './transactions';
 
@@ -42,10 +42,12 @@ export class DocumentScanWorker {
 
   async nextWakeAfterSeconds(): Promise<number | null> {
     const row = (
-      await this.pool.query<{ due: Date | null }>(
-        `SELECT min(GREATEST(s.available_at,COALESCE(s.locked_until,s.available_at))) AS due
+      await scanTransaction(this.pool, 'queue', (client) =>
+        client.query<{ due: Date | null }>(
+          `SELECT min(GREATEST(s.available_at,COALESCE(s.locked_until,s.available_at))) AS due
        FROM driver_document_scans s JOIN driver_documents d ON d.id=s.document_id
        WHERE s.state='pending' AND d.state='quarantined'`,
+        ),
       )
     ).rows[0];
     return row?.due
@@ -56,8 +58,9 @@ export class DocumentScanWorker {
   async runOnce(): Promise<'idle' | 'clean' | 'infected' | 'retry' | 'failed' | 'stale'> {
     const token = randomUUID();
     const row = (
-      await this.pool.query<Claimed>(
-        `WITH claimed AS (
+      await scanTransaction(this.pool, 'queue', (client) =>
+        client.query<Claimed>(
+          `WITH claimed AS (
         UPDATE driver_document_scans SET lease_token=$1,
           locked_until=$2::timestamptz+interval '60 seconds',attempts=attempts+1
         WHERE document_id=(
@@ -70,7 +73,8 @@ export class DocumentScanWorker {
       )
       SELECT c.*,d.object_key,d.object_version,d.expected_sha256 FROM claimed c
       JOIN driver_documents d ON d.id=c.document_id`,
-        [token, this.now()],
+          [token, this.now()],
+        ),
       )
     ).rows[0];
     if (!row) return 'idle';
@@ -100,7 +104,7 @@ export class DocumentScanWorker {
       )
         throw new Error('Scanner result does not match the quarantined version');
       // Fence expired workers and bind evidence to the current document even if it changed during I/O.
-      return await transaction(this.pool, async (client) => {
+      return await scanTransaction(this.pool, target.documentId, async (client) => {
         const saved = await client.query(
           `UPDATE driver_document_scans s SET state=$3,scanned_key=$4,scanned_version=$5,
             scanned_sha256=$6,completed_at=$7,lease_token=NULL,locked_until=NULL
@@ -123,10 +127,12 @@ export class DocumentScanWorker {
       const retryAt = new Date(
         this.now().getTime() + Math.min(300_000, 1000 * 2 ** Math.min(row.attempts, 8)),
       );
-      const saved = await this.pool.query(
-        `UPDATE driver_document_scans SET state=$3,available_at=$4,lease_token=NULL,locked_until=NULL
+      const saved = await scanTransaction(this.pool, target.documentId, (client) =>
+        client.query(
+          `UPDATE driver_document_scans SET state=$3,available_at=$4,lease_token=NULL,locked_until=NULL
          WHERE document_id=$1 AND lease_token=$2 AND state='pending' AND locked_until>$5`,
-        [target.documentId, token, terminal ? 'failed' : 'pending', retryAt, this.now()],
+          [target.documentId, token, terminal ? 'failed' : 'pending', retryAt, this.now()],
+        ),
       );
       return saved.rowCount ? (terminal ? 'failed' : 'retry') : 'stale';
     } finally {
@@ -138,12 +144,30 @@ export class DocumentScanWorker {
 
 /** Internal guard for future staff access: a clean verdict for another version never authorizes access. */
 export async function hasCleanDocumentScan(pool: Pool, documentId: string): Promise<boolean> {
-  const result = await pool.query(
-    `SELECT 1 FROM driver_document_scans s JOIN driver_documents d ON d.id=s.document_id
+  const result = await scanTransaction(pool, documentId, (client) =>
+    client.query(
+      `SELECT 1 FROM driver_document_scans s JOIN driver_documents d ON d.id=s.document_id
      WHERE d.id=$1 AND d.state='quarantined' AND s.state='clean'
        AND s.scanned_key=d.object_key AND s.scanned_version=d.object_version
        AND s.scanned_sha256=d.expected_sha256`,
-    [documentId],
+      [documentId],
+    ),
   );
   return result.rowCount === 1;
+}
+
+/** Trusted scanner context, scoped locally to queue discovery or one result target. */
+async function scanTransaction<T>(
+  pool: Pool,
+  scope: string,
+  work: (client: PoolClient) => Promise<T>,
+): Promise<T> {
+  if (scope !== 'queue') z.uuid().parse(scope);
+  return transaction(pool, async (client) => {
+    await client.query(
+      "SELECT set_config('rove.actor_id','',true),set_config('rove.actor_role','',true),set_config('rove.actor_mfa','false',true),set_config('rove.identity_request','',true),set_config('rove.notification_message','',true),set_config('rove.notification_offer','',true),set_config('rove.closure_guard_owner','',true),set_config('rove.retention_owner','',true),set_config('rove.cleanup_item','',true),set_config('rove.scan_queue',$1,true),set_config('rove.scan_document',$2,true)",
+      [scope === 'queue' ? 'true' : 'false', scope === 'queue' ? '' : scope],
+    );
+    return work(client);
+  });
 }

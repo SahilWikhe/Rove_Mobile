@@ -381,7 +381,7 @@ export class DocumentCleanup {
 
 async function bindCleanupItem(c: import('pg').PoolClient, itemId: string) {
   await c.query(
-    "SELECT set_config('rove.actor_id','',true),set_config('rove.actor_role','',true),set_config('rove.actor_mfa','false',true),set_config('rove.identity_request','',true),set_config('rove.notification_message','',true),set_config('rove.notification_offer','',true),set_config('rove.closure_guard_owner','',true),set_config('rove.retention_owner','',true),set_config('rove.cleanup_item',$1,true)",
+    "SELECT set_config('rove.actor_id','',true),set_config('rove.actor_role','',true),set_config('rove.actor_mfa','false',true),set_config('rove.identity_request','',true),set_config('rove.notification_message','',true),set_config('rove.notification_offer','',true),set_config('rove.closure_guard_owner','',true),set_config('rove.retention_owner','',true),set_config('rove.scan_queue','false',true),set_config('rove.scan_document','',true),set_config('rove.cleanup_item',$1,true)",
     [itemId],
   );
 }

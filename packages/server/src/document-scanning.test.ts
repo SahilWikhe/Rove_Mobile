@@ -1,3 +1,5 @@
+import { transaction } from './transactions';
+import { Pool } from 'pg';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest';
 import { testDatabase } from '@rove/database/testing';
@@ -5,13 +7,29 @@ import { users, drivers } from '@rove/database';
 import { DriverDocumentService } from './driver-documents';
 import { DocumentScanWorker, hasCleanDocumentScan, type ScanTarget } from './document-scanning';
 
+let runtimePool: Pool;
 let db: Awaited<ReturnType<typeof testDatabase>>;
 let documentId: string;
 let driverId: string;
 beforeAll(async () => {
   db = await testDatabase();
+  await db.pool.query(
+    "CREATE ROLE rls_scanner LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'synthetic-local-only'",
+  );
+  await db.pool.query('GRANT USAGE ON SCHEMA public TO rls_scanner');
+  await db.pool.query('GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_scanner');
+  await db.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_scanner');
+  runtimePool = new Pool({
+    host: '127.0.0.1',
+    port: (await db.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
+    database: 'postgres',
+    user: 'rls_scanner',
+    password: 'synthetic-local-only',
+    max: 5,
+  });
 }, 60_000);
 afterAll(async () => {
+  await runtimePool?.end();
   await db?.close();
 });
 beforeEach(async () => {
@@ -21,7 +39,7 @@ beforeEach(async () => {
   const actor = { id: driverId, role: 'driver' as const };
   await db.db.insert(users).values({ ...actor, subject: driverId, name: 'Synthetic driver' });
   await db.db.insert(drivers).values({ id: driverId, vehicle: {}, service: 'standard' });
-  const service = new DriverDocumentService(db.pool);
+  const service = new DriverDocumentService(runtimePool);
   const metadata = {
     id: documentId,
     kind: 'driver_license',
@@ -48,13 +66,13 @@ const scanState = async () =>
 
 test('completion queues exactly once and clean scan never approves the driver', async () => {
   expect((await db.pool.query('SELECT * FROM driver_document_scans')).rowCount).toBe(1);
-  expect(await hasCleanDocumentScan(db.pool, documentId)).toBe(false);
+  expect(await hasCleanDocumentScan(runtimePool, documentId)).toBe(false);
   const scan = vi.fn(async (target: ScanTarget) => ({ ...target, verdict: 'clean' as const }));
-  const worker = new DocumentScanWorker(db.pool, { scan });
+  const worker = new DocumentScanWorker(runtimePool, { scan });
   expect(await worker.runOnce()).toBe('clean');
   expect(await worker.runOnce()).toBe('idle');
   expect(scan).toHaveBeenCalledTimes(1);
-  expect(await hasCleanDocumentScan(db.pool, documentId)).toBe(true);
+  expect(await hasCleanDocumentScan(runtimePool, documentId)).toBe(true);
   expect((await db.pool.query('SELECT approved FROM drivers WHERE id=$1', [driverId])).rows[0].approved).toBe(
     false,
   );
@@ -62,22 +80,22 @@ test('completion queues exactly once and clean scan never approves the driver', 
     1,
   );
   await db.pool.query("UPDATE driver_documents SET object_version='replaced' WHERE id=$1", [documentId]);
-  expect(await hasCleanDocumentScan(db.pool, documentId)).toBe(false);
+  expect(await hasCleanDocumentScan(runtimePool, documentId)).toBe(false);
 });
 
 test('infected documents remain inaccessible', async () => {
-  const worker = new DocumentScanWorker(db.pool, {
+  const worker = new DocumentScanWorker(runtimePool, {
     scan: async (target) => ({ ...target, verdict: 'infected' }),
   });
   expect(await worker.runOnce()).toBe('infected');
-  expect(await hasCleanDocumentScan(db.pool, documentId)).toBe(false);
+  expect(await hasCleanDocumentScan(runtimePool, documentId)).toBe(false);
   expect(await worker.runOnce()).toBe('idle');
 });
 
 test.each(['documentId', 'key', 'version', 'sha256'] as const)(
   'rejects scanner evidence for a different %s',
   async (field) => {
-    const worker = new DocumentScanWorker(db.pool, {
+    const worker = new DocumentScanWorker(runtimePool, {
       scan: async (target) => ({
         ...target,
         [field]: field === 'documentId' ? randomUUID() : field === 'sha256' ? 'b'.repeat(64) : 'wrong',
@@ -85,13 +103,13 @@ test.each(['documentId', 'key', 'version', 'sha256'] as const)(
       }),
     });
     expect(await worker.runOnce()).toBe('retry');
-    expect(await hasCleanDocumentScan(db.pool, documentId)).toBe(false);
+    expect(await hasCleanDocumentScan(runtimePool, documentId)).toBe(false);
     expect((await scanState()).completed_at).toBeNull();
   },
 );
 
 test('provider failures are delayed, sanitized and eventually held for intervention', async () => {
-  const worker = new DocumentScanWorker(db.pool, {
+  const worker = new DocumentScanWorker(runtimePool, {
     scan: async () => {
       throw new Error('private-provider-diagnostic');
     },
@@ -102,7 +120,7 @@ test('provider failures are delayed, sanitized and eventually held for intervent
   await db.pool.query("UPDATE driver_document_scans SET attempts=11,available_at=now()-interval '1 second'");
   expect(await worker.runOnce()).toBe('failed');
   expect(await worker.runOnce()).toBe('idle');
-  expect(await hasCleanDocumentScan(db.pool, documentId)).toBe(false);
+  expect(await hasCleanDocumentScan(runtimePool, documentId)).toBe(false);
 });
 
 test('concurrent workers do not scan an active lease twice', async () => {
@@ -112,7 +130,7 @@ test('concurrent workers do not scan an active lease twice', async () => {
     entered = resolve;
   });
   let target!: ScanTarget;
-  const first = new DocumentScanWorker(db.pool, {
+  const first = new DocumentScanWorker(runtimePool, {
     scan: async (value) => {
       target = value;
       entered();
@@ -124,7 +142,7 @@ test('concurrent workers do not scan an active lease twice', async () => {
   const running = first.runOnce();
   await started;
   const scan = vi.fn(async (value: ScanTarget) => ({ ...value, verdict: 'infected' as const }));
-  expect(await new DocumentScanWorker(db.pool, { scan }).runOnce()).toBe('idle');
+  expect(await new DocumentScanWorker(runtimePool, { scan }).runOnce()).toBe('idle');
   finish({ ...target, verdict: 'clean' });
   expect(await running).toBe('clean');
   expect(scan).not.toHaveBeenCalled();
@@ -137,7 +155,7 @@ test('an expired worker cannot overwrite the replacement worker verdict', async 
     entered = resolve;
   });
   let target!: ScanTarget;
-  const first = new DocumentScanWorker(db.pool, {
+  const first = new DocumentScanWorker(runtimePool, {
     scan: async (value) => {
       target = value;
       entered();
@@ -150,7 +168,7 @@ test('an expired worker cannot overwrite the replacement worker verdict', async 
   await started;
   await db.pool.query("UPDATE driver_document_scans SET locked_until=now()-interval '1 second'");
   expect(
-    await new DocumentScanWorker(db.pool, {
+    await new DocumentScanWorker(runtimePool, {
       scan: async (value) => ({ ...value, verdict: 'infected' }),
     }).runOnce(),
   ).toBe('infected');
@@ -174,7 +192,7 @@ test('unresponsive scanners time out and abort without accepting a late clean re
   });
   let signal!: AbortSignal;
   try {
-    const worker = new DocumentScanWorker(db.pool, {
+    const worker = new DocumentScanWorker(runtimePool, {
       scan: async (_target, abort) => {
         signal = abort;
         entered();
@@ -186,14 +204,14 @@ test('unresponsive scanners time out and abort without accepting a late clean re
     await vi.advanceTimersByTimeAsync(25_000);
     expect(await running).toBe('retry');
     expect(signal.aborted).toBe(true);
-    expect(await hasCleanDocumentScan(db.pool, documentId)).toBe(false);
+    expect(await hasCleanDocumentScan(runtimePool, documentId)).toBe(false);
   } finally {
     vi.useRealTimers();
   }
 });
 
 test('quarantine completion rolls back if scan work cannot be persisted', async () => {
-  const service = new DriverDocumentService(db.pool);
+  const service = new DriverDocumentService(runtimePool);
   const id = randomUUID();
   const metadata = {
     id,
@@ -238,11 +256,11 @@ test.each([
   ['clean', 'awaiting_review'],
   ['infected', 'replacement_required'],
 ] as const)('driver sees actionable %s status without storage metadata', async (verdict, verification) => {
-  const service = new DriverDocumentService(db.pool);
+  const service = new DriverDocumentService(runtimePool);
   const actor = { id: driverId, role: 'driver' as const };
   expect((await service.list(actor)).documents[0]?.verification).toBe('pending');
   expect(
-    await new DocumentScanWorker(db.pool, { scan: async (value) => ({ ...value, verdict }) }).runOnce(),
+    await new DocumentScanWorker(runtimePool, { scan: async (value) => ({ ...value, verdict }) }).runOnce(),
   ).toBe(verdict);
   const summary = (await service.list(actor)).documents[0]!;
   expect(summary.verification).toBe(verification);
@@ -266,7 +284,7 @@ test.each([
 test('exhausted scanning reports a support path instead of pretending verification is still running', async () => {
   await db.pool.query("UPDATE driver_document_scans SET state='failed' WHERE document_id=$1", [documentId]);
   expect(
-    (await new DriverDocumentService(db.pool).list({ id: driverId, role: 'driver' })).documents[0]
+    (await new DriverDocumentService(runtimePool).list({ id: driverId, role: 'driver' })).documents[0]
       ?.verification,
   ).toBe('delayed');
 });
@@ -289,4 +307,26 @@ test('scan wakeup follows pending work and recovers crashed leases without hot p
     [documentId],
   );
   expect(await worker.nextWakeAfterSeconds()).toBeNull();
+});
+
+test('scanner document reads exclude reservations and exact scope excludes unrelated documents', async () => {
+  await db.pool.query(
+    "INSERT INTO driver_documents(id,driver_id,kind,content_type,expected_sha256,expected_bytes,expires_at) VALUES($1,$2,'vehicle_insurance','application/pdf',$3,40,now()+interval '1 minute')",
+    [randomUUID(), driverId, 'a'.repeat(64)],
+  );
+  expect((await runtimePool.query('SELECT * FROM driver_documents')).rowCount).toBe(0);
+  await transaction(runtimePool, async (c) => {
+    await c.query("SELECT set_config('rove.scan_queue','true',true)");
+    expect((await c.query('SELECT id FROM driver_documents')).rows).toEqual([{ id: documentId }]);
+    expect((await c.query('UPDATE driver_documents SET expected_bytes=200')).rowCount).toBe(0);
+  });
+  await transaction(runtimePool, async (c) => {
+    await c.query(
+      "SELECT set_config('rove.scan_queue','false',true),set_config('rove.scan_document',$1,true)",
+      [randomUUID()],
+    );
+    expect((await c.query('SELECT * FROM driver_documents')).rowCount).toBe(0);
+  });
+  await hasCleanDocumentScan(runtimePool, documentId);
+  expect((await runtimePool.query('SELECT * FROM driver_documents')).rowCount).toBe(0);
 });

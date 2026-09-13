@@ -73,10 +73,16 @@ export class DriverDocumentService {
         );
       const row = (
         await client.query(
-          "INSERT INTO driver_documents(id,driver_id,kind,content_type,expected_sha256,expected_bytes,expires_at) VALUES($1,$2,$3,$4,$5,$6,now()+interval '15 minutes') RETURNING *",
+          "INSERT INTO driver_documents(id,driver_id,kind,content_type,expected_sha256,expected_bytes,expires_at) VALUES($1,$2,$3,$4,$5,$6,now()+interval '15 minutes') ON CONFLICT(id) DO NOTHING RETURNING *",
           [input.id, actor.id, input.kind, input.contentType, input.sha256, input.bytes],
         )
       ).rows[0];
+      if (!row)
+        throw new DomainError(
+          'DOCUMENT_CONFLICT',
+          'This upload request is unavailable. Start a new upload.',
+          409,
+        );
       await client.query(
         "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'driver.document_reserved',$2,$3)",
         [actor.id, input.id, JSON.stringify({ kind: input.kind })],
