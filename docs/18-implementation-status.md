@@ -6,6 +6,8 @@ Reviewed the three SonarQube proxy findings. The destination was already fixed t
 
 A subprocess regression passed against a disposable local HTTP/WebSocket upstream: authentication/idempotency headers, JSON and retry responses, Host replacement, rejection of absolute/protocol-relative/backslash paths without upstream contact, blocking redirect/refresh/cookie/prototype-key headers and realtime text-frame forwarding. Changed-source lint, formatting and documentation checks passed. No cloud provider or production behavior changed. SonarQube classification is pending a new scan; no finding was manually dismissed.
 
+Follow-up verification restored the existing proxy tests alongside the new regression after the test-file edit had replaced them. All three tests now pass, including log privacy, fault injection/recovery, HTTP fallback during a socket outage and invalid-port rejection. Changed-test lint and formatting passed.
+
 Next: CLI evidence-path findings, workflow/tooling review and scanner confirmation; then resume core-table RLS and provider/device acceptance. Overall production readiness remains incomplete.
 
 ## Existing SonarQube security backlog and test credentials — September 13
