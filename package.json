@@ -33,7 +33,8 @@
     "dev:staging:rider": "node scripts/mobile-staging.mjs rider",
     "dev:staging:driver": "node scripts/mobile-staging.mjs driver",
     "db:production:migrate": "node --import tsx packages/database/src/production-migrate-cli.ts",
-    "release:check": "node scripts/release-evidence.mjs"
+    "release:check": "node scripts/release-evidence.mjs",
+    "payments:transfer:check": "pnpm --filter @rove/server exec tsx src/transfer-staging-readiness-cli.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

@@ -2,6 +2,12 @@
 
 Updated: September 13, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Stripe sandbox transfer observation command — September 13
+
+Added an explicit read-only sandbox acceptance command around the application's transfer adapter. It reads an explicit ignored environment file and approved operation fixture, rejects live/non-staging configuration before provider construction, and compares direct transfer retrieval with operation-scoped recovery. Expected reversal amount, identity, creation time and balance movements must agree; provider errors are sanitized. It introduces no alternate payout authorization path, provider mutation, rollout flag or automatic CI calls.
+
+Server typecheck and targeted lint passed. All 17 new observation/existing adapter tests passed across two files, covering pre-call configuration guards, missing/wrong recovery, changing movements, reversal matching and safe failures. The guide specifies fixture provenance and before/after-reversal use. No actual sandbox fixture was run; this adds a repeatable provider verification tool, not evidence of hosted settlement or bank deposit. Next: exercise it with approved durable staging transfer/reversal fixtures as part of full provider acceptance, and continue the remaining physical/operational release gates.
+
 ## Payment workflow source acceptance refresh — September 13
 
 Reviewed the existing driver-transfer workflow against current source. Authorization/reservation, provider binding, unknown-result recovery, balance-movement journals and reversal observation are implemented behind rollout gates; bank-deposit proof, real provider acceptance and owner settlement policy are not implied by that implementation. Re-ran the transfer domain/Stripe-adapter, payment reconciliation, refund reconciliation and payout reconciliation suites: all five files / 61 tests passed in 2.69 seconds using synthetic database/provider fixtures. No Stripe calls, real money movement or flags changed.
