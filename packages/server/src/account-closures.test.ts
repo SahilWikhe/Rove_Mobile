@@ -1,3 +1,4 @@
+import { Pool } from 'pg';
 import { recordCapturedFunds } from './ledger';
 import { transaction } from './transactions';
 import { randomUUID } from 'node:crypto';
@@ -9,20 +10,36 @@ import { SupportService } from './support';
 import { AccountDeletions } from './account-deletions';
 import { OutboxWorker } from './outbox';
 import { RideService, type Actor } from './rides';
+let runtimePool: Pool;
 let db: Awaited<ReturnType<typeof testDatabase>>, service: AccountClosures;
 let rider: Actor, driver: Actor, staff: Actor;
 const erase = vi.fn(async (_subject: string) => ({ status: 'absent' as const }));
 const policy = { policyReference: 'synthetic-policy-v1', reviewReference: 'synthetic-review-1' };
 beforeAll(async () => {
   db = await testDatabase();
+  await db.pool.query(
+    "CREATE ROLE rls_closure LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'synthetic-local-only'",
+  );
+  await db.pool.query('GRANT USAGE ON SCHEMA public TO rls_closure');
+  await db.pool.query('GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_closure');
+  await db.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_closure');
+  runtimePool = new Pool({
+    host: '127.0.0.1',
+    port: (await db.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
+    database: 'postgres',
+    user: 'rls_closure',
+    password: 'synthetic-local-only',
+    max: 5,
+  });
 }, 60000);
 afterAll(async () => {
+  await runtimePool?.end();
   await db?.close();
 });
 beforeEach(async () => {
   await db.pool.query('TRUNCATE users,outbox CASCADE');
   erase.mockReset().mockResolvedValue({ status: 'absent' });
-  service = new AccountClosures(db.pool, { erase }, policy.policyReference);
+  service = new AccountClosures(runtimePool, { erase }, policy.policyReference);
   rider = { id: randomUUID(), role: 'rider' };
   driver = { id: randomUUID(), role: 'driver' };
   staff = { id: randomUUID(), role: 'staff', mfa: true };
@@ -46,7 +63,7 @@ beforeEach(async () => {
   );
 });
 async function request(actor = rider) {
-  await new SupportService(db.pool).create(
+  await new SupportService(runtimePool).create(
     actor,
     {
       category: 'account',
@@ -55,7 +72,7 @@ async function request(actor = rider) {
     },
     randomUUID(),
   );
-  return (await new AccountDeletions(db.pool).status(actor)).request!.id;
+  return (await new AccountDeletions(runtimePool).status(actor)).request!.id;
 }
 async function quote() {
   return (
@@ -286,7 +303,7 @@ test('staff can replay a dead-letter identity job without changing closure or in
 
 test('withdrawn consent cannot authorize closure or identity deletion', async () => {
   const id = await request();
-  await new AccountDeletions(db.pool).withdraw(rider, id, randomUUID());
+  await new AccountDeletions(runtimePool).withdraw(rider, id, randomUUID());
   await expect(service.authorize(staff, id, policy, randomUUID())).rejects.toMatchObject({
     code: 'ACCOUNT_DELETION_WITHDRAWN',
   });
@@ -300,7 +317,7 @@ test('withdrawn consent cannot authorize closure or identity deletion', async ()
 test('concurrent withdrawal and closure have exactly one committed winner', async () => {
   const id = await request(driver);
   const outcomes = await Promise.allSettled([
-    new AccountDeletions(db.pool).withdraw(driver, id, randomUUID()),
+    new AccountDeletions(runtimePool).withdraw(driver, id, randomUUID()),
     service.authorize(staff, id, policy, randomUUID()),
   ]);
   expect(outcomes.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
@@ -321,4 +338,22 @@ test('concurrent withdrawal and closure have exactly one committed winner', asyn
       ])
     ).rowCount,
   ).toBe(row.disabled ? 1 : 0);
+});
+
+test('identity worker consent scope is limited to one closed request and resets on pooled reuse', async () => {
+  const first = await request(rider),
+    second = await request(driver);
+  await service.authorize(staff, first, policy, randomUUID());
+  await transaction(runtimePool, async (c) => {
+    await c.query("SELECT set_config('rove.identity_request',$1,true)", [first]);
+    expect((await c.query('SELECT id FROM account_deletion_requests')).rows).toEqual([{ id: first }]);
+    expect((await c.query('DELETE FROM account_deletion_requests')).rowCount).toBe(0);
+  });
+  await transaction(runtimePool, async (c) => {
+    await c.query("SELECT set_config('rove.identity_request',$1,true)", [second]);
+    expect((await c.query('SELECT id FROM account_deletion_requests')).rowCount).toBe(0);
+  });
+  await service.removeIdentity(first);
+  expect(erase).toHaveBeenCalledTimes(1);
+  expect((await runtimePool.query('SELECT id FROM account_deletion_requests')).rowCount).toBe(0);
 });

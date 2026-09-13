@@ -138,3 +138,11 @@ An authenticated local API test exercised anonymous/rider/staff-without-permissi
 ### Cleanup under message RLS
 
 Migration 0049 adds message-table policies. Cleanup now binds the verified staff identity inside its command transaction before inspecting closed-account targets. The initial closure check returns a closure conflict before target discovery; locked revalidation still occurs before deletion. The message eligibility query relies on existing participant and trip locks and does not request an UPDATE row lock, so no message UPDATE policy is needed. All six cleanup tests now execute against a non-owner NOSUPERUSER/NOBYPASSRLS connection, including concurrent holds, audit rollback and replay. Deploy compatible cleanup/worker code before applying the messaging RLS migration. Hosted execution remains disabled.
+
+## Consent row isolation
+
+Migration 0052 enables/forces account_deletion_requests RLS. Active consumer ownership controls reads, initial consent and withdrawal; existing triggers preserve immutable consent fields and prevent withdrawal after closure. Staff privacy.read, privacy.close and privacy.cleanup provide current MFA read access only. Closure and cleanup use their existing owner locks for serialization without asking for consent UPDATE permission.
+
+The identity removal worker sets an exact transaction-local request scope before checking/removing identity. Its consent policy requires that same request, an existing closure and a disabled account; it has no general consent-read or consent-mutation bypass. Actor transactions clear the worker setting. This is trusted backend execution context, not authentication for arbitrary database credential holders. The identity provider is still independently configured and guarded.
+
+Restricted-role local tests with a synthetic provider verify ownership, staff permissions, consent immutability, withdrawal/closure races, scoped worker reads, replay and cleanup compatibility. No real identity was removed by these checks. Account-closure records themselves remain without RLS, and hosted rollout of this migration is pending.

@@ -59,7 +59,7 @@ export class MessageCleanup {
       const closure = await c.query(
         `SELECT a.owner_id FROM account_deletion_requests a JOIN account_closures x ON x.request_id=a.id
         JOIN users u ON u.id=a.owner_id WHERE a.id=$1 AND a.withdrawn_at IS NULL AND u.disabled=true
-        AND x.closed_at IS NOT NULL FOR UPDATE OF a`,
+        AND x.closed_at IS NOT NULL`,
         [requestId],
       );
       if (!closure.rowCount)

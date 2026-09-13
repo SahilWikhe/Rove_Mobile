@@ -1,4 +1,4 @@
-import { actorTransaction } from './actor-transaction';
+import { actorTransaction, bindActorIdentity } from './actor-transaction';
 import { z } from 'zod';
 import type { Pool, PoolClient } from 'pg';
 import { AccountDeletionInventory, AccountDeletionStatus } from '@rove/contracts';
@@ -11,7 +11,7 @@ import { requireStaffPermission } from './staff-access';
 export class AccountDeletions {
   constructor(private pool: Pool) {}
   async status(actor: Actor) {
-    return transaction(this.pool, async (client) => {
+    return actorTransaction(this.pool, actor, async (client) => {
       if (!['rider', 'driver'].includes(actor.role))
         throw new DomainError('FORBIDDEN', 'A consumer account is required.', 403);
       const owner = await client.query(
@@ -54,6 +54,7 @@ export class AccountDeletions {
         [actor.id, actor.role],
       );
       if (!owner.rowCount) throw new DomainError('FORBIDDEN', 'Account is unavailable.', 403);
+      await bindActorIdentity(client, actor, 'update');
     };
     // Reject disabled-account replays as well as new commands.
     await transaction(this.pool, activeOwner);
@@ -153,7 +154,7 @@ export class AccountDeletions {
     });
   }
   async inspect(actor: Actor, requestId: string) {
-    return transaction(this.pool, async (client) => {
+    return actorTransaction(this.pool, actor, async (client) => {
       await requireStaffPermission(client, actor, 'privacy.read');
       const row = (
         await client.query(

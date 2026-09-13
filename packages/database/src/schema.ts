@@ -1025,6 +1025,24 @@ export const accountDeletionRequests = pgTable(
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
+    pgPolicy('deletion_owner_read', { for: 'select', using: rlsConsumer(t.ownerId) }),
+    pgPolicy('deletion_owner_insert', {
+      for: 'insert',
+      withCheck: sql`${rlsConsumer(t.ownerId)} AND ${t.withdrawnAt} IS NULL`,
+    }),
+    pgPolicy('deletion_owner_withdraw', {
+      for: 'update',
+      using: rlsConsumer(t.ownerId),
+      withCheck: sql`${rlsConsumer(t.ownerId)} AND ${t.withdrawnAt} IS NOT NULL`,
+    }),
+    pgPolicy('deletion_staff_read', {
+      for: 'select',
+      using: sql`${rlsStaff('privacy.read')} OR ${rlsStaff('privacy.close')} OR ${rlsStaff('privacy.cleanup')}`,
+    }),
+    pgPolicy('deletion_identity_read', {
+      for: 'select',
+      using: sql`NULLIF(current_setting('rove.actor_id',true),'') IS NULL AND ${t.id}=NULLIF(current_setting('rove.identity_request',true),'')::uuid AND EXISTS(SELECT 1 FROM public.account_closures c JOIN public.users u ON u.id=c.owner_id WHERE c.request_id=${t.id} AND c.owner_id=${t.ownerId} AND u.disabled=true)`,
+    }),
     uniqueIndex('account_deletion_owner')
       .on(t.ownerId)
       .where(sql`${t.withdrawnAt} is null`),

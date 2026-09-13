@@ -1,5 +1,13 @@
 # Implementation status
 
+## Deletion-consent RLS — September 13
+
+Migration 0052 enables/forces RLS on account_deletion_requests. Active consumers can read, create and withdraw their own consent; immutable-consent triggers still protect owner/ticket/history fields. Staff with current MFA privacy.read, privacy.close or privacy.cleanup can read without consumer withdrawal permission. Identity removal transactions use an exact request scope that permits consent reads only when a corresponding account closure and disabled owner exist. Actor transactions clear that worker scope.
+
+Verification: 48 domain tests, 208 API tests and 13 database tests passed (269 total), plus server/database typechecks, targeted lint, formatting and documentation validation. Closure tests now run the real services under a restricted non-owner role with a synthetic identity provider. Checks cover withdrawal/closure races, immutable consent, foreign/no-context denial, staff mutation denial, MFA, worker scope/reset, identity retry and cleanup retention/concurrency. Restricted-role tests exposed unnecessary consent UPDATE locks in closure/cleanup reads; removed them while retaining the owner locks that serialize consent and closure.
+
+Source RLS coverage is nine of 47 tables. Hosted verification still covers the original four-table rehearsal; provider staging remains unchanged. Closure records themselves and other worker/data tables still require policies. Next: cover those access paths and rehearse the new migration delta before staging rollout. Full mobile/production acceptance remains incomplete.
+
 ## Support-request RLS — September 13
 
 Migration 0051 enables and forces support_requests RLS. Active consumers may read their own tickets and insert open requests without fabricated staff responses; no consumer update/delete policy exists. Staff reads require current support.read or privacy.read plus MFA. Resolution requires both support.read and support.resolve, with the current staff actor as resolver. Support owner/staff transactions now bind identity; messaging report creation and privacy inventory remain compatible.

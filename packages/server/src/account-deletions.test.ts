@@ -1,3 +1,4 @@
+import { actorTransaction } from './actor-transaction';
 import { Pool } from 'pg';
 import { randomUUID } from 'node:crypto';
 import { beforeAll, afterAll, beforeEach, test, expect } from 'vitest';
@@ -294,4 +295,33 @@ test('inventory cannot return unaudited evidence', async () => {
       'DROP TRIGGER reject_inventory_audit ON audit; DROP FUNCTION reject_inventory_audit()',
     );
   }
+});
+
+test('RLS isolates consent and forbids staff withdrawal or consumer deletion', async () => {
+  await support.create(rider, input, randomUUID());
+  const id = (await service.status(rider)).request!.id;
+  expect((await runtimePool.query('SELECT * FROM account_deletion_requests')).rowCount).toBe(0);
+  await actorTransaction(runtimePool, driver, async (c) => {
+    expect((await c.query('SELECT * FROM account_deletion_requests')).rowCount).toBe(0);
+    expect(
+      (await c.query('UPDATE account_deletion_requests SET withdrawn_at=clock_timestamp()')).rowCount,
+    ).toBe(0);
+  });
+  await actorTransaction(runtimePool, rider, async (c) => {
+    expect((await c.query('DELETE FROM account_deletion_requests WHERE id=$1', [id])).rowCount).toBe(0);
+  });
+  await db.pool.query("INSERT INTO staff_permissions(staff_id,permission) VALUES($1,'privacy.close')", [
+    staff.id,
+  ]);
+  await actorTransaction(runtimePool, staff, async (c) => {
+    expect((await c.query('SELECT * FROM account_deletion_requests')).rowCount).toBe(1);
+    expect(
+      (await c.query('UPDATE account_deletion_requests SET withdrawn_at=clock_timestamp()')).rowCount,
+    ).toBe(0);
+  });
+  await actorTransaction(runtimePool, { ...staff, mfa: false }, async (c) => {
+    expect((await c.query('SELECT * FROM account_deletion_requests')).rowCount).toBe(0);
+  });
+  await service.withdraw(rider, id, randomUUID());
+  expect((await service.status(rider)).request?.state).toBe('withdrawn');
 });

@@ -177,3 +177,7 @@ Driver submission, vehicle review and eligibility services install transaction-l
 ## Support policy extension in source
 
 Migration 0051 extends enabled/forced RLS to support_requests, bringing source coverage to eight of 47 tables. Consumer owners can read and insert open tickets; only current MFA staff with both support.read and support.resolve can resolve them. Privacy inventory retains permission-scoped read access. Support services install transaction-local identity, and messaging report creation continues through its existing actor transaction. Restricted-role domain checks and API/database regression suites passed. This migration has not been applied to hosted Neon; deploy compatible backend code before staging migration.
+
+## Deletion-consent policy extension in source
+
+Migration 0052 adds enabled/forced RLS to account_deletion_requests, bringing source coverage to nine of 47 tables. Consumer ownership controls consent and withdrawal; current MFA privacy staff have read access. Identity removal uses exact request scope restricted to an existing closure and disabled owner. Compatible actor/worker transactions must be deployed before migration. Local restricted-role and API/database checks passed, but this migration has not been applied to hosted Neon. Account closures and remaining tables still need coverage.

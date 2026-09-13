@@ -365,6 +365,13 @@
       "when": 1789288519311,
       "tag": "0051_support_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1789288778062,
+      "tag": "0052_deletion_consent_rls",
+      "breakpoints": true
     }
   ]
 }

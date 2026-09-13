@@ -64,10 +64,10 @@ export class AccountClosures {
         )
       ).rows[0];
       const consent = (
-        await c.query(
-          'SELECT withdrawn_at FROM account_deletion_requests WHERE id=$1 AND owner_id=$2 FOR UPDATE',
-          [requestId, ownerId],
-        )
+        await c.query('SELECT withdrawn_at FROM account_deletion_requests WHERE id=$1 AND owner_id=$2', [
+          requestId,
+          ownerId,
+        ])
       ).rows[0];
       const existing = (await c.query('SELECT * FROM account_closures WHERE request_id=$1', [requestId]))
         .rows[0];
@@ -188,6 +188,10 @@ export class AccountClosures {
   async removeIdentity(requestId: string) {
     z.uuid().parse(requestId);
     const subject = await transaction(this.pool, async (c) => {
+      await c.query(
+        "SELECT set_config('rove.actor_id','',true),set_config('rove.actor_role','',true),set_config('rove.actor_mfa','false',true),set_config('rove.notification_message','',true),set_config('rove.notification_offer','',true),set_config('rove.identity_request',$1,true)",
+        [requestId],
+      );
       const initial = (
         await c.query('SELECT owner_id FROM account_closures WHERE request_id=$1', [requestId])
       ).rows[0];
@@ -226,6 +230,10 @@ export class AccountClosures {
     if (result?.status !== 'absent')
       throw new DomainError('IDENTITY_DELETION_UNAVAILABLE', 'Identity removal is not verified.', 503);
     await transaction(this.pool, async (c) => {
+      await c.query(
+        "SELECT set_config('rove.actor_id','',true),set_config('rove.actor_role','',true),set_config('rove.actor_mfa','false',true),set_config('rove.notification_message','',true),set_config('rove.notification_offer','',true),set_config('rove.identity_request',$1,true)",
+        [requestId],
+      );
       const initial = (
         await c.query('SELECT owner_id FROM account_closures WHERE request_id=$1', [requestId])
       ).rows[0];
