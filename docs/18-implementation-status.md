@@ -2,6 +2,12 @@
 
 Updated: September 13, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Payment workflow source acceptance refresh — September 13
+
+Reviewed the existing driver-transfer workflow against current source. Authorization/reservation, provider binding, unknown-result recovery, balance-movement journals and reversal observation are implemented behind rollout gates; bank-deposit proof, real provider acceptance and owner settlement policy are not implied by that implementation. Re-ran the transfer domain/Stripe-adapter, payment reconciliation, refund reconciliation and payout reconciliation suites: all five files / 61 tests passed in 2.69 seconds using synthetic database/provider fixtures. No Stripe calls, real money movement or flags changed.
+
+The targeted retry of run 34742179860 was accepted but attempt 2 subsequently finished cancelled before a replacement Android rider job ran; its only Android rider evidence remains the original offline-device failure. Future main native acceptance must supply the missing result. Updated the provider guide's stale CI billing statement. Next: verify hosted native/provider flows and continue unresolved operational/physical release acceptance. Full production readiness remains unproven.
+
 ## Android release-smoke failure evidence — September 13
 
 Switched the standalone Android release runner to the same persistent-output helper already used for iOS/account journeys. Maestro output now survives command failure, timeout and output exceeding pipe buffer limits, and is included in the existing always-uploaded native-smoke artifact. The runner still fails on launch/test failure and performs its owned-emulator cleanup; no retry or success bypass was added.

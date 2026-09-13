@@ -20,7 +20,7 @@ The [durable workflow](72-driver-transfer-workflow.md) now adds authorized reser
 
 A historical disputed-charge marker currently prevents new transfers even after a dispute closes. Resolving that conservative hold requires a deliberate settlement policy and verified dispute/accounting state, not removing the check blindly. Platform liquidity, payout schedules, cross-border/currency support, loss allocation policy and bank-payout status are separate requirements. The current implementation supports USD platform charges and existing US recipient onboarding only.
 
-The adapter checkpoint activated no flag, migration, hosted resource or provider mutation. The later workflow adds migrations and a default-off flag; neither has been activated in a hosted environment by this work. Final policy and paid setup decisions remain owner handoff items. Hosted CI remains deferred pending billing recovery and must pass before release. Provider sandbox acceptance and eventual physical/mobile payout presentation are still required.
+The adapter checkpoint activated no flag, migration, hosted resource or provider mutation. The later workflow adds migrations and a default-off flag; neither has been activated in a hosted environment by this work. Final policy and paid setup decisions remain owner handoff items. Current hosted CI acceptance remains required before release; see the dated CI findings in [implementation status](18-implementation-status.md). Provider sandbox acceptance and eventual physical/mobile payout presentation are still required.
 
 ## Local verification
 
@@ -29,3 +29,5 @@ Twelve focused mocked-transport tests cover valid requests, funding and recipien
 ## Provider references
 
 Stripe's [transfer creation API](https://docs.stripe.com/api/transfers/create) moves funds to a connected Stripe account and accepts source-transaction and correlation fields. Its [transfer listing API](https://docs.stripe.com/api/transfers/list) supports destination and group filtering. [Transfer reversals](https://docs.stripe.com/api/transfer_reversals/object) and [balance transaction types](https://docs.stripe.com/reports/balance-transaction-types) document actual transfer/reversal effects. A transfer is distinct from a bank payout.
+
+Current-source verification on September 13 reran the adapter together with transfer, payment, refund and payout reconciliation suites: 61 tests across five files passed locally. This combined count is not 61 provider transport tests and does not establish hosted Stripe acceptance.
