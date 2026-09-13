@@ -46,3 +46,7 @@ Fresh Universal Login/PKCE, profile/conversation reads and authenticated WSS rea
 ### Post-RLS delivery verification completed
 
 A subsequent fresh zero-fare fixture for those same dedicated accounts passed hosted bidirectional WSS invalidations, authorized persisted history, request retry deduplication, read-state notifications and reconnect catch-up on deployment `dpl_46Mu6DzKiqNqgnGZh4gjSWT7Vitt` (`484909d`). Invalid authentication and anonymous history reads were rejected. The fixture was seeded with migration credentials, while all tested messaging used Auth0 and the deployed restricted runtime. It was cancelled after verification, retaining history. No booking/Maps/payment provider calls were made; this does not prove booking, real push delivery or physical background GPS.
+
+### GPS notification RLS correction
+
+Post-rollout hosted checks exposed accepted driver heartbeats and successful rider location reads without pushed invalidations. The notification trigger could not see the assigned rider under a driver-only lookup scope. Foreground and verified background location writes now bind the persisted driver actor identity. Restricted-role socket regressions cover both upload paths, rollback, unrelated-recipient exclusion and completion cutoff; hosted verification of this fix remains pending deployment. Physical-phone background acceptance is separate.

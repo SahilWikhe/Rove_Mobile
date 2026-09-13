@@ -1,6 +1,6 @@
 import { bindDriverMutation } from './driver-scope';
 import { bindUserRead } from './user-scope';
-import { actorTransaction } from './actor-transaction';
+import { actorTransaction, bindActorIdentity } from './actor-transaction';
 import { bindTrackingScope } from './tracking-scope';
 import { createHash, randomBytes } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
@@ -128,6 +128,9 @@ export class TrackingService {
         driver.id,
         sampledAt,
       ]);
+      // The grant and active driver were verified under lock above. Bind that persisted
+      // identity so location-notification triggers can see the assigned rider under RLS.
+      await bindActorIdentity(client, { id: driver.id, role: 'driver' });
       await bindDriverMutation(client, driver.id, 'location');
       await client.query(
         'UPDATE drivers SET location=$2,location_at=$3,location_sampled_at=$4,location_sequence=location_sequence+1 WHERE id=$1',

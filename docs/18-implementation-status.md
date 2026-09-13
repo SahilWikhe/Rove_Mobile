@@ -1,5 +1,13 @@
 # Implementation status
 
+## Restricted-runtime live-location notification fix — September 13
+
+Hosted synthetic location verification found a real post-RLS gap: both WSS accounts became ready, the driver heartbeat returned 200 and the assigned rider location read returned 200, but no location invalidation arrived. Both attempts terminated and cleaned up their exact zero-fare fixtures; the dedicated unapproved driver was returned offline with coordinates cleared. Auth0 sessions were unexpired. RLS hid the rider user row from the notification trigger because GPS writes bound only the driver lookup, not the verified actor identity.
+
+Foreground heartbeats now use actorTransaction. Background uploads bind the persisted driver identity only after rechecking the locked, unexpired tracking grant and active driver and recording the accepted sample. The trigger can then resolve the assigned rider under existing participant policies; no policy or public API permissions were widened. The WebSocket movement test now uses NOSUPERUSER/NOBYPASSRLS foreground/background services instead of owner SQL for committed samples. It failed before the fix and passes after; fixture online setup was moved before subscriptions to exclude its separate valid notification. Rollback, unrelated-rider exclusion, coordinate-free events and completion cutoff assertions remain.
+
+Eleven socket/location API tests and twenty tracking/driver-policy tests passed, plus API/server typechecks, changed-file lint/format and diff checks. Hosted rerun after deployment remains next, followed by actual locked-phone/background GPS and remaining payment/device release gates. No production readiness claim. Prepared for authorized main push; remote confirmation follows.
+
 ## Hosted post-RLS messaging passed — September 13
 
 Verified dedicated rider/driver messaging against READY staging deployment dpl_46Mu6DzKiqNqgnGZh4gjSWT7Vitt, source 484909dc8fdb3b3851b02439515f15d13693efe4. A fresh zero-fare conversation fixture was seeded only for the two previously authorized test accounts, with exact staging endpoint/subject checks and an active-driver-ride exclusion. Fixture setup used migration credentials; all exercised HTTPS/WSS operations used Auth0 access tokens and the deployed restricted runtime. No booking, Maps or payment provider calls were made. This proves messaging behavior, not end-to-end booking.

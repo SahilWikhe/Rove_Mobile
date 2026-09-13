@@ -1,18 +1,32 @@
 import { createServer } from 'node:http';
-import { randomUUID } from 'node:crypto';
+import { Pool } from 'pg';
+import { randomUUID, randomBytes } from 'node:crypto';
 import { once } from 'node:events';
 import { WebSocket } from 'ws';
 import { beforeAll, afterAll, test, expect } from 'vitest';
 import { testDatabase } from '@rove/database/testing';
-import { MessagingService, type Actor } from '@rove/server';
+import { MessagingService, DriverService, TrackingService, type Actor } from '@rove/server';
 import { MessageEvents } from './message-events';
 import { attachMessageWebSocket } from './message-websocket';
 
 let db: Awaited<ReturnType<typeof testDatabase>>;
+let runtime: Pool;
 beforeAll(async () => {
   db = await testDatabase();
+  const password = randomBytes(32).toString('hex');
+  await db.pool.query(
+    `CREATE ROLE location_socket_probe LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`,
+  );
+  await db.pool.query(
+    'GRANT USAGE ON SCHEMA public TO location_socket_probe; GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO location_socket_probe',
+  );
+  const connection = new URL(db.connectionString);
+  connection.username = 'location_socket_probe';
+  connection.password = password;
+  runtime = new Pool({ connectionString: connection.toString(), max: 2 });
 }, 60000);
 afterAll(async () => {
+  await runtime?.end();
   await db?.close();
 });
 async function host() {
@@ -192,6 +206,7 @@ test('committed driver movement pushes only to its assigned rider, without coord
     a = await host(),
     b = await host();
   try {
+    await db.pool.query('UPDATE drivers SET online=true WHERE id=$1', [f.driver.id]);
     const rider = await connect(a.url, f.rider),
       outsider = await connect(b.url, f.outsider),
       driver = await connect(b.url, f.driver);
@@ -208,13 +223,19 @@ test('committed driver movement pushes only to its assigned rider, without coord
     } finally {
       pending.release();
     }
+    const tracking = new TrackingService(runtime);
+    const grant = await tracking.issue(f.driver);
     for (const state of ['en_route', 'in_progress']) {
       await db.pool.query('UPDATE rides SET state=$2 WHERE id=$1', [f.ride, state]);
       const before = rider.messages.filter((x) => JSON.parse(x).type === 'driver.location.changed').length;
-      await db.pool.query(
-        'UPDATE drivers SET location=$2,location_sampled_at=clock_timestamp() WHERE id=$1',
-        [f.driver.id, { latitude: state === 'en_route' ? 35.81 : 35.82, longitude: -78.6 }],
-      );
+      const sample = {
+        coordinate: { latitude: state === 'en_route' ? 35.81 : 35.82, longitude: -78.6 },
+        sampledAt: new Date().toISOString(),
+        accuracyMeters: 5,
+      };
+      if (state === 'en_route')
+        await new DriverService(runtime).heartbeat(f.driver, { ...sample, sequence: 1 });
+      else await tracking.location(grant.token, sample);
       await expect
         .poll(() => rider.messages.filter((x) => JSON.parse(x).type === 'driver.location.changed').length)
         .toBe(before + 1);

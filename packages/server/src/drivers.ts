@@ -166,7 +166,7 @@ export class DriverService {
     ) {
       throw new DomainError('INVALID_LOCATION_SAMPLE', 'A fresh, accurate location is required.', 422);
     }
-    const updated = await transaction(this.pool, async (client) => {
+    const updated = await actorTransaction(this.pool, actor, async (client) => {
       await bindUserRead(client, actor.id);
       await bindDriverMutation(client, actor.id, 'location');
       return client.query(
