@@ -444,7 +444,18 @@ export const staffPermissions = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     permission: text().notNull(),
   },
-  (table) => [uniqueIndex('staff_permission_unique').on(table.staffId, table.permission)],
+  (table) => [
+    uniqueIndex('staff_permission_unique').on(table.staffId, table.permission),
+    pgPolicy('staff_permission_self_read', {
+      for: 'select',
+      using: sql`${table.staffId}=${rlsActor} AND current_setting('rove.actor_role',true)='staff' AND current_setting('rove.actor_mfa',true)='true' AND EXISTS(SELECT 1 FROM public.users u WHERE u.id=${rlsActor} AND u.role='staff' AND u.disabled=false)`,
+    }),
+    pgPolicy('staff_permission_self_lock', {
+      for: 'update',
+      using: sql`${table.staffId}=${rlsActor} AND current_setting('rove.actor_role',true)='staff' AND current_setting('rove.actor_mfa',true)='true' AND EXISTS(SELECT 1 FROM public.users u WHERE u.id=${rlsActor} AND u.role='staff' AND u.disabled=false)`,
+      withCheck: sql`false`,
+    }),
+  ],
 );
 export const vehicleReviewDecisions = pgTable(
   'vehicle_review_decisions',

@@ -449,6 +449,13 @@
       "when": 1789292902625,
       "tag": "0063_push_installation_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1789293451635,
+      "tag": "0064_staff_permission_rls",
+      "breakpoints": true
     }
   ]
 }

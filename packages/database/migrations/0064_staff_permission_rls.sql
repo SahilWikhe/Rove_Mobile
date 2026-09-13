@@ -1,0 +1,5 @@
+ALTER TABLE "staff_permissions" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE POLICY "staff_permission_self_read" ON "staff_permissions" AS PERMISSIVE FOR SELECT TO public USING ("staff_permissions"."staff_id"=NULLIF(current_setting('rove.actor_id', true), '')::uuid AND current_setting('rove.actor_role',true)='staff' AND current_setting('rove.actor_mfa',true)='true' AND EXISTS(SELECT 1 FROM public.users u WHERE u.id=NULLIF(current_setting('rove.actor_id', true), '')::uuid AND u.role='staff' AND u.disabled=false));--> statement-breakpoint
+CREATE POLICY "staff_permission_self_lock" ON "staff_permissions" AS PERMISSIVE FOR UPDATE TO public USING ("staff_permissions"."staff_id"=NULLIF(current_setting('rove.actor_id', true), '')::uuid AND current_setting('rove.actor_role',true)='staff' AND current_setting('rove.actor_mfa',true)='true' AND EXISTS(SELECT 1 FROM public.users u WHERE u.id=NULLIF(current_setting('rove.actor_id', true), '')::uuid AND u.role='staff' AND u.disabled=false)) WITH CHECK (false);
+--> statement-breakpoint
+ALTER TABLE "staff_permissions" FORCE ROW LEVEL SECURITY;

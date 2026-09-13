@@ -88,3 +88,9 @@ Enforce the [offer data boundary](16-mobile-design-contract.md) in server respon
 Durable consumer-account holds now require staff MFA and separate placement/release permissions, block account closure and new identity-removal dispatches, and retain immutable audited evidence. Review dates never automatically release holds. Provider calls already dispatched cannot be recalled; first-dispatch and confirmed-removal timestamps distinguish uncertain outcomes. See [retention holds](76-retention-holds.md). Policy-driven application/storage erasure, backup replay and final deletion fulfillment remain open; these controls do not choose a legal retention policy.
 
 Quarantine upload dispatch and settlement are now recorded durably before/after storage I/O. Unknown outcomes block document cleanup; a closed account cannot dispatch a new tracked write. Previously accepted inbox uploads and legacy processes still require reconciliation before full cleanup. See [storage-write settlement](75-account-deletion.md#storage-write-settlement-barrier) for migration 0043 and the remaining erasure integration.
+
+## Staff permission row isolation
+
+Migration 0064 enables and forces RLS on staff_permissions. Verified active staff with MFA can read and lock only their own permission rows. The runtime has no insertion or deletion policy, and its lock-only update policy rejects actual changes. Permission administration remains outside consumer/runtime SQL capabilities. requireStaffPermission binds the verified actor before checking current permission rows under share locks; existing resource-specific staff checks remain mandatory.
+
+Restricted non-owner tests verify foreign/unscoped reads, denied self-grants and edits, lock access, MFA/role/disabled-account rejection, revoked permission and pool context reset. This is local evidence; hosted verification of migration 0064 and provider-staging rollout are pending.

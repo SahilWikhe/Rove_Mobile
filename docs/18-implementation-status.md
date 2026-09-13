@@ -1,5 +1,13 @@
 # Implementation status
 
+## Staff permission RLS — September 13
+
+Migration 0064 enables and forces staff_permissions RLS. Current active staff with verified MFA can read and lock only their own permissions. Runtime insertion/deletion is denied; the lock-only update policy rejects actual modifications. requireStaffPermission binds verified actor context before its existing current-permission query and share locks, preserving permission revocation checks and all resource-specific authorization.
+
+Verification: the existing full server suite passed 694 tests, followed by three new restricted-role permission tests; 208 API tests and 13 database tests also passed (918 total across these runs). Server/database typechecks, targeted lint, formatting and documentation validation passed. Direct checks cover unscoped/foreign reads, self-grant/edit denial, lock access, MFA/role/disabled-account rejection, revoked permission and pooled scope reset. No external provider operation occurred.
+
+Source coverage is twenty-two of 47 tables; hosted evidence remains twenty-one through 0063. Provider staging and production are unchanged. Next: remaining identity, trip/payment and worker policies, followed by hosted verification and compatible staging rollout. Full mobile production acceptance remains incomplete.
+
 ## Twenty-one-table hosted RLS rehearsal — September 13
 
 Applied migrations through 0063 only to the verified isolated synthetic Neon branch br-shy-bar-axjulxqh. Fresh catalog inspection confirms 64 migration entries, 47 public tables and twenty-one tables with RLS enabled and forced. The branch remains non-primary/non-default and expires September 14. Fresh read-only provider-staging inspection still reports 31 migrations, 32 tables and zero enabled/forced RLS tables. Production was not changed.
