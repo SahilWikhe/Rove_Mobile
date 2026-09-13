@@ -75,9 +75,10 @@ appId: co.roveride.driver
 - extendedWaitUntil:
     visible: View ride request
     timeout: 30000
-- tapOn:
-    text: Expand driving panel
-    waitToSettleTimeoutMs: 500
+- swipe:
+    start: 50%, 65%
+    end: 50%, 25%
+    duration: 500
 - scrollUntilVisible:
     element:
       text: View ride request
@@ -87,12 +88,10 @@ appId: co.roveride.driver
 - tapOn:
     text: View ride request
     waitToSettleTimeoutMs: 500
-- extendedWaitUntil:
-    visible: Expand driving panel
-    timeout: 10000
-- tapOn:
-    text: Expand driving panel
-    waitToSettleTimeoutMs: 500
+- swipe:
+    start: 50%, 65%
+    end: 50%, 25%
+    duration: 500
 - assertNotVisible: Alex Rider
 - scrollUntilVisible:
     element:
@@ -124,9 +123,14 @@ appId: co.roveride.driver
 - tapOn: Complete trip
 - tapOn: 'Confirm: Complete trip'
 - extendedWaitUntil:
-    visible: Back to driving
+    visible: Trip complete.
     timeout: 30000
 - takeScreenshot: driver-trip-completed
+- scrollUntilVisible:
+    element:
+      text: Back to driving
+    direction: DOWN
+    centerElement: true
 - launchApp:
     appId: co.roveride.rider
     stopApp: false

@@ -119,7 +119,7 @@ try {
       '-gpu',
       'swiftshader_indirect',
       '-memory',
-      '2048',
+      trip ? '4096' : '2048',
       '-cores',
       '2',
     ],
@@ -148,7 +148,7 @@ try {
   logcatFile = openSync(`${output}/android-${role}-runtime.log`, 'w');
   logcat = spawn(
     adb,
-    ['-s', serial, 'logcat', '-v', 'threadtime', 'AndroidRuntime:E', 'ActivityManager:I', '*:S'],
+    ['-s', serial, 'logcat', '-v', 'threadtime', 'AndroidRuntime:E', 'ActivityManager:I', 'lmkd:I', '*:W'],
     { stdio: ['ignore', logcatFile, logcatFile] },
   );
   const applications = [{ bundle, metroPort }];

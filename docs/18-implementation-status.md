@@ -2,6 +2,16 @@
 
 Updated: September 12, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Complete Android rider–driver trip acceptance — September 12
+
+The two-app native scenario passed on one fresh API 36 emulator in 122.2 seconds. It signed in both synthetic identities, made the driver available, searched Home/Work places, reviewed/requested the rider fare, opened and accepted the driver's offer, confirmed heading to pickup/arrival/start/completion, then opened the rider receipt and asserted Payment: paid. The runner exited zero and removed its owned emulator/AVD. JUnit and both screen captures are retained under reports/native-trip-android/android-driver-details/2026-09-12_202514.
+
+Inspected the rider receipt: $11.85 quoted and captured, Ride: completed, Payment: paid. The driver screenshot was captured before asynchronous settlement and showed estimated earnings/payment processing; it is not proof of a completed payout. Earlier failed runs remain failed evidence. The passing flow uses real upward panel drags, bounded settling waits around countdown controls, and a scroll after the completion heading. This avoids relying on a stale Android accessibility snapshot for the panel handle. No offer timeout or ride rule was weakened.
+
+The two-app emulator now receives 4 GB of RAM (single-app runs retain 2 GB), and runtime diagnostics include Android warnings and lmkd messages. The passing run had no device-server disconnect; this alone does not prove memory caused earlier failures. Runner lint/formatting passed. Setup documentation records the local-only scope. No application business logic, hosted migration, production activation or cleanup setting changed.
+
+This is a synthetic Android booking-to-receipt pass, not live Auth0/Stripe/Google acceptance, iOS trip acceptance, real payout verification, native realtime-message/location coverage or locked-phone tracking proof. Next: extend native acceptance to realtime messaging/location and iOS, while retaining the remaining provider, Figma, data-erasure and production-release requirements. Pending Google route-coordinate approval remains separate.
+
 ## Two-app Android trip acceptance in progress — September 12
 
 Added a local two-APK trip runner and shared Maestro booking-to-receipt scenario. The Android lifecycle runner validates both Debug packages, assigns separate Metro ports, switches between the rider and driver apps on its owned temporary emulator, preserves artifacts and cleans up afterward. Setup and limits are documented in the CI/environment runbook.
