@@ -1,3 +1,4 @@
+import { bindPaymentCustomerRead } from './payment-customer-scope';
 import { createHash, randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
@@ -49,6 +50,7 @@ export class CaptureFees {
     await this.reconcile(p.data.intentId);
   };
   private async context(c: PoolClient, intentId: string) {
+    await bindPaymentCustomerRead(c, this.source, { intentId });
     const row = (
       await c.query(
         `SELECT p.id,p.ride_id,p.amount_cents,c.customer_id FROM payment_attempts p

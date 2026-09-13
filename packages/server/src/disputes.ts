@@ -1,3 +1,4 @@
+import { bindPaymentCustomerRead } from './payment-customer-scope';
 import { z } from 'zod';
 import { createHash } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
@@ -100,6 +101,7 @@ export class DisputeReconciler {
     if (!/^acct_[a-zA-Z0-9]{1,96}:(test|live)$/.test(source)) throw new Error('Invalid dispute source.');
   }
   private async reference(client: PoolClient, intentId: string, lock = false): Promise<PaymentReference> {
+    await bindPaymentCustomerRead(client, this.source, { intentId });
     const row = (
       await client.query(
         `SELECT p.*,c.customer_id FROM payment_attempts p JOIN payment_customers c ON c.id=p.customer_binding_id AND c.source=p.source JOIN rides r ON r.id=p.ride_id AND r.rider_id=c.rider_id AND r.fare_cents=p.amount_cents WHERE p.source=$1 AND p.intent_id=$2 ${lock ? 'FOR UPDATE OF p,r' : ''}`,

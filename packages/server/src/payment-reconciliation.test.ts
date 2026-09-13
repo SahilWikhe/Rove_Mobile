@@ -1,3 +1,6 @@
+import { bindPaymentCustomerRead } from './payment-customer-scope';
+import { transaction } from './transactions';
+import { Pool } from 'pg';
 import { CaptureFees } from './capture-fees';
 import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
@@ -6,6 +9,7 @@ import type { PaymentProvider, PaymentReference, PaymentSnapshot } from './payme
 import { PaymentReconciler } from './payment-reconciliation';
 import { OutboxWorker } from './outbox';
 
+let runtimePool: Pool;
 let database: Awaited<ReturnType<typeof testDatabase>>;
 let reference: PaymentReference;
 let now: Date;
@@ -26,8 +30,25 @@ async function topics() {
 }
 beforeAll(async () => {
   database = await testDatabase();
+  await database.pool.query(
+    "CREATE ROLE rls_customer_worker LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'synthetic-local-only'",
+  );
+  await database.pool.query('GRANT USAGE ON SCHEMA public TO rls_customer_worker');
+  await database.pool.query(
+    'GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_customer_worker',
+  );
+  await database.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_customer_worker');
+  runtimePool = new Pool({
+    host: '127.0.0.1',
+    port: (await database.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
+    database: 'postgres',
+    user: 'rls_customer_worker',
+    password: 'synthetic-local-only',
+    max: 5,
+  });
 }, 60_000);
 afterAll(async () => {
+  await runtimePool?.end();
   await database?.close();
 });
 beforeEach(async () => {
@@ -67,7 +88,7 @@ beforeEach(async () => {
   );
   retrieve.mockReset();
   retrieve.mockImplementation(async () => snapshot());
-  reconcile = new PaymentReconciler(database.pool, provider, source, () => now);
+  reconcile = new PaymentReconciler(runtimePool, provider, source, () => now);
 });
 test('full verified funding authorizes matching exactly once across repeated reconciliation', async () => {
   await reconcile.reconcile(reference.intentId);
@@ -254,7 +275,7 @@ test('capture handler retries with one stable server-owned amount/key after reco
     }),
   };
   localProvider.retrieve.mockRejectedValueOnce(new Error('Uncertain network response'));
-  const service = new PaymentReconciler(database.pool, localProvider, source, () => now);
+  const service = new PaymentReconciler(runtimePool, localProvider, source, () => now);
   const job = {
     id: randomUUID(),
     topic: 'payment.capture',
@@ -271,7 +292,7 @@ test('capture handler retries with one stable server-owned amount/key after reco
 });
 test('release handler uses the persisted intent and cannot release an active funded trip', async () => {
   const cancel = vi.fn(async () => snapshot({ status: 'canceled', capturableCents: 0 }));
-  const service = new PaymentReconciler(database.pool, { ...provider, cancel }, source, () => now);
+  const service = new PaymentReconciler(runtimePool, { ...provider, cancel }, source, () => now);
   const job = {
     id: randomUUID(),
     topic: 'payment.release',
@@ -301,7 +322,7 @@ test('ride completion drives durable capture and verified settlement without wai
     return current;
   });
   const service = new PaymentReconciler(
-    database.pool,
+    runtimePool,
     { ...provider, capture, retrieve: async () => current },
     source,
     () => now,
@@ -359,7 +380,7 @@ test('capture accounting queues once for full captures including already-paid ba
   );
   await reconcile.reconcile(reference.intentId);
   expect(await topics()).not.toContain('capture-fee.reconcile');
-  const enabled = new PaymentReconciler(database.pool, provider, source, () => now, true);
+  const enabled = new PaymentReconciler(runtimePool, provider, source, () => now, true);
   await enabled.reconcile(reference.intentId);
   await enabled.reconcile(reference.intentId);
   const rows = (await database.pool.query("SELECT * FROM outbox WHERE topic='capture-fee.reconcile'")).rows;
@@ -371,10 +392,10 @@ test('full capture reconciliation reaches durable fee accounting through the rea
   retrieve.mockImplementation(async () =>
     snapshot({ status: 'succeeded', capturableCents: 0, receivedCents: 1050 }),
   );
-  const enabled = new PaymentReconciler(database.pool, provider, source, () => now, true);
+  const enabled = new PaymentReconciler(runtimePool, provider, source, () => now, true);
   await enabled.reconcile(reference.intentId);
   const fees = new CaptureFees(
-    database.pool,
+    runtimePool,
     {
       retrieve: async () => ({
         chargeId: 'ch_fixture',
@@ -410,4 +431,30 @@ test('full capture reconciliation reaches durable fee accounting through the rea
     ).rows[0].amount,
   ).toBe(989);
   expect(await worker.runOnce()).toEqual({ processed: 0, failed: 0 });
+});
+
+test('worker customer scope exposes one persisted payment mapping and cannot rewrite it', async () => {
+  const foreign = randomUUID();
+  await database.pool.query(
+    "INSERT INTO users(id,subject,name,role) VALUES($1::uuid,$1::text,'Foreign fixture','rider')",
+    [foreign],
+  );
+  await database.pool.query(
+    "INSERT INTO payment_customers(rider_id,source,customer_id) VALUES($1,$2,'cus_foreign')",
+    [foreign, source],
+  );
+  expect((await runtimePool.query('SELECT * FROM payment_customers')).rowCount).toBe(0);
+  await transaction(runtimePool, async (c) => {
+    await bindPaymentCustomerRead(c, source, { intentId: reference.intentId! });
+    expect((await c.query('SELECT customer_id FROM payment_customers')).rows).toEqual([
+      { customer_id: reference.customerId },
+    ]);
+    expect((await c.query("UPDATE payment_customers SET customer_id='cus_forged'")).rowCount).toBe(0);
+    expect((await c.query('DELETE FROM payment_customers')).rowCount).toBe(0);
+    await bindPaymentCustomerRead(c, 'acct_other:test', { intentId: reference.intentId! });
+    expect((await c.query('SELECT * FROM payment_customers')).rowCount).toBe(0);
+    await bindPaymentCustomerRead(c, source, { intentId: 'pi_missing' });
+    expect((await c.query('SELECT * FROM payment_customers')).rowCount).toBe(0);
+  });
+  expect((await runtimePool.query('SELECT * FROM payment_customers')).rowCount).toBe(0);
 });

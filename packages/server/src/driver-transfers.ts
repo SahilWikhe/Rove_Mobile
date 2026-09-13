@@ -1,3 +1,4 @@
+import { bindPaymentCustomerRead } from './payment-customer-scope';
 import type { CaptureFees } from './capture-fees';
 import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
@@ -81,6 +82,7 @@ export class DriverTransfers {
     private now: () => Date = () => new Date(),
   ) {}
   private async context(c: PoolClient, rideId: string): Promise<Context> {
+    await bindPaymentCustomerRead(c, this.source, { rideId });
     const p = (
       await c.query(
         `SELECT p.*,r.driver_id,r.state,c.customer_id FROM payment_attempts p

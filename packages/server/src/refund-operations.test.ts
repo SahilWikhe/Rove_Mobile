@@ -1,3 +1,4 @@
+import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { testDatabase } from '@rove/database/testing';
@@ -18,6 +19,7 @@ const authorization = {
   policyReference: 'fixture-policy-v1',
 };
 
+let runtimePool: Pool;
 let database: Awaited<ReturnType<typeof testDatabase>>;
 let reference: PaymentReference;
 let now: Date;
@@ -39,8 +41,25 @@ const item = (status: RefundSnapshot['status'] = 'pending'): RefundSnapshot => (
 });
 beforeAll(async () => {
   database = await testDatabase();
+  await database.pool.query(
+    "CREATE ROLE rls_customer_worker LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'synthetic-local-only'",
+  );
+  await database.pool.query('GRANT USAGE ON SCHEMA public TO rls_customer_worker');
+  await database.pool.query(
+    'GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_customer_worker',
+  );
+  await database.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_customer_worker');
+  runtimePool = new Pool({
+    host: '127.0.0.1',
+    port: (await database.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
+    database: 'postgres',
+    user: 'rls_customer_worker',
+    password: 'synthetic-local-only',
+    max: 5,
+  });
 }, 60_000);
 afterAll(async () => {
+  await runtimePool?.end();
   await database?.close();
 });
 beforeEach(async () => {
@@ -80,7 +99,7 @@ beforeEach(async () => {
   );
   refunds.mockReset();
   refunds.mockImplementation(async () => snapshot());
-  reconcile = new RefundReconciler(database.pool, { refunds }, source, () => now);
+  reconcile = new RefundReconciler(runtimePool, { refunds }, source, () => now);
   staff = { id: randomUUID(), role: 'staff', mfa: true };
   await database.pool.query(
     "INSERT INTO users(id,subject,name,role) VALUES($1::uuid,$1::text,'Fixture staff','staff')",
@@ -105,7 +124,7 @@ beforeEach(async () => {
   await reconcile.reconcile(reference.intentId);
   refund.mockReset();
   refund.mockResolvedValue({ id: 're_created', amountCents: 300, status: 'pending' });
-  operations = new RefundOperations(database.pool, { refund }, reconcile, source, () => now);
+  operations = new RefundOperations(runtimePool, { refund }, reconcile, source, () => now);
 });
 
 async function execute(id: string) {
@@ -324,7 +343,7 @@ test.each(['duplicate', 'future'] as const)(
 test('an enabled dispute guard blocks both authorization and a dispute discovered after authorization', async () => {
   let history: DisputeSnapshot[] = [];
   const disputes = new DisputeReconciler(
-    database.pool,
+    runtimePool,
     {
       disputes: async (ref) => ({
         payment: { ...ref, status: 'succeeded', receivedCents: 1050, capturableCents: 0 },
@@ -334,7 +353,7 @@ test('an enabled dispute guard blocks both authorization and a dispute discovere
     source,
     () => now,
   );
-  operations = new RefundOperations(database.pool, { refund }, reconcile, source, () => now, disputes);
+  operations = new RefundOperations(runtimePool, { refund }, reconcile, source, () => now, disputes);
   await expect(
     operations.authorize(staff, reference.rideId, authorization, 'fixture-key-one'),
   ).rejects.toMatchObject({ code: 'DISPUTE_PAYMENT_HOLD' });

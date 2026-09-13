@@ -1,3 +1,4 @@
+import { bindPaymentCustomerRead } from './payment-customer-scope';
 import { z } from 'zod';
 import { RefundBalances, recordRefundBalances } from './refund-accounting';
 import type { Pool } from 'pg';
@@ -41,22 +42,25 @@ export class RefundReconciler {
     await this.reconcile(parsed.data.intentId);
   };
   async reconcile(intentId: string) {
-    const row = (
-      await this.pool.query<{
-        id: string;
-        ride_id: string;
-        customer_binding_id: string;
-        rider_id: string;
-        customer_id: string;
-        amount_cents: number;
-      }>(
-        `SELECT p.*,c.rider_id,c.customer_id FROM payment_attempts p
+    const row = await transaction(this.pool, async (client) => {
+      await bindPaymentCustomerRead(client, this.source, { intentId });
+      return (
+        await client.query<{
+          id: string;
+          ride_id: string;
+          customer_binding_id: string;
+          rider_id: string;
+          customer_id: string;
+          amount_cents: number;
+        }>(
+          `SELECT p.*,c.rider_id,c.customer_id FROM payment_attempts p
        JOIN payment_customers c ON c.id=p.customer_binding_id AND c.source=p.source
        JOIN rides r ON r.id=p.ride_id AND r.rider_id=c.rider_id AND r.fare_cents=p.amount_cents
        WHERE p.source=$1 AND p.intent_id=$2`,
-        [this.source, intentId],
-      )
-    ).rows[0];
+          [this.source, intentId],
+        )
+      ).rows[0];
+    });
     if (!row)
       throw new DomainError('PAYMENT_REFERENCE_PENDING', 'Payment reference is not available yet.', 503);
     await this.pool.query(
@@ -152,6 +156,7 @@ export class RefundReconciler {
       !before.verified_at;
     const verifiedAt = this.now();
     await transaction(this.pool, async (client) => {
+      await bindPaymentCustomerRead(client, this.source, { attemptId: row.id });
       const valid = await client.query(
         `SELECT p.id FROM payment_attempts p JOIN payment_customers c ON c.id=p.customer_binding_id
        JOIN rides r ON r.id=p.ride_id WHERE p.id=$1 AND p.source=$2 AND p.intent_id=$3 AND p.customer_binding_id=$4

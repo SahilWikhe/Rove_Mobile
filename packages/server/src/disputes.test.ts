@@ -1,3 +1,4 @@
+import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { testDatabase } from '@rove/database/testing';
@@ -7,6 +8,7 @@ import type { Actor } from './rides';
 let staff: Actor;
 import { recordCapturedFunds } from './ledger';
 import { transaction } from './transactions';
+let runtimePool: Pool;
 let database: Awaited<ReturnType<typeof testDatabase>>;
 let reference: PaymentReference;
 let now: Date;
@@ -45,8 +47,25 @@ const reversal = {
 };
 beforeAll(async () => {
   database = await testDatabase();
+  await database.pool.query(
+    "CREATE ROLE rls_customer_worker LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'synthetic-local-only'",
+  );
+  await database.pool.query('GRANT USAGE ON SCHEMA public TO rls_customer_worker');
+  await database.pool.query(
+    'GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_customer_worker',
+  );
+  await database.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_customer_worker');
+  runtimePool = new Pool({
+    host: '127.0.0.1',
+    port: (await database.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
+    database: 'postgres',
+    user: 'rls_customer_worker',
+    password: 'synthetic-local-only',
+    max: 5,
+  });
 }, 60_000);
 afterAll(async () => {
+  await runtimePool?.end();
   await database?.close();
 });
 beforeEach(async () => {
@@ -86,7 +105,7 @@ beforeEach(async () => {
   );
   disputes.mockReset();
   disputes.mockImplementation(async () => snapshot());
-  reconcile = new DisputeReconciler(database.pool, { disputes }, source, () => now);
+  reconcile = new DisputeReconciler(runtimePool, { disputes }, source, () => now);
   staff = { id: randomUUID(), role: 'staff', mfa: true };
   await database.pool.query(
     "INSERT INTO users(id,subject,name,role) VALUES($1::uuid,$1::text,'Staff','staff')",

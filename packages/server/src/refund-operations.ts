@@ -1,3 +1,4 @@
+import { bindPaymentCustomerRead } from './payment-customer-scope';
 import { z } from 'zod';
 import { RefundAuthorization, RefundOperation } from '@rove/contracts';
 import type { Pool, PoolClient } from 'pg';
@@ -33,6 +34,7 @@ export class RefundOperations {
     private disputes?: DisputeReconciler,
   ) {}
   private async reference(client: PoolClient, rideId: string): Promise<PaymentReference> {
+    await bindPaymentCustomerRead(client, this.source, { rideId });
     const row = (
       await client.query(
         `SELECT p.*,c.customer_id FROM payment_attempts p

@@ -1,3 +1,4 @@
+import { actorTransaction } from './actor-transaction';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
@@ -202,3 +203,33 @@ test.each(['valid', 'wrong_customer', 'disabled', 'cancelled', 'expired'])(
     ).toHaveLength(1);
   },
 );
+
+test('owner access cannot read other customers, forge provider mappings or delete reservations', async () => {
+  await service.ensure(actor);
+  const other = randomUUID();
+  await database.pool.query(
+    "INSERT INTO users(id,subject,name,role) VALUES($1::uuid,$1::text,'Other fixture','rider')",
+    [other],
+  );
+  await database.pool.query(
+    "INSERT INTO payment_customers(rider_id,source,customer_id) VALUES($1,$2,'cus_other')",
+    [other, source],
+  );
+  expect((await runtimePool.query('SELECT * FROM payment_customers')).rowCount).toBe(0);
+  await actorTransaction(runtimePool, actor, async (c) => {
+    await c.query("SELECT set_config('rove.customer_source',$1,true)", [source]);
+    expect((await c.query('SELECT rider_id FROM payment_customers')).rows).toEqual([{ rider_id: actor.id }]);
+    expect((await c.query("UPDATE payment_customers SET customer_id='cus_forged'")).rowCount).toBe(0);
+    expect((await c.query('DELETE FROM payment_customers')).rowCount).toBe(0);
+  });
+  await expect(
+    actorTransaction(runtimePool, actor, async (c) => {
+      await c.query("SELECT set_config('rove.customer_source',$1,true)", [source]);
+      await c.query("INSERT INTO payment_customers(rider_id,source,customer_id) VALUES($1,$2,'cus_forged')", [
+        other,
+        source,
+      ]);
+    }),
+  ).rejects.toMatchObject({ code: '42501' });
+  expect((await runtimePool.query('SELECT * FROM payment_customers')).rowCount).toBe(0);
+});

@@ -249,6 +249,23 @@ export const paymentCustomers = pgTable(
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
+    pgPolicy('customer_owner_read', {
+      for: 'select',
+      using: sql`${t.source}=current_setting('rove.customer_source',true) AND ${t.riderId}=NULLIF(current_setting('rove.actor_id',true),'')::uuid AND current_setting('rove.actor_role',true)='rider' AND EXISTS(SELECT 1 FROM public.users u WHERE u.id=${t.riderId} AND u.role='rider' AND u.disabled=false)`,
+    }),
+    pgPolicy('customer_owner_reserve', {
+      for: 'insert',
+      withCheck: sql`${t.customerId} IS NULL AND ${t.source}=current_setting('rove.customer_source',true) AND ${t.riderId}=NULLIF(current_setting('rove.actor_id',true),'')::uuid AND current_setting('rove.actor_role',true)='rider' AND EXISTS(SELECT 1 FROM public.users u WHERE u.id=${t.riderId} AND u.role='rider' AND u.disabled=false)`,
+    }),
+    pgPolicy('customer_worker_read', {
+      for: 'select',
+      using: sql`${t.source}=current_setting('rove.customer_source',true) AND (${t.id}=NULLIF(current_setting('rove.customer_read',true),'')::uuid OR ${t.id}=NULLIF(current_setting('rove.customer_write',true),'')::uuid)`,
+    }),
+    pgPolicy('customer_result_update', {
+      for: 'update',
+      using: sql`${t.source}=current_setting('rove.customer_source',true) AND ${t.id}=NULLIF(current_setting('rove.customer_write',true),'')::uuid AND (${t.customerId} IS NULL OR ${t.customerId}=NULLIF(current_setting('rove.customer_result',true),''))`,
+      withCheck: sql`${t.source}=current_setting('rove.customer_source',true) AND ${t.id}=NULLIF(current_setting('rove.customer_write',true),'')::uuid AND ${t.customerId}=NULLIF(current_setting('rove.customer_result',true),'')`,
+    }),
     uniqueIndex('payment_customer_rider_source').on(t.riderId, t.source),
     uniqueIndex('payment_customer_provider_source').on(t.source, t.customerId),
   ],

@@ -1,3 +1,4 @@
+import { Pool } from 'pg';
 import { CaptureFees } from './capture-fees';
 import { randomUUID } from 'node:crypto';
 import { beforeAll, afterAll, beforeEach, expect, test, vi } from 'vitest';
@@ -12,6 +13,7 @@ import { recordCapturedFunds } from './ledger';
 import { transaction } from './transactions';
 import type { Actor } from './rides';
 import type { DriverTransferReference, DriverTransferSnapshot } from './driver-transfer-provider';
+let runtimePool: Pool;
 let db: Awaited<ReturnType<typeof testDatabase>>;
 let staff: Actor, rideId: string, driverId: string, attemptId: string;
 let now: Date, service: DriverTransfers;
@@ -42,8 +44,25 @@ const reference = (r: DriverTransferReference): DriverTransferSnapshot => ({
 });
 beforeAll(async () => {
   db = await testDatabase();
+  await db.pool.query(
+    "CREATE ROLE rls_customer_worker LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'synthetic-local-only'",
+  );
+  await db.pool.query('GRANT USAGE ON SCHEMA public TO rls_customer_worker');
+  await db.pool.query(
+    'GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_customer_worker',
+  );
+  await db.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_customer_worker');
+  runtimePool = new Pool({
+    host: '127.0.0.1',
+    port: (await db.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
+    database: 'postgres',
+    user: 'rls_customer_worker',
+    password: 'synthetic-local-only',
+    max: 5,
+  });
 }, 60000);
 afterAll(async () => {
+  await runtimePool?.end();
   await db?.close();
 });
 beforeEach(async () => {
@@ -131,9 +150,9 @@ beforeEach(async () => {
     await db.pool.query('UPDATE payment_refund_checks SET verified_at=$1', [now]);
     await db.pool.query('UPDATE payment_dispute_checks SET verified_at=$1', [now]);
   });
-  const disputes = new DisputeReconciler(db.pool, { disputes: vi.fn() }, source, () => now);
+  const disputes = new DisputeReconciler(runtimePool, { disputes: vi.fn() }, source, () => now);
   captureFees = new CaptureFees(
-    db.pool,
+    runtimePool,
     {
       retrieve: async () => ({
         chargeId: 'ch_fixture',
@@ -151,7 +170,7 @@ beforeEach(async () => {
   );
   await captureFees.reconcile('pi_fixture');
   service = new DriverTransfers(
-    db.pool,
+    runtimePool,
     { funding, create, find, retrieve },
     { reconcile: refresh },
     { reconcile: refresh, assertRefundable: disputes.assertRefundable.bind(disputes) },
@@ -321,7 +340,7 @@ test('stale facts, unresolved refund authorization and source mismatch are rejec
   await expect(authorize()).rejects.toBeDefined();
   expect(await balances()).toMatchObject({ driver_payable: -790 });
   const other = new DriverTransfers(
-    db.pool,
+    runtimePool,
     { funding, create, find, retrieve },
     { reconcile: refresh },
     { reconcile: refresh, assertRefundable: vi.fn() },
@@ -522,9 +541,9 @@ test('refund authorization respects a pending transfer and becomes available aft
   ]);
   const provider = { refund: vi.fn() };
   const refunds = new RefundOperations(
-    db.pool,
+    runtimePool,
     provider,
-    new RefundReconciler(db.pool, { refunds: vi.fn() }, source, () => now, true),
+    new RefundReconciler(runtimePool, { refunds: vi.fn() }, source, () => now, true),
     source,
     () => now,
   );

@@ -1,3 +1,4 @@
+import { bindPaymentCustomerResult } from './payment-customer-scope';
 import { bindActorIdentity } from './actor-transaction';
 import type { Pool } from 'pg';
 import type { Actor } from './rides';
@@ -28,6 +29,7 @@ export class PaymentCustomers {
       if (!user || user.role !== 'rider' || user.disabled)
         throw new DomainError('FORBIDDEN', 'Payment profile is unavailable.', 403);
       await bindActorIdentity(client, actor, 'update');
+      await client.query("SELECT set_config('rove.customer_source',$1,true)", [this.source]);
       const inserted = (
         await client.query<{ id: string; customer_id: string | null; created_at: Date }>(
           `INSERT INTO payment_customers(rider_id,source,created_at) VALUES ($1,$2,$3)
@@ -67,6 +69,7 @@ export class PaymentCustomers {
           [actor.id],
         )
       ).rows[0];
+      await bindPaymentCustomerResult(client, this.source, binding.id, customerId);
       const mapped = await client.query(
         'UPDATE payment_customers SET customer_id=$2 WHERE id=$1 AND (customer_id IS NULL OR customer_id=$2)',
         [binding.id, customerId],

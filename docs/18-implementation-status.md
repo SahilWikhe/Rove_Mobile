@@ -1,5 +1,13 @@
 # Implementation status
 
+## Payment-customer RLS and financial worker access — September 13
+
+Migration 0066 enables and forces payment_customers row security. Verified active riders reserve/read only their own configured-source bindings; runtime consumers cannot forge mappings or delete them. Payment reconciliation, refunds, disputes, capture and transfers resolve a persisted payment to an exact source-specific customer read scope. Confirmed provisioning results use an exact binding/result scope so recovery mappings survive account closure races. Payment-session preparation locks the actor before the ride, matching account-first ordering. Provider I/O remains outside transactions.
+
+Verification: the complete 700-test server suite passed, followed by the 18-test reconciliation suite including one additional direct worker-isolation case. All 208 API and 13 database tests passed. Restricted non-owner roles now exercise reconciliation, refund, dispute and transfer workflows as well as customer/wallet/capture paths. Tests deny foreign/unscoped reads, consumer mapping mutation/deletion and worker writes, and verify context clearing, retries and late confirmed results. Server/database typechecks and targeted lint passed; providers were synthetic.
+
+Source policy coverage is twenty-four of 47 tables; twenty-three remain. Hosted evidence remains twenty-one through 0063. No provider-staging or production migration occurred. Next: complete remaining trip/identity and financial worker policies, rehearse 0064–0066 and subsequent changes in isolated synthetic Neon, then deploy compatible staging code and reviewed migrations. Physical-device and full production acceptance remain incomplete.
+
 ## Capture-accounting RLS — September 13
 
 Migration 0065 enables and forces row security on payment_capture_checks. Reconciliation binds the configured provider source and exact attempt; readiness checks retain share locks but cannot alter accounting. Sweep discovery is source-scoped and writes bind each selected attempt. Balance-reuse checks expose only the exact observed provider balance reference. Runtime deletion is denied, and actor/other worker transactions clear capture scopes.

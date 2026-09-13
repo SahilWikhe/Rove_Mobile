@@ -26,17 +26,15 @@ export class WalletSessions {
 
   private async binding(actor: Actor) {
     if (actor.role !== 'rider') throw new DomainError('FORBIDDEN', 'Payment settings are unavailable.', 403);
-    return actorTransaction(
-      this.pool,
-      actor,
-      async (client) =>
-        (
-          await client.query<{ id: string; customer_id: string | null }>(
-            'SELECT id,customer_id FROM payment_customers WHERE rider_id=$1 AND source=$2',
-            [actor.id, this.source],
-          )
-        ).rows[0],
-    );
+    return actorTransaction(this.pool, actor, async (client) => {
+      await client.query("SELECT set_config('rove.customer_source',$1,true)", [this.source]);
+      return (
+        await client.query<{ id: string; customer_id: string | null }>(
+          'SELECT id,customer_id FROM payment_customers WHERE rider_id=$1 AND source=$2',
+          [actor.id, this.source],
+        )
+      ).rows[0];
+    });
   }
 
   private async prepare(actor: Actor) {

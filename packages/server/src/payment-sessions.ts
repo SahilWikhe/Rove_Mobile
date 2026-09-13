@@ -1,3 +1,4 @@
+import { bindActorIdentity } from './actor-transaction';
 import type { WalletProvider } from './wallet-sessions';
 import type { Pool } from 'pg';
 import type { PaymentCustomers } from './payment-customers';
@@ -32,6 +33,14 @@ export class PaymentSessions {
     if (actor.role !== 'rider') throw new DomainError('NOT_FOUND', 'Ride not found.', 404);
     const prepare = () =>
       transaction(this.pool, async (client) => {
+        const owner = (
+          await client.query<{ disabled: boolean }>('SELECT disabled FROM users WHERE id=$1 FOR SHARE', [
+            actor.id,
+          ])
+        ).rows[0];
+        if (owner?.disabled)
+          throw new DomainError('ACCOUNT_DISABLED', 'Contact support for help with your account.', 403);
+        await bindActorIdentity(client, actor);
         const ride = (
           await client.query<{ state: string; search_deadline: Date; fare_cents: number; disabled: boolean }>(
             `SELECT r.state,r.search_deadline,r.fare_cents,u.disabled FROM rides r JOIN users u ON u.id=r.rider_id
@@ -42,6 +51,7 @@ export class PaymentSessions {
         if (!ride) throw new DomainError('NOT_FOUND', 'Ride not found.', 404);
         if (ride.disabled)
           throw new DomainError('ACCOUNT_DISABLED', 'Contact support for help with your account.', 403);
+        await client.query("SELECT set_config('rove.customer_source',$1,true)", [this.source]);
         const binding = (
           await client.query<{ id: string; customer_id: string }>(
             'SELECT id,customer_id FROM payment_customers WHERE rider_id=$1 AND source=$2',

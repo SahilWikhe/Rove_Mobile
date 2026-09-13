@@ -1,3 +1,4 @@
+import { bindPaymentCustomerRead } from './payment-customer-scope';
 import type { Pool } from 'pg';
 import { z } from 'zod';
 import type { PaymentProvider, PaymentReference, PaymentSnapshot } from './payment-provider';
@@ -93,22 +94,25 @@ export class PaymentReconciler {
   private async settle(job: Parameters<JobHandler>[0], operation: 'capture' | 'release') {
     const parsed = z.object({ attemptId: z.uuid() }).strict().safeParse(job.payload);
     if (!parsed.success) throw new DomainError('PAYMENT_JOB_MISMATCH', 'Invalid payment operation.', 422);
-    const row = (
-      await this.pool.query<
-        AttemptRow & {
-          state: string;
-          payment_state: string;
-          fare_cents: number;
-          owner_id: string;
-          search_deadline: Date;
-        }
-      >(
-        `SELECT p.*,c.customer_id,c.rider_id,c.source AS customer_source,r.state,r.payment_state,r.fare_cents,r.rider_id AS owner_id,r.search_deadline
+    const row = await transaction(this.pool, async (client) => {
+      await bindPaymentCustomerRead(client, this.source, { attemptId: parsed.data.attemptId });
+      return (
+        await client.query<
+          AttemptRow & {
+            state: string;
+            payment_state: string;
+            fare_cents: number;
+            owner_id: string;
+            search_deadline: Date;
+          }
+        >(
+          `SELECT p.*,c.customer_id,c.rider_id,c.source AS customer_source,r.state,r.payment_state,r.fare_cents,r.rider_id AS owner_id,r.search_deadline
        FROM payment_attempts p JOIN payment_customers c ON c.id=p.customer_binding_id JOIN rides r ON r.id=p.ride_id
        WHERE p.id=$1 AND p.source=$2 AND p.ride_id=$3`,
-        [parsed.data.attemptId, this.source, job.aggregateId],
-      )
-    ).rows[0];
+          [parsed.data.attemptId, this.source, job.aggregateId],
+        )
+      ).rows[0];
+    });
     if (
       !row?.intent_id ||
       row.rider_id !== row.owner_id ||
@@ -140,13 +144,16 @@ export class PaymentReconciler {
     await this.reconcile(row.intent_id);
   }
   async reconcile(intentId: string): Promise<void> {
-    const before = (
-      await this.pool.query<AttemptRow>(
-        `SELECT p.*,c.customer_id,c.rider_id,c.source AS customer_source FROM payment_attempts p
+    const before = await transaction(this.pool, async (client) => {
+      await bindPaymentCustomerRead(client, this.source, { intentId });
+      return (
+        await client.query<AttemptRow>(
+          `SELECT p.*,c.customer_id,c.rider_id,c.source AS customer_source FROM payment_attempts p
        JOIN payment_customers c ON c.id=p.customer_binding_id WHERE p.source=$1 AND p.intent_id=$2`,
-        [this.source, intentId],
-      )
-    ).rows[0];
+          [this.source, intentId],
+        )
+      ).rows[0];
+    });
     // Stripe may deliver before creation's local reference commits. Retry; never infer an owner from metadata.
     if (!before)
       throw new DomainError('PAYMENT_REFERENCE_PENDING', 'Payment reference is not available yet.', 503);

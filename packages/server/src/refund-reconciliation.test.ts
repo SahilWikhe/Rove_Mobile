@@ -1,3 +1,4 @@
+import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { testDatabase } from '@rove/database/testing';
@@ -5,6 +6,7 @@ import type { PaymentReference, RefundProvider, RefundSnapshot } from './payment
 import { RefundReconciler } from './refund-reconciliation';
 import { recordCapturedFunds } from './ledger';
 import { transaction } from './transactions';
+let runtimePool: Pool;
 let database: Awaited<ReturnType<typeof testDatabase>>;
 let reference: PaymentReference;
 let now: Date;
@@ -26,8 +28,25 @@ const item = (status: RefundSnapshot['status'] = 'pending'): RefundSnapshot => (
 });
 beforeAll(async () => {
   database = await testDatabase();
+  await database.pool.query(
+    "CREATE ROLE rls_customer_worker LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'synthetic-local-only'",
+  );
+  await database.pool.query('GRANT USAGE ON SCHEMA public TO rls_customer_worker');
+  await database.pool.query(
+    'GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_customer_worker',
+  );
+  await database.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_customer_worker');
+  runtimePool = new Pool({
+    host: '127.0.0.1',
+    port: (await database.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
+    database: 'postgres',
+    user: 'rls_customer_worker',
+    password: 'synthetic-local-only',
+    max: 5,
+  });
 }, 60_000);
 afterAll(async () => {
+  await runtimePool?.end();
   await database?.close();
 });
 beforeEach(async () => {
@@ -67,7 +86,7 @@ beforeEach(async () => {
   );
   refunds.mockReset();
   refunds.mockImplementation(async () => snapshot());
-  reconcile = new RefundReconciler(database.pool, { refunds }, source, () => now);
+  reconcile = new RefundReconciler(runtimePool, { refunds }, source, () => now);
 });
 
 async function stored() {
@@ -233,7 +252,7 @@ test('refund accounting and verified observations commit together and retry afte
   );
   await reconcile.reconcile(reference.intentId);
   const before = await stored();
-  reconcile = new RefundReconciler(database.pool, { refunds }, source, () => now, true);
+  reconcile = new RefundReconciler(runtimePool, { refunds }, source, () => now, true);
   refunds.mockResolvedValue(
     snapshot([
       {
