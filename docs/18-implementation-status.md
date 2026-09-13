@@ -2,6 +2,12 @@
 
 Updated: September 12, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Driver credential renewal warning — September 12
+
+Reviewed live Figma driver Account `4:106` and implemented its missing expiring-soon badge using the latest approved credential per kind. A display-only 30-day window supplies the count; document details show the actual reviewed expiry and renewal guidance. Expired/rejected/upload-failure attention takes precedence, superseded credentials do not count, and upload reservation expiry is never treated as credential expiry. Eligibility remains server-controlled.
+
+Verification: five account-summary tests passed, including expiry/window boundaries and replacements; the dedicated Playwright Account → Documents journey passed in 9.5 seconds overall (3.2-second test). Both browser screenshots were visually inspected. Driver typecheck passed. Native rendering remains pending. No provider or production changes occurred. Remaining release work includes native/provider/physical-device acceptance, remaining Figma audit, historical write reconciliation and full erasure, and production setup. Next: continue concrete cross-screen design/behavior review while preserving these release gaps.
+
 ## Confirmed upload outcome persistence recovery — September 12
 
 Tracked quarantine uploads now persist known outcomes with up to three database-only attempts for explicit transient errors. Exact-row locking and immutable outcome comparison recover lost commit acknowledgements without duplicate audits, timestamp changes or repeated provider writes. Missing/conflicting evidence, permanent errors and exhausted retries fail conservatively; unknown provider outcomes remain unresolved. This also covers typed proof that upload dispatch never occurred.

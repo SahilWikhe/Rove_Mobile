@@ -1,3 +1,4 @@
+import { credentialExpiry } from '../documents/expiry';
 import { Platform } from 'react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Stack, router } from 'expo-router';
@@ -32,8 +33,14 @@ function documentStatus(document: z.infer<typeof DriverDocumentSummary>) {
   if (document.review?.status === 'expired') return 'This document has expired. Upload an updated copy.';
   if (document.review?.status === 'rejected' && document.review.reason)
     return rejectionCopy[document.review.reason];
-  if (document.review?.status === 'approved' && document.review.expiresAt)
-    return `Document approved. Valid until ${new Date(document.review.expiresAt).toLocaleDateString()}.`;
+  if (document.review?.status === 'approved' && document.review.expiresAt) {
+    const expiry = credentialExpiry(document.review.expiresAt);
+    if (expiry === 'expired') return 'This document has expired. Upload an updated copy.';
+    const date = new Date(document.review.expiresAt).toLocaleDateString();
+    return expiry === 'expiring_soon'
+      ? `Expiring soon · ${date}. Upload a renewed copy before it expires.`
+      : `Document approved. Valid until ${date}.`;
+  }
   return verificationCopy[document.verification ?? 'pending'];
 }
 type Kind = z.infer<typeof DriverDocumentReservation>['kind'];

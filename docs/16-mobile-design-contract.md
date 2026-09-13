@@ -425,3 +425,9 @@ Both account-deletion screens retain the existing shared black/charcoal confirma
 ## Pending deletion withdrawal — September 12, 2026
 
 Both consumer account-deletion screens reuse the existing charcoal cards and gold/secondary actions for withdrawal before closure. The action requires an explicit confirmation with a Keep deletion request alternative. The persisted withdrawn state allows a fresh explicit deletion request; a lost response retries the same action and reloads current status. This is an account recovery extension, not an erasure-completion screen. Closed account restoration is outside this flow.
+
+## Credential renewal reminder — September 12
+
+Re-read driver Account frame `4:106` through Figma design context, including its gold “1 expiring soon” document badge. Account now shows the count of latest approved credentials expiring within 30 days, using reviewed credential expiry rather than upload reservation expiry. Existing expired/rejected/failed-upload warnings take priority. The document screen shows the expiry date and asks for a renewed copy. The 30-day interval is a display-only reminder, not a change to server eligibility, review policy or approval validity. Replaced documents no longer contribute the old warning. No sample ratings, acceptance percentages, subscription or payout details were introduced from the frame.
+
+Browser verification at 390×844 passed Account → Documents and both screenshots were inspected (`/tmp/rove-driver-renewal-account.png`, `/tmp/rove-driver-renewal-guidance.png`). Native rendering of this change remains unverified. Exact whole-app Figma parity is not claimed.

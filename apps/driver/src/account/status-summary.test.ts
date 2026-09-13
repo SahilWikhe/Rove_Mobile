@@ -59,3 +59,37 @@ test('payout readiness describes details, not a bank balance or sent payout', ()
   expect(payoutDetail('ready').text).toBe('Details ready');
   expect(payoutDetail('needs_information')).toEqual({ text: 'Action needed', attention: true });
 });
+
+test('warns before reviewed credential expiry, using only the latest document per kind', () => {
+  const now = Date.parse('2026-09-12T00:00:00Z');
+  const approved = document({
+    review: {
+      status: 'approved',
+      reason: null,
+      reviewedAt: '2026-09-01T00:00:00Z',
+      expiresAt: '2026-10-12T00:00:00Z',
+    },
+  });
+  expect(documentDetail([approved], now)).toEqual({ text: '1 expiring soon', attention: true });
+  expect(documentDetail([approved, { ...approved, kind: 'vehicle_insurance' }], now)).toEqual({
+    text: '2 expiring soon',
+    attention: true,
+  });
+  const replacement = document({ createdAt: '2026-09-12T00:00:00Z' });
+  expect(documentDetail([approved, replacement], now)).toEqual({ text: 'Add documents' });
+  expect(
+    documentDetail(
+      [{ ...approved, review: { ...approved.review!, expiresAt: '2026-09-12T00:00:00Z' } }],
+      now,
+    ),
+  ).toEqual({ text: '1 needs attention', attention: true });
+  expect(
+    documentDetail(
+      [{ ...approved, review: { ...approved.review!, expiresAt: '2026-10-12T00:00:01Z' } }],
+      now,
+    ),
+  ).toEqual({ text: 'Add documents' });
+  expect(documentDetail([document({ expiresAt: '2026-09-13T00:00:00Z' })], now)).toEqual({
+    text: 'Add documents',
+  });
+});

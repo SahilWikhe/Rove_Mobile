@@ -1,3 +1,4 @@
+import { credentialExpiry } from '../documents/expiry';
 import type { z } from 'zod';
 import type { DriverDocumentSummary, DriverPayoutStatus, VehicleReview } from '@rove/contracts';
 
@@ -21,7 +22,10 @@ export function payoutDetail(status: DriverPayoutStatus['status']): AccountDetai
     attention: status === 'needs_information',
   };
 }
-export function documentDetail(documents: z.infer<typeof DriverDocumentSummary>[]): AccountDetail {
+export function documentDetail(
+  documents: z.infer<typeof DriverDocumentSummary>[],
+  now = Date.now(),
+): AccountDetail {
   const latest = new Map<string, z.infer<typeof DriverDocumentSummary>>();
   for (const document of documents) {
     const previous = latest.get(document.kind);
@@ -32,6 +36,8 @@ export function documentDetail(documents: z.infer<typeof DriverDocumentSummary>[
     (document) =>
       document.state === 'expired' ||
       document.review?.status === 'expired' ||
+      (document.review?.status === 'approved' &&
+        credentialExpiry(document.review.expiresAt, now) === 'expired') ||
       document.review?.status === 'rejected' ||
       document.verification === 'replacement_required' ||
       document.verification === 'delayed',
@@ -43,6 +49,12 @@ export function documentDetail(documents: z.infer<typeof DriverDocumentSummary>[
     };
   if (current.some((document) => document.state === 'reserved'))
     return { text: 'Finish upload', attention: true };
+  const expiring = current.filter(
+    (document) =>
+      document.review?.status === 'approved' &&
+      credentialExpiry(document.review.expiresAt, now) === 'expiring_soon',
+  ).length;
+  if (expiring) return { text: `${expiring} expiring soon`, attention: true };
   if (current.length < 3) return { text: 'Add documents' };
   if (current.every((document) => document.state === 'quarantined' && document.review?.status === 'approved'))
     return { text: 'Reviewed' };
