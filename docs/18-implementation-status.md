@@ -1,5 +1,13 @@
 # Implementation status
 
+## Outbox append policy prototype verified — September 13
+
+Added a transaction-bound enqueue helper and isolated PostgreSQL policy tests. Existing service callers and deployed policies are unchanged. The helper preserves serialized payloads, explicit/default schedules, strict duplicate errors and opt-in duplicate suppression, and clears its exact append scope after insertion. The prototype permits conflict visibility only for the selected deduplication key; reads outside that scope and all runtime updates/deletes are denied.
+
+All three prototype tests, server typechecking and changed-file lint passed. Tests cover concurrent deduplication, scheduling, rollback, strict duplicates, exact/foreign-key visibility, unscoped insertion denial, forged topic/schedule and preset worker-state rejection. Initial test setup needed CASCADE for the disposable database's dependent tables. The first policy attempt also exposed PostgreSQL conflict visibility requirements; adding exact-key read scope resolved the concurrent retry failure.
+
+Automatic approval review rejected a broad automated rewrite of payment, payout, notification and cleanup enqueue callers before validation; none of that command applied. The safer helper/prototype-only change was approved and tested. Next: use this evidence to review caller integration and worker lease/recovery scopes before a versioned outbox migration. Source/hosted RLS remains 42 of 47 tables; provider staging and production are unchanged. Remaining core policies, compatible rollout, and device/provider acceptance remain outstanding. This checkpoint is prepared for the authorized main push; remote confirmation follows the push.
+
 ## Hosted offer RLS and restricted matching verified — September 13
 
 The isolated br-shy-bar-axjulxqh / neondb catalog confirms 80 migrations and 42 of 47 tables with RLS enabled and forced. The complete pooled rove_staging_app rehearsal exited successfully with NOSUPERUSER/NOBYPASSRLS: driver/rider offer ownership, foreign/unscoped denial, exact read-only notification scope, messaging retries, notification suppression, synthetic push, tracking, financial processing, closure and document cleanup passed. External providers were fake adapters; this does not prove real-device or real-provider acceptance.
