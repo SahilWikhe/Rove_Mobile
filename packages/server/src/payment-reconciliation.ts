@@ -293,7 +293,10 @@ export class PaymentReconciler {
         next,
         this.now(),
       ]);
-      await event(client, before.ride_id, 'payment.updated', null, ride.version + 1);
+      await event(client, before.ride_id, 'payment.updated', null, ride.version + 1, {
+        version: ride.version + 1,
+        paymentState: next,
+      });
       if (work) await event(client, before.ride_id, work, null, ride.version + 1, { attemptId: before.id });
     });
   }

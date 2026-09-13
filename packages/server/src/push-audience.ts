@@ -118,6 +118,36 @@ export class PushAudience {
           }
         : null;
     }
+    if (event.topic === 'payment.updated') {
+      // Billing notifications go only to the rider. Routine authorization/release
+      // transitions remain readable in-app without generating another OS alert.
+      const payload = z
+        .object({
+          version: z.number().int().positive(),
+          paymentState: z.enum(['paid', 'action_required', 'review_required']),
+        })
+        .strict()
+        .safeParse(event.payload);
+      if (!payload.success) return null;
+      const ride = await transaction(this.pool, async (client) => {
+        await bindRideRead(client, event.aggregate_id);
+        return (
+          await client.query<{ rider_id: string }>(
+            'SELECT rider_id FROM rides WHERE id=$1 AND version=$2 AND payment_state=$3',
+            [event.aggregate_id, payload.data.version, payload.data.paymentState],
+          )
+        ).rows[0];
+      });
+      return ride
+        ? {
+            kind: 'ride_update',
+            referenceId: event.aggregate_id,
+            expiresAt: event.expires_at,
+            riderId: ride.rider_id,
+            driverId: null,
+          }
+        : null;
+    }
     if (rideTopics.has(event.topic)) {
       const ride = (
         await transaction(this.pool, async (client) => {

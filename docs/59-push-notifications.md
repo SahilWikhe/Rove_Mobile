@@ -200,3 +200,11 @@ Restricted-role installation, audience, delivery and closure tests verify the co
 ## Hosted notification RLS evidence
 
 Migrations through 0063 passed isolated Neon verification using the restricted pooled application role. Synthetic registration/account transfer, fanout retry, one accepted send despite send retry, receipt persistence and unscoped installation/delivery/counter denial all passed. Push providers were fake; this verifies hosted database/service compatibility, not APNs/FCM delivery or physical-device behavior. Earlier pending isolated-rehearsal notes are superseded. Provider-staging rollout remains pending.
+
+## Payment-update delivery
+
+Payment reconciliation now records the ride version and payment state in its internal payment.updated event. The push worker consumes this known topic. Only the current version/state for paid, action_required or review_required may produce a generic ride_update hint, addressed only to the ride's current rider. It carries no amount, card information or billing diagnosis. Existing account enablement, installation ownership/revision, project and five-minute expiry checks apply at fan-out and again before transport.
+
+Pending, authorized, capture-pending, release-pending and released states do not generate an additional billing alert. Superseded versions/states, expired events and legacy payloads without the new fields are explicitly suppressed. Drivers do not receive these billing hints; ordinary trip notifications retain their existing audience. Clients re-read authorized ride data after a tap.
+
+When push is disabled, payment.updated is an explicit paused outbox topic: no claim, attempt, lease or dead letter is created, and it does not keep the drain waking. Financial capture/release/reconciliation jobs continue. Enabling configured push resumes normal processing with freshness checks; it does not replay stale notifications or reset existing dead letters. This is locally tested source behavior, not a claim of physical push delivery. See [sandbox payment evidence](payment-sandbox-acceptance.md) for the missing-consumer finding.

@@ -20,6 +20,7 @@ type Delivery = {
   receipt_attempts: number;
 };
 const topics = [
+  'payment.updated',
   'message.created',
   'offer.created',
   'ride.matched',

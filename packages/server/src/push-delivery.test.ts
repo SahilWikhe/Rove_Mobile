@@ -367,3 +367,22 @@ test('recovery reads and locks stalled deliveries without writing receipts', asy
     }),
   ).rejects.toMatchObject({ code: '42501' });
 });
+
+test('payment update is a registered idempotent rider notification job', async () => {
+  await db.pool.query("UPDATE rides SET payment_state='paid',version=2");
+  await db.pool.query("UPDATE outbox SET topic='payment.updated',payload=$2 WHERE id=$1", [
+    eventId,
+    JSON.stringify({ version: 2, paymentState: 'paid' }),
+  ]);
+  const worker = new OutboxWorker(runtimePool, service.handlers({}), () => now);
+  await worker.runOnce(10);
+  await worker.runOnce(10);
+  expect(provider.send).toHaveBeenCalledOnce();
+  expect(
+    (await db.pool.query('SELECT completed_at,dead_letter_at FROM outbox WHERE id=$1', [eventId])).rows[0],
+  ).toMatchObject({
+    completed_at: expect.any(Date),
+    dead_letter_at: null,
+  });
+  expect((await state()).state).toBe('receipt');
+});

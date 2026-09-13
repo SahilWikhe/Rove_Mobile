@@ -75,6 +75,10 @@ The server SDK is pinned to API version `2026-08-26.dahlia` in the existing adap
 
 This endpoint rejects connected-account events. Keep Connect onboarding disabled until its separate model, configuration, event destination and signing secret are verified. Keep push delivery disabled until its own provider/device checks pass. Test signed webhook retry, duplicate delivery, out-of-order delivery, cancellation/release and one capture/receipt per completed ride using the clean provider database.
 
+## Latest sandbox payment acceptance
+
+A dedicated $2 test payment passed authorization, capture, repeated capture handling, full refund, repeated refund handling and restricted-runtime ledger reconciliation on September 13. Hosted PaymentIntent webhooks and a capture job completed. This is provider/database evidence with a directly prepared synthetic trip, not native booking or staff refund authorization. See [scope and remaining checks](payment-sandbox-acceptance.md). The same key's Accounts v2 list check returned 403; review that access before Connect recipient acceptance. Connect/transfers/push remain disabled, and the original charge balance was still pending.
+
 ## Configuration assembly and remaining decisions
 
 Keep secrets in ignored local files and the intended hosted environment. The schema-owner URL must never enter API or realtime runtime. Run `pnpm staging:preflight /path/to/file` for offline validation and the explicitly authorized provider checks separately. Staging main is Git-connected and deploys; the original undeployed/partial configuration checkpoint is obsolete.

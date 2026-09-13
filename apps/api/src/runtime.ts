@@ -196,7 +196,7 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
     pushDelivery ? pushDelivery.handlers(handlers) : handlers,
     undefined,
     undefined,
-    documentCleanup ? [] : ['document.version-delete'],
+    [...(documentCleanup ? [] : ['document.version-delete']), ...(pushDelivery ? [] : ['payment.updated'])],
   );
   const app = createApp({
     pool,

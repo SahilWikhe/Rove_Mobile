@@ -95,6 +95,9 @@ test('full verified funding authorizes matching exactly once across repeated rec
   await reconcile.reconcile(reference.intentId);
   expect(await state()).toMatchObject({ payment_state: 'authorized', version: 2 });
   expect(await topics()).toEqual(['matching.tick', 'payment.updated']);
+  expect(
+    (await database.pool.query("SELECT payload FROM outbox WHERE topic='payment.updated'")).rows[0].payload,
+  ).toEqual({ version: 2, paymentState: 'authorized' });
   expect(retrieve).toHaveBeenCalledWith(reference);
   expect((await database.pool.query('SELECT revision FROM payment_attempts')).rows[0].revision).toBe(2);
 });

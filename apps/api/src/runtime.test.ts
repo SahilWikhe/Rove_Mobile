@@ -235,15 +235,25 @@ test.each([false, true])(
       (await database.pool.query('SELECT payment_state FROM rides WHERE id=$1', [ride.id])).rows[0]
         .payment_state,
     ).toBe('released');
-    // Release may finish just before its final notification job becomes due at database precision.
+    // Known billing events are delivered/suppressed explicitly or preserved while push is off.
     await expect
       .poll(
         async () => {
           await runtime.worker.runOnce(20);
-          const unhandled = (
-            await database.pool.query("SELECT last_error_code FROM outbox WHERE topic='payment.updated'")
+          const jobs = (
+            await database.pool.query(
+              "SELECT attempts,completed_at,dead_letter_at,last_error_code FROM outbox WHERE topic='payment.updated'",
+            )
           ).rows;
-          return unhandled.length > 0 && unhandled.every((row) => row.last_error_code === 'UNKNOWN_JOB_TYPE');
+          return (
+            jobs.length > 0 &&
+            jobs.every(
+              (job) =>
+                job.dead_letter_at === null &&
+                job.last_error_code === null &&
+                (pushEnabled ? job.completed_at !== null : job.completed_at === null && job.attempts === 0),
+            )
+          );
         },
         { interval: 20, timeout: 2000 },
       )

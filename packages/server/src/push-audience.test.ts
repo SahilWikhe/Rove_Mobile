@@ -236,3 +236,40 @@ test('message notification checks both participants under restricted account vis
   expect(await audience.message(recipients[0]!)).toBeNull();
   expect((await runtimePool.query('SELECT id FROM users')).rowCount).toBe(0);
 });
+
+test('payment updates notify only the rider and suppress changed state, versions and expired events', async () => {
+  await db.pool.query("UPDATE rides SET payment_state='paid',version=4 WHERE id=$1", [ride]);
+  await db.pool.query("UPDATE outbox SET topic='payment.updated',payload=$2 WHERE id=$1", [
+    eventId,
+    JSON.stringify({ version: 4, paymentState: 'paid' }),
+  ]);
+  const recipients = await audience.recipients(eventId);
+  expect(recipients).toHaveLength(1);
+  const message = await audience.message(recipients[0]!);
+  expect(message?.hint).toEqual({ eventId, kind: 'ride_update', referenceId: ride });
+  const installation = (
+    await db.pool.query('SELECT owner_id FROM push_installations WHERE id=$1', [
+      recipients[0]!.installationId,
+    ])
+  ).rows[0];
+  expect(installation.owner_id).toBe(rider);
+  await db.pool.query('UPDATE rides SET version=5 WHERE id=$1', [ride]);
+  expect(await audience.message(recipients[0]!)).toBeNull();
+  await db.pool.query("UPDATE rides SET version=4,payment_state='review_required' WHERE id=$1", [ride]);
+  expect(await audience.recipients(eventId)).toEqual([]);
+  await db.pool.query("UPDATE rides SET payment_state='paid' WHERE id=$1", [ride]);
+  now = new Date(now.getTime() + 300000);
+  expect(await audience.message(recipients[0]!)).toBeNull();
+});
+
+test.each(['pending', 'authorized', 'capture_pending', 'release_pending', 'released'])(
+  'routine billing state %s does not create a push alert',
+  async (paymentState) => {
+    await db.pool.query('UPDATE rides SET payment_state=$2,version=4 WHERE id=$1', [ride, paymentState]);
+    await db.pool.query("UPDATE outbox SET topic='payment.updated',payload=$2 WHERE id=$1", [
+      eventId,
+      JSON.stringify({ version: 4, paymentState }),
+    ]);
+    expect(await audience.recipients(eventId)).toEqual([]);
+  },
+);
