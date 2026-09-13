@@ -1,3 +1,4 @@
+import { enqueueOutbox } from './outbox-enqueue';
 import { actorTransaction, bindActorIdentity } from './actor-transaction';
 import { bindPayoutScope } from './payout-scope';
 import type { Pool, PoolClient } from 'pg';
@@ -93,10 +94,13 @@ export class DriverPayouts {
           [binding.id, accountId],
         );
         if (result.rowCount !== 1) throw unavailable();
-        await client.query(
-          `INSERT INTO outbox(topic,aggregate_id,payload,dedupe_key) VALUES('payout.reconcile',$1,$2,$3) ON CONFLICT(dedupe_key) DO NOTHING`,
-          [binding.id, JSON.stringify({ source: this.source, accountId }), `payout-initial:${binding.id}`],
-        );
+        await enqueueOutbox(client, {
+          topic: 'payout.reconcile',
+          aggregateId: binding.id,
+          payload: JSON.stringify({ source: this.source, accountId }),
+          dedupeKey: `payout-initial:${binding.id}`,
+          ignoreDuplicate: true,
+        });
       });
     }
     await this.authorize(this.pool, actor);

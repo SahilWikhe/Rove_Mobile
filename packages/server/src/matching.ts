@@ -1,3 +1,4 @@
+import { enqueueOutbox } from './outbox-enqueue';
 import { bindOfferRide } from './offer-scope';
 import { bindQuoteRide } from './quote-scope';
 import { randomUUID } from 'node:crypto';
@@ -16,10 +17,14 @@ export function distanceMeters(a: Coordinate, b: Coordinate): number {
   return 6_371_000 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(Math.max(0, 1 - h)));
 }
 async function wake(client: PoolClient, rideId: string, at: Date, key: string) {
-  await client.query(
-    "INSERT INTO outbox(topic,aggregate_id,payload,dedupe_key,available_at) VALUES ('matching.tick',$1,'{}',$2,$3) ON CONFLICT DO NOTHING",
-    [rideId, key, at],
-  );
+  await enqueueOutbox(client, {
+    topic: 'matching.tick',
+    aggregateId: rideId,
+    payload: '{}',
+    dedupeKey: key,
+    availableAt: at,
+    ignoreDuplicate: true,
+  });
 }
 interface SearchRow {
   id: string;
@@ -183,10 +188,12 @@ export class MatchingService {
           [offerId, rideId, candidate.id, expires, JSON.stringify(offer)],
         );
         await wake(client, rideId, expires, `offer-expiry:${offerId}`);
-        await client.query(
-          "INSERT INTO outbox(topic,aggregate_id,payload,dedupe_key) VALUES('offer.created',$1,$2,$3)",
-          [rideId, JSON.stringify({ driverId: candidate.id, offerId }), `offer-created:${offerId}`],
-        );
+        await enqueueOutbox(client, {
+          topic: 'offer.created',
+          aggregateId: rideId,
+          payload: JSON.stringify({ driverId: candidate.id, offerId }),
+          dedupeKey: `offer-created:${offerId}`,
+        });
         return;
       }
       const retry = new Date(Math.min(this.now().getTime() + 5000, ride.search_deadline.getTime()));

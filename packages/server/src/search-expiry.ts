@@ -1,12 +1,17 @@
+import { enqueueOutbox } from './outbox-enqueue';
 import { bindOfferRide } from './offer-scope';
 import type { Pool, PoolClient } from 'pg';
 import { transaction, event } from './transactions';
 
 export async function scheduleSearchExpiry(client: PoolClient, rideId: string, deadline: Date) {
-  await client.query(
-    "INSERT INTO outbox(topic,aggregate_id,payload,dedupe_key,available_at) VALUES('ride.search_expire',$1,'{}',$2,$3) ON CONFLICT(dedupe_key) DO NOTHING",
-    [rideId, `search-expire:${rideId}`, deadline],
-  );
+  await enqueueOutbox(client, {
+    topic: 'ride.search_expire',
+    aggregateId: rideId,
+    payload: '{}',
+    dedupeKey: `search-expire:${rideId}`,
+    availableAt: deadline,
+    ignoreDuplicate: true,
+  });
 }
 /** Ends abandoned searches without treating an unconfirmed payment as a released hold. */
 export class SearchExpiry {

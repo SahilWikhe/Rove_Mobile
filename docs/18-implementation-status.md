@@ -1,5 +1,13 @@
 # Implementation status
 
+## Outbox enqueue callers integrated — September 13
+
+Migrated 21 single-job inserts across 18 backend files to the tested transaction-bound enqueueOutbox helper. Each reviewed mapping preserves the caller's topic, aggregate ID, JSON payload, deduplication key, explicit/default schedule and strict versus duplicate-ignored behavior. Existing authorization and transaction boundaries remain in the domain services; financial and notification work remains atomic with its originating mutation.
+
+All 740 server tests, 208 API tests and 13 database tests passed. Server typechecking, changed-source lint and diff checks passed. After the earlier automatic-review rejection, restricted-role prototype evidence and a reviewed read-only AST mapping were provided; the checksum-guarded local integration was approved. No unvalidated broad rewrite or live policy change was applied.
+
+The document cleanup INSERT SELECT remains a bulk operation: its manifest may contain up to 10,000 entries, so per-row enqueue round trips would be a regression. It requires a dedicated authorized-plan insert policy. Next: outbox worker claim/acknowledgement, notification, wakeup and authorized retry scopes plus that bulk policy, then the versioned migration and restricted-role integration checks. RLS coverage remains 42 of 47; provider staging/production and device/provider acceptance are unchanged. This checkpoint is prepared for the authorized main push; remote confirmation follows.
+
 ## Outbox append policy prototype verified — September 13
 
 Added a transaction-bound enqueue helper and isolated PostgreSQL policy tests. Existing service callers and deployed policies are unchanged. The helper preserves serialized payloads, explicit/default schedules, strict duplicate errors and opt-in duplicate suppression, and clears its exact append scope after insertion. The prototype permits conflict visibility only for the selected deduplication key; reads outside that scope and all runtime updates/deletes are denied.

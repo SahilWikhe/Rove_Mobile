@@ -1,3 +1,4 @@
+import { enqueueOutbox } from './outbox-enqueue';
 import { bindOfferRide } from './offer-scope';
 import { bindPaymentCustomerRead } from './payment-customer-scope';
 import type { Pool } from 'pg';
@@ -257,14 +258,13 @@ export class PaymentReconciler {
         current.status === 'succeeded' &&
         current.receivedCents === before.amount_cents
       ) {
-        await client.query(
-          `INSERT INTO outbox(topic,aggregate_id,payload,dedupe_key) VALUES('capture-fee.reconcile',$1,$2,$3) ON CONFLICT(dedupe_key) DO NOTHING`,
-          [
-            before.id,
-            JSON.stringify({ source: this.source, intentId: before.intent_id }),
-            `capture-fee-initial:${before.id}`,
-          ],
-        );
+        await enqueueOutbox(client, {
+          topic: 'capture-fee.reconcile',
+          aggregateId: before.id,
+          payload: JSON.stringify({ source: this.source, intentId: before.intent_id }),
+          dedupeKey: `capture-fee-initial:${before.id}`,
+          ignoreDuplicate: true,
+        });
       }
       if (next === ride.payment_state) return;
       if (next !== 'authorized') {

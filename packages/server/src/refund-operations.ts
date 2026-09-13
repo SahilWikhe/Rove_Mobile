@@ -1,3 +1,4 @@
+import { enqueueOutbox } from './outbox-enqueue';
 import { bindLedgerAttempt } from './ledger-scope';
 import { appendAudit } from './audit';
 import { bindTransferScope } from './transfer-scope';
@@ -140,10 +141,12 @@ export class RefundOperations {
             [reference.attemptId, actor.id, input.amountCents, input.reason, input.policyReference],
           )
         ).rows[0]!;
-        await client.query(
-          `INSERT INTO outbox(topic,aggregate_id,payload,dedupe_key) VALUES('refund.execute',$1,$2,$3)`,
-          [op.id, JSON.stringify({ source: this.source, operationId: op.id }), `refund-execute:${op.id}`],
-        );
+        await enqueueOutbox(client, {
+          topic: 'refund.execute',
+          aggregateId: op.id,
+          payload: JSON.stringify({ source: this.source, operationId: op.id }),
+          dedupeKey: `refund-execute:${op.id}`,
+        });
         await appendAudit(
           client,
           actor.id,
@@ -348,14 +351,13 @@ export class RefundOperations {
         initial.id,
         result.id,
       ]);
-      await client.query(
-        `INSERT INTO outbox(topic,aggregate_id,payload,dedupe_key) VALUES('refund.reconcile',$1,$2,$3) ON CONFLICT DO NOTHING`,
-        [
-          initial.id,
-          JSON.stringify({ source: this.source, intentId: ready.reference.intentId }),
-          `refund-submitted:${initial.id}`,
-        ],
-      );
+      await enqueueOutbox(client, {
+        topic: 'refund.reconcile',
+        aggregateId: initial.id,
+        payload: JSON.stringify({ source: this.source, intentId: ready.reference.intentId }),
+        dedupeKey: `refund-submitted:${initial.id}`,
+        ignoreDuplicate: true,
+      });
     });
   };
 }

@@ -1,3 +1,4 @@
+import { enqueueOutbox } from './outbox-enqueue';
 import { bindLedgerAttempt } from './ledger-scope';
 import { appendLedgerJournal } from './ledger-append';
 import { bindDisputeScope } from './dispute-scope';
@@ -297,14 +298,13 @@ export class DisputeReconciler {
           'INSERT INTO payment_dispute_checks(attempt_id,requested_at) VALUES($1,$2) ON CONFLICT(attempt_id) DO UPDATE SET requested_at=EXCLUDED.requested_at',
           [row.id, this.now()],
         );
-        const queued = await client.query(
-          "INSERT INTO outbox(topic,aggregate_id,payload,dedupe_key) VALUES('dispute.reconcile',$1,$2,$3) ON CONFLICT DO NOTHING",
-          [
-            row.id,
-            JSON.stringify({ source: this.source, intentId: row.intent_id }),
-            `dispute-recovery:${row.id}:${Math.floor(this.now().getTime() / 3600000)}`,
-          ],
-        );
+        const queued = await enqueueOutbox(client, {
+          topic: 'dispute.reconcile',
+          aggregateId: row.id,
+          payload: JSON.stringify({ source: this.source, intentId: row.intent_id }),
+          dedupeKey: `dispute-recovery:${row.id}:${Math.floor(this.now().getTime() / 3600000)}`,
+          ignoreDuplicate: true,
+        });
         count += queued.rowCount ?? 0;
       }
       return count;

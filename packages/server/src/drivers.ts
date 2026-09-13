@@ -1,3 +1,4 @@
+import { enqueueOutbox } from './outbox-enqueue';
 import { actorTransaction, bindActorIdentity } from './actor-transaction';
 import type { Pool } from 'pg';
 import { Coordinate, DriverOffer, DriverCoverage, DriverActivity } from '@rove/contracts';
@@ -192,10 +193,13 @@ export class DriverService {
         [offerId],
       );
       if (!result.rowCount) throw new DomainError('OFFER_UNAVAILABLE', 'This offer is no longer available.');
-      await client.query(
-        "INSERT INTO outbox(topic,aggregate_id,payload,dedupe_key) VALUES ('matching.tick',$1,'{}',$2) ON CONFLICT DO NOTHING",
-        [reference.ride_id, `declined:${offerId}`],
-      );
+      await enqueueOutbox(client, {
+        topic: 'matching.tick',
+        aggregateId: reference.ride_id,
+        payload: '{}',
+        dedupeKey: `declined:${offerId}`,
+        ignoreDuplicate: true,
+      });
       return { declined: true };
     });
   }

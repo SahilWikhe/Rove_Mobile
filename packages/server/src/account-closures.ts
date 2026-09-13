@@ -1,3 +1,4 @@
+import { enqueueOutbox } from './outbox-enqueue';
 import { bindLedgerOwner } from './ledger-scope';
 import { appendAudit } from './audit';
 import { bindTrackingClosure } from './tracking-scope';
@@ -141,10 +142,13 @@ export class AccountClosures {
         )
       ).rows[0];
       await appendAudit(c, actor.id, 'account.closed', requestId, JSON.stringify(input));
-      await c.query(
-        "INSERT INTO outbox(topic,aggregate_id,payload,dedupe_key) VALUES('account.identity-delete',$1,'{}',$2) ON CONFLICT(dedupe_key) DO NOTHING",
-        [requestId, 'account.identity-delete:' + requestId],
-      );
+      await enqueueOutbox(c, {
+        topic: 'account.identity-delete',
+        aggregateId: requestId,
+        payload: '{}',
+        dedupeKey: 'account.identity-delete:' + requestId,
+        ignoreDuplicate: true,
+      });
       return dto(row);
     });
   }

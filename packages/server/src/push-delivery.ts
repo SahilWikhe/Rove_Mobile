@@ -1,3 +1,4 @@
+import { enqueueOutbox } from './outbox-enqueue';
 import { randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
@@ -91,11 +92,14 @@ export class PushDelivery {
     at: Date,
     attempt?: number,
   ) {
-    await client.query(
-      `INSERT INTO outbox(topic,aggregate_id,payload,dedupe_key,available_at)
-      VALUES($1,$2,$5,$3,$4) ON CONFLICT(dedupe_key) DO NOTHING`,
-      [topic, id, key, at, JSON.stringify(attempt === undefined ? {} : { attempt })],
-    );
+    await enqueueOutbox(client, {
+      topic: topic,
+      aggregateId: id,
+      payload: JSON.stringify(attempt === undefined ? {} : { attempt }),
+      dedupeKey: key,
+      availableAt: at,
+      ignoreDuplicate: true,
+    });
   }
   private async claim(job: Job, receipt: boolean) {
     z.uuid().parse(job.aggregateId);

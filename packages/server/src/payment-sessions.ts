@@ -1,3 +1,4 @@
+import { enqueueOutbox } from './outbox-enqueue';
 import { bindActorIdentity } from './actor-transaction';
 import type { WalletProvider } from './wallet-sessions';
 import type { Pool } from 'pg';
@@ -126,14 +127,13 @@ export class PaymentSessions {
       );
       if (mapped.rowCount !== 1)
         throw new DomainError('PAYMENT_REFERENCE_MISMATCH', 'Payment could not be verified.', 503);
-      await client.query(
-        `INSERT INTO outbox(topic,aggregate_id,payload,dedupe_key) VALUES ('payment.reconcile',$1,$2,$3) ON CONFLICT(dedupe_key) DO NOTHING`,
-        [
-          attempt.id,
-          JSON.stringify({ source: this.source, intentId: payment.intentId }),
-          `payment-session:${attempt.id}`,
-        ],
-      );
+      await enqueueOutbox(client, {
+        topic: 'payment.reconcile',
+        aggregateId: attempt.id,
+        payload: JSON.stringify({ source: this.source, intentId: payment.intentId }),
+        dedupeKey: `payment-session:${attempt.id}`,
+        ignoreDuplicate: true,
+      });
       // Commit reference/cleanup job even if cancellation raced the provider request. Do not return its secret.
       return !ride.disabled && ride.state === 'searching' && ride.search_deadline > this.now();
     });

@@ -1,3 +1,4 @@
+import { enqueueOutbox } from './outbox-enqueue';
 import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
 import {
@@ -203,10 +204,12 @@ export class MessagingService {
         [offerId, actor.id, input.requestId, input.text],
       );
       const sent = message(result.rows[0], actor);
-      await client.query(
-        `INSERT INTO outbox(topic,aggregate_id,payload,dedupe_key) VALUES('message.created',$1,'{}',$2)`,
-        [sent.id, 'message:' + sent.id],
-      );
+      await enqueueOutbox(client, {
+        topic: 'message.created',
+        aggregateId: sent.id,
+        payload: '{}',
+        dedupeKey: 'message:' + sent.id,
+      });
       return sent;
     });
   }

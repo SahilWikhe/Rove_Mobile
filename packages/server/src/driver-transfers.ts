@@ -1,3 +1,4 @@
+import { enqueueOutbox } from './outbox-enqueue';
 import { bindLedgerAttempt } from './ledger-scope';
 import { appendLedgerJournal } from './ledger-append';
 import { appendAudit } from './audit';
@@ -322,10 +323,12 @@ export class DriverTransfers {
           { account: 'driver_payable', owner: p.driverId, amount: op.amount_cents },
           { account: 'driver_transfer_pending', owner: p.driverId, amount: -op.amount_cents },
         ]);
-        await c.query(
-          `INSERT INTO outbox(topic,aggregate_id,payload,dedupe_key) VALUES('transfer.execute',$1,$2,$3)`,
-          [op.id, JSON.stringify({ source: this.source, operationId: op.id }), `transfer-execute:${op.id}`],
-        );
+        await enqueueOutbox(c, {
+          topic: 'transfer.execute',
+          aggregateId: op.id,
+          payload: JSON.stringify({ source: this.source, operationId: op.id }),
+          dedupeKey: `transfer-execute:${op.id}`,
+        });
         await appendAudit(
           c,
           actor.id,
@@ -595,14 +598,12 @@ export class DriverTransfers {
           o.id,
           this.now(),
         ]);
-        await c.query(
-          `INSERT INTO outbox(topic,aggregate_id,payload,dedupe_key) VALUES('transfer.execute',$1,$2,$3)`,
-          [
-            o.id,
-            JSON.stringify({ source: this.source, operationId: o.id }),
-            `transfer-sweep:${o.id}:${randomUUID()}`,
-          ],
-        );
+        await enqueueOutbox(c, {
+          topic: 'transfer.execute',
+          aggregateId: o.id,
+          payload: JSON.stringify({ source: this.source, operationId: o.id }),
+          dedupeKey: `transfer-sweep:${o.id}:${randomUUID()}`,
+        });
       }
       return rows.length;
     });

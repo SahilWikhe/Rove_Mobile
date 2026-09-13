@@ -1,3 +1,4 @@
+import { enqueueOutbox } from './outbox-enqueue';
 import { bindWebhookScope } from './webhook-scope';
 import Stripe from 'stripe';
 import { z } from 'zod';
@@ -94,12 +95,12 @@ export class PayoutWebhookInbox {
           throw new DomainError('PAYOUT_EVENT_CONFLICT', 'Payout event could not be verified.', 409);
         return;
       }
-      await client.query('INSERT INTO outbox(topic,aggregate_id,payload,dedupe_key) VALUES($1,$2,$3,$4)', [
-        'payout.reconcile',
-        row.id,
-        JSON.stringify({ source: this.source, accountId: hint.accountId }),
-        `payout-webhook:${row.id}`,
-      ]);
+      await enqueueOutbox(client, {
+        topic: 'payout.reconcile',
+        aggregateId: row.id,
+        payload: JSON.stringify({ source: this.source, accountId: hint.accountId }),
+        dedupeKey: `payout-webhook:${row.id}`,
+      });
     });
   }
 }

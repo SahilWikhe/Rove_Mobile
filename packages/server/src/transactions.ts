@@ -1,3 +1,4 @@
+import { enqueueOutbox } from './outbox-enqueue';
 import { appendAudit } from './audit';
 import { bindCommandScope } from './command-scope';
 import { createHash } from 'node:crypto';
@@ -72,8 +73,11 @@ export async function event(
   payload: Record<string, unknown> = {},
 ): Promise<void> {
   await appendAudit(client, actorId, action, aggregateId, JSON.stringify({ version }));
-  await client.query(
-    'INSERT INTO outbox (topic,aggregate_id,payload,dedupe_key) VALUES ($1,$2,$3,$4) ON CONFLICT (dedupe_key) DO NOTHING',
-    [action, aggregateId, JSON.stringify(payload), `${aggregateId}:${version}:${action}`],
-  );
+  await enqueueOutbox(client, {
+    topic: action,
+    aggregateId: aggregateId,
+    payload: JSON.stringify(payload),
+    dedupeKey: `${aggregateId}:${version}:${action}`,
+    ignoreDuplicate: true,
+  });
 }

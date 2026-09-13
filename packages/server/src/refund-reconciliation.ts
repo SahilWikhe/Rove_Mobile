@@ -1,3 +1,4 @@
+import { enqueueOutbox } from './outbox-enqueue';
 import { isDeepStrictEqual } from 'node:util';
 import { bindRefundScope } from './refund-scope';
 import { bindPaymentCustomerRead } from './payment-customer-scope';
@@ -208,14 +209,13 @@ export class RefundReconciler {
           'INSERT INTO payment_refund_checks(attempt_id,requested_at) VALUES ($1,$2) ON CONFLICT(attempt_id) DO UPDATE SET requested_at=EXCLUDED.requested_at',
           [row.id, this.now()],
         );
-        const result = await client.query(
-          `INSERT INTO outbox(topic,aggregate_id,payload,dedupe_key) VALUES ('refund.reconcile',$1,$2,$3) ON CONFLICT DO NOTHING`,
-          [
-            row.id,
-            JSON.stringify({ source: this.source, intentId: row.intent_id }),
-            `refund-recovery:${row.id}:${Math.floor(this.now().getTime() / 3600000)}`,
-          ],
-        );
+        const result = await enqueueOutbox(client, {
+          topic: 'refund.reconcile',
+          aggregateId: row.id,
+          payload: JSON.stringify({ source: this.source, intentId: row.intent_id }),
+          dedupeKey: `refund-recovery:${row.id}:${Math.floor(this.now().getTime() / 3600000)}`,
+          ignoreDuplicate: true,
+        });
         inserted += result.rowCount ?? 0;
       }
       return inserted;

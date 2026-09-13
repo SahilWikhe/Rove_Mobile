@@ -1,3 +1,4 @@
+import { enqueueOutbox } from './outbox-enqueue';
 import { bindLedgerAttempt } from './ledger-scope';
 import { appendLedgerJournal } from './ledger-append';
 import { appendAudit } from './audit';
@@ -265,14 +266,12 @@ export class CaptureFees {
           'INSERT INTO payment_capture_checks(attempt_id,source,requested_at) VALUES($1,$2,$3) ON CONFLICT(attempt_id) DO UPDATE SET requested_at=EXCLUDED.requested_at',
           [r.id, this.source, this.now()],
         );
-        await c.query(
-          `INSERT INTO outbox(topic,aggregate_id,payload,dedupe_key) VALUES('capture-fee.reconcile',$1,$2,$3)`,
-          [
-            r.id,
-            JSON.stringify({ source: this.source, intentId: r.intent_id }),
-            `capture-fee-sweep:${r.id}:${randomUUID()}`,
-          ],
-        );
+        await enqueueOutbox(c, {
+          topic: 'capture-fee.reconcile',
+          aggregateId: r.id,
+          payload: JSON.stringify({ source: this.source, intentId: r.intent_id }),
+          dedupeKey: `capture-fee-sweep:${r.id}:${randomUUID()}`,
+        });
       }
       return rows.length;
     });

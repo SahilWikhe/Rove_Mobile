@@ -1,3 +1,4 @@
+import { enqueueOutbox } from './outbox-enqueue';
 import { bindWebhookScope } from './webhook-scope';
 import type { Pool } from 'pg';
 import { z } from 'zod';
@@ -93,12 +94,12 @@ export class PaymentWebhookInbox {
         return;
       }
       // Receipt and job commit atomically. A failed enqueue must cause Stripe to retry delivery.
-      await client.query(`INSERT INTO outbox (topic,aggregate_id,payload,dedupe_key) VALUES ($1,$2,$3,$4)`, [
-        dispute ? 'dispute.reconcile' : refund ? 'refund.reconcile' : 'payment.reconcile',
-        row.id,
-        JSON.stringify({ source: this.source, intentId: hint.resourceId }),
-        `payment-webhook:${row.id}`,
-      ]);
+      await enqueueOutbox(client, {
+        topic: dispute ? 'dispute.reconcile' : refund ? 'refund.reconcile' : 'payment.reconcile',
+        aggregateId: row.id,
+        payload: JSON.stringify({ source: this.source, intentId: hint.resourceId }),
+        dedupeKey: `payment-webhook:${row.id}`,
+      });
     });
   }
 }

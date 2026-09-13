@@ -1,3 +1,4 @@
+import { enqueueOutbox } from './outbox-enqueue';
 import { appendAudit } from './audit';
 import { bindPayoutScope } from './payout-scope';
 import { z } from 'zod';
@@ -91,14 +92,13 @@ export class PayoutReconciler {
       ).rows;
       for (const row of rows) {
         await bindPayoutScope(client, this.source, { bindingId: row.id });
-        await client.query(
-          `INSERT INTO outbox(topic,aggregate_id,payload,dedupe_key) VALUES('payout.reconcile',$1,$2,$3) ON CONFLICT(dedupe_key) DO NOTHING`,
-          [
-            row.id,
-            JSON.stringify({ source: this.source, accountId: row.account_id }),
-            `payout-refresh:${row.id}:${Math.floor(this.now().getTime() / 1800000)}`,
-          ],
-        );
+        await enqueueOutbox(client, {
+          topic: 'payout.reconcile',
+          aggregateId: row.id,
+          payload: JSON.stringify({ source: this.source, accountId: row.account_id }),
+          dedupeKey: `payout-refresh:${row.id}:${Math.floor(this.now().getTime() / 1800000)}`,
+          ignoreDuplicate: true,
+        });
         await client.query('UPDATE driver_payout_accounts SET last_requested_at=$2 WHERE id=$1', [
           row.id,
           this.now(),
