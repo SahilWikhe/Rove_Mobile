@@ -1,11 +1,16 @@
+import { Pool } from 'pg';
+import { actorTransaction } from './actor-transaction';
+import { transaction } from './transactions';
+import { bindTrackingScope } from './tracking-scope';
 import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import { testDatabase } from '@rove/database/testing';
 import { drivers, users } from '@rove/database';
 import { TrackingService } from './tracking';
 import { RequestLimiter } from './rate-limits';
 import { DriverService } from './drivers';
 
+let runtimePool: Pool;
 let database: Awaited<ReturnType<typeof testDatabase>>;
 let now: Date;
 let tracking: TrackingService;
@@ -14,15 +19,32 @@ const coordinate = { latitude: 35.8, longitude: -78.6 };
 const sample = () => ({ coordinate, sampledAt: now.toISOString(), accuracyMeters: 5 });
 beforeAll(async () => {
   database = await testDatabase();
+  await database.pool.query(
+    "CREATE ROLE rls_tracking LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'synthetic-local-only'",
+  );
+  await database.pool.query('GRANT USAGE ON SCHEMA public TO rls_tracking');
+  await database.pool.query(
+    'GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_tracking',
+  );
+  await database.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_tracking');
+  runtimePool = new Pool({
+    host: '127.0.0.1',
+    port: (await database.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
+    database: 'postgres',
+    user: 'rls_tracking',
+    password: 'synthetic-local-only',
+    max: 5,
+  });
 }, 60_000);
 afterAll(async () => {
+  await runtimePool?.end();
   await database?.close();
 });
 beforeEach(async () => {
   await database.pool.query('TRUNCATE users CASCADE');
   await database.pool.query('TRUNCATE rate_limit_buckets');
   now = new Date('2026-09-07T12:00:00Z');
-  tracking = new TrackingService(database.pool, () => now);
+  tracking = new TrackingService(runtimePool, () => now);
   await database.db
     .insert(users)
     .values({ id: actor.id, subject: actor.id, name: 'Synthetic driver', role: 'driver' });
@@ -76,7 +98,7 @@ test('expired grants, disabled accounts and offline drivers cannot upload', asyn
     code: 'TRACKING_UNAUTHORIZED',
   });
   await database.pool.query('UPDATE users SET disabled=false');
-  await new DriverService(database.pool, () => now).availability(actor, false, undefined, randomUUID());
+  await new DriverService(runtimePool, () => now).availability(actor, false, undefined, randomUUID());
   expect((await database.pool.query('SELECT * FROM driver_tracking_sessions')).rows).toHaveLength(0);
   await expect(tracking.location(renewed.token, sample())).rejects.toMatchObject({
     code: 'TRACKING_UNAUTHORIZED',
@@ -120,7 +142,7 @@ test('concurrent duplicate delivery commits only one update', async () => {
 
 test('concurrent service instances share a driver upload budget, including duplicate deliveries', async () => {
   const grant = await tracking.issue(actor);
-  const second = new TrackingService(database.pool, () => now);
+  const second = new TrackingService(runtimePool, () => now);
   const results = await Promise.allSettled(
     Array.from({ length: 65 }, (_, index) => (index % 2 ? tracking : second).location(grant.token, sample())),
   );
@@ -221,7 +243,7 @@ test('limiter storage failure stops location mutation with a safe unavailable er
 });
 
 test('foreground and background updates preserve sample time and reject cross-channel regression', async () => {
-  const driverService = new DriverService(database.pool, () => now);
+  const driverService = new DriverService(runtimePool, () => now);
   const earlier = new Date(now.getTime() - 10000).toISOString();
   await driverService.heartbeat(actor, { ...sample(), sampledAt: earlier, sequence: 1 });
   let stored = (await database.pool.query('SELECT location_at,location_sampled_at FROM drivers')).rows[0];
@@ -240,4 +262,70 @@ test('foreground and background updates preserve sample time and reject cross-ch
   ).rejects.toMatchObject({ code: 'STALE_LOCATION_SAMPLE' });
   stored = (await database.pool.query('SELECT location_sampled_at FROM drivers')).rows[0];
   expect(stored.location_sampled_at.toISOString()).toBe(now.toISOString());
+});
+
+test('tracking owner isolation denies foreign reads, rotation and issuance without exact server scope', async () => {
+  const first = await tracking.issue(actor);
+  const other = { id: randomUUID(), role: 'driver' as const };
+  await database.db
+    .insert(users)
+    .values({ id: other.id, subject: other.id, name: 'Synthetic other driver', role: 'driver' });
+  await database.db.insert(drivers).values({ id: other.id, online: true });
+  await tracking.issue(other);
+  expect((await runtimePool.query('SELECT * FROM driver_tracking_sessions')).rowCount).toBe(0);
+  await actorTransaction(runtimePool, actor, async (c) => {
+    expect((await c.query('SELECT * FROM driver_tracking_sessions')).rowCount).toBe(1);
+    expect(
+      (await c.query('DELETE FROM driver_tracking_sessions WHERE driver_id=$1', [other.id])).rowCount,
+    ).toBe(0);
+  });
+  await expect(
+    actorTransaction(runtimePool, actor, async (c) => {
+      await bindTrackingScope(c, 'issue', createHash('sha256').update(first.token).digest('hex'));
+      await c.query(
+        'INSERT INTO driver_tracking_sessions(driver_id,token_hash,expires_at) VALUES($1,$2,$3)',
+        [other.id, 'b'.repeat(64), new Date(now.getTime() + 1000)],
+      );
+    }),
+  ).rejects.toMatchObject({ code: '42501' });
+  await actorTransaction(runtimePool, actor, async (c) => {
+    expect(
+      (await c.query("UPDATE driver_tracking_sessions SET expires_at=now()+interval '1 year'")).rowCount,
+    ).toBe(0);
+  });
+});
+test('tracking grant read scope cannot mutate and sampled writes cannot rotate or reassign the token', async () => {
+  const grant = await tracking.issue(actor),
+    hash = createHash('sha256').update(grant.token).digest('hex');
+  await transaction(runtimePool, async (c) => {
+    await bindTrackingScope(c, 'read', hash);
+    expect((await c.query('SELECT * FROM driver_tracking_sessions FOR UPDATE')).rowCount).toBe(1);
+    expect((await c.query('DELETE FROM driver_tracking_sessions')).rowCount).toBe(0);
+  });
+  await expect(
+    transaction(runtimePool, async (c) => {
+      await bindTrackingScope(c, 'read', hash);
+      await c.query('UPDATE driver_tracking_sessions SET sampled_at=now()');
+    }),
+  ).rejects.toMatchObject({ code: '42501' });
+  await expect(
+    transaction(runtimePool, async (c) => {
+      await bindTrackingScope(c, 'sample', hash, actor.id);
+      await c.query('UPDATE driver_tracking_sessions SET token_hash=$1', ['a'.repeat(64)]);
+    }),
+  ).rejects.toMatchObject({ code: '42501' });
+  await transaction(runtimePool, async (c) => {
+    await bindTrackingScope(c, 'sample', hash, randomUUID());
+    await expect(c.query('SELECT * FROM driver_tracking_sessions')).resolves.toMatchObject({ rowCount: 1 });
+    // Read-lock visibility never grants a write to a different driver.
+  });
+  await expect(
+    transaction(runtimePool, async (c) => {
+      await bindTrackingScope(c, 'sample', hash, randomUUID());
+      await c.query('UPDATE driver_tracking_sessions SET sampled_at=now()');
+    }),
+  ).rejects.toMatchObject({ code: '42501' });
+  expect((await runtimePool.query('SELECT * FROM driver_tracking_sessions')).rowCount).toBe(0);
+  await tracking.revoke(grant.token);
+  expect((await database.pool.query('SELECT * FROM driver_tracking_sessions')).rowCount).toBe(0);
 });

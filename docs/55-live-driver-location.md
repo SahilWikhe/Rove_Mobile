@@ -39,3 +39,7 @@ The recorded retry passed in 268.132 seconds. Inspected pickup and in-trip scree
 ### Passing Android native display/expiry evidence
 
 The Android variant passed in 264.046 seconds through the paid synthetic receipt. Google map screenshots show the centered blue driver marker; both pickup and in-trip expiry assertions remove the current-position state, with the expired screenshot showing no driver marker and the unavailable notice. Three changing samples per phase were verified through the assigned rider API. Evidence is under reports/native-trip-android/android-driver-details/2026-09-12_221019. Existing map settings were made explicit in the owned Metros and caches cleared; no credentials or hosted configuration changed. These simulator checks do not establish physical GPS or locked-phone delivery.
+
+## Tracking authorization hardening — September 13
+
+Migration 0074 protects the driver tracking grant with RLS. Background sample writes are scoped to the exact stored token hash and resolved driver; rotation, offline state, expiry and closure remain authoritative. See [driver location lifecycle](20-driver-location.md). This protects the backend grant and does not replace physical locked-device delivery or rider-map acceptance testing.

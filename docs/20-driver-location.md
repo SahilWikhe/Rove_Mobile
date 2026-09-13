@@ -61,3 +61,11 @@ Do not run these checks against real rider trips or production credentials.
 ## References
 
 The implementation follows [Expo Location background configuration and permissions](https://docs.expo.dev/versions/latest/sdk/location/), [TaskManager's module-scope task requirement](https://docs.expo.dev/versions/latest/sdk/task-manager/) and [SecureStore keychain accessibility](https://docs.expo.dev/versions/latest/sdk/securestore/). Native development builds are required for background-location verification; browser previews and bundle exports cannot prove OS background execution.
+
+## Tracking-session row security — September 13
+
+Migration 0074 enables and forces RLS on driver_tracking_sessions. Active drivers can read/revoke their own grant; issuance additionally binds the exact server-generated hash and requires the driver to be online. Token-based reads use only the supplied credential hash. Sample writes bind that hash and the driver resolved from the stored grant, preventing token rotation or driver reassignment through sample scope. Read locks alone cannot write. Token revocation deletes only the matching grant. Staff closure requires current MFA privacy.close permission and the exact disabled owner.
+
+Issuance and availability now bind verified actor identity. Existing availability, vehicle-change and account-closure transactions revoke grants under these policies. Actor and unrelated worker helpers clear tracking scopes; tokens remain backend-only credentials and are never used as database credentials. Restricted-role tests cover rotation, expiry, duplicate samples, rate limiting, revocation, offline transitions, owner isolation and denied writes from read scopes.
+
+Hosted verification through 0074 passed on the isolated synthetic Neon branch using the restricted runtime role: token rotation, background sample acceptance, read-scope mutation denial, revocation and account closure deleting a retained grant. All coordinates were synthetic. Provider staging was not migrated; compatible backend deployment and physical locked-device testing remain required.

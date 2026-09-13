@@ -171,15 +171,47 @@ export const audit = pgTable('audit', {
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
 
-export const driverTrackingSessions = pgTable('driver_tracking_sessions', {
-  driverId: uuid()
-    .primaryKey()
-    .references(() => drivers.id),
-  tokenHash: text().notNull().unique(),
-  expiresAt: timestamp({ withTimezone: true }).notNull(),
-  sampledAt: timestamp({ withTimezone: true }),
-  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
-});
+export const driverTrackingSessions = pgTable(
+  'driver_tracking_sessions',
+  {
+    driverId: uuid()
+      .primaryKey()
+      .references(() => drivers.id),
+    tokenHash: text().notNull().unique(),
+    expiresAt: timestamp({ withTimezone: true }).notNull(),
+    sampledAt: timestamp({ withTimezone: true }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    pgPolicy('tracking_read', {
+      for: 'select',
+      using: sql`${rlsDriver(t.driverId)} OR ${sql`${t.tokenHash}=NULLIF(current_setting('rove.tracking_hash',true),'')`} OR ${sql`${rlsStaff('privacy.close')} AND ${t.driverId}=NULLIF(current_setting('rove.tracking_close_owner',true),'')::uuid AND EXISTS(SELECT 1 FROM public.users u WHERE u.id=${t.driverId} AND u.disabled=true)`}`,
+    }),
+    pgPolicy('tracking_issue_insert', {
+      for: 'insert',
+      withCheck: sql`${rlsDriver(t.driverId)} AND current_setting('rove.tracking_mode',true)='issue' AND ${sql`${t.tokenHash}=NULLIF(current_setting('rove.tracking_hash',true),'')`} AND EXISTS(SELECT 1 FROM public.drivers d WHERE d.id=${t.driverId} AND d.online)`,
+    }),
+    pgPolicy('tracking_issue_update', {
+      for: 'update',
+      using: sql`${rlsDriver(t.driverId)} AND current_setting('rove.tracking_mode',true)='issue'`,
+      withCheck: sql`${rlsDriver(t.driverId)} AND current_setting('rove.tracking_mode',true)='issue' AND ${sql`${t.tokenHash}=NULLIF(current_setting('rove.tracking_hash',true),'')`} AND EXISTS(SELECT 1 FROM public.drivers d WHERE d.id=${t.driverId} AND d.online)`,
+    }),
+    pgPolicy('tracking_read_lock', {
+      for: 'update',
+      using: sql`${t.tokenHash}=NULLIF(current_setting('rove.tracking_hash',true),'')`,
+      withCheck: sql`false`,
+    }),
+    pgPolicy('tracking_sample', {
+      for: 'update',
+      using: sql`${sql`${t.tokenHash}=NULLIF(current_setting('rove.tracking_hash',true),'')`} AND current_setting('rove.tracking_mode',true)='sample' AND ${t.driverId}=NULLIF(current_setting('rove.tracking_driver',true),'')::uuid`,
+      withCheck: sql`${sql`${t.tokenHash}=NULLIF(current_setting('rove.tracking_hash',true),'')`} AND current_setting('rove.tracking_mode',true)='sample' AND ${t.driverId}=NULLIF(current_setting('rove.tracking_driver',true),'')::uuid`,
+    }),
+    pgPolicy('tracking_revoke', {
+      for: 'delete',
+      using: sql`${rlsDriver(t.driverId)} OR (${sql`${t.tokenHash}=NULLIF(current_setting('rove.tracking_hash',true),'')`} AND current_setting('rove.tracking_mode',true)='revoke') OR ${sql`${rlsStaff('privacy.close')} AND ${t.driverId}=NULLIF(current_setting('rove.tracking_close_owner',true),'')::uuid AND EXISTS(SELECT 1 FROM public.users u WHERE u.id=${t.driverId} AND u.disabled=true)`}`,
+    }),
+  ],
+);
 
 // One bounded counter per authenticated subject/policy. No bearer tokens or raw identity strings.
 export const rateLimitBuckets = pgTable(

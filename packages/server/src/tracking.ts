@@ -1,3 +1,5 @@
+import { actorTransaction } from './actor-transaction';
+import { bindTrackingScope } from './tracking-scope';
 import { createHash, randomBytes } from 'node:crypto';
 import type { Pool } from 'pg';
 import { BackgroundLocation } from '@rove/contracts';
@@ -28,7 +30,8 @@ export class TrackingService {
     driverOnly(actor);
     const token = 'rt_' + randomBytes(32).toString('base64url');
     const expiresAt = new Date(this.now().getTime() + 12 * 60 * 60 * 1000);
-    await transaction(this.pool, async (client) => {
+    await actorTransaction(this.pool, actor, async (client) => {
+      await bindTrackingScope(client, 'issue', digest(token));
       const result = await client.query(
         'SELECT d.online,u.disabled FROM drivers d JOIN users u ON u.id=d.id WHERE d.id=$1 FOR UPDATE OF d',
         [actor.id],
@@ -46,7 +49,11 @@ export class TrackingService {
   }
 
   async revoke(token: string) {
-    await this.pool.query('DELETE FROM driver_tracking_sessions WHERE token_hash=$1', [digest(token)]);
+    const hash = digest(token);
+    await transaction(this.pool, async (client) => {
+      await bindTrackingScope(client, 'revoke', hash);
+      await client.query('DELETE FROM driver_tracking_sessions WHERE token_hash=$1', [hash]);
+    });
     return { revoked: true };
   }
 
@@ -56,14 +63,17 @@ export class TrackingService {
     // Authenticate before allocating a counter. Use the stable driver ID, never the
     // rotating grant, so renewal cannot reset the upload budget. The counter commits
     // separately: invalid samples and rejected duplicates still consume the budget.
-    const authenticated = (
-      await this.pool.query<{ id: string }>(
-        `SELECT d.id FROM drivers d JOIN users u ON u.id=d.id
+    const authenticated = await transaction(this.pool, async (client) => {
+      await bindTrackingScope(client, 'read', hash);
+      return (
+        await client.query<{ id: string }>(
+          `SELECT d.id FROM drivers d JOIN users u ON u.id=d.id
          JOIN driver_tracking_sessions s ON s.driver_id=d.id
          WHERE s.token_hash=$1 AND s.expires_at>$2 AND d.online AND NOT u.disabled`,
-        [hash, now],
-      )
-    ).rows[0];
+          [hash, now],
+        )
+      ).rows[0];
+    });
     if (!authenticated) throw unauthorized();
     await new RequestLimiter(this.pool).consume(authenticated.id, 'backgroundLocation');
     const parsed = BackgroundLocation.safeParse(raw);
@@ -74,6 +84,7 @@ export class TrackingService {
     if (age < -5000 || age > 30_000)
       throw new DomainError('INVALID_LOCATION_SAMPLE', 'A fresh, accurate location is required.', 422);
     return transaction(this.pool, async (client) => {
+      await bindTrackingScope(client, 'read', hash);
       // Recheck authorization after limiting: rotation/offline/revocation may race.
       // Lock order matches issue/availability: driver first, then tracking grant.
       const result = await client.query(
@@ -83,6 +94,7 @@ export class TrackingService {
       );
       const driver = result.rows[0];
       if (!driver?.online || driver.disabled) throw unauthorized();
+      await bindTrackingScope(client, 'sample', hash, driver.id);
       const grant = (
         await client.query(
           'SELECT expires_at,sampled_at FROM driver_tracking_sessions WHERE driver_id=$1 AND token_hash=$2 FOR UPDATE',

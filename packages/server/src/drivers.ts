@@ -1,3 +1,4 @@
+import { bindActorIdentity } from './actor-transaction';
 import type { Pool } from 'pg';
 import { Coordinate, DriverOffer, DriverCoverage, DriverActivity } from '@rove/contracts';
 import { DomainError } from './errors';
@@ -84,6 +85,7 @@ export class DriverService {
       key,
       { action: 'availability', online, coordinate },
       async (client) => {
+        await bindActorIdentity(client, actor);
         // Going offline may revoke a pending offer, but it cannot abandon accepted work.
         const row = (
           await client.query(

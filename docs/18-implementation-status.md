@@ -1,5 +1,15 @@
 # Implementation status
 
+## Tracking-session RLS and hosted 36-table verification — September 13
+
+Migration 0074 enables and forces RLS on driver_tracking_sessions. Active owners can read/revoke their own grant; issuance binds the exact generated hash and requires an online driver. Token-based reads/revocation target only the matching hash. Sample writes additionally bind the driver resolved from that grant, preventing token rotation or reassignment through sample scope. Read locks cannot write. Account closure uses exact disabled-owner scope with current MFA privacy.close permission. Issuance and availability bind actor identity; actor/unrelated worker helpers reset tracking contexts.
+
+Verification: 718 server, 208 API and 13 database tests passed. Tracking tests now use a NOSUPERUSER/NOBYPASSRLS role, including rotation, expiry, concurrent/duplicate samples, rate limiting, offline revocation, owner isolation, forbidden foreign issuance and read-scope mutations. Server/database typechecks, changed-file lint, formatting, documentation and diff checks passed.
+
+The full isolated Neon rehearsal passed through the pooled restricted role with synthetic coordinates and provider adapters. New checks exercised rotation, location upload, exact-token read/mutation denial, revocation and final account closure deleting a retained grant. Catalog inspection confirms 75 migrations through 0074 and 36 of 47 tables with RLS enabled and forced. Provider staging was checked read-only and remains 31 migrations, 32 tables and zero RLS-enabled/forced tables; production was not changed.
+
+Eleven tables remain: audit, commands, drivers, ledger_journals, ledger_postings, offers, outbox, payment_attempts, quotes, rides and users. Next: command/audit and core ride/payment/worker scopes, restricted-role verification, then compatible provider-staging rollout. Physical locked-device GPS, provider acceptance and full production readiness remain incomplete.
+
 ## Webhook inbox RLS and hosted 35-table verification — September 13
 
 Migration 0073 enables and forces RLS on payment_webhook_events and payout_webhook_events. Verified ingress binds only the configured source and exact event ID; receipts permit scoped SELECT/INSERT, with no runtime UPDATE/DELETE. Both inboxes preserve signature verification, conflicting-replay detection and atomic receipt/job persistence. Actor and unrelated worker helpers clear webhook contexts.
