@@ -1,5 +1,14 @@
 # Implementation status
 
+## All-table hosted RLS verified and coverage runner bounded — September 13
+
+Applied 0086–0087 only to reverified disposable br-shy-bar-axjulxqh / neondb. Catalog confirms 88 migrations and all 47 public tables enabled/forced. The full hosted synthetic rehearsal passed through rove_staging_app with NOSUPERUSER/NOBYPASSRLS. Added runtime booking/history/cancellation and receipt/driver-earnings API checks passed alongside the existing signup, financial, tracking, messaging, push, vehicle, closure, document and outbox workflows. External providers remained fake. A rehearsal-only duplicate variable name was corrected before execution. No provider-staging or production mutation occurred.
+
+Fresh provider-staging catalog inspection still shows 31 migrations, 32 tables and zero enabled/forced RLS tables. The Neon runbook's outdated latest-summary section is replaced with current verification and rollout boundaries. Next: coordinate compatible API/worker deployment, migration/grant delta and authenticated provider-staging verification. Physical-device/provider acceptance and production readiness remain incomplete.
+
+SonarQube runs 34779911343 and 34780774422 failed during test coverage, before analysis, on integration deadlines. The latter included multiple database fixture timeouts. CI coverage now serializes Turbo package tasks and uses one Vitest worker, retaining all tests, assertions, reports and gate thresholds. A local CI=true server coverage run passed all 769 tests in 167.55 seconds (92.63% line, 85.03% branch coverage). Workflow/config formatting, config lint and diff checks passed. Hosted GitHub coverage and quality-gate confirmation remain pending; no green CI claim is made. This checkpoint is prepared for the authorized main push; remote confirmation follows.
+
+
 ## Rides RLS implemented and locally verified — September 13
 
 Migration 0087 enables and forces rides RLS, bringing source coverage to 47/47 tables. Reads use verified participant/account scopes, exact stored ride references, bounded payment-recovery batches, overdue-search scope or active-assignment matching scope. Policies intentionally do not query users/offers/payment tables, avoiding dependency cycles with their existing policies. Creation matches a validated locked quote and server deadline. Mutation snapshots preserve fare, earnings, ownership and other unrelated fields; updates increment version, assignment requires a funded searching ride and the accepting driver, and expiry cannot cancel an assigned trip. No DELETE policy is granted. Backend scopes remain defense in depth, not protection from arbitrary SQL with a compromised runtime credential.
