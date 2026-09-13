@@ -57,3 +57,7 @@ Google Maps SDK keys before rebuilding native maps. These public mobile keys are
 separate from the API's server credentials. Without them, sign-in can be tested,
 but native payment/map verification is incomplete. Never copy the backend `.env`
 into either mobile app. Use synthetic accounts and destinations in staging.
+
+## CLI input-file boundary
+
+Run production/staging preflight and Stripe staging/transfer checks from the repository root. Explicit environment and evidence files must be inside that working directory after symlinks are resolved; external paths, directories and files over 1 MiB are rejected. Keep credential inputs ignored by Git. These commands retain their existing redacted error output and do not load ambient credentials to fill missing settings. The transfer-check package script now retains the repository working directory.

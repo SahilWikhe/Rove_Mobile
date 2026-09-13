@@ -1,15 +1,15 @@
-import { readFileSync } from 'node:fs';
+import { readCliInput } from './cli-input';
 import { parseEnv } from 'node:util';
 import Stripe from 'stripe';
 import { inspectStripeStaging } from './stripe-staging-readiness';
 
 const filename = process.argv[2];
 if (!filename || process.argv.length !== 3) {
-  console.error('Usage: pnpm payments:staging:check /path/to/ignored-staging.env');
+  console.error('Usage: pnpm payments:staging:check ./ignored-staging.env');
   process.exitCode = 1;
 } else {
   try {
-    const result = await inspectStripeStaging(parseEnv(readFileSync(filename, 'utf8')), (key) => {
+    const result = await inspectStripeStaging(parseEnv(readCliInput(filename)), (key) => {
       const stripe = new Stripe(key, {
         apiVersion: '2026-08-26.dahlia',
         timeout: 10_000,

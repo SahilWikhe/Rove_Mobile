@@ -1,15 +1,15 @@
-import { readFileSync } from 'node:fs';
+import { readCliInput } from '@rove/server/cli-input';
 import { parseEnv } from 'node:util';
 import { inspectStagingEnvironment } from './staging-preflight';
 
 // Read exactly one explicit file. Ambient credentials cannot fill missing settings by accident.
 const filename = process.argv[2];
 if (!filename || process.argv.length !== 3) {
-  console.error('Usage: pnpm staging:preflight /path/to/ignored-staging.env');
+  console.error('Usage: pnpm staging:preflight ./ignored-staging.env');
   process.exitCode = 1;
 } else {
   try {
-    const result = inspectStagingEnvironment(parseEnv(readFileSync(filename, 'utf8')));
+    const result = inspectStagingEnvironment(parseEnv(readCliInput(filename)));
     if (!result.valid) {
       console.error('Staging configuration is incomplete or invalid: ' + result.problems.join(', '));
       process.exitCode = 1;

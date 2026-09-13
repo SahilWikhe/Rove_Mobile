@@ -152,3 +152,7 @@ When requested, the promotion job waits at its separate protected environment, r
 After promotion, verify the production domain, API readiness, authenticated operations and monitoring. Record the prior deployment ID before release and rehearse `vercel rollback <reviewed-prior-deployment>` for application rollback; it does not reverse database migrations or external side effects. If deployment output is uncertain, inspect the Vercel project before retrying to avoid duplicate deployments. No automatic rollback is performed.
 
 Vercel documents [staged production deployment](https://vercel.com/docs/cli/deploy) using `--skip-domain` and [promotion](https://vercel.com/docs/deployments/promoting-a-deployment). Building this candidate with production settings avoids treating staging credentials or a preview artifact as production configuration.
+
+## CLI input-file boundary
+
+Run production/staging preflight and Stripe staging/transfer checks from the repository root. Explicit environment and evidence files must be inside that working directory after symlinks are resolved; external paths, directories and files over 1 MiB are rejected. Keep credential inputs ignored by Git. These commands retain their existing redacted error output and do not load ambient credentials to fill missing settings. The transfer-check package script now retains the repository working directory.

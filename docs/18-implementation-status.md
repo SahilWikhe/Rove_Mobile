@@ -1,5 +1,13 @@
 # Implementation status
 
+## CLI evidence-file containment — September 13
+
+Production/staging preflight and Stripe staging/transfer CLIs now read through a shared canonical working-directory boundary. Relative/absolute paths within the directory are supported; traversal, external symlinks, non-regular files and files over 1 MiB are rejected. Reads open the canonical target without following a replacement final symlink. CLI errors remain redacted. The transfer command now runs from the repository root instead of changing to its package directory. Setup docs describe this input contract.
+
+Three helper regressions cover valid input, external/sibling/symlink escapes, directories, missing and oversized inputs. Existing preflight CLI tests now run from their fixture directory and additionally verify safe outside-file errors. The initial broad rerun exposed a document-storage test teardown race: pg-pool end resolved before its idle connections finished closing, followed by PostgreSQL shutdown. That suite now uses the existing connection-draining createDatabase close helper. After those corrections, all 1,161 Vitest tests passed with coverage. API typechecks, changed-source lint, formatting, documentation and import-boundary checks passed. All 68 Node tooling tests also passed with coverage.
+
+Authenticated SonarQube review confirms the three password findings are gone: 21 security-impacting findings remained at that inspection. Proxy and CLI scanner confirmation remains pending. No finding was manually dismissed. The latest hosted gate (run 34769917344) failed only new-code coverage at 72.6% because Node tooling coverage was missing from the Vitest-only import. Added tooling:coverage and its LCOV report to the Sonar workflow; verified all 125 report source paths and proxy coverage of 112/117 lines. No threshold was reduced. The next hosted scan is pending. Next: publish and verify the updated scan, then continue workflow/tooling findings and core RLS/provider/device acceptance.
+
 ## Local realtime proxy forwarding hardening — September 13
 
 Reviewed the three SonarQube proxy findings. The destination was already fixed to loopback, but request Host and all response headers were forwarded. The proxy now accepts only origin-form request paths, forwards a bounded set of API request/response headers, generates the upstream Host itself, and rejects unexpected 3xx responses instead of relaying redirects. WebSocket framing and the loopback-only listener remain intact.

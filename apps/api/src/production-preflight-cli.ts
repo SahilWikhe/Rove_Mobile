@@ -1,15 +1,15 @@
-import { readFileSync } from 'node:fs';
+import { readCliInput } from '@rove/server/cli-input';
 import { parseEnv } from 'node:util';
 import { inspectEnvironment } from './environment-preflight';
 
 // Read exactly one explicit file. Ambient credentials cannot fill missing settings by accident.
 const filename = process.argv[2];
 if (!filename || process.argv.length !== 3) {
-  console.error('Usage: pnpm production:preflight /path/to/ignored-production.env');
+  console.error('Usage: pnpm production:preflight ./ignored-production.env');
   process.exitCode = 1;
 } else {
   try {
-    const result = inspectEnvironment(parseEnv(readFileSync(filename, 'utf8')), 'production');
+    const result = inspectEnvironment(parseEnv(readCliInput(filename)), 'production');
     if (!result.valid) {
       console.error('Production configuration is incomplete or invalid: ' + result.problems.join(', '));
       process.exitCode = 1;

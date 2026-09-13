@@ -214,3 +214,7 @@ All six CI jobs for runtime commit `0ca6bda776cf92a3ca706311a81d34731bbfd5b6` pa
 ## Android native acceptance — September 10
 
 Both ARM64 Android debug apps completed hosted Auth0 login, profile creation, session restoration after force-stop, sign-out and signed-out relaunch using separate synthetic identities. Android revealed an OAuth callback/Expo Router collision, fixed with a narrowly scoped native-intent rewrite in both apps. AuthSession remains responsible for token exchange and state/PKCE validation. Driver availability stayed disabled pending document/payout review. The backend remained the isolated local auth harness with simulated maps/payments. See [Android verification](63-android-native-verification.md) for the routing fix, test evidence and ADB networking caveat. iOS rebuild/retest with the latest source and native module remains pending; no cloud deployment or launch readiness is implied.
+
+## CLI input-file boundary
+
+Run production/staging preflight and Stripe staging/transfer checks from the repository root. Explicit environment and evidence files must be inside that working directory after symlinks are resolved; external paths, directories and files over 1 MiB are rejected. Keep credential inputs ignored by Git. These commands retain their existing redacted error output and do not load ambient credentials to fill missing settings. The transfer-check package script now retains the repository working directory.

@@ -6,7 +6,7 @@
 
 Fork and Dependabot pull requests do not receive the scan credential; existing CI continues to test those changes. Automatic scans activate once SONAR_PROJECT_KEY is configured. A skipped scan is not successful analysis. A manual run fails with setup instructions when required settings are missing.
 
-Authored app, shared package, backend, migration, tooling and workflow sources are included. Test files are classified separately; dependency/build output and generated Drizzle snapshots are excluded. Existing unit/integration tests remain in CI. The scanner now runs pnpm test:coverage first. The six packages with Vitest suites generate V8 LCOV reports with repository-relative paths through vitest.coverage.config.ts. Reports include unexecuted source files in those packages; SonarQube retains its normal coverage requirements. These tests use disposable local PostgreSQL and synthetic provider adapters, without cloud secrets. Coverage integration is being verified; no passing coverage gate is claimed yet.
+Authored app, shared package, backend, migration, tooling and workflow sources are included. Test files are classified separately; dependency/build output and generated Drizzle snapshots are excluded. Existing unit/integration tests remain in CI. The scanner runs pnpm test:coverage and pnpm tooling:coverage before analysis. Node tooling tests generate coverage/tooling.lcov, including the spawned proxy; Vitest reports alone do not cover those scripts. The six packages with Vitest suites generate V8 LCOV reports with repository-relative paths through vitest.coverage.config.ts. Reports include unexecuted source files in those packages; SonarQube retains its normal coverage requirements. These tests use disposable local PostgreSQL and synthetic provider adapters, without cloud secrets. The initial Vitest integration passed its hosted gate. The subsequent proxy change exposed missing Node-tooling coverage (72.6% new-code coverage); all 68 tooling tests passed with LCOV generation, and the updated hosted gate remains pending.
 
 ## Connect the linked project
 
@@ -29,13 +29,13 @@ References: [official scanner action](https://github.com/SonarSource/sonarqube-s
 
 ## Existing security findings — September 13
 
-Authenticated CLI review found 24 open security-impacting findings on main. The passing new-code gate does not clear this existing backlog. None were marked accepted or false positive during this review.
+Initial authenticated CLI review found 24 open security-impacting findings on main; a subsequent scan cleared the three password findings, leaving 21 at the latest review. The passing new-code gate does not clear this existing backlog. None were marked accepted or false positive during this review.
 
 | Area | Findings | Review state |
 | --- | ---: | --- |
-| Test PostgreSQL credentials | 3 | Fixed constants replaced with generated per-run credentials in the disposable database helper and build verifier; scanner confirmation pending. |
+| Test PostgreSQL credentials | 3 | Fixed constants replaced with generated per-run credentials. The subsequent authenticated issue list confirms all three password findings cleared. |
 | Local realtime proxy | 3 | Forwarding now uses fixed loopback Host, origin-form paths and header allowlists; unexpected redirects are rejected. A local HTTP/WebSocket regression passed for malicious headers/paths and normal forwarding. Scanner confirmation remains pending; no manual dismissal. |
-| CLI evidence paths | 5 | File-path inputs in production/staging/payment/transfer checks need traversal and output-boundary review. |
+| CLI evidence paths | 5 | Environment/evidence reads now enforce canonical containment in the working directory and reject external symlinks, non-regular files and inputs over 1 MiB. Three regression tests passed; scanner confirmation pending. These commands do not write input files. |
 | GitHub workflows | 5 | Job permission scope, lifecycle script policy and HTTPS download enforcement need review against build requirements. |
 | Development executable lookup | 6 | PATH resolution in six local tooling scripts needs trust-boundary review. |
 | Realtime retry jitter | 1 | Randomness is used for reconnect timing, not authentication; retain for explicit review. |

@@ -60,9 +60,10 @@ test('CLI validates only the explicit file and signals failure with no secret ou
   const path = join(dir, 'input.env');
   const cli = fileURLToPath(new URL('./staging-preflight-cli.ts', import.meta.url));
   const run = (args: string[]) =>
-    spawnSync(process.execPath, ['--import', 'tsx', cli, ...args], {
+    spawnSync(process.execPath, ['--import', import.meta.resolve('tsx'), cli, ...args], {
       encoding: 'utf8',
       timeout: 10000,
+      cwd: dir,
       env: { ...fixture(), PATH: process.env.PATH },
     });
   try {
@@ -82,6 +83,10 @@ test('CLI validates only the explicit file and signals failure with no secret ou
     expect(good.status).toBe(0);
     expect(good.stdout).toContain('configuration shape passed');
     expect(good.stdout).not.toContain('rk_test_fixture');
+    const outside = run([cli]);
+    expect(outside.status).toBe(1);
+    expect(outside.stderr).toContain('Unable to read');
+    expect(outside.stderr).not.toContain(cli);
     expect(run([]).status).toBe(1);
     const absent = run([join(dir, 'PRIVATE-FILENAME')]);
     expect(absent.status).toBe(1);
@@ -154,9 +159,10 @@ test('production CLI reads only its explicit file and returns safe failures', ()
   const path = join(dir, 'input.env');
   const cli = fileURLToPath(new URL('./production-preflight-cli.ts', import.meta.url));
   const run = (args: string[]) =>
-    spawnSync(process.execPath, ['--import', 'tsx', cli, ...args], {
+    spawnSync(process.execPath, ['--import', import.meta.resolve('tsx'), cli, ...args], {
       encoding: 'utf8',
       timeout: 10000,
+      cwd: dir,
       env: { ...productionFixture(), PATH: process.env.PATH },
     });
   try {
@@ -175,6 +181,10 @@ test('production CLI reads only its explicit file and returns safe failures', ()
     expect(valid.status).toBe(0);
     expect(valid.stdout).toContain('Production configuration shape passed');
     expect(valid.stdout + valid.stderr).not.toContain('rk_live_fixture');
+    const outside = run([cli]);
+    expect(outside.status).toBe(1);
+    expect(outside.stderr).toContain('Unable to read');
+    expect(outside.stderr).not.toContain(cli);
     expect(run([]).status).toBe(1);
     const absent = run([join(dir, 'PRIVATE-FILENAME')]);
     expect(absent.status).toBe(1);

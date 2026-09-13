@@ -1,11 +1,11 @@
-import { Pool } from 'pg';
+import type { Pool } from 'pg';
 import { actorTransaction } from './actor-transaction';
 import { DocumentWriteNotDispatched } from './document-write-not-dispatched';
 import { S3DocumentStore } from './s3-document-store';
 import { createHash, randomUUID } from 'node:crypto';
 import { beforeAll, afterAll, beforeEach, test, expect, vi } from 'vitest';
 import { testDatabase } from '@rove/database/testing';
-import { users, drivers } from '@rove/database';
+import { users, drivers, createDatabase } from '@rove/database';
 import { DriverDocumentService } from './driver-documents';
 import { AccountClosures } from './account-closures';
 import { SupportService } from './support';
@@ -15,6 +15,7 @@ import { DocumentCleanup } from './document-cleanup';
 import { assertDocumentWritesSettled, trackedDocumentStore } from './document-storage-writes';
 import type { Actor } from './rides';
 let runtimePool: Pool;
+let runtimeDatabase: ReturnType<typeof createDatabase>;
 let db: Awaited<ReturnType<typeof testDatabase>>, driver: Actor, staff: Actor, service: DriverDocumentService;
 const body = new TextEncoder().encode('%PDF-1.7 synthetic document');
 const sha256 = createHash('sha256').update(body).digest('hex');
@@ -25,17 +26,14 @@ beforeAll(async () => {
   await db.pool.query('GRANT USAGE ON SCHEMA public TO rls_writes');
   await db.pool.query('GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_writes');
   await db.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_writes');
-  runtimePool = new Pool({
-    host: '127.0.0.1',
-    port: (await db.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
-    database: 'postgres',
-    user: 'rls_writes',
-    password: 'synthetic-local-only',
-    max: 5,
-  });
+  const connection = new URL(db.connectionString);
+  connection.username = 'rls_writes';
+  connection.password = 'synthetic-local-only';
+  runtimeDatabase = createDatabase(connection.toString());
+  runtimePool = runtimeDatabase.pool;
 }, 60000);
 afterAll(async () => {
-  await runtimePool?.end();
+  await runtimeDatabase?.close();
   await db?.close();
 });
 beforeEach(async () => {

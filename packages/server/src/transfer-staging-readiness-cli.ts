@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readCliInput } from './cli-input';
 import { parseEnv } from 'node:util';
 import { StripeDriverTransfers } from './stripe-driver-transfers';
 import { inspectTransferStaging } from './transfer-staging-readiness';
@@ -6,8 +6,8 @@ import { inspectTransferStaging } from './transfer-staging-readiness';
 try {
   if (process.argv.length !== 4) throw new Error('Arguments required');
   await inspectTransferStaging(
-    parseEnv(readFileSync(process.argv[2]!, 'utf8')),
-    JSON.parse(readFileSync(process.argv[3]!, 'utf8')),
+    parseEnv(readCliInput(process.argv[2]!)),
+    JSON.parse(readCliInput(process.argv[3]!)),
     (config) => {
       const provider = new StripeDriverTransfers(config, {
         status: async () => {
@@ -23,7 +23,7 @@ try {
   );
 } catch {
   console.error(
-    'Transfer check failed. Usage: pnpm payments:transfer:check /path/to/ignored-staging.env /path/to/approved-sandbox-transfer.json',
+    'Transfer check failed. Usage: pnpm payments:transfer:check ./ignored-staging.env ./approved-sandbox-transfer.json',
   );
   process.exitCode = 1;
 }
