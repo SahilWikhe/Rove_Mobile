@@ -1,3 +1,4 @@
+import { PaymentReviews } from '@rove/server';
 import { MessageCleanup } from '@rove/server';
 import {
   DocumentCleanup,
@@ -172,7 +173,11 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
     resources.pushProvider && config.pushProjects
       ? new PushDelivery(pool, resources.pushProvider, config.pushProjects)
       : undefined;
+  const paymentReviews = config.paymentReviewsEnabled
+    ? new PaymentReviews(pool, config.paymentSource)
+    : undefined;
   const handlers: Record<string, JobHandler> = {
+    ...(paymentReviews ? { 'payment.review_required': paymentReviews.handle } : {}),
     ...(documentCleanup ? { 'document.version-delete': documentCleanup.handle } : {}),
     ...(accountClosures ? { 'account.identity-delete': accountClosures.handle } : {}),
     // Foreground messaging works without a push provider; configured delivery wraps this handler.
@@ -196,10 +201,15 @@ export function composeRuntime(config: RuntimeConfig, resources: Resources) {
     pushDelivery ? pushDelivery.handlers(handlers) : handlers,
     undefined,
     undefined,
-    [...(documentCleanup ? [] : ['document.version-delete']), ...(pushDelivery ? [] : ['payment.updated'])],
+    [
+      ...(documentCleanup ? [] : ['document.version-delete']),
+      ...(pushDelivery ? [] : ['payment.updated']),
+      ...(paymentReviews ? [] : ['payment.review_required']),
+    ],
   );
   const app = createApp({
     pool,
+    ...(paymentReviews ? { paymentReviews } : {}),
     ...(config.messageCleanup
       ? { messageCleanup: new MessageCleanup(pool, config.messageCleanup.policyReference) }
       : {}),

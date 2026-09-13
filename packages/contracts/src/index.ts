@@ -1002,3 +1002,19 @@ export const MessageCleanupAuthorization = z.strictObject({
     .max(100)
     .refine((ids) => new Set(ids).size === ids.length),
 });
+
+export const PaymentReviewCase = z
+  .object({
+    id: z.uuid(),
+    rideId: z.uuid(),
+    createdAt: z.iso.datetime(),
+    acknowledgedAt: z.iso.datetime().nullable(),
+    reference: z.string().nullable(),
+  })
+  .strict();
+export const PaymentReviewQueue = z
+  .object({ items: z.array(PaymentReviewCase).max(50), nextCursor: z.uuid().nullable() })
+  .strict();
+export const PaymentReviewAcknowledgment = z
+  .object({ reference: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._:/-]{2,119}$/) })
+  .strict();

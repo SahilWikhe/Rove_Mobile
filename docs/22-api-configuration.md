@@ -52,3 +52,7 @@ Validation errors include only field names. Do not log parsed configuration, ori
 ## Dispute rollout
 
 `PAYMENT_DISPUTES_ENABLED` accepts `true` or `false`, defaults off and requires migration 0034 before enablement. The enabled API/worker provides dispute observations, financial journals, staff review and conservative refund holds. See [dispute setup](69-disputes.md).
+
+## Staff payment-review intake
+
+`PAYMENT_REVIEWS_ENABLED` accepts only `true` or `false` and defaults off. Apply migration 0088 before enabling it for API and worker. Disabled intake preserves payment.review_required jobs without claims or attempts. Staff queue/acknowledgment requires current payments.review permission and verified MFA. This flag does not enable refunds, transfers or other financial mutations. See [payment review setup](payment-review-intake.md).

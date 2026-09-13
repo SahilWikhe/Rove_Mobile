@@ -1,4 +1,4 @@
-import { MessageCleanup } from '@rove/server';
+import { MessageCleanup, PaymentReviews } from '@rove/server';
 import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest';
 import { randomUUID, createHash } from 'node:crypto';
 import { testDatabase } from '@rove/database/testing';
@@ -52,6 +52,7 @@ const riderId = randomUUID();
 beforeAll(async () => {
   database = await testDatabase();
   app = createApp({
+    paymentReviews: new PaymentReviews(database.pool, 'acct_fixture:test'),
     messageCleanup: new MessageCleanup(database.pool, 'synthetic-policy'),
     pool: database.pool,
     walletSessions,
@@ -984,4 +985,31 @@ test('reviewed message cleanup requires staff MFA and permission and returns an 
     (await database.pool.query("SELECT id FROM audit WHERE action='account_deletion.messages_erased'"))
       .rowCount,
   ).toBe(1);
+});
+
+test('payment review HTTP routes enforce staff MFA, permissions and strict acknowledgment input', async () => {
+  const staffId = randomUUID();
+  await database.db
+    .insert(users)
+    .values({ id: staffId, subject: 'staff', name: 'Synthetic staff', role: 'staff' });
+  const queue = '/v1/staff/payment-reviews',
+    ack = queue + '/' + randomUUID() + '/acknowledge';
+  expect((await app.request(queue)).status).toBe(401);
+  expect((await request(queue)).status).toBe(403);
+  expect((await request(queue, undefined, 'staff')).status).toBe(403);
+  await database.pool.query(
+    "INSERT INTO staff_permissions(staff_id,permission) VALUES($1,'payments.review')",
+    [staffId],
+  );
+  expect((await request(queue, undefined, 'staff-no-mfa')).status).toBe(403);
+  const result = await request(queue, undefined, 'staff');
+  expect(result.status).toBe(200);
+  expect(await result.json()).toEqual({ items: [], nextCursor: null });
+  expect(result.headers.get('cache-control')).toBe('no-store');
+  expect((await request(ack, { reference: 'support:fixture', capture: true }, 'staff')).status).toBe(400);
+  expect((await request(ack, { reference: 'support:fixture' }, 'staff-no-mfa')).status).toBe(403);
+  expect((await request(ack, { reference: 'support:fixture' }, 'staff')).status).toBe(404);
+  const recovery = '/v1/staff/payment-review-events/' + randomUUID() + '/recover';
+  expect((await request(recovery, {}, 'staff-no-mfa')).status).toBe(403);
+  expect((await request(recovery, {}, 'staff')).status).toBe(404);
 });

@@ -1963,3 +1963,47 @@ export const documentCleanupItems = pgTable(
     ),
   ],
 );
+
+export const paymentReviewCases = pgTable(
+  'payment_review_cases',
+  {
+    id: uuid().primaryKey(),
+    rideId: uuid()
+      .notNull()
+      .references(() => rides.id),
+    attemptId: uuid()
+      .notNull()
+      .references(() => paymentAttempts.id),
+    source: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    acknowledgedAt: timestamp({ withTimezone: true }),
+    acknowledgedBy: uuid().references(() => users.id),
+    reference: text(),
+  },
+  (t) => {
+    const staff = sql`current_setting('rove.actor_role',true)='staff' AND current_setting('rove.actor_mfa',true)='true' AND EXISTS(SELECT 1 FROM public.users u JOIN public.staff_permissions p ON p.staff_id=u.id WHERE u.id=NULLIF(current_setting('rove.actor_id',true),'')::uuid AND u.role='staff' AND u.disabled=false AND p.permission='payments.review')`;
+    const intake = sql`NULLIF(current_setting('rove.payment_review_intake',true),'')::jsonb`;
+    const ack = sql`NULLIF(current_setting('rove.payment_review_ack',true),'')::jsonb`;
+    return [
+      check(
+        'payment_review_ack_complete',
+        sql`(${t.acknowledgedAt} IS NULL AND ${t.acknowledgedBy} IS NULL AND ${t.reference} IS NULL) OR (${t.acknowledgedAt} IS NOT NULL AND ${t.acknowledgedBy} IS NOT NULL AND ${t.reference} IS NOT NULL AND ${t.reference} ~ '^[A-Za-z0-9][A-Za-z0-9._:/-]{2,119}$')`,
+      ),
+      index('payment_review_queue').on(t.acknowledgedAt, t.id),
+      pgPolicy('payment_review_read', {
+        for: 'select',
+        using: sql`(${staff}) OR ${t.id}=(${intake}->>'id')::uuid`,
+      }),
+      pgPolicy('payment_review_intake', {
+        for: 'insert',
+        withCheck: sql`${t.id}=(${intake}->>'id')::uuid AND ${t.rideId}=(${intake}->>'rideId')::uuid AND ${t.attemptId}=(${intake}->>'attemptId')::uuid AND ${t.source}=${intake}->>'source' AND ${t.acknowledgedAt} IS NULL AND ${t.acknowledgedBy} IS NULL AND ${t.reference} IS NULL`,
+      }),
+      pgPolicy('payment_review_ack', {
+        for: 'update',
+        using: sql`(${staff}) AND ${t.id}=(${ack}->>'id')::uuid AND ${t.acknowledgedAt} IS NULL AND (to_jsonb(payment_review_cases)-'acknowledged_at'-'acknowledged_by'-'reference')=(${ack}-'acknowledged_at'-'acknowledged_by'-'reference')`,
+        withCheck: sql`(${staff}) AND to_jsonb(payment_review_cases)=${ack} AND ${t.acknowledgedBy}=NULLIF(current_setting('rove.actor_id',true),'')::uuid`,
+      }),
+      pgPolicy('payment_review_lock', { for: 'update', using: staff, withCheck: sql`false` }),
+    ];
+  },
+).enableRLS();

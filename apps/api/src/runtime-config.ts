@@ -152,6 +152,11 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
   }
   capture(() => realtimeDatabaseUrl(env));
   const api = capture(() => readApiConfig(env));
+  const paymentReviewsEnabled = capture(() => {
+    if (env.PAYMENT_REVIEWS_ENABLED !== undefined && !['true', 'false'].includes(env.PAYMENT_REVIEWS_ENABLED))
+      throw new ConfigurationError(['payments.reviewsEnabled']);
+    return env.PAYMENT_REVIEWS_ENABLED === 'true';
+  });
   const refundsEnabled = capture(() => {
     if (env.PAYMENT_REFUNDS_ENABLED !== undefined && !['true', 'false'].includes(env.PAYMENT_REFUNDS_ENABLED))
       throw new ConfigurationError(['payments.refundsEnabled']);
@@ -256,6 +261,7 @@ export function readRuntimeConfig(env: Record<string, string | undefined>) {
     ...(refundOperationsEnabled ? { refundOperationsEnabled: true as const } : {}),
     ...(refundAccountingEnabled ? { refundAccountingEnabled: true as const } : {}),
     ...(disputesEnabled ? { disputesEnabled: true as const } : {}),
+    ...(paymentReviewsEnabled ? { paymentReviewsEnabled: true as const } : {}),
     ...(refundsEnabled ? { refundsEnabled: true as const } : {}),
     ...(documentScanning ? { documentScanning } : {}),
     ...(documentStorage ? { documentStorage } : {}),

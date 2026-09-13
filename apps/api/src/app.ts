@@ -1,3 +1,5 @@
+import { PaymentReviewAcknowledgment } from '@rove/contracts';
+import type { PaymentReviews } from '@rove/server';
 import { actorTransaction, findVerifiedProfile, registerVerifiedProfile } from '@rove/server';
 import { MessageCleanupAuthorization } from '@rove/contracts';
 import { createReadinessCheck } from './readiness';
@@ -91,6 +93,7 @@ interface Dependencies {
   driverTransfers?: DriverTransfers;
   paymentLosses?: PaymentLosses;
   disputes?: DisputeReconciler;
+  paymentReviews?: PaymentReviews;
   refundsEnabled?: boolean;
   walletSessions?: Pick<WalletSessions, 'customerSession' | 'setupSession'>;
   pool: Pool;
@@ -646,6 +649,27 @@ export function createApp(deps: Dependencies) {
         id(c.req.param('id')),
         await body(c, PaymentLossAuthorization),
         c.req.header('Idempotency-Key') ?? '',
+      ),
+    );
+  });
+  app.post('/v1/staff/payment-review-events/:id/recover', async (c) => {
+    if (!deps.paymentReviews)
+      throw new DomainError('PAYMENT_REVIEWS_UNAVAILABLE', 'Payment review is not enabled.', 503);
+    return c.json(await deps.paymentReviews.recover(c.var.actor, id(c.req.param('id'))));
+  });
+  app.get('/v1/staff/payment-reviews', async (c) => {
+    if (!deps.paymentReviews)
+      throw new DomainError('PAYMENT_REVIEWS_UNAVAILABLE', 'Payment review is not enabled.', 503);
+    return c.json(await deps.paymentReviews.queue(c.var.actor, c.req.query()));
+  });
+  app.post('/v1/staff/payment-reviews/:id/acknowledge', async (c) => {
+    if (!deps.paymentReviews)
+      throw new DomainError('PAYMENT_REVIEWS_UNAVAILABLE', 'Payment review is not enabled.', 503);
+    return c.json(
+      await deps.paymentReviews.acknowledge(
+        c.var.actor,
+        id(c.req.param('id')),
+        await body(c, PaymentReviewAcknowledgment),
       ),
     );
   });

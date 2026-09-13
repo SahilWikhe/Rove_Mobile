@@ -777,3 +777,19 @@ test('message cleanup stays off by default and requires an explicit valid review
     }).messageCleanup,
   ).toEqual({ policyReference: 'synthetic-policy' });
 });
+
+test('payment review rollout validates its flag and preserves disabled escalation work', async () => {
+  expect(readRuntimeConfig(environment()).paymentReviewsEnabled).toBeUndefined();
+  expect(() => readRuntimeConfig({ ...environment(), PAYMENT_REVIEWS_ENABLED: 'yes' })).toThrow(
+    'payments.reviewsEnabled',
+  );
+  for (const enabled of [false, true]) {
+    const runtime = createRuntime({ ...environment(), PAYMENT_REVIEWS_ENABLED: String(enabled) });
+    try {
+      expect(runtime.worker.pausedTopics.includes('payment.review_required')).toBe(!enabled);
+      expect((await runtime.app.request('/health/live')).status).toBe(200);
+    } finally {
+      await runtime.close();
+    }
+  }
+});

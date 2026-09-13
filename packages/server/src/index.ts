@@ -109,3 +109,4 @@ export { bindQuoteRide } from './quote-scope';
 export { bindLedgerOwner, bindLedgerAttempt } from './ledger-scope';
 export { bindPaymentCustomerRead } from './payment-customer-scope';
 export { bindRefundScope } from './refund-scope';
+export { PaymentReviews } from './payment-review';
