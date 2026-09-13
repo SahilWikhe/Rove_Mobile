@@ -2,6 +2,16 @@
 
 Updated: September 12, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Android account acceptance — September 12
+
+Added the Android account runner with APK package/debuggable validation, isolated temporary AVD ownership, local Metro/API forwarding, retained Maestro/JUnit/runtime evidence and cleanup. Both current Android Debug builds succeeded using existing generated projects/caches and ARM64 compilation. Driver sign-in/deletion/withdrawal passed before the requested pause (33.5 seconds); after resuming, rider passed (48.5 seconds) and both runner processes exited cleanly.
+
+The first rider flow tapped a deletion row underneath the floating navigation overlay. Scroll targets now center in the viewport before actions; no app padding, navigation or business logic was changed. The rider final screenshot was inspected. Driver's earlier pass used the pre-centering flow; the modified flow has not been rerun across every previous platform. Android setup uses only the new app's debug-server preference and directly launches MainActivity after the emulator rejected the system-property and generic Monkey launch attempts.
+
+Changed runner lint, formatting, documentation and diff checks passed. The Android runner remains local acceptance tooling rather than a hosted authenticated CI job. These results use synthetic identities/providers and do not prove live Auth0, real payments, full native rides, background tracking on locked phones or production readiness. No hosted migration, cleanup activation or production setup was performed.
+
+Next priority: full native booking → matching → pickup → trip completion and receipt acceptance, followed by real-provider/physical-device checks. Data-erasure fulfillment and remaining Figma/production acceptance remain incomplete. Separately requested Google route-coordinate approval remains pending.
+
 ## Repeatable native account journeys and startup import fix — September 12
 
 Added `scripts/ios-account-journey.mjs` to validate the requested Debug artifact and local Metro, create a fresh simulator, run the shared account flow, retain JUnit/logs/failure screenshots and remove only that simulator. API and Metro remain caller-owned. Driver Debug compilation succeeded with temporary simulator signing entitlements and existing native projects/caches; rider reused the earlier signed Debug binary. Current JavaScript was served through isolated synthetic Metro/API instances.
