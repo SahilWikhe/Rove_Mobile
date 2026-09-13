@@ -1,3 +1,4 @@
+import { findVerifiedProfile, registerVerifiedProfile } from '@rove/server';
 import { MessageCleanupAuthorization } from '@rove/contracts';
 import { createReadinessCheck } from './readiness';
 import { MessageCleanup, DocumentCleanup } from '@rove/server';
@@ -247,8 +248,7 @@ export function createApp(deps: Dependencies) {
     // unverified email solely for requesting its verification. Normal API access stays gated.
     const identity = await deps.verificationEmail.verifyIdentity(match[1]);
     await body(c, z.object({}).strict());
-    const user = (await deps.pool.query('SELECT disabled FROM users WHERE subject=$1', [identity.subject]))
-      .rows[0];
+    const user = await findVerifiedProfile(deps.pool, identity.subject);
     if (user?.disabled) throw new DomainError('ACCOUNT_DISABLED', 'This account is disabled.', 403);
     await limiter.consume(identity.subject, 'verificationEmail');
     await limiter.consume('verification-email-provider', 'verificationEmailTenant');
@@ -284,11 +284,7 @@ export function createApp(deps: Dependencies) {
     else if (c.req.path === '/v1/drivers/me/tracking-session') policy = 'trackingGrant';
     else if (c.req.path === '/v1/drivers/me/heartbeat') policy = 'heartbeat';
     await limiter.consume(identity.subject, policy);
-    const result = await deps.pool.query<{ id: string; role: Actor['role']; disabled: boolean }>(
-      'SELECT id,role,disabled FROM users WHERE subject=$1',
-      [identity.subject],
-    );
-    const user = result.rows[0];
+    const user = await findVerifiedProfile(deps.pool, identity.subject);
     if (user?.disabled)
       throw new DomainError('ACCOUNT_DISABLED', 'Contact support for help with your account.', 403);
     if (user) c.set('actor', { id: user.id, role: user.role, mfa: identity.mfa === true });
@@ -299,14 +295,7 @@ export function createApp(deps: Dependencies) {
   app.post('/v1/me', async (c) => {
     const input = await body(c, z.object({ name: DisplayName, role: z.enum(['rider', 'driver']) }).strict());
     // Public signup can never grant staff access or driver approval.
-    const result = await deps.pool.query<{ id: string; role: Actor['role']; name: string }>(
-      'INSERT INTO users (subject,name,role) VALUES ($1,$2,$3) ON CONFLICT (subject) DO UPDATE SET subject=EXCLUDED.subject WHERE users.disabled=false RETURNING id,role,name',
-      [c.var.subject, input.name, input.role],
-    );
-    const user = result.rows[0];
-    if (!user) throw new DomainError('ACCOUNT_DISABLED', 'Account is unavailable.', 403);
-    if (user.role === 'driver')
-      await deps.pool.query('INSERT INTO drivers (id) VALUES ($1) ON CONFLICT DO NOTHING', [user.id]);
+    const user = await registerVerifiedProfile(deps.pool, c.var.subject, input);
     return c.json(user);
   });
   app.patch('/v1/me', async (c) =>

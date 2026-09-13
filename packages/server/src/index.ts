@@ -101,3 +101,5 @@ export { assertDocumentWritesSettled } from './document-storage-writes';
 export { DocumentCleanup, type DocumentCleanupProvider } from './document-cleanup';
 
 export * from './message-cleanup';
+
+export * from './identity-profiles';

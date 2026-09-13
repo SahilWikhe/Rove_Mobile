@@ -1,5 +1,11 @@
 # Implementation status
 
+## Verified identity lookup and atomic signup preparation — September 13
+
+API identity middleware and verification-email eligibility now resolve the already-verified subject through a shared transaction-local identity scope. Signup uses that scope and a strictly validated rider/driver payload; creation of the user and default driver record now commits atomically. Existing accounts retain their original name/role, disabled accounts cannot be reactivated by signup, and public signup cannot create staff. Token verification still precedes every identity lookup; no Auth0 configuration changed.
+
+All 755 server and 208 API tests passed, along with server/API typechecking, changed-source lint and diff checks. Three new integration tests exercise concurrent signup retries, original-role preservation, disabled accounts, rejected staff signup, rollback on driver creation failure and a clean retry with expired transaction scope. This is compatible preparation, not users RLS enforcement. Source/isolated hosted remain 44/47; users/drivers/rides policies, provider-staging rollout and device/provider acceptance remain. Next: account/worker lookup and profile-write scopes, then core policies with recursion-safe dependencies. This checkpoint is prepared for the authorized main push; remote confirmation follows.
+
 ## Hosted payment-attempt RLS verified — September 13
 
 Applied migration 0081 only to disposable br-shy-bar-axjulxqh / neondb after fresh branch and endpoint verification and explicit direct/pooled hostname/database assertions. Catalog reports 82 migrations, 47 tables and 44 enabled/forced RLS tables. The complete hosted rehearsal exited successfully using rove_staging_app with NOSUPERUSER/NOBYPASSRLS. New checks passed exact payment lookup/lock, wrong-source denial, unscoped invisibility and mutation denial. Existing synthetic reconciliation, capture, refund, dispute, transfer/reversal, payout, messaging, notifications, tracking, closure and reviewed document cleanup paths passed. External providers were fake adapters throughout.
