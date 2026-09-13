@@ -2,6 +2,12 @@
 
 Updated: September 12, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Runtime database readiness for release probes — September 12
+
+Added public `/health/ready` alongside independent liveness. It checks database reachability through read-only SELECT 1, returns ready/200 or generic unavailable/503, disables response caching, coalesces concurrent queries per instance and bounds caller waits to two seconds. A brief one-second internal result cache limits probe pressure; timeout does not discard an outstanding query and queue another behind it. The manual production workflow now uses this endpoint before and after its promotion approval gate.
+
+Verification: 39 API/readiness tests passed, including database failure response redaction, independent liveness, concurrent callers, deadline recovery and bounded pending work; the production-probe test passed. API typecheck, changed-source lint and actionlint workflow validation passed. No provider request, deployment or production activation occurred. Database reachability does not verify schema compatibility, provider health, migrations or complete operational readiness. Remaining release scope and live workflow rehearsal remain open. Next: progress missing acceptance/implementation beyond this completed readiness check.
+
 ## Manual production release infrastructure — September 12
 
 Added a main-only manually dispatched production candidate/promotion workflow. It requires explicit environment enablement, a distinct production Vercel project/team, a release review reference and fresh successful exact-candidate CI/provider evidence. It builds the verified candidate using production configuration, creates an unaliased deployment, checks liveness, and optionally promotes only that same run's URL through a separate environment approval gate. Target consistency and evidence are rechecked after approval; pulled secrets/build outputs are removed. No workflow was dispatched, no secrets/settings were changed, and no deployment or production activation occurred.

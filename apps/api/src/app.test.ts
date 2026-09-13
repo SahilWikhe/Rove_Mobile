@@ -829,3 +829,28 @@ test('driver activity requires authenticated driver access and returns only aggr
   expect(result.status).toBe(200);
   expect(await result.json()).toEqual({ completedTrips: 0, acceptedOffers: 0, joinedAt: expect.any(String) });
 });
+
+test('readiness is public, uncached and verifies the database without exposing diagnostics', async () => {
+  const ready = await app.request('/health/ready');
+  expect(ready.status).toBe(200);
+  expect(await ready.json()).toEqual({ status: 'ready' });
+  expect(ready.headers.get('cache-control')).toBe('no-store');
+});
+
+test('database failure returns generic readiness 503 while liveness remains available', async () => {
+  // Let the previous probe's one-second cache expire before injecting the failure.
+  await new Promise((resolve) => setTimeout(resolve, 1100));
+  const query = vi
+    .spyOn(database.pool, 'query')
+    .mockRejectedValueOnce(new Error('private-db-host password=synthetic'));
+  try {
+    const response = await app.request('/health/ready');
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ status: 'unavailable' });
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect((await app.request('/health/live')).status).toBe(200);
+    expect(query).toHaveBeenCalledTimes(1);
+  } finally {
+    query.mockRestore();
+  }
+});

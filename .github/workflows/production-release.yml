@@ -108,7 +108,7 @@ jobs:
           printf 'Candidate: `%s`\n\nDeployment: %s\n\nReview record: `%s`\n\nProduction domain not promoted by this step.\n' "$CANDIDATE_SHA" "$url" "$RELEASE_REVIEW_REFERENCE" >> "$GITHUB_STEP_SUMMARY"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      - name: Check candidate API liveness
+      - name: Check candidate API database readiness
         run: node scripts/production-candidate-health.mjs
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}

@@ -1,3 +1,4 @@
+import { createReadinessCheck } from './readiness';
 import { DocumentCleanup } from '@rove/server';
 import { RetentionHolds } from '@rove/server';
 import { AccountDeletions, AccountClosures } from '@rove/server';
@@ -125,6 +126,7 @@ function id(value: string): string {
 }
 export function createApp(deps: Dependencies) {
   const app = new Hono<Environment>();
+  const ready = createReadinessCheck(() => deps.pool.query('SELECT 1'));
   const pushInstallations = new PushInstallations(deps.pool, deps.pushProjects ?? {});
   const messaging = new MessagingService(deps.pool);
   const support = new SupportService(deps.pool);
@@ -195,6 +197,11 @@ export function createApp(deps: Dependencies) {
     c.json({ error: { code: 'NOT_FOUND', message: 'Endpoint not found.', requestId: c.var.requestId } }, 404),
   );
   app.get('/health/live', (c) => c.json({ status: 'ok' }));
+  app.get('/health/ready', async (c) => {
+    c.header('Cache-Control', 'no-store');
+    const available = await ready();
+    return c.json({ status: available ? 'ready' : 'unavailable' }, available ? 200 : 503);
+  });
   app.post('/webhooks/stripe', async (c) => {
     if (!deps.paymentWebhooks)
       throw new DomainError('PAYMENTS_UNAVAILABLE', 'Payment events are not configured.', 503);
