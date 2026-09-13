@@ -109,15 +109,26 @@ if (Platform.OS !== 'web' && !TaskManager.isTaskDefined(TASK)) {
   });
 }
 
+function precise(permission: Location.LocationPermissionResponse) {
+  return Platform.OS === 'ios'
+    ? permission.ios?.accuracy === 'full'
+    : Platform.OS === 'android' && permission.android?.accuracy === 'fine';
+}
+const precisionMessage = 'Turn on Precise Location in Settings before going online or reconnecting location.';
+
 export async function requestTrackingPermissions() {
   if (Platform.OS === 'web') throw new Error('Use the native driver app for live driving.');
   if (!(await TaskManager.isAvailableAsync()))
     throw new Error('Background tracking requires an installed driver development or release build.');
   const foreground = await Location.requestForegroundPermissionsAsync();
   if (foreground.status !== 'granted') throw new Error('Allow precise location in Settings to go online.');
+  if (!precise(foreground)) throw new Error(precisionMessage);
   const background = await Location.requestBackgroundPermissionsAsync();
   if (background.status !== 'granted')
     throw new Error('Choose Always / Allow all the time in Location Settings before going online.');
+  // Android's background response has no accuracy details; re-read foreground precision.
+  const current = await Location.getForegroundPermissionsAsync();
+  if (current.status !== 'granted' || !precise(current)) throw new Error(precisionMessage);
 }
 export function unblockTracking() {
   return serial(async () => {
@@ -147,6 +158,11 @@ export function synchronizeBackgroundTracking(api: ApiClient, driverId: string) 
       throw new Error(
         'Background location is unavailable. Restore Always / Allow all the time access in Settings.',
       );
+    }
+    const foreground = await Location.getForegroundPermissionsAsync();
+    if (foreground.status !== 'granted' || !precise(foreground)) {
+      await stop(grant, true);
+      throw new Error(precisionMessage);
     }
     if (!grant || grant.driverId !== driverId || Date.parse(grant.expiresAt) < Date.now() + 60 * 60 * 1000) {
       if (grant && grant.driverId !== driverId) await stop(grant, true);

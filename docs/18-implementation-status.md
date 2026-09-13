@@ -2,6 +2,12 @@
 
 Updated: September 12, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Driver precise-location permission enforcement — September 12
+
+Native tracking now requires explicit iOS full / Android fine accuracy before online permission setup completes, including a fresh foreground check after the background request. Foreground synchronization detects lost precision, stops the native task, removes its local grant and attempts server revocation. Android background permission responses omit accuracy metadata, so the check deliberately uses foreground permissions. Missing metadata fails closed; recovery directs the driver to Precise Location in Settings.
+
+Verification: all 15 background lifecycle tests passed, including both platform precision-loss paths, existing-session shutdown and missing accuracy evidence. Driver typecheck and targeted ESLint passed. These tests mock native permission APIs; no physical-device permission or locked-phone behavior is claimed. Device inventory found one booted iPhone simulator and an Android emulator, with no physical phones connected. No cloud or production changes occurred. Remaining: physical/provider acceptance, full UI review, erasure fulfillment and production setup. Next: continue closing release gaps and validate actual permission transitions on physical devices when available.
+
 ## Runtime database readiness for release probes — September 12
 
 Added public `/health/ready` alongside independent liveness. It checks database reachability through read-only SELECT 1, returns ready/200 or generic unavailable/503, disables response caching, coalesces concurrent queries per instance and bounds caller waits to two seconds. A brief one-second internal result cache limits probe pressure; timeout does not discard an outstanding query and queue another behind it. The manual production workflow now uses this endpoint before and after its promotion approval gate.

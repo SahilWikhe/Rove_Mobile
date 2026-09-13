@@ -2,16 +2,31 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { ApiClient } from '@rove/mobile-core';
 import type { TaskManagerTaskExecutor } from 'expo-task-manager';
 
+type Permission = {
+  status: string;
+  ios?: { accuracy: 'full' | 'reduced' };
+  android?: { accuracy: 'fine' | 'coarse' | 'none' };
+};
+
 const mocks = vi.hoisted(() => {
   process.env.EXPO_PUBLIC_API_URL = 'https://api.rove.example';
   return {
+    platform: { OS: 'ios' },
     store: new Map<string, string>(),
     started: false,
     options: {} as Record<string, unknown>,
     callback: null as TaskManagerTaskExecutor | null,
     request: vi.fn(async () => ({ accepted: true })),
-    backgroundPermission: vi.fn(async () => ({ status: 'granted' })),
-    foregroundPermission: vi.fn(async () => ({ status: 'granted' })),
+    backgroundPermission: vi.fn(async (): Promise<Permission> => ({
+      status: 'granted',
+      ios: { accuracy: 'full' },
+      android: { accuracy: 'fine' },
+    })),
+    foregroundPermission: vi.fn(async (): Promise<Permission> => ({
+      status: 'granted',
+      ios: { accuracy: 'full' },
+      android: { accuracy: 'fine' },
+    })),
     start: vi.fn(async (_name: string, options: unknown) => {
       mocks.started = true;
       mocks.options = options as Record<string, unknown>;
@@ -21,7 +36,7 @@ const mocks = vi.hoisted(() => {
     }),
   };
 });
-vi.mock('react-native', () => ({ Platform: { OS: 'ios' } }));
+vi.mock('react-native', () => ({ Platform: mocks.platform }));
 vi.mock('expo-task-manager', () => ({
   isTaskDefined: () => false,
   isAvailableAsync: async () => true,
@@ -49,6 +64,7 @@ vi.mock('expo-location', () => ({
   getBackgroundPermissionsAsync: mocks.backgroundPermission,
   requestBackgroundPermissionsAsync: mocks.backgroundPermission,
   requestForegroundPermissionsAsync: mocks.foregroundPermission,
+  getForegroundPermissionsAsync: mocks.foregroundPermission,
 }));
 vi.mock('@rove/mobile-core', async (importOriginal) => {
   const original = await importOriginal<typeof import('@rove/mobile-core')>();
@@ -78,11 +94,17 @@ const api = {
 };
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.platform.OS = 'ios';
   mocks.store.clear();
   mocks.started = false;
   mocks.request.mockResolvedValue({ accepted: true });
+  // Android background permission responses omit precision details.
   mocks.backgroundPermission.mockResolvedValue({ status: 'granted' });
-  mocks.foregroundPermission.mockResolvedValue({ status: 'granted' });
+  mocks.foregroundPermission.mockResolvedValue({
+    status: 'granted',
+    ios: { accuracy: 'full' },
+    android: { accuracy: 'fine' },
+  });
   api.driverProfile.mockResolvedValue({ online: true });
   api.trackingSession.mockImplementation(async () => grant());
 });
@@ -266,4 +288,39 @@ test('a backwards clock correction cannot stall uploads behind the old cadence d
   time -= 60_000;
   await deliver();
   expect(mocks.request).toHaveBeenCalledTimes(2);
+});
+
+test.each(['ios', 'android'])(
+  'approximate %s access cannot authorize tracking and precision loss stops an existing session',
+  async (platform) => {
+    mocks.platform.OS = platform;
+    await requestTrackingPermissions();
+    await synchronize();
+    expect(mocks.started).toBe(true);
+    const approximate: Permission = {
+      status: 'granted',
+      ios: { accuracy: 'reduced' },
+      android: { accuracy: 'coarse' },
+    };
+    mocks.foregroundPermission.mockResolvedValue(approximate);
+    mocks.backgroundPermission.mockResolvedValue(approximate);
+    api.trackingSession.mockClear();
+    await expect(requestTrackingPermissions()).rejects.toThrow('Precise Location');
+    await expect(synchronize()).rejects.toThrow('Precise Location');
+    expect(mocks.started).toBe(false);
+    expect(mocks.store.has('rove.driver.location-grant.v1')).toBe(false);
+    expect(api.trackingSession).not.toHaveBeenCalled();
+    expect(mocks.request).toHaveBeenCalledWith('/tracking/v1/session', expect.anything(), {
+      method: 'DELETE',
+    });
+  },
+);
+
+test('missing platform accuracy evidence fails closed before issuing a tracking grant', async () => {
+  mocks.foregroundPermission.mockResolvedValue({ status: 'granted' });
+  mocks.backgroundPermission.mockResolvedValue({ status: 'granted' });
+  await expect(requestTrackingPermissions()).rejects.toThrow('Precise Location');
+  await expect(synchronize()).rejects.toThrow('Precise Location');
+  expect(api.trackingSession).not.toHaveBeenCalled();
+  expect(mocks.start).not.toHaveBeenCalled();
 });
