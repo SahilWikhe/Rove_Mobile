@@ -51,6 +51,8 @@ It reads only that file, validates the same runtime configuration as the API, an
 
 ## 3. Prepare the database and release controls
 
+Complete the [backup and recovery acceptance procedure](backup-recovery.md) before activation. The September 13 staging inventory has six hours of history and no snapshots or snapshot schedule; an isolated restore and external-state reconciliation are still unverified.
+
 The current `db:staging:*` scripts are intentionally staging-specific. Do not point them at production or weaken their environment checks. Use the [production migration runner](production-migrations.md) for explicit planning and application. It is rehearsed against disposable local databases; the controlled production deployment workflow and provider-specific rehearsal remain outstanding.
 
 Before production migration, verify the destination project/endpoint, migration-role permissions, backup/restore evidence and existing migration journal. Serialize migrations on a direct database session. Review compatible expansion changes before deploying code; never migrate during application startup or a Vercel build. Do not use a runtime role with schema-owner privileges.
