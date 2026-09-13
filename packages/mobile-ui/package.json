@@ -15,7 +15,8 @@
     "./map-style": "./src/map-style.ts",
     "./messages": "./src/messages.tsx",
     "./message-icon": "./src/message-icon.ts",
-    "./trip-support-form": "./src/trip-support-form.tsx"
+    "./trip-support-form": "./src/trip-support-form.tsx",
+    "./email-verification-notice": "./src/email-verification-notice.tsx"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

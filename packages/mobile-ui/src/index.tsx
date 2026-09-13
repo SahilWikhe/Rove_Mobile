@@ -310,5 +310,3 @@ const styles = StyleSheet.create({
   pin: { fontSize: 24, color: theme.gold },
   divider: { height: 1, backgroundColor: theme.border, marginLeft: 40 },
 });
-
-export { EmailVerificationNotice } from './email-verification-notice';

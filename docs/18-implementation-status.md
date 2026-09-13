@@ -2,6 +2,16 @@
 
 Updated: September 12, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Repeatable native account journeys and startup import fix — September 12
+
+Added `scripts/ios-account-journey.mjs` to validate the requested Debug artifact and local Metro, create a fresh simulator, run the shared account flow, retain JUnit/logs/failure screenshots and remove only that simulator. API and Metro remain caller-owned. Driver Debug compilation succeeded with temporary simulator signing entitlements and existing native projects/caches; rider reused the earlier signed Debug binary. Current JavaScript was served through isolated synthetic Metro/API instances.
+
+Native investigation found visible sign-in controls could be tapped before session readiness. The flow now waits for enabled controls and verifies Edit profile after Account navigation. It retains screen/command timeouts and does not retry taps automatically. Also removed the shared UI barrel's circular EmailVerificationNotice re-export: both entry screens use its explicit package subpath. Clean Metro bundles no longer emit that require-cycle warning. No LogBox suppression, navigation timing delay, focus-wrapper change or authentication bypass is retained. Earlier failed flows remain failed evidence, not passing runs.
+
+Verification: the complete driver sign-in/deletion/withdrawal flow passed twice on fresh iOS 26.5 devices; the updated rider flow passed on another fresh device. All runners exited cleanly and removed their devices. Five browser account regressions passed, both app and shared UI typechecks passed, targeted lint/format, workspace boundaries, documentation and diff checks passed. The driver final screenshot was inspected. This does not prove Android authenticated journeys, live Auth0, physical-device behavior or store-signed releases. Earlier source `fa9b959` hosted CI was still running at the latest check; current-main hosted success is not claimed.
+
+Next: Android authenticated account/trip journeys, remaining native/provider/physical acceptance and retained-data cleanup fulfillment. No hosted migrations or cleanup/production activation occurred. Overall completion and the separately pending Google coordinate-use approval remain open.
+
 ## Native rider deletion journey and full browser regression — September 12
 
 Added a reusable Maestro account-deletion flow and local setup instructions. On a dedicated iOS 26.5 simulator, the rider Debug app signed in through the synthetic session, opened Account, submitted deletion consent and withdrew it. JUnit reports one passing flow in 12.4 seconds; the final screenshot was inspected and shows the persistent withdrawn confirmation, fresh-request action and preserved support history.

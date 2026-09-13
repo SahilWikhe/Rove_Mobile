@@ -1,8 +1,9 @@
+import { EmailVerificationNotice } from '@rove/mobile-ui/email-verification-notice';
 import { RiderHome } from '../home/rider-home';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useSession } from '@rove/mobile-core/session';
-import { Banner, Brand, Button, Card, Copy, EmailVerificationNotice, Field, Screen } from '@rove/mobile-ui';
+import { Banner, Brand, Button, Card, Copy, Field, Screen } from '@rove/mobile-ui';
 export default function Home() {
   const session = useSession();
   const [name, setName] = useState('');

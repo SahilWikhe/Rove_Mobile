@@ -130,7 +130,9 @@ EXPO_NO_DOTENV=1 EXPO_PUBLIC_SYNTHETIC=true xcodebuild -quiet \
   DEVELOPMENT_TEAM=ROVESIM001 CODE_SIGN_ENTITLEMENTS=/absolute/path/to/simulator.plist build
 ```
 
-Install `Build/Products/Debug-iphonesimulator/Rove.app` from that derived-data directory onto the dedicated simulator. Launch with `xcrun simctl launch <device-id> co.roveride.rider -RCT_jsLocation 127.0.0.1:8191`. Once Welcome loads, run:
+For automatic simulator lifecycle management, run `node scripts/ios-account-journey.mjs rider /absolute/path/to/Debug-iphonesimulator/Rove.app 8191` from the repository root. Set `MAESTRO_BINARY` if Maestro is not on PATH. The runner validates the bundle, Debug artifact and local Metro, creates a fresh simulator, runs the flow, retains JUnit/screenshots under `reports/native-account-rider`, and removes its own simulator on success or failure. API and Metro remain caller-owned. For driver verification, use the driver Metro package, workspace/scheme `RoveDriver`, bundle `co.roveride.driver`, matching simulator entitlements and `driver` runner argument.
+
+For manual troubleshooting, install `Build/Products/Debug-iphonesimulator/Rove.app` from that derived-data directory onto the dedicated simulator. Launch with `xcrun simctl launch <device-id> co.roveride.rider -RCT_jsLocation 127.0.0.1:8191`. Once Welcome loads, run:
 
 ```sh
 maestro --device <device-id> test -e APP_ID=co.roveride.rider \
@@ -139,6 +141,8 @@ maestro --device <device-id> test -e APP_ID=co.roveride.rider \
   native-tests/account-deletion.yaml
 ```
 
-Start from a signed-out app and fresh synthetic API state. Keychain sessions can survive app reinstalls; prefer a new simulator. The flow waits for the home transition before tapping Account and scrolls to controls that may be outside the viewport. It does not bypass session persistence. Retain JUnit and the relative `native-account-withdrawn` screenshot under ignored reports. Shut down/delete only the simulator created for this test and stop only the isolated API/Metro processes afterward.
+Start from a signed-out app and fresh synthetic API state. Keychain sessions can survive app reinstalls; prefer a new simulator. The flow waits for an enabled Get started control, waits for the home transition, taps an enabled Account control and verifies Edit profile before scrolling. Visibility alone does not prove that session restoration has enabled sign-in. It does not bypass session persistence. Retain JUnit and the relative `native-account-withdrawn` screenshot under ignored reports. Shut down/delete only the simulator created for this test and stop only the isolated API/Metro processes afterward.
 
-Verified locally on rider/iOS 26.5 using application source `fa9b959`, existing generated native projects and build caches: one flow passed in 12.4 seconds. Driver, Android, live Auth0 and physical-device account journeys require separate execution; this result does not prove them.
+Verified locally on rider/iOS 26.5 using application source `fa9b959`, existing generated native projects and build caches: one flow passed in 12.4 seconds. The subsequent driver Debug verification also passed twice on fresh iOS 26.5 simulators using the new runner; the updated rider flow then passed with the same runner. Android, live Auth0 and physical-device account journeys still require separate execution.
+
+Avoid circular re-exports of components that consume the shared UI primitives. Both entry screens import EmailVerificationNotice through its explicit package subpath. This removes the startup require-cycle warning without suppressing LogBox; warning overlays can interfere with native diagnostics. Restart the isolated Metro server with `--clear` after package export changes if it retains the previous dependency graph.

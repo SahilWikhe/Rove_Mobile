@@ -2,9 +2,13 @@
 appId: ${APP_ID}
 ---
 - extendedWaitUntil:
-    visible: Get started
+    visible:
+      text: Get started
+      enabled: true
     timeout: 60000
-- tapOn: Get started
+- tapOn:
+    text: Get started
+    enabled: true
 - extendedWaitUntil:
     visible: Account
     timeout: 30000
@@ -13,6 +17,10 @@ appId: ${APP_ID}
 - tapOn:
     text: Account
     index: 0
+    enabled: true
+- extendedWaitUntil:
+    visible: Edit profile
+    timeout: 20000
 - scrollUntilVisible:
     element:
       text: Request account deletion

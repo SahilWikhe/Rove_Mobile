@@ -1,8 +1,9 @@
+import { EmailVerificationNotice } from '@rove/mobile-ui/email-verification-notice';
 import { useState } from 'react';
 import { Redirect } from 'expo-router';
 import { View } from 'react-native';
 import { useSession } from '@rove/mobile-core/session';
-import { Banner, Brand, Button, Card, Copy, EmailVerificationNotice, Field, Screen } from '@rove/mobile-ui';
+import { Banner, Brand, Button, Card, Copy, Field, Screen } from '@rove/mobile-ui';
 export default function DriverHome() {
   const session = useSession();
   const [name, setName] = useState('');
