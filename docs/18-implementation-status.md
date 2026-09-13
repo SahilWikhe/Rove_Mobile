@@ -1,5 +1,11 @@
 # Implementation status
 
+## Closure and recovery account scope preparation — September 13
+
+Reviewed closure, retention locks, document-write cleanup barriers and payment-customer provisioning/result recovery now bind exact user reads. Closure snapshots the persisted row with only disabled=true before its existing update, preserving identity fields for the forthcoming policy. Actor and worker resets clear user read/profile/closure and verified-subject/signup scopes. User lookup and verified-subject replacement also revoke closure authority. Existing permission, MFA, retention, financial and provider-result checks remain in place.
+
+The full 757-test server suite passed with typechecking and lint; after adding actor-rebind coverage, all three focused restricted-role user tests passed. All 208 API tests and diff checks passed. The new test proves prior signup/subject/closure scopes are cleared and pooled account reads expire. No new hosted policy or migration is enabled: source and isolated hosted remain 44/47. Next: remaining driver/matching/notification user lookup dependencies and users/drivers/rides policy enforcement; then provider-staging rollout and physical-device/provider acceptance. This checkpoint is prepared for the authorized main push; remote confirmation follows.
+
 ## Account lookup and profile write preparation — September 13
 
 Actor authorization and command retry setup now bind an exact account lookup before checking persisted role/disabled state. Profile updates run in a transaction, lock the selected account and snapshot the full persisted row with only the intended display name replaced. Identity-subject and account scopes clear each other's write authority. Existing stale-edit comparisons and disabled-account behavior are preserved.

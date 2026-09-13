@@ -1,3 +1,4 @@
+import { bindUserRead } from './user-scope';
 import { bindPaymentCustomerResult } from './payment-customer-scope';
 import { bindActorIdentity } from './actor-transaction';
 import type { Pool } from 'pg';
@@ -20,6 +21,7 @@ export class PaymentCustomers {
     if (actor.role !== 'rider')
       throw new DomainError('FORBIDDEN', 'Payment profiles are for rider accounts.', 403);
     const binding = await transaction(this.pool, async (client) => {
+      await bindUserRead(client, actor.id);
       const user = (
         await client.query<{ role: string; disabled: boolean }>(
           'SELECT role,disabled FROM users WHERE id=$1 FOR UPDATE',
@@ -63,6 +65,7 @@ export class PaymentCustomers {
     if (!/^cus_[a-zA-Z0-9]{1,96}$/.test(customerId))
       throw new DomainError('PAYMENT_REFERENCE_MISMATCH', 'Payment profile could not be verified.', 503);
     const enabled = await transaction(this.pool, async (client) => {
+      await bindUserRead(client, actor.id);
       const user = (
         await client.query<{ role: string; disabled: boolean }>(
           'SELECT role,disabled FROM users WHERE id=$1 FOR UPDATE',

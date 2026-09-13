@@ -1,3 +1,4 @@
+import { bindActorIdentity } from './actor-transaction';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, expect, test } from 'vitest';
@@ -90,4 +91,22 @@ test('profile writes permit the chosen name only and scope replacement revokes w
       await c.query("UPDATE users SET name='Forbidden'");
     }),
   ).rejects.toMatchObject({ code: '42501' });
+});
+
+test('actor rebinding clears identity and closure authority before reading the account', async () => {
+  await transaction(runtime, async (c) => {
+    await c.query(
+      "SELECT set_config('rove.identity_subject','synthetic-other',true),set_config('rove.identity_signup','{}',true),set_config('rove.user_close_write','{}',true)",
+    );
+    await bindActorIdentity(c, actor);
+    expect(
+      (
+        await c.query(
+          "SELECT NULLIF(current_setting('rove.identity_subject',true),'') AS subject,NULLIF(current_setting('rove.identity_signup',true),'') AS signup,NULLIF(current_setting('rove.user_close_write',true),'') AS closure",
+        )
+      ).rows[0],
+    ).toEqual({ subject: null, signup: null, closure: null });
+    expect((await c.query('SELECT id FROM users')).rows).toEqual([{ id: actor.id }]);
+  });
+  expect((await runtime.query('SELECT id FROM users')).rowCount).toBe(0);
 });

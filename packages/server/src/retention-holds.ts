@@ -1,3 +1,4 @@
+import { bindUserRead } from './user-scope';
 import { appendAudit } from './audit';
 import { bindActorIdentity } from './actor-transaction';
 import { z } from 'zod';
@@ -16,6 +17,7 @@ import { requireStaffPermission } from './staff-access';
 
 /** Use this same user-row lock for every future destructive cleanup stage. Review dates never expire holds. */
 export async function assertNoRetentionHolds(c: PoolClient, ownerId: string) {
+  await bindUserRead(c, ownerId);
   const owner = await c.query("SELECT id FROM users WHERE id=$1 AND role IN ('rider','driver') FOR UPDATE", [
     ownerId,
   ]);
@@ -47,6 +49,7 @@ export class RetentionHolds {
     return command(this.pool, actor.id, key, { action: 'retention.hold', ownerId, ...input }, async (c) => {
       await requireStaffPermission(c, actor, 'privacy.hold');
       await bindActorIdentity(c, actor);
+      await bindUserRead(c, ownerId);
       const owner = await c.query(
         "SELECT id FROM users WHERE id=$1 AND role IN ('rider','driver') FOR UPDATE",
         [ownerId],
@@ -97,6 +100,7 @@ export class RetentionHolds {
       await bindActorIdentity(c, actor);
       const initial = (await c.query('SELECT owner_id FROM retention_holds WHERE id=$1', [holdId])).rows[0];
       if (!initial) throw new DomainError('NOT_FOUND', 'Retention hold not found.', 404);
+      await bindUserRead(c, initial.owner_id);
       await c.query('SELECT id FROM users WHERE id=$1 FOR UPDATE', [initial.owner_id]);
       const row = (await c.query('SELECT * FROM retention_holds WHERE id=$1 FOR UPDATE', [holdId])).rows[0];
       if (row.released_at) {
