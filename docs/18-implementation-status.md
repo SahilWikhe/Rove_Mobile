@@ -2,6 +2,14 @@
 
 Updated: September 12, 2026. Current source baseline: `1cd316e536846a45354ff7040b5cf82320a8361d` plus the approved cleanup connection checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Audited upload-blocker inspection — September 12
+
+Added shared `DocumentUploadInspection` and staff `GET /v1/staff/documents/:id/upload-inspection`, with MFA/current `privacy.read`, transactional audit and document-scoped cursor pagination. The view reports reservation expiry/activity, account-access closure and unresolved write keys/timestamps without document contents or provider calls. It does not settle ambiguous writes, override barriers or claim full quiescence; it shares the cleanup feature's default-off availability.
+
+Ten focused storage-write tests and three cleanup runtime/API tests passed, including 102-write pagination, document isolation, denied consumer/MFA/revoked access, default-off routing and inspection leaving unresolved writes blocked. The existing retry test exposed a database microsecond/worker millisecond scheduling race; bounded polling now waits for the scheduled job instead of assuming immediate eligibility. Workspace/E2E types, changed-source lint and packaged API build/authentication checks passed. No migration or hosted configuration changed.
+
+Next: resolve uncertain writes through verified storage/write-quiescence evidence, then live synthetic cleanup acceptance and retained-data/backup handling. The inspection API is implemented, but staff-dashboard integration remains in its separate repository. Remaining Figma/native/provider acceptance and production setup are not complete.
+
 ## Restricted staging cleanup role and metadata-only verification — September 12
 
 Created the separate staging cleanup CloudFormation role using only the verified `claude-agent` operator. Persisted that identity requirement in `AGENTS.md`. The role allows bucket-versioning checks, prefix-restricted version inventory and exact-version deletion, without document reads, writes, unversioned deletion or governance bypass. Template lint/CloudFormation validation and Access Analyzer checks passed; deployed trust/sole inline policy readback matched the reviewed template and all thirteen allow/deny simulations passed. No S3 objects, bucket policies, hosted migrations or deployment settings changed; cleanup remains off.

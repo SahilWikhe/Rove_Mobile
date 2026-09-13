@@ -7,6 +7,7 @@ import { AccountClosures } from './account-closures';
 import { SupportService } from './support';
 import { AccountDeletions } from './account-deletions';
 import { transaction } from './transactions';
+import { DocumentCleanup } from './document-cleanup';
 import { assertDocumentWritesSettled, trackedDocumentStore } from './document-storage-writes';
 import type { Actor } from './rides';
 let db: Awaited<ReturnType<typeof testDatabase>>, driver: Actor, staff: Actor, service: DriverDocumentService;
@@ -224,4 +225,46 @@ test('database rejects new writes with another document path, fabricated complet
       id,
     ]),
   ).rejects.toThrow();
+});
+
+test('inspection exposes unresolved uploads without settling them and paginates within the document', async () => {
+  await db.pool.query("INSERT INTO staff_permissions(staff_id,permission) VALUES($1,'privacy.read')", [
+    staff.id,
+  ]);
+  const id = await reserve(),
+    other = await reserve();
+  for (let n = 0; n < 102; n++)
+    await db.pool.query('INSERT INTO document_storage_writes(object_key,document_id) VALUES($1,$2)', [
+      `driver-documents/quarantine/${id}/${randomUUID()}`,
+      id,
+    ]);
+  await db.pool.query('INSERT INTO document_storage_writes(object_key,document_id) VALUES($1,$2)', [
+    `driver-documents/quarantine/${other}/${randomUUID()}`,
+    other,
+  ]);
+  const cleanup = new DocumentCleanup(db.pool, { discover: vi.fn(), erase: vi.fn() }, 'synthetic-policy');
+  const active = await cleanup.inspectUploads(staff, id);
+  expect(active.accessClosed).toBe(false);
+  expect(active.reservationActive).toBe(true);
+  expect(active.pendingWrites).toHaveLength(100);
+  expect(active.nextCursor).not.toBeNull();
+  const next = await cleanup.inspectUploads(staff, id, active.nextCursor!);
+  expect(next.pendingWrites).toHaveLength(2);
+  expect(next.nextCursor).toBeNull();
+  expect(new Set([...active.pendingWrites, ...next.pendingWrites].map((w) => w.key)).size).toBe(102);
+  expect([...active.pendingWrites, ...next.pendingWrites].every((w) => w.key.includes(id))).toBe(true);
+  await expect(cleanup.inspectUploads(driver, id)).rejects.toMatchObject({ status: 403 });
+  await expect(cleanup.inspectUploads(staff, other, active.nextCursor!)).rejects.toMatchObject({
+    code: 'INVALID_DOCUMENT',
+  });
+  await closeAccount();
+  await expire();
+  expect(await cleanup.inspectUploads(staff, id)).toMatchObject({
+    accessClosed: true,
+    reservationActive: false,
+  });
+  await expect(barrier()).rejects.toMatchObject({ code: 'DOCUMENT_WRITES_PENDING' });
+  expect(
+    (await db.pool.query('SELECT * FROM document_storage_writes WHERE settled_at IS NOT NULL')).rowCount,
+  ).toBe(0);
 });

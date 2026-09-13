@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import type { Pool, PoolClient } from 'pg';
-import { DocumentCleanupApproval, DocumentCleanupPlan } from '@rove/contracts';
+import { DocumentCleanupApproval, DocumentCleanupPlan, DocumentUploadInspection } from '@rove/contracts';
 import type { Actor } from './rides';
 import type { JobHandler } from './outbox';
 import type { DocumentObjectVersion } from './s3-document-inventory';
@@ -57,6 +57,50 @@ export class DocumentCleanup {
   private async ready(c: PoolClient, ownerId: string) {
     await assertDocumentWritesSettled(c, ownerId);
     await assertNoRetentionHolds(c, ownerId);
+  }
+  async inspectUploads(actor: Actor, documentId: string, after?: string) {
+    z.uuid().parse(documentId);
+    const prefix = `driver-documents/quarantine/${documentId}/`;
+    if (
+      after !== undefined &&
+      (!after.startsWith(prefix) || !z.uuid().safeParse(after.slice(prefix.length)).success)
+    )
+      throw new DomainError('INVALID_DOCUMENT', 'Invalid upload inspection cursor.', 422);
+    return transaction(this.pool, async (c) => {
+      await requireStaffPermission(c, actor, 'privacy.read');
+      // One statement keeps reservation/access state and pending evidence in the same snapshot.
+      const row = (
+        await c.query(
+          `SELECT d.expires_at,d.expires_at>statement_timestamp() AS reservation_active,
+        u.disabled AND EXISTS(SELECT 1 FROM account_closures a WHERE a.owner_id=u.id) AS access_closed,
+        COALESCE((SELECT jsonb_agg(x ORDER BY x.object_key) FROM
+          (SELECT w.object_key,w.started_at FROM document_storage_writes w
+           WHERE w.document_id=d.id AND w.settled_at IS NULL AND w.object_key>$2
+           ORDER BY w.object_key LIMIT 101) x),'[]'::jsonb) AS pending
+        FROM driver_documents d JOIN users u ON u.id=d.driver_id WHERE d.id=$1`,
+          [documentId, after ?? ''],
+        )
+      ).rows[0];
+      if (!row) throw new DomainError('NOT_FOUND', 'Document not found.', 404);
+      const pending = row.pending as { object_key: string; started_at: string }[];
+      const page = pending.slice(0, 100);
+      const result = DocumentUploadInspection.parse({
+        documentId,
+        accessClosed: row.access_closed,
+        reservationExpiresAt: row.expires_at.toISOString(),
+        reservationActive: row.reservation_active,
+        pendingWrites: page.map((w) => ({
+          key: w.object_key,
+          startedAt: new Date(w.started_at).toISOString(),
+        })),
+        nextCursor: pending.length > 100 ? page.at(-1)!.object_key : null,
+      });
+      await c.query(
+        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'document.uploads_inspected',$2,'{}')",
+        [actor.id, documentId],
+      );
+      return result;
+    });
   }
   async prepare(actor: Actor, documentId: string, key: string) {
     z.uuid().parse(documentId);

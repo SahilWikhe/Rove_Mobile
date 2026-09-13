@@ -945,3 +945,16 @@ export const DocumentCleanupPlan = z
     state: z.enum(['draft', 'approved', 'versions_removed']),
   })
   .strict();
+
+export const DocumentUploadInspection = z
+  .object({
+    documentId: z.uuid(),
+    accessClosed: z.boolean(),
+    reservationExpiresAt: z.iso.datetime(),
+    reservationActive: z.boolean(),
+    pendingWrites: z
+      .array(z.object({ key: z.string().max(300), startedAt: z.iso.datetime() }).strict())
+      .max(100),
+    nextCursor: z.string().max(300).nullable(),
+  })
+  .strict();

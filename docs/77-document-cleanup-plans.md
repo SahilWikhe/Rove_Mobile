@@ -45,12 +45,19 @@ Staff endpoints (authenticated, MFA and current domain permissions required):
 
 | Method/path | Operation |
 | --- | --- |
+| `GET /v1/staff/documents/:id/upload-inspection?after=<cursor>` | Audit and page unresolved writes under `privacy.read` |
 | `POST /v1/staff/documents/:id/cleanup-plans` | Prepare inventory; strict empty JSON body and idempotency key |
 | `GET /v1/staff/document-cleanup-plans/:id` | Audited aggregate inspection under `privacy.read` |
 | `POST /v1/staff/document-cleanup-plans/:id/approve` | Approve the exact manifest/policy/review/quiescence/time contract |
 | `POST /v1/staff/document-cleanup-plans/:id/retry` | Recover exhausted work; strict empty JSON body and idempotency key |
 
 Disabled endpoints return `DOCUMENT_CLEANUP_UNAVAILABLE`; no cleanup provider or handler is constructed. Already queued cleanup jobs reaching a disabled host cannot delete files, but the generic worker may dead-letter them as unknown topics. Keep HTTP/worker activation coordinated and use audited recovery after re-enabling; disabling cannot recall a provider call already dispatched.
+
+## Investigating pending uploads
+
+The upload-inspection endpoint uses the shared `DocumentUploadInspection` response. It requires staff MFA and current `privacy.read`, records an audit in the same transaction and returns the document's reservation expiry/active state, account-access closure state, and at most 100 pending quarantine-write references with dispatch timestamps. Follow `nextCursor` until null; a cursor from another document is rejected. It does not return document bytes, signed links or the owner's identity. Reservation/access state and the page are read from one database snapshot; later pages can change as genuine provider receipts settle.
+
+This is an investigation view, not reconciliation authorization or proof of storage quiescence. Reading it performs no provider operation and cannot settle writes or bypass cleanup barriers. An empty pending page does not establish that legacy/inbox uploads, copies or storage versions are absent. The endpoint currently shares the cleanup feature's default-off availability; no hosted inspection is claimed. The separate staff dashboard can use this contract when integrating cleanup review.
 
 ## Dedicated staging role and absence verification
 

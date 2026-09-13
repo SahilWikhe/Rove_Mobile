@@ -182,7 +182,8 @@ test('staff API prepares and approves exact versions, worker verifies removal, a
   expect((await (await request(runtime.app, planPath)).json()).state).toBe('approved');
   await db.pool.query("UPDATE outbox SET dead_letter_at=now() WHERE topic='document.version-delete'");
   expect((await request(runtime.app, planPath + '/retry', {})).status).toBe(200);
-  expect(await runtime.worker.runOnce()).toEqual({ processed: 1, failed: 0 });
+  // PostgreSQL retry timestamps can be ahead of the worker's millisecond clock within this tick.
+  await expect.poll(() => runtime.worker.runOnce(), { timeout: 1000 }).toEqual({ processed: 1, failed: 0 });
   const entry = (await provider.discover.mock.results[0]!.value)[0]!;
   expect(provider.erase).toHaveBeenCalledWith({ documentId, key: entry.key, version: entry.version });
   expect((await (await request(runtime.app, planPath)).json()).state).toBe('versions_removed');
@@ -190,4 +191,28 @@ test('staff API prepares and approves exact versions, worker verifies removal, a
   expect((await request(runtime.app, planPath + '/retry', {})).status).toBe(200);
   expect(await runtime.worker.runOnce()).toEqual({ processed: 0, failed: 0 });
   expect(provider.erase).toHaveBeenCalledTimes(2);
+});
+
+test('upload inspection is audited, staff-only, MFA-protected and default-off', async () => {
+  const path = `/v1/staff/documents/${documentId}/upload-inspection`;
+  const runtime = composeRuntime(config(), { ...resources(), documentCleanup: provider });
+  const response = await request(runtime.app, path);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({
+    documentId,
+    accessClosed: true,
+    reservationActive: false,
+    pendingWrites: [],
+    nextCursor: null,
+  });
+  expect((await request(runtime.app, path, undefined, 'staff-no-mfa')).status).toBe(403);
+  expect((await request(runtime.app, path + '?after=foreign')).status).toBe(422);
+  expect((await request(composeRuntime(config(false), resources()).app, path)).status).toBe(503);
+  await db.pool.query("DELETE FROM staff_permissions WHERE permission='privacy.read'");
+  expect((await request(runtime.app, path)).status).toBe(403);
+  expect(
+    (await db.pool.query("SELECT * FROM audit WHERE action='document.uploads_inspected'")).rowCount,
+  ).toBe(1);
+  expect(provider.discover).not.toHaveBeenCalled();
+  expect(provider.erase).not.toHaveBeenCalled();
 });
