@@ -2,6 +2,14 @@
 
 Updated: September 12, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Android native location display and expiry verified — September 12
+
+The complete Android location scenario passed in 264.046 seconds with zero failures, including pickup/in-trip checks, ride completion and paid synthetic receipt. Screenshots show the blue driver marker on Google Maps with Following driver; the expired in-trip screenshot shows no driver marker or reporting time and the unavailable notice. Expiry assertions completed at 22:13:11.518 and 22:14:36.895 PDT. The helper verified three changing assigned-rider API samples per phase. Artifacts, JUnit and event/peer logs are retained under reports/native-trip-android/android-driver-details/2026-09-12_221019; the owned emulator was removed after exit zero.
+
+Both app local settings and merged Debug manifests contained map keys. The owned Metros were restarted with those existing keys explicitly loaded, the local synthetic API forced, and transform caches cleared. No key values were printed or committed. This corrects the earlier unverified assumption that Android lacked map configuration; no new provider setting or app build was needed.
+
+Both platforms now have local native foreground trip/message/reconnect and location display/expiry passes. These do not prove physical GPS, locked-phone/background uploads, push or every real-provider journey. The earlier isolated iOS return-home failure remains unexplained. No app source or hosted configuration changed in this checkpoint. Documentation and diff checks passed. Next: move beyond these completed simulator checks to physical/provider release requirements and remaining Figma/erasure implementation; production readiness remains incomplete.
+
 ## iOS native location display and expiry verified — September 12
 
 The recorded two-app location scenario passed in 268.132 seconds with zero failures, continuing through completion and the paid synthetic receipt. During pickup and in-progress states, the peer uploaded three changing samples and verified exact assigned-rider API responses. The native Follow driver control recentered the Google map; inspected screenshots show the blue driver marker and the latest sample timestamp in both phases. After updates stopped, both screenshots and native assertions confirmed marker/reporting-time removal and the unavailable message after normal expiry (22:02:29.316 and 22:03:54.589 PDT).

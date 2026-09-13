@@ -35,3 +35,7 @@ The optional two-app scenario supplies changing synthetic samples during pickup 
 ### Passing iOS native display/expiry evidence
 
 The recorded retry passed in 268.132 seconds. Inspected pickup and in-trip screenshots show the blue marker centered after Follow driver and the latest synthetic sample time. Both normal-expiry checks removed the marker and reporting time and showed unavailability, followed by a completed ride and paid synthetic receipt. Artifacts are under reports/native-trip-ios/details/2026-09-12_215940. The prior unexpected navigation did not recur but remains unexplained; no app navigation fix was made. Physical GPS/locked-phone and Android location acceptance remain separate.
+
+### Passing Android native display/expiry evidence
+
+The Android variant passed in 264.046 seconds through the paid synthetic receipt. Google map screenshots show the centered blue driver marker; both pickup and in-trip expiry assertions remove the current-position state, with the expired screenshot showing no driver marker and the unavailable notice. Three changing samples per phase were verified through the assigned rider API. Evidence is under reports/native-trip-android/android-driver-details/2026-09-12_221019. Existing map settings were made explicit in the owned Metros and caches cleared; no credentials or hosted configuration changed. These simulator checks do not establish physical GPS or locked-phone delivery.
