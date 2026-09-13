@@ -56,8 +56,11 @@ export class SupportService {
     return command(this.pool, actor.id, key, { action: 'support.create', ...input }, async (client) => {
       await owner(client, actor);
       const existing = await client.query(
-        "SELECT id,category,message,status,created_at,response,resolved_at FROM support_requests WHERE owner_id=$1 AND category=$2 AND message=$3 AND status='open' LIMIT 1",
-        [actor.id, input.category, input.message],
+        `SELECT s.id,s.category,s.message,s.status,s.created_at,s.response,s.resolved_at FROM support_requests s
+        WHERE s.owner_id=$1 AND s.category=$2 AND s.message=$3 AND s.status='open'
+        AND (NOT $4::boolean OR NOT EXISTS(SELECT 1 FROM account_deletion_requests r
+          WHERE r.support_request_id=s.id AND r.withdrawn_at IS NOT NULL)) LIMIT 1`,
+        [actor.id, input.category, input.message, !!input.deletionConsent],
       );
       if (existing.rows[0]) {
         if (input.deletionConsent) await recordDeletionConsent(client, actor, existing.rows[0].id);
@@ -176,7 +179,7 @@ async function recordDeletionConsent(client: PoolClient, actor: Actor, supportRe
   // owner() serializes all submissions. Consent and its audit commit with the ticket.
   const inserted = await client.query<{ id: string }>(
     `INSERT INTO account_deletion_requests(owner_id,support_request_id,consent_version)
-     VALUES($1,$2,'account-deletion-v1') ON CONFLICT(owner_id) DO NOTHING RETURNING id`,
+     VALUES($1,$2,'account-deletion-v1') ON CONFLICT(owner_id) WHERE withdrawn_at IS NULL DO NOTHING RETURNING id`,
     [actor.id, supportRequestId],
   );
   if (inserted.rows[0])

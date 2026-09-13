@@ -859,7 +859,7 @@ export const AccountDeletionRequest = z
     id: z.uuid(),
     supportRequestId: z.uuid(),
     consentVersion: z.literal('account-deletion-v1'),
-    state: z.enum(['requested', 'closed', 'identity_removed']),
+    state: z.enum(['requested', 'withdrawn', 'closed', 'identity_removed']),
     createdAt: z.iso.datetime(),
   })
   .strict();

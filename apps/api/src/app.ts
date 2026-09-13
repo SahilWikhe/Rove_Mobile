@@ -525,6 +525,16 @@ export function createApp(deps: Dependencies) {
       throw new DomainError('ACCOUNT_CLOSURE_UNAVAILABLE', 'Account closure is not enabled.', 503);
     return c.json(await deps.accountClosures.inspect(c.var.actor, id(c.req.param('id'))));
   });
+  app.post('/v1/account-deletion/:id/withdraw', async (c) => {
+    await body(c, z.object({}).strict());
+    return c.json(
+      await accountDeletions.withdraw(
+        c.var.actor,
+        id(c.req.param('id')),
+        c.req.header('Idempotency-Key') ?? '',
+      ),
+    );
+  });
   app.get('/v1/account-deletion', async (c) => c.json(await accountDeletions.status(c.var.actor)));
   app.get('/v1/staff/account-deletions/:id', async (c) =>
     c.json(await accountDeletions.inspect(c.var.actor, id(c.req.param('id')))),

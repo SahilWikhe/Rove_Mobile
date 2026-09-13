@@ -421,3 +421,7 @@ The implementation shows factual completed-trip and accepted-offer totals plus r
 ## Durable deletion request presentation
 
 Both account-deletion screens retain the existing shared black/charcoal confirmation layout and explicit consent action. They now use the durable account-deletion status rather than an open support ticket to show receipt and hide repeated submission. The status card explains that support resolution is not account/data erasure. Missing status blocks confirmation and offers refresh; lost-response retry retains its original command identity. Synthetic browser tests cover both roles, resolved support tickets, refresh failures and signed-out access. Native visual acceptance remains separate.
+
+## Pending deletion withdrawal — September 12, 2026
+
+Both consumer account-deletion screens reuse the existing charcoal cards and gold/secondary actions for withdrawal before closure. The action requires an explicit confirmation with a Keep deletion request alternative. The persisted withdrawn state allows a fresh explicit deletion request; a lost response retries the same action and reloads current status. This is an account recovery extension, not an erasure-completion screen. Closed account restoration is outside this flow.

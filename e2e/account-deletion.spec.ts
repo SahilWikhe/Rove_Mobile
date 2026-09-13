@@ -106,6 +106,50 @@ for (const [role, port] of [
     await page.getByRole('button', { name: 'Request account deletion', exact: true }).click();
     await expect(page.getByText('Deletion status temporarily unavailable.', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Send deletion request', exact: true })).toHaveCount(0);
+    await page.unroute('**/v1/account-deletion');
+    await page.unroute('**/v1/support-requests');
+    await page.getByRole('button', { name: 'Load / refresh my requests', exact: true }).click();
+    await page.getByRole('button', { name: 'Withdraw deletion request', exact: true }).click();
+    await page.getByRole('button', { name: 'Keep deletion request', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Confirm withdrawal', exact: true })).toHaveCount(0);
+    const withdrawalKeys: string[] = [];
+    await page.route('**/v1/account-deletion/*/withdraw', async (route) => {
+      withdrawalKeys.push(route.request().headers()['idempotency-key']!);
+      if (withdrawalKeys.length === 1) {
+        expect((await route.fetch()).ok()).toBe(true);
+        return route.abort();
+      }
+      return route.continue();
+    });
+    await page.getByRole('button', { name: 'Withdraw deletion request', exact: true }).click();
+    await page.getByRole('button', { name: 'Confirm withdrawal', exact: true }).click();
+    await expect(
+      page.getByText('Connection interrupted. Refresh before trying again.', { exact: true }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Confirm withdrawal', exact: true }).click();
+    await expect(
+      page.getByText('Deletion request withdrawn. Your account remains active.', { exact: true }),
+    ).toBeVisible();
+    expect(withdrawalKeys).toHaveLength(2);
+    expect(withdrawalKeys[0]).toBe(withdrawalKeys[1]);
+    await page.screenshot({ path: `reports/${role}-deletion-withdrawn.png`, fullPage: true });
+    await page.reload();
+    // Synthetic sessions are memory-only; sign back in after a full reload.
+    await page.getByRole('button', { name: 'Continue to your account', exact: true }).click();
+    await page.getByRole('button', { name: 'Get started', exact: true }).click();
+    await page.getByRole('button', { name: 'Account', exact: true }).click();
+    await page.getByRole('button', { name: 'Request account deletion', exact: true }).click();
+    await expect(
+      page.getByText('Deletion request withdrawn. Your account remains active.', { exact: true }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Send deletion request', exact: true }).click();
+    await expect(page.getByText('Deletion request received', { exact: true })).toBeVisible();
+    const renewed = await request.get('http://localhost:4085/v1/account-deletion', {
+      headers: { Authorization: `Bearer synthetic-${role}` },
+    });
+    const renewedRequest = (await renewed.json()).request;
+    expect(renewedRequest.state).toBe('requested');
+    expect(renewedRequest.supportRequestId).not.toBe(requests[0].id);
   });
 }
 

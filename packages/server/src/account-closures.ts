@@ -48,12 +48,9 @@ export class AccountClosures {
     return command(this.pool, actor.id, key, { action: 'account.close', requestId, ...input }, async (c) => {
       await this.permitted(c, actor);
       const request = (
-        await c.query('SELECT owner_id FROM account_deletion_requests WHERE id=$1 FOR UPDATE', [requestId])
+        await c.query('SELECT owner_id FROM account_deletion_requests WHERE id=$1', [requestId])
       ).rows[0];
       if (!request) throw new DomainError('NOT_FOUND', 'Deletion request not found.', 404);
-      const existing = (await c.query('SELECT * FROM account_closures WHERE request_id=$1', [requestId]))
-        .rows[0];
-      if (existing) return dto(existing);
       const ownerId = request.owner_id as string;
       // Driver acceptance/availability serialize on the driver row. Do not lock ride
       // rows here (acceptance takes ride then driver). New rider requests lock users.
@@ -64,6 +61,17 @@ export class AccountClosures {
           [ownerId],
         )
       ).rows[0];
+      const consent = (
+        await c.query(
+          'SELECT withdrawn_at FROM account_deletion_requests WHERE id=$1 AND owner_id=$2 FOR UPDATE',
+          [requestId, ownerId],
+        )
+      ).rows[0];
+      const existing = (await c.query('SELECT * FROM account_closures WHERE request_id=$1', [requestId]))
+        .rows[0];
+      if (existing) return dto(existing);
+      if (!consent || consent.withdrawn_at)
+        throw new DomainError('ACCOUNT_DELETION_WITHDRAWN', 'This deletion request was withdrawn.', 409);
       if (!owner || owner.disabled)
         throw new DomainError(
           'ACCOUNT_CLOSURE_REVIEW',

@@ -144,3 +144,59 @@ test('audit failure rolls back the support ticket, consent and idempotency recor
     await db.pool.query('DROP TRIGGER reject_deletion_audit ON audit; DROP FUNCTION reject_deletion_audit()');
   }
 });
+
+test('withdrawal preserves consent, is retry-safe, and requires fresh consent to request again', async () => {
+  const originalKey = randomUUID();
+  const ticket = await support.create(rider, input, originalKey);
+  const original = (await service.status(rider)).request!;
+  const key = randomUUID();
+  const results = await Promise.all([
+    service.withdraw(rider, original.id, key),
+    service.withdraw(rider, original.id, key),
+    service.withdraw(rider, original.id, randomUUID()),
+  ]);
+  expect(results.every((r) => r.request?.state === 'withdrawn')).toBe(true);
+  expect(
+    (await db.pool.query("SELECT id FROM audit WHERE action='account_deletion.withdrawn'")).rowCount,
+  ).toBe(1);
+  await expect(db.pool.query('UPDATE account_deletion_requests SET withdrawn_at=NULL')).rejects.toThrow(
+    'immutable',
+  );
+  await expect(
+    db.pool.query('UPDATE account_deletion_requests SET withdrawn_at=clock_timestamp()'),
+  ).rejects.toThrow('immutable');
+  expect((await support.create(rider, input, originalKey)).id).toBe(ticket.id);
+  expect((await service.status(rider)).request?.state).toBe('withdrawn');
+  const fresh = await support.create(rider, input, randomUUID());
+  expect(fresh.id).not.toBe(ticket.id);
+  expect((await service.status(rider)).request).toMatchObject({
+    state: 'requested',
+    supportRequestId: fresh.id,
+  });
+  // Replaying the old withdrawal cannot cancel the new consent.
+  await service.withdraw(rider, original.id, key);
+  expect((await service.status(rider)).request?.supportRequestId).toBe(fresh.id);
+  expect((await db.pool.query('SELECT id FROM account_deletion_requests')).rowCount).toBe(2);
+});
+
+test('withdrawal is owner-only, rejects disabled replays, and rolls back if audit fails', async () => {
+  await support.create(rider, input, randomUUID());
+  const id = (await service.status(rider)).request!.id;
+  await expect(service.withdraw(driver, id, randomUUID())).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  await expect(service.withdraw(staff, id, randomUUID())).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  const key = randomUUID();
+  await db.pool.query(
+    `CREATE FUNCTION reject_withdrawal_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.action='account_deletion.withdrawn' THEN RAISE EXCEPTION 'synthetic audit outage'; END IF; RETURN NEW; END $$; CREATE TRIGGER reject_withdrawal_audit BEFORE INSERT ON audit FOR EACH ROW EXECUTE FUNCTION reject_withdrawal_audit();`,
+  );
+  try {
+    await expect(service.withdraw(rider, id, key)).rejects.toThrow('synthetic audit outage');
+    expect((await service.status(rider)).request?.state).toBe('requested');
+  } finally {
+    await db.pool.query(
+      'DROP TRIGGER reject_withdrawal_audit ON audit; DROP FUNCTION reject_withdrawal_audit()',
+    );
+  }
+  await service.withdraw(rider, id, key);
+  await db.pool.query('UPDATE users SET disabled=true WHERE id=$1', [rider.id]);
+  await expect(service.withdraw(rider, id, key)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+});

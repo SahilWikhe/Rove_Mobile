@@ -283,3 +283,42 @@ test('staff can replay a dead-letter identity job without changing closure or in
   });
   expect(await service.retryIdentity(staff, id, randomUUID())).toEqual({ requeued: false });
 });
+
+test('withdrawn consent cannot authorize closure or identity deletion', async () => {
+  const id = await request();
+  await new AccountDeletions(db.pool).withdraw(rider, id, randomUUID());
+  await expect(service.authorize(staff, id, policy, randomUUID())).rejects.toMatchObject({
+    code: 'ACCOUNT_DELETION_WITHDRAWN',
+  });
+  expect((await db.pool.query('SELECT disabled FROM users WHERE id=$1', [rider.id])).rows[0].disabled).toBe(
+    false,
+  );
+  expect((await db.pool.query('SELECT request_id FROM account_closures')).rowCount).toBe(0);
+  expect(erase).not.toHaveBeenCalled();
+});
+
+test('concurrent withdrawal and closure have exactly one committed winner', async () => {
+  const id = await request(driver);
+  const outcomes = await Promise.allSettled([
+    new AccountDeletions(db.pool).withdraw(driver, id, randomUUID()),
+    service.authorize(staff, id, policy, randomUUID()),
+  ]);
+  expect(outcomes.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+  const row = (
+    await db.pool.query(
+      'SELECT r.withdrawn_at,u.disabled FROM account_deletion_requests r JOIN users u ON u.id=r.owner_id WHERE r.id=$1',
+      [id],
+    )
+  ).rows[0];
+  expect(Boolean(row.withdrawn_at)).toBe(!row.disabled);
+  expect(
+    (await db.pool.query('SELECT request_id FROM account_closures WHERE request_id=$1', [id])).rowCount,
+  ).toBe(row.disabled ? 1 : 0);
+  expect(
+    (
+      await db.pool.query("SELECT id FROM outbox WHERE topic='account.identity-delete' AND aggregate_id=$1", [
+        id,
+      ])
+    ).rowCount,
+  ).toBe(row.disabled ? 1 : 0);
+});

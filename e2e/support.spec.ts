@@ -33,7 +33,7 @@ for (const [app, port] of [
       await expect(page.getByText('No requests yet.', { exact: true })).toBeVisible();
     else
       for (const entry of existing)
-        await expect(page.getByText(entry.message, { exact: true })).toBeVisible();
+        await expect(page.getByText(`Reference: ${entry.id}`, { exact: true })).toBeVisible();
     const submit = page.getByRole('button', { name: 'Send support request', exact: true });
     await expect(submit).toBeDisabled();
     await page.getByRole('textbox', { name: 'What do you need help with?', exact: true }).fill(message);

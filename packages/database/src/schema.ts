@@ -885,11 +885,18 @@ export const accountDeletionRequests = pgTable(
       .notNull()
       .references(() => supportRequests.id),
     consentVersion: text().notNull(),
+    withdrawnAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex('account_deletion_owner').on(t.ownerId),
+    uniqueIndex('account_deletion_owner')
+      .on(t.ownerId)
+      .where(sql`${t.withdrawnAt} is null`),
     uniqueIndex('account_deletion_support').on(t.supportRequestId),
+    check(
+      'account_deletion_withdrawal_time',
+      sql`${t.withdrawnAt} is null or ${t.withdrawnAt} >= ${t.createdAt}`,
+    ),
     check('account_deletion_consent', sql`${t.consentVersion} = 'account-deletion-v1'`),
   ],
 );

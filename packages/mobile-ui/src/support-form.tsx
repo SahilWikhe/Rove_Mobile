@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { Banner, Button, Card, Copy, Field, Screen } from './index';
-type DeletionRequest = { id: string; supportRequestId: string };
+type DeletionRequest = {
+  id: string;
+  supportRequestId: string;
+  state: 'requested' | 'withdrawn' | 'closed' | 'identity_removed';
+};
 type Category = 'account' | 'vehicle' | 'trip' | 'payment' | 'other';
 type Request = {
   id: string;
@@ -19,6 +23,7 @@ const categories: Category[] = ['account', 'vehicle', 'trip', 'payment', 'other'
 export function SupportForm({
   list,
   submit,
+  withdraw,
   newKey,
   accountDeletion = false,
   initialDraft,
@@ -31,6 +36,7 @@ export function SupportForm({
     input: { category: Category; message: string; deletionConsent?: 'account-deletion-v1' },
     key: string,
   ) => Promise<Request>;
+  withdraw?: (id: string, key: string) => Promise<{ request: DeletionRequest | null }>;
   newKey: () => string;
   accountDeletion?: boolean;
   initialDraft?: { category: Category; message: string };
@@ -43,7 +49,10 @@ export function SupportForm({
   const [error, setError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<string | null>(null);
   const [deletionRequest, setDeletionRequest] = useState<DeletionRequest | null>(null);
-  const deletionReceived = accountDeletion && Boolean(receipt || deletionRequest);
+  const [confirmWithdrawal, setConfirmWithdrawal] = useState(false);
+  const withdrawalAttempt = useRef<{ id: string; key: string } | null>(null);
+  const deletionReceived =
+    accountDeletion && Boolean(receipt || (deletionRequest && deletionRequest.state !== 'withdrawn'));
   const mounted = useRef(true),
     running = useRef(false);
   const attempt = useRef<{ category: Category; message: string; key: string } | null>(null);
@@ -62,6 +71,12 @@ export function SupportForm({
         if (current) {
           setRequests(result.requests);
           setDeletionRequest(result.deletionRequest ?? null);
+          setConfirmWithdrawal(false);
+          if (result.deletionRequest?.state === 'withdrawn') {
+            setReceipt(null);
+            setMessage(deletionMessage);
+            attempt.current = null;
+          }
           setLoaded(true);
         }
       })
@@ -105,6 +120,12 @@ export function SupportForm({
       if (mounted.current) {
         setRequests(result.requests);
         setDeletionRequest(result.deletionRequest ?? null);
+        setConfirmWithdrawal(false);
+        if (result.deletionRequest?.state === 'withdrawn') {
+          setReceipt(null);
+          setMessage(deletionMessage);
+          attempt.current = null;
+        }
         setLoaded(true);
       }
     } catch (failure) {
@@ -115,6 +136,42 @@ export function SupportForm({
             ? failure.message
             : 'Unable to load or save your request. Reload your requests before trying again.',
         );
+    } finally {
+      running.current = false;
+      if (mounted.current) setBusy(false);
+    }
+  }
+  async function withdrawRequest() {
+    if (running.current || !withdraw || deletionRequest?.state !== 'requested') return;
+    running.current = true;
+    setBusy(true);
+    setError(null);
+    let acknowledged = false;
+    try {
+      if (withdrawalAttempt.current?.id !== deletionRequest.id)
+        withdrawalAttempt.current = { id: deletionRequest.id, key: newKey() };
+      await withdraw(withdrawalAttempt.current.id, withdrawalAttempt.current.key);
+      acknowledged = true;
+      // A replay can refer to an older request. Fetch current consent before enabling a fresh request.
+      const result = await list();
+      if (!mounted.current) return;
+      setRequests(result.requests);
+      setDeletionRequest(result.deletionRequest ?? null);
+      setReceipt(null);
+      setMessage(deletionMessage);
+      attempt.current = null;
+      withdrawalAttempt.current = null;
+      setConfirmWithdrawal(false);
+      setLoaded(true);
+    } catch (failure) {
+      if (mounted.current) {
+        if (acknowledged) setLoaded(false);
+        setError(
+          failure instanceof Error
+            ? failure.message
+            : 'Unable to withdraw your request. Refresh before trying again.',
+        );
+      }
     } finally {
       running.current = false;
       if (mounted.current) setBusy(false);
@@ -146,6 +203,9 @@ export function SupportForm({
       )}
       {initialDraft?.message && <Copy kind="muted">{initialDraft.message.trim()}</Copy>}
       {error && <Banner error message={error} />}
+      {loaded && deletionRequest?.state === 'withdrawn' && (
+        <Banner message="Deletion request withdrawn. Your account remains active." />
+      )}
       {receipt && <Banner message={`Request saved. Reference: ${receipt}`} />}
       {!loaded && busy && <Copy kind="muted">Loading your requests…</Copy>}
       {Platform.OS === 'web' && (
@@ -196,6 +256,32 @@ export function SupportForm({
               onChangeText={setMessage}
             />
           )}
+          {accountDeletion &&
+            deletionRequest?.state === 'requested' &&
+            withdraw &&
+            (confirmWithdrawal ? (
+              <Card>
+                <Copy kind="heading">Keep your account?</Copy>
+                <Copy>
+                  Withdrawing stops this pending deletion request. Your original request stays in the history.
+                  You can send a new request later.
+                </Copy>
+                <Button title="Confirm withdrawal" disabled={busy} onPress={() => void withdrawRequest()} />
+                <Button
+                  title="Keep deletion request"
+                  variant="secondary"
+                  disabled={busy}
+                  onPress={() => setConfirmWithdrawal(false)}
+                />
+              </Card>
+            ) : (
+              <Button
+                title="Withdraw deletion request"
+                variant="secondary"
+                disabled={busy}
+                onPress={() => setConfirmWithdrawal(true)}
+              />
+            ))}
           {!accountDeletion && (
             <Copy kind="muted">At least 10 characters. Check existing requests before sending another.</Copy>
           )}

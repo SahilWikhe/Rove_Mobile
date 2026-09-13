@@ -2,6 +2,16 @@
 
 Updated: September 12, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Pending deletion withdrawal — September 12
+
+Implemented withdrawal before closure for both rider and driver. Migration 0046 preserves immutable consent fields and adds a one-way withdrawal timestamp, keeps one active request per owner, and rejects closure against withdrawn consent. Owner-first consent locking serializes withdrawal with staff closure. Authenticated owner-only, idempotent withdrawal audits atomically; disabled accounts cannot replay. A later explicit request creates fresh consent and a new support reference. Older command replays cannot reactivate consent or cancel the newer request.
+
+Both apps expose a confirmation and Keep deletion request alternative, persist the withdrawn state, retry lost responses with the same key and reload authoritative status before enabling a fresh request. Support history tests now identify records by unique references because different consent requests can legitimately contain identical text.
+
+Verification: all 11 application test tasks passed (five unchanged tasks cached); 18 focused consent/closure database tests passed, including ownership, immutable history, audit rollback, retries and concurrent closure. Seven browser deletion/support journeys passed after correcting the synthetic-session reload setup and duplicate-message locator assumption. Workspace/E2E types, lint, both mobile exports, schema/snapshot no-diff check and docs checks passed. The rider 390px withdrawn-state screenshot was inspected. No new native binary/physical-device or real-provider acceptance is claimed.
+
+Hosted migration/activation was not performed. Migration 0046 requires a coordinated API/schema rollout because old unconditional owner-conflict inserts are incompatible with its partial index; the full drain/migrate/compatible-host/release sequence and older-client enum limitation are documented in docs/75-account-deletion.md. Account closure and document cleanup remain off. Next: uncertain-upload reconciliation and retained-data fulfillment, remaining native/provider/Figma acceptance, and the separately pending explicit Google route-data approval. Production setup and final policy decisions remain open.
+
 ## Fresh local Android release verification — September 12
 
 Built both Android Release APKs from revision `cd45732afea4aca62177102c6dbc813fa2222ab4` (application code unchanged from `c26bf2d`), using the existing generated projects, Node 24, Java 21 and the installed Android SDK. Builds ran sequentially against shared local native outputs, regenerated their JavaScript bundles and succeeded in synthetic mode with dotenv loading disabled. Both APKs contain nonempty embedded JavaScript.

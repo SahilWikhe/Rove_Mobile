@@ -23,6 +23,7 @@ export default function AccountDeletion() {
           key={profile.id}
           list={list}
           submit={(input, key) => api.createSupportRequest(input, key)}
+          withdraw={(id, key) => api.withdrawAccountDeletion(id, key)}
           newKey={Crypto.randomUUID}
         />
       ) : (

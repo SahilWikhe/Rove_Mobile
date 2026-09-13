@@ -158,6 +158,13 @@ export class ApiClient {
   accountDeletionStatus() {
     return this.request('/v1/account-deletion', AccountDeletionStatus);
   }
+  withdrawAccountDeletion(id: string, key: string) {
+    return this.request(`/v1/account-deletion/${encodeURIComponent(id)}/withdraw`, AccountDeletionStatus, {
+      method: 'POST',
+      body: {},
+      key,
+    });
+  }
   supportRequests() {
     return this.request('/v1/support-requests', SupportRequests);
   }
