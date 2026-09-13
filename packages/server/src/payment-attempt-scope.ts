@@ -1,3 +1,4 @@
+import { bindRideRead } from './ride-scope';
 import type { PoolClient } from 'pg';
 import { z } from 'zod';
 
@@ -19,6 +20,13 @@ export async function bindPaymentAttemptRead(
   await client.query(
     "SELECT set_config('rove.payment_attempt_read',$1,true),set_config('rove.payment_attempt_write','',true),set_config('rove.payment_attempt_scan','',true),set_config('rove.payment_attempt_lock','',true),set_config('rove.payment_attempt_closure','',true)",
     [JSON.stringify({ source: sourceSchema.parse(source), ...selected })],
+  );
+  const column = 'rideId' in selected ? 'ride_id' : 'attemptId' in selected ? 'id' : 'intent_id';
+  const value =
+    'rideId' in selected ? selected.rideId : 'attemptId' in selected ? selected.attemptId : selected.intentId;
+  await client.query(
+    `SELECT set_config('rove.ride_read',COALESCE((SELECT ride_id::text FROM payment_attempts WHERE source=$1 AND ${column}=$2),''),true),set_config('rove.ride_write','',true),set_config('rove.ride_batch','',true),set_config('rove.ride_expiry_before','',true),set_config('rove.ride_create','',true)`,
+    [source, value],
   );
 }
 
@@ -61,4 +69,5 @@ export async function bindPaymentAttemptRideEvent(client: PoolClient, rideId: st
     "SELECT set_config('rove.payment_attempt_read',$1,true),set_config('rove.payment_attempt_write','',true),set_config('rove.payment_attempt_scan','',true),set_config('rove.payment_attempt_lock','',true),set_config('rove.payment_attempt_closure','',true)",
     [JSON.stringify({ kind: 'ride-event', rideId })],
   );
+  await bindRideRead(client, rideId);
 }

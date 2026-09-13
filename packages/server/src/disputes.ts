@@ -1,3 +1,4 @@
+import { paymentRecoveryCandidates } from './payment-recovery-candidates';
 import { bindPaymentAttemptRead } from './payment-attempt-scope';
 import { enqueueOutbox } from './outbox-enqueue';
 import { bindLedgerAttempt } from './ledger-scope';
@@ -289,12 +290,9 @@ export class DisputeReconciler {
   async sweep() {
     return transaction(this.pool, async (client) => {
       await bindDisputeScope(client, this.source, 'sweep');
-      const candidates = await client.query(
-        `SELECT p.id,p.intent_id FROM payment_attempts p JOIN rides r ON r.id=p.ride_id LEFT JOIN payment_dispute_checks c ON c.attempt_id=p.id WHERE p.source=$1 AND p.intent_id IS NOT NULL AND r.payment_state IN ('paid','review_required') AND (c.verified_at IS NULL OR c.verified_at<$2) AND (c.requested_at IS NULL OR c.requested_at<$3) ORDER BY c.requested_at NULLS FIRST,p.id LIMIT 100`,
-        [this.source, new Date(this.now().getTime() - 3600000), new Date(this.now().getTime() - 600000)],
-      );
+      const candidates = await paymentRecoveryCandidates(client, 'dispute', this.source, this.now());
       let count = 0;
-      for (const row of candidates.rows) {
+      for (const row of candidates) {
         await bindDisputeScope(client, this.source, 'write', row.id);
         await client.query(
           'INSERT INTO payment_dispute_checks(attempt_id,requested_at) VALUES($1,$2) ON CONFLICT(attempt_id) DO UPDATE SET requested_at=EXCLUDED.requested_at',

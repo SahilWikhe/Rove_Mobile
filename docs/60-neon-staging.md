@@ -303,3 +303,12 @@ Ride read compatibility: deploy actor-scoped detail/history queries before RLS r
 Deploy actor-scoped profile, receipt and earnings reads with migration 0086. The new ledger header policy grants only SELECT for allocation and refund/dispute loss-allocation headers associated with the verified driver, requiring matching ledger-owner scope. It grants no mutation authority. Receipt scopes derive from the persisted payment on the rider-owned ride, including exact customer and optional refund evidence. Missing capture evidence still yields a pending receipt.
 
 Local verification: 213 API, 764 server and 13 database tests passed, API/database types and changed-source lint passed. Earnings and receipt read tests run through restricted roles and preserve cross-account, disabled-account, recorded-capture and adjustment safeguards. Isolated hosted remains through 0085; apply/rehearse 0086 with the remaining rides work before provider-staging rollout. Table coverage remains 46/47. Provider staging and production are unchanged.
+
+
+## Rides RLS migration 0087 — local verification
+
+Deploy compatible booking, matching, lifecycle, expiry, financial and notification callers before enabling rides RLS. Creation scope binds the locked validated quote and exact server deadline. Mutation scope captures the locked row, preserves unrelated fields and requires a version increment. Assignment, expiry and payment mutations have distinct field sets; no DELETE policy exists. Read policies avoid joins to other protected tables to prevent recursion. Financial recovery reads at most 100 ride IDs per batch; matching can inspect active assignments, and expiry recovery can inspect only overdue searches. Domain authorization and provider validation remain mandatory.
+
+Local verification passed 769 server, 213 API and 13 database tests, server/API/database types, changed-source lint and snapshot consistency. Restricted-role ride tests cover ownership, protected fields, versioning, quote-bound creation and expiry. The 105-payment pagination integration case retains its assertions with a 15-second allowance after the old five-second limit proved insufficient.
+
+Source now covers 47/47 tables. Isolated hosted remains through 0085 at 46/47; rehearse 0086–0087 there before coordinating provider-staging rollout. Provider staging and production are unchanged. Do not manually toggle table RLS on provider staging independently of compatible backend/worker deployment.

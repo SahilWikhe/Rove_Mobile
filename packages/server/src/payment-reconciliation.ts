@@ -1,3 +1,4 @@
+import { bindRideRead, bindRideMutation } from './ride-scope';
 import { bindPaymentAttemptRideEvent, bindPaymentAttemptWrite } from './payment-attempt-scope';
 import { enqueueOutbox } from './outbox-enqueue';
 import { bindOfferRide } from './offer-scope';
@@ -175,6 +176,7 @@ export class PaymentReconciler {
     const current = await this.provider.retrieve(reference);
     validateSnapshot(current, reference);
     await transaction(this.pool, async (client) => {
+      await bindRideRead(client, before.ride_id);
       const ride = (
         await client.query<{
           rider_id: string;
@@ -285,6 +287,7 @@ export class PaymentReconciler {
           before.ride_id,
         ]);
       }
+      await bindRideMutation(client, before.ride_id, 'payment');
       await client.query('UPDATE rides SET payment_state=$2,version=version+1,updated_at=$3 WHERE id=$1', [
         before.ride_id,
         next,

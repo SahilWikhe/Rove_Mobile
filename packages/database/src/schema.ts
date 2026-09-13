@@ -167,19 +167,45 @@ export const rides = pgTable(
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [
-    index('completed_rides_by_driver')
-      .on(t.driverId)
-      .where(sql`${t.state} = 'completed'`),
-    check('positive_ride_money', sql`${t.fareCents} >= 0 and ${t.earningsCents} >= 0`),
-    check('positive_ride_version', sql`${t.version} > 0`),
-    uniqueIndex('one_active_ride_per_rider')
-      .on(t.riderId)
-      .where(sql`${t.state} in ('searching','matched','en_route','arrived','in_progress','interrupted')`),
-    uniqueIndex('one_active_ride_per_driver')
-      .on(t.driverId)
-      .where(sql`${t.state} in ('matched','en_route','arrived','in_progress','interrupted')`),
-  ],
+  (t) => {
+    const actor = sql`NULLIF(current_setting('rove.actor_id',true),'')::uuid`;
+    const read = sql`NULLIF(current_setting('rove.ride_read',true),'')::uuid`;
+    const account = sql`NULLIF(current_setting('rove.user_read',true),'')::uuid`;
+    const create = sql`NULLIF(current_setting('rove.ride_create',true),'')::jsonb`;
+    const write = sql`NULLIF(current_setting('rove.ride_write',true),'')::jsonb`;
+    const before = sql`(${write}->'before')`;
+    const kind = sql`(${write}->>'kind')`;
+    const visible = sql`(current_setting('rove.offer_matching',true)='true' AND NULLIF(current_setting('rove.offer_ride',true),'') IS NOT NULL AND ${t.state} IN ('matched','en_route','arrived','in_progress','interrupted')) OR (${t.state}='searching' AND ${t.searchDeadline}<=NULLIF(current_setting('rove.ride_expiry_before',true),'')::timestamptz) OR NULLIF(current_setting('rove.ride_batch',true),'')::jsonb @> jsonb_build_array(${t.id}) OR ${t.id}=${read} OR ${t.riderId}=${account} OR ${t.driverId}=${account} OR (current_setting('rove.actor_role',true)='rider' AND ${t.riderId}=${actor}) OR (current_setting('rove.actor_role',true)='driver' AND ${t.driverId}=${actor}) OR ${t.riderId}=(${create}->>'riderId')::uuid OR ${t.id}=NULLIF(current_setting('rove.offer_ride',true),'')::uuid OR ${t.id}=NULLIF(current_setting('rove.quote_ride',true),'')::uuid`;
+    const fields = sql`CASE ${kind} WHEN 'assignment' THEN ARRAY['driver_id','state','version','updated_at'] WHEN 'transition' THEN ARRAY['state','version','updated_at'] WHEN 'expiry' THEN ARRAY['state','version','updated_at'] WHEN 'payment' THEN ARRAY['payment_state','version','updated_at'] ELSE ARRAY[]::text[] END`;
+    return [
+      pgPolicy('ride_scoped_read', { for: 'select', using: visible }),
+      pgPolicy('ride_scoped_lock', {
+        for: 'update',
+        using: sql`(${visible}) AND ${write} IS NULL`,
+        withCheck: sql`false`,
+      }),
+      pgPolicy('ride_quote_create', {
+        for: 'insert',
+        withCheck: sql`${t.quoteId}=(${create}->>'quoteId')::uuid AND ${t.riderId}=(${create}->>'riderId')::uuid AND ${t.fareCents}=(${create}->>'fare')::integer AND ${t.earningsCents}=(${create}->>'earnings')::integer AND ${t.searchDeadline}=(${create}->>'deadline')::timestamptz AND ${t.driverId} IS NULL AND ${t.state}='searching' AND ${t.paymentState}='pending' AND ${t.version}=1`,
+      }),
+      pgPolicy('ride_scoped_mutation', {
+        for: 'update',
+        using: sql`${kind} IN ('assignment','transition','expiry','payment') AND to_jsonb(rides)=${before}`,
+        withCheck: sql`${kind} IN ('assignment','transition','expiry','payment') AND (to_jsonb(rides)-(${fields}))=(${before}-(${fields})) AND ${t.version}=(${before}->>'version')::integer+1 AND (${kind}<>'assignment' OR (${t.driverId}=${actor} AND current_setting('rove.actor_role',true)='driver' AND ${t.state}='matched' AND ${before}->>'state'='searching' AND ${before}->>'payment_state'='authorized')) AND (${kind}<>'expiry' OR (${before}->>'state'='searching' AND ${t.state} IN ('cancelled','no_driver_found')))`,
+      }),
+      index('completed_rides_by_driver')
+        .on(t.driverId)
+        .where(sql`${t.state} = 'completed'`),
+      check('positive_ride_money', sql`${t.fareCents} >= 0 and ${t.earningsCents} >= 0`),
+      check('positive_ride_version', sql`${t.version} > 0`),
+      uniqueIndex('one_active_ride_per_rider')
+        .on(t.riderId)
+        .where(sql`${t.state} in ('searching','matched','en_route','arrived','in_progress','interrupted')`),
+      uniqueIndex('one_active_ride_per_driver')
+        .on(t.driverId)
+        .where(sql`${t.state} in ('matched','en_route','arrived','in_progress','interrupted')`),
+    ];
+  },
 );
 const offerActor = sql`NULLIF(current_setting('rove.actor_id',true),'')::uuid`;
 const offerDriver = (driver: SQLWrapper) =>

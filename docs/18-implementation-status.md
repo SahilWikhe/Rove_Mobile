@@ -1,5 +1,16 @@
 # Implementation status
 
+## Rides RLS implemented and locally verified — September 13
+
+Migration 0087 enables and forces rides RLS, bringing source coverage to 47/47 tables. Reads use verified participant/account scopes, exact stored ride references, bounded payment-recovery batches, overdue-search scope or active-assignment matching scope. Policies intentionally do not query users/offers/payment tables, avoiding dependency cycles with their existing policies. Creation matches a validated locked quote and server deadline. Mutation snapshots preserve fare, earnings, ownership and other unrelated fields; updates increment version, assignment requires a funded searching ride and the accepting driver, and expiry cannot cancel an assigned trip. No DELETE policy is granted. Backend scopes remain defense in depth, not protection from arbitrary SQL with a compromised runtime credential.
+
+Booking, matching, acceptance/decline, transitions, expiry, payment reconciliation and notification callers now bind compatible ride scopes. Exact financial references resolve the persisted ride; refund/dispute recovery scans read batches of at most 100 ride IDs while preserving ordering and advancing past ineligible candidates. Identity/account resets clear ride scope. The closure policy test now supplies the same target-account scope as the service, retaining MFA and revoked-permission denials. The 105-payment integration case received a bounded 15-second allowance after exceeding its original five seconds; all behavioral assertions remain. A redundant payment-scope round trip was also removed.
+
+All 769 server, 213 API and 13 database tests passed. Server/API/database types, changed-source lint, diff checks and Drizzle snapshot consistency passed (no additional schema changes). Five restricted-role ride tests cover participant/unscoped access, lock-only reads, immutable ownership/fare, versioning, payment/lifecycle separation, assigned-trip expiry protection, quote-bound creation and overdue-search recovery. Earlier actual-policy failures were resolved before this checkpoint.
+
+Isolated hosted remains through 0085 at 46/47. Next: apply/rehearse 0086–0087 only on that isolated branch with all real runtime read paths, then coordinate compatible provider-staging rollout. Provider staging and production remain unchanged. Physical-device/provider acceptance and production readiness remain incomplete. This checkpoint is prepared for the authorized main push; remote confirmation follows.
+
+
 ## Financial and profile API RLS compatibility verified — September 13
 
 Profile, rider receipt and driver earnings queries now run inside verified active actor transactions. Receipts resolve the payment for the owned ride before binding exact ledger, customer and optional refund evidence scopes. Earnings bind the verified driver's ledger owner scope. Migration 0086 adds SELECT-only access to allocation/refund/dispute allocation journal headers for the assigned driver with matching actor/ledger-owner scope; it grants no financial writes. This fixes missing header access that could otherwise silently produce empty earnings under RLS.

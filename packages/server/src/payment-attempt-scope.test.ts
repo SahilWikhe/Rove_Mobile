@@ -1,3 +1,4 @@
+import { bindUserRead } from './user-scope';
 import { actorTransaction } from './actor-transaction';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
@@ -242,6 +243,7 @@ test('closure locks require staff MFA and permission and stay with the selected 
   const rider = (await db.pool.query('SELECT rider_id FROM rides WHERE id=$1', [row.ride])).rows[0].rider_id;
   for (const mfa of [false, true])
     await actorTransaction(runtime.pool, { id: staff, role: 'staff', mfa }, async (c) => {
+      await bindUserRead(c, rider);
       await c.query("SELECT set_config('rove.payment_attempt_closure',$1,true)", [rider]);
       expect((await c.query('SELECT id FROM payment_attempts FOR UPDATE')).rows).toEqual(
         mfa ? [{ id: row.id }] : [],
@@ -249,6 +251,7 @@ test('closure locks require staff MFA and permission and stay with the selected 
     });
   await db.pool.query('DELETE FROM staff_permissions WHERE staff_id=$1', [staff]);
   await actorTransaction(runtime.pool, { id: staff, role: 'staff', mfa: true }, async (c) => {
+    await bindUserRead(c, rider);
     await c.query("SELECT set_config('rove.payment_attempt_closure',$1,true)", [rider]);
     expect((await c.query('SELECT id FROM payment_attempts')).rowCount).toBe(0);
   });

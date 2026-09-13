@@ -1,3 +1,4 @@
+import { bindRideRead } from './ride-scope';
 import { bindDriverMutation } from './driver-scope';
 import { bindUserRead } from './user-scope';
 import { enqueueOutbox } from './outbox-enqueue';
@@ -180,6 +181,14 @@ export class DriverService {
   async offers(actor: Actor) {
     driverOnly(actor);
     const rows = await actorTransaction(this.pool, actor, async (client) => {
+      const pending = (
+        await client.query<{ ride_id: string }>(
+          "SELECT ride_id FROM offers WHERE driver_id=$1 AND status='pending'",
+          [actor.id],
+        )
+      ).rows[0];
+      if (!pending) return [];
+      await bindRideRead(client, pending.ride_id);
       return (
         await client.query(
           `SELECT o.snapshot FROM offers o JOIN rides r ON r.id=o.ride_id JOIN drivers d ON d.id=o.driver_id
@@ -199,6 +208,7 @@ export class DriverService {
         await client.query('SELECT ride_id FROM offers WHERE id=$1 AND driver_id=$2', [offerId, actor.id])
       ).rows[0];
       if (!reference) throw new DomainError('NOT_FOUND', 'Offer not found.', 404);
+      await bindRideRead(client, reference.ride_id);
       await client.query('SELECT id FROM rides WHERE id=$1 FOR UPDATE', [reference.ride_id]);
       const result = await client.query(
         "UPDATE offers SET status='declined' WHERE id=$1 AND status='pending' RETURNING id",

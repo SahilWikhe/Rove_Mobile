@@ -1,3 +1,4 @@
+import { bindRideRead, bindRideMutation } from './ride-scope';
 import { enqueueOutbox } from './outbox-enqueue';
 import { bindOfferRide } from './offer-scope';
 import { bindQuoteRide } from './quote-scope';
@@ -41,6 +42,7 @@ export class MatchingService {
     private now: () => Date = () => new Date(),
   ) {}
   private async inspect(client: PoolClient, rideId: string): Promise<SearchRow | null> {
+    await bindRideRead(client, rideId);
     await bindOfferRide(client, rideId, true);
     await bindQuoteRide(client, rideId);
     const ride = (
@@ -71,6 +73,7 @@ export class MatchingService {
       await client.query("UPDATE offers SET status='expired' WHERE ride_id=$1 AND status='pending'", [
         rideId,
       ]);
+      await bindRideMutation(client, rideId, 'expiry');
       await client.query(
         "UPDATE rides SET state='no_driver_found',version=version+1,updated_at=now() WHERE id=$1",
         [rideId],

@@ -1,3 +1,4 @@
+import { bindRideRead, bindRideMutation } from './ride-scope';
 import { enqueueOutbox } from './outbox-enqueue';
 import { bindOfferRide } from './offer-scope';
 import type { Pool, PoolClient } from 'pg';
@@ -21,6 +22,7 @@ export class SearchExpiry {
   ) {}
   async expire(rideId: string): Promise<boolean> {
     return transaction(this.pool, async (client) => {
+      await bindRideRead(client, rideId);
       const ride = (
         await client.query<{ state: string; payment_state: string; version: number; search_deadline: Date }>(
           'SELECT state,payment_state,version,search_deadline FROM rides WHERE id=$1 FOR UPDATE',
@@ -33,6 +35,7 @@ export class SearchExpiry {
       await client.query("UPDATE offers SET status='expired' WHERE ride_id=$1 AND status='pending'", [
         rideId,
       ]);
+      await bindRideMutation(client, rideId, 'expiry');
       await client.query('UPDATE rides SET state=$2,version=version+1,updated_at=$3 WHERE id=$1', [
         rideId,
         state,
@@ -48,10 +51,15 @@ export class SearchExpiry {
   async sweep(limit = 50): Promise<number> {
     if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new RangeError('Invalid sweep limit.');
     const rows = (
-      await this.pool.query<{ id: string }>(
-        "SELECT id FROM rides WHERE state='searching' AND search_deadline<=$1 ORDER BY search_deadline,id LIMIT $2",
-        [this.now(), limit],
-      )
+      await transaction(this.pool, async (client) => {
+        await client.query("SELECT set_config('rove.ride_expiry_before',$1,true)", [
+          this.now().toISOString(),
+        ]);
+        return client.query<{ id: string }>(
+          "SELECT id FROM rides WHERE state='searching' AND search_deadline<=$1 ORDER BY search_deadline,id LIMIT $2",
+          [this.now(), limit],
+        );
+      })
     ).rows;
     let expired = 0;
     for (const row of rows) if (await this.expire(row.id)) expired++;

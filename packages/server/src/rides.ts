@@ -1,3 +1,4 @@
+import { bindRideCreation, bindRideRead, bindRideMutation } from './ride-scope';
 import { bindUserRead } from './user-scope';
 import { bindActorIdentity } from './actor-transaction';
 import { bindOfferRide } from './offer-scope';
@@ -66,16 +67,12 @@ export class RideService {
       if (!found.rows[0]) throw new DomainError('NOT_FOUND', 'Quote not found.', 404);
       const quote = Quote.parse(found.rows[0].snapshot);
       assertNotExpired(quote.expiresAt, this.now());
+      const deadline = new Date(this.now().getTime() + 180_000);
+      await bindRideCreation(client, quote, deadline);
       const { rows } = await client.query<RideRow>(
         `INSERT INTO rides (quote_id,rider_id,fare_cents,earnings_cents,search_deadline)
          VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-        [
-          quoteId,
-          actor.id,
-          quote.fare.amount,
-          quote.estimatedDriverEarnings.amount,
-          new Date(this.now().getTime() + 180_000),
-        ],
+        [quoteId, actor.id, quote.fare.amount, quote.estimatedDriverEarnings.amount, deadline],
       );
       const ride = rows[0]!;
       // Matching is allowed only after the payment worker records authorization.
@@ -95,6 +92,7 @@ export class RideService {
         [offerId, actor.id],
       );
       if (!first.rows[0]) throw new DomainError('NOT_FOUND', 'Offer not found.', 404);
+      await bindRideRead(client, first.rows[0].ride_id);
       const ride = await lockRide(client, first.rows[0].ride_id);
       const offer = (
         await client.query<{ status: string; expires_at: Date }>(
@@ -147,6 +145,8 @@ export class RideService {
       if (quote.service === 'accessible' && driver.service !== 'accessible')
         throw new DomainError('DRIVER_UNAVAILABLE', 'This ride requires an eligible accessible vehicle.');
       await bindUserRead(client, ride.rider_id);
+      await bindRideRead(client, ride.id);
+      await bindRideMutation(client, ride.id, 'assignment');
       const updated = (
         await client.query<RideRow>(
           "UPDATE rides SET driver_id=$2,state='matched',version=version+1,updated_at=now() WHERE id=$1 RETURNING *",
@@ -183,6 +183,7 @@ export class RideService {
             'Payment must be confirmed before continuing pickup.',
             409,
           );
+        await bindRideMutation(client, rideId, 'transition');
         const updated = (
           await client.query<RideRow>(
             'UPDATE rides SET state=$2,version=version+1,updated_at=now() WHERE id=$1 RETURNING *',

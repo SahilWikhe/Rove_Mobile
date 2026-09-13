@@ -1,3 +1,4 @@
+import { bindRideRead } from './ride-scope';
 import { bindUserAudience } from './user-scope';
 import { outboxTransaction } from './outbox-scope';
 import { transaction } from './transactions';
@@ -74,6 +75,11 @@ export class PushAudience {
         ).rows[0];
         if (!target) return undefined;
         await client.query("SELECT set_config('rove.notification_offer',$1,true)", [target.offer_id]);
+        const offerRide = (
+          await client.query<{ ride_id: string }>('SELECT ride_id FROM offers WHERE id=$1', [target.offer_id])
+        ).rows[0];
+        if (!offerRide) return undefined;
+        await bindRideRead(client, offerRide.ride_id);
         const participants = (
           await client.query<{ rider_id: string; driver_id: string | null }>(
             'SELECT r.rider_id,r.driver_id FROM offers o JOIN rides r ON r.id=o.ride_id WHERE o.id=$1',
@@ -86,6 +92,7 @@ export class PushAudience {
           [participants.rider_id, participants.driver_id].filter((id): id is string => id !== null),
         );
 
+        await bindRideRead(client, offerRide.ride_id);
         return (
           await client.query(
             `SELECT m.offer_id,
@@ -113,10 +120,13 @@ export class PushAudience {
     }
     if (rideTopics.has(event.topic)) {
       const ride = (
-        await this.pool.query<{ rider_id: string; driver_id: string | null }>(
-          'SELECT rider_id,driver_id FROM rides WHERE id=$1',
-          [event.aggregate_id],
-        )
+        await transaction(this.pool, async (client) => {
+          await bindRideRead(client, event.aggregate_id);
+          return client.query<{ rider_id: string; driver_id: string | null }>(
+            'SELECT rider_id,driver_id FROM rides WHERE id=$1',
+            [event.aggregate_id],
+          );
+        })
       ).rows[0];
       return ride
         ? {
@@ -133,6 +143,7 @@ export class PushAudience {
     if (!payload.success) return null;
     const offer = await transaction(this.pool, async (client) => {
       await client.query("SELECT set_config('rove.notification_offer',$1,true)", [payload.data.offerId]);
+      await bindRideRead(client, event.aggregate_id);
       return (
         await client.query<{ id: string; driver_id: string; expires_at: Date }>(
           `SELECT o.id,o.driver_id,LEAST(o.expires_at,r.search_deadline,$4::timestamptz) AS expires_at

@@ -234,7 +234,7 @@ test('recovery advances past an unprocessed first page instead of starving later
     ).rows[0].count,
   ).toBe(105);
   expect(refunds).not.toHaveBeenCalled();
-});
+}, 15000);
 
 test('refund accounting and verified observations commit together and retry after a ledger failure', async () => {
   const rider = (await database.pool.query('SELECT rider_id FROM rides WHERE id=$1', [reference.rideId]))

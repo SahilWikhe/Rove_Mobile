@@ -5,7 +5,7 @@ import { z } from 'zod';
 export async function bindUserRead(client: PoolClient, userId: string) {
   z.uuid().parse(userId);
   await client.query(
-    "SELECT set_config('rove.user_read',$1,true),set_config('rove.user_audience','',true),set_config('rove.user_profile_write','',true),set_config('rove.driver_write','',true),set_config('rove.user_close_write','',true),set_config('rove.closure_lookup_request','',true),set_config('rove.identity_subject','',true),set_config('rove.identity_signup','',true)",
+    "SELECT set_config('rove.user_read',$1,true),set_config('rove.user_audience','',true),set_config('rove.user_profile_write','',true),set_config('rove.driver_write','',true),set_config('rove.ride_read','',true),set_config('rove.ride_write','',true),set_config('rove.ride_batch','',true),set_config('rove.ride_expiry_before','',true),set_config('rove.ride_create','',true),set_config('rove.user_close_write','',true),set_config('rove.closure_lookup_request','',true),set_config('rove.identity_subject','',true),set_config('rove.identity_signup','',true)",
     [userId],
   );
 }
@@ -14,7 +14,7 @@ export async function bindUserRead(client: PoolClient, userId: string) {
 export async function bindUserAudience(client: PoolClient, userIds: string[]) {
   const selected = z.array(z.uuid()).max(2).parse(userIds);
   await client.query(
-    "SELECT set_config('rove.user_audience',$1,true),set_config('rove.user_read','',true),set_config('rove.user_profile_write','',true),set_config('rove.driver_write','',true),set_config('rove.user_close_write','',true),set_config('rove.closure_lookup_request','',true),set_config('rove.identity_subject','',true),set_config('rove.identity_signup','',true)",
+    "SELECT set_config('rove.user_audience',$1,true),set_config('rove.user_read','',true),set_config('rove.user_profile_write','',true),set_config('rove.driver_write','',true),set_config('rove.ride_read','',true),set_config('rove.ride_write','',true),set_config('rove.ride_batch','',true),set_config('rove.ride_expiry_before','',true),set_config('rove.ride_create','',true),set_config('rove.user_close_write','',true),set_config('rove.closure_lookup_request','',true),set_config('rove.identity_subject','',true),set_config('rove.identity_signup','',true)",
     [JSON.stringify([...new Set(selected)])],
   );
 }
