@@ -59,16 +59,7 @@ export function trackedDocumentStore(
         receipt = await store.put(input);
       } catch (error) {
         if (error instanceof DocumentWriteNotDispatched) {
-          await transaction(pool, async (c) => {
-            await c.query(
-              'UPDATE document_storage_writes SET not_dispatched_at=clock_timestamp() WHERE object_key=$1',
-              [input.key],
-            );
-            await c.query(
-              "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'driver.document_write_not_dispatched',$2,'{}')",
-              [actor.id, documentId],
-            );
-          });
+          await persistOutcome(pool, actor, documentId, input.key, { kind: 'not_dispatched' });
         }
         throw error;
       }
@@ -83,19 +74,77 @@ export function trackedDocumentStore(
           bytes: z.literal(input.body.byteLength),
         })
         .parse(receipt);
-      await transaction(pool, async (c) => {
-        await c.query(
-          'UPDATE document_storage_writes SET settled_at=clock_timestamp(),object_version=$2 WHERE object_key=$1',
-          [input.key, result.version],
-        );
-        await c.query(
-          "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'driver.document_write_settled',$2,'{}')",
-          [actor.id, documentId],
-        );
-      });
+      await persistOutcome(pool, actor, documentId, input.key, { kind: 'stored', version: result.version });
       return result;
     },
   };
+}
+
+/** Retry only persistence of a definitive outcome held by this request, never provider I/O. */
+async function persistOutcome(
+  pool: Pool,
+  actor: Actor,
+  documentId: string,
+  key: string,
+  outcome: { kind: 'stored'; version: string } | { kind: 'not_dispatched' },
+) {
+  const transientCodes = new Set([
+    '40001',
+    '40P01',
+    '08000',
+    '08003',
+    '08006',
+    '08007',
+    '57P01',
+    'ECONNRESET',
+    'ETIMEDOUT',
+    'EPIPE',
+  ]);
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await transaction(pool, async (c) => {
+        const row = (
+          await c.query(
+            'SELECT * FROM document_storage_writes WHERE object_key=$1 AND document_id=$2 FOR UPDATE',
+            [key, documentId],
+          )
+        ).rows[0];
+        if (!row) throw new DomainError('DOCUMENT_CONFLICT', 'Document write evidence is missing.', 409);
+        // A lost COMMIT response can mean both the receipt and its audit already exist.
+        if (row.settled_at || row.not_dispatched_at) {
+          const same =
+            outcome.kind === 'stored'
+              ? row.settled_at && row.object_version === outcome.version && !row.not_dispatched_at
+              : row.not_dispatched_at && !row.settled_at && row.object_version === null;
+          if (!same) throw new DomainError('DOCUMENT_CONFLICT', 'Document write outcome conflicts.', 409);
+          return;
+        }
+        if (outcome.kind === 'stored') {
+          await c.query(
+            'UPDATE document_storage_writes SET settled_at=clock_timestamp(),object_version=$2 WHERE object_key=$1',
+            [key, outcome.version],
+          );
+        } else {
+          await c.query(
+            'UPDATE document_storage_writes SET not_dispatched_at=clock_timestamp() WHERE object_key=$1',
+            [key],
+          );
+        }
+        await c.query("INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,$2,$3,'{}')", [
+          actor.id,
+          outcome.kind === 'stored'
+            ? 'driver.document_write_settled'
+            : 'driver.document_write_not_dispatched',
+          documentId,
+        ]);
+      });
+      return;
+    } catch (error) {
+      const code = error && typeof error === 'object' && 'code' in error ? error.code : undefined;
+      if (attempt >= 2 || typeof code !== 'string' || !transientCodes.has(code)) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 50 * (attempt + 1)));
+    }
+  }
 }
 
 /** Necessary cleanup barrier; callers must also check retention policy/holds and storage rediscovery. */

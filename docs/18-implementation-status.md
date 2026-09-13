@@ -2,6 +2,12 @@
 
 Updated: September 12, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Confirmed upload outcome persistence recovery — September 12
+
+Tracked quarantine uploads now persist known outcomes with up to three database-only attempts for explicit transient errors. Exact-row locking and immutable outcome comparison recover lost commit acknowledgements without duplicate audits, timestamp changes or repeated provider writes. Missing/conflicting evidence, permanent errors and exhausted retries fail conservatively; unknown provider outcomes remain unresolved. This also covers typed proof that upload dispatch never occurred.
+
+Verification: 33 tests across document storage writes and cleanup passed, including PostgreSQL rollback, lost commit-response recovery for both outcome types, persistent connection failure, existing audit rollback and cleanup barriers. Server typecheck and targeted lint passed. One expanded test initially expected a version for an undispatched write; the expectation was corrected to null and both suites rerun successfully. No cloud operation, migration or cleanup activation occurred. Remaining: historical uncertain writes/inbox reconciliation, full erasure and hosted acceptance, physical-device/provider tests, UI and production release work. Next: establish definitive reconciliation inputs for historical writes while preserving the existing deletion barriers.
+
 ## Fresh residual document-storage inspection — September 12
 
 Implemented a default-off, MFA-protected staff endpoint that performs fresh complete version discovery and audits the inventory hash, observation interval and separate object/delete-marker counts. It detects versions remaining or arriving after an approved cleanup without changing that approval, dispatching deletion or claiming full account erasure. Authorization is rechecked after provider I/O; failed discovery or failed audit persistence cannot produce successful empty-storage evidence. The prepare path now shares the same inventory validation.

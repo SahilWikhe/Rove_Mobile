@@ -342,3 +342,115 @@ test('no-dispatch audit failure preserves an unresolved barrier; matching error 
   await expire();
   await expect(barrier()).rejects.toMatchObject({ code: 'DOCUMENT_WRITES_PENDING' });
 });
+
+test.each([
+  ['before-commit', 'stored'],
+  ['lost-commit-response', 'stored'],
+  ['before-commit', 'not-dispatched'],
+  ['lost-commit-response', 'not-dispatched'],
+])(
+  'verified outcome recovers from %s (%s) without repeating provider I/O or audit',
+  async (failure, outcome) => {
+    const id = await reserve();
+    let providerFinished = false;
+    let injected = false;
+    const pool = new Proxy(db.pool, {
+      get(target, property) {
+        if (property === 'connect')
+          return async () => {
+            const client = await target.connect();
+            return new Proxy(client, {
+              get(c, field) {
+                if (field === 'query')
+                  return async (...args: Parameters<typeof c.query>) => {
+                    if (args[0] === 'COMMIT' && providerFinished && !injected) {
+                      injected = true;
+                      if (failure === 'lost-commit-response') await c.query('COMMIT');
+                      throw Object.assign(new Error('Synthetic connection interruption'), {
+                        code: 'ECONNRESET',
+                      });
+                    }
+                    return c.query(...args);
+                  };
+                const value = Reflect.get(c, field);
+                return typeof value === 'function' ? value.bind(c) : value;
+              },
+            });
+          };
+        const value = Reflect.get(target, property);
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+    const put = vi.fn(async () => {
+      providerFinished = true;
+      if (outcome === 'not-dispatched') throw new DocumentWriteNotDispatched();
+      return result;
+    });
+    const store = trackedDocumentStore(pool, driver, id, { put });
+    const completed = store.put({
+      key: `driver-documents/quarantine/${id}/${randomUUID()}`,
+      body,
+      contentType: 'application/pdf',
+      sha256,
+      ifAbsent: true,
+    });
+    if (outcome === 'stored') await expect(completed).resolves.toEqual(result);
+    else await expect(completed).rejects.toBeInstanceOf(DocumentWriteNotDispatched);
+    expect(injected).toBe(true);
+    expect(put).toHaveBeenCalledTimes(1);
+    expect(
+      (
+        await db.pool.query('SELECT 1 FROM audit WHERE action=$1', [
+          outcome === 'stored' ? 'driver.document_write_settled' : 'driver.document_write_not_dispatched',
+        ])
+      ).rowCount,
+    ).toBe(1);
+    expect(
+      (await db.pool.query('SELECT object_version FROM document_storage_writes')).rows[0].object_version,
+    ).toBe(outcome === 'stored' ? result.version : null);
+    await closeAccount();
+    await expire();
+    await expect(barrier()).resolves.toBeUndefined();
+  },
+);
+
+test('persistent database connection failure bounds receipt retries and leaves the write unresolved', async () => {
+  const id = await reserve();
+  let providerFinished = false;
+  let attempts = 0;
+  const pool = new Proxy(db.pool, {
+    get(target, property) {
+      if (property === 'connect')
+        return async () => {
+          if (providerFinished) {
+            attempts++;
+            throw Object.assign(new Error('Synthetic database unavailable'), { code: 'ECONNRESET' });
+          }
+          return target.connect();
+        };
+      const value = Reflect.get(target, property);
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+  const put = vi.fn(async () => {
+    providerFinished = true;
+    return result;
+  });
+  await expect(
+    trackedDocumentStore(pool, driver, id, { put }).put({
+      key: `driver-documents/quarantine/${id}/${randomUUID()}`,
+      body,
+      contentType: 'application/pdf',
+      sha256,
+      ifAbsent: true,
+    }),
+  ).rejects.toThrow('Synthetic database unavailable');
+  expect(attempts).toBe(3);
+  expect(put).toHaveBeenCalledTimes(1);
+  expect(
+    (await db.pool.query('SELECT settled_at FROM document_storage_writes')).rows[0].settled_at,
+  ).toBeNull();
+  await closeAccount();
+  await expire();
+  await expect(barrier()).rejects.toMatchObject({ code: 'DOCUMENT_WRITES_PENDING' });
+});
