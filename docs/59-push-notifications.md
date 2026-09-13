@@ -196,3 +196,7 @@ Migration 0063 enables and forces RLS on push_installations. Active owners may r
 Audience transactions bind only the computed rider/driver IDs and their configured app projects; they have read access only. Capacity lookup uses one internal installation ID. Invalid-token handling additionally binds the captured revision and can only disable that exact registration while advancing its revision. Current MFA privacy staff can inventory installations; closure can disable and clear tokens only for disabled owners. No runtime delete policy exists. Actor and other worker contexts clear all installation/audience settings.
 
 Restricted-role installation, audience, delivery and closure tests verify the complete local paths. The earlier pending-installation-policy notes are superseded by this implementation; hosted verification remains pending. This does not prove physical-phone notification delivery or permission setup.
+
+## Hosted notification RLS evidence
+
+Migrations through 0063 passed isolated Neon verification using the restricted pooled application role. Synthetic registration/account transfer, fanout retry, one accepted send despite send retry, receipt persistence and unscoped installation/delivery/counter denial all passed. Push providers were fake; this verifies hosted database/service compatibility, not APNs/FCM delivery or physical-device behavior. Earlier pending isolated-rehearsal notes are superseded. Provider-staging rollout remains pending.

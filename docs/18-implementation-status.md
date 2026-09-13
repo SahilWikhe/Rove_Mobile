@@ -1,5 +1,13 @@
 # Implementation status
 
+## Twenty-one-table hosted RLS rehearsal — September 13
+
+Applied migrations through 0063 only to the verified isolated synthetic Neon branch br-shy-bar-axjulxqh. Fresh catalog inspection confirms 64 migration entries, 47 public tables and twenty-one tables with RLS enabled and forced. The branch remains non-primary/non-default and expires September 14. Fresh read-only provider-staging inspection still reports 31 migrations, 32 tables and zero enabled/forced RLS tables. Production was not changed.
+
+Hosted verification passed through pooled rove_staging_app with NOSUPERUSER/NOBYPASSRLS. New checks exercised concurrent request budgets, device registration and same-phone account transfer, old-owner removal rejection, idempotent push fanout, send retry without duplicate accepted send, receipt persistence and unscoped counter/delivery/installation denial. Earlier vehicle, messaging, retention, closure, document upload/scan/review and approved cleanup/replay workflows passed again. Storage, scanner, push and removal adapters were fake; no real provider operation occurred. The first attempt rejected an invalid-length synthetic installation secret; corrected the fixture to the documented contract and reran the complete passing workflow.
+
+This supersedes the earlier seventeen-table hosted evidence. Twenty-six tables remain without RLS policies, including core trip/payment records and worker infrastructure. Next: complete their verified actor/worker access paths and policies, then the compatible provider-staging deployment and reviewed migration delta. Physical-device, payment and full production acceptance remain incomplete.
+
 ## Notification installation RLS — September 13
 
 Migration 0063 enables and forces push_installations RLS. Active owners have owned-device access; registration scopes exact project/installation lookup and candidate-token duplicate checks while retaining secret verification and revision fencing for account transfers. Audience transactions bind computed recipient owners and configured projects for read-only access. Capacity reads one installation; invalidation binds its captured revision and permits only disabling that registration with a revision increment. Current MFA privacy inventory and disabled-account closure policies remain compatible. No runtime delete policy exists; actor and other worker transactions clear the new scopes.
