@@ -2,6 +2,16 @@
 
 Updated: September 12, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Complete iOS trip and both message recipients verified — September 12
+
+The full two-app iOS 26.5 simulator scenario passed in 116.546 seconds with zero failures: synthetic sign-in, driver availability, rider booking, offer acceptance, both native composers sending and receiving delayed counterpart messages, driver conversation recovery, pickup/arrival/start/completion and the rider paid receipt. The inspected receipt shows $11.85 quoted and captured, Ride: completed and Payment: paid. This is a synthetic provider result, not a live payment or payout.
+
+Preserved JUnit, screenshots and event/peer logs under reports/native-trip-ios/details/2026-09-12_211812. Delayed replies were posted at 04:19:35.642 and 04:19:50.803 UTC, with native visible assertions at 21:19:35.763 and 21:19:50.957 PDT. WebSocket events preceded these assertions. The runner exited zero and removed its owned simulator.
+
+The failures were resolved in the shared acceptance selectors: use the existing message-input ID and match message bodies within iOS's grouped sender/body/time accessibility labels. No application layout, spoken labels, warning suppression or business logic changed. Earlier warning-overlay observations did not establish a composer defect; the corrected scenario successfully used it. Android's previous full pass remains valid for its earlier selectors; the revised shared selectors have now passed iOS. Formatting, documentation and diff checks passed.
+
+Next: native location/reconnect coverage, followed by physical locked-phone and live-provider acceptance. Remaining Figma/UI work, data-erasure fulfillment and production setup remain required. No hosted migration, cleanup activation or production activation occurred.
+
 ## Both Android participants receive live messages; iOS trip verification started — September 12
 
 The expanded two-app Android scenario passed in 149.513 seconds with zero failures. Each native participant sent a message and stayed in its conversation for a delayed reply from the dedicated synthetic counterpart. The driver then reopened its conversation and saw the rider's message; the scenario continued through the completed ride and paid rider receipt. Per-run JUnit, proxy/peer events and screenshots are retained under reports/native-trip-android/android-driver-details/2026-09-12_205948. Ready WebSocket connections 45 and 48 received messages.changed at 04:01:31.521 and 04:01:49.659 UTC; native assertions completed at 21:01:32.221 and 21:01:50.376 PDT. These are observed local foreground events, not production latency guarantees.

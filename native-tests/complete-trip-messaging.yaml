@@ -11,13 +11,15 @@ appId: co.roveride.driver
     centerElement: true
 - tapOn: Message rider
 - extendedWaitUntil:
-    visible: Message
+    visible:
+      id: message-input
     timeout: 15000
-- tapOn: Message
+- tapOn:
+    id: message-input
 - inputText: Native pickup check.
 - tapOn: Send message
 - extendedWaitUntil:
-    visible: Native live reply received.
+    visible: '.*Native live reply received\..*'
     timeout: 15000
 - takeScreenshot: driver-live-message
 - launchApp:
@@ -38,13 +40,14 @@ appId: co.roveride.driver
     timeout: 30000
 - tapOn: Message driver
 - extendedWaitUntil:
-    visible: Native pickup check.
+    visible: '.*Native pickup check\..*'
     timeout: 15000
-- tapOn: Message
+- tapOn:
+    id: message-input
 - inputText: Native rider check.
 - tapOn: Send message
 - extendedWaitUntil:
-    visible: Native driver reply received.
+    visible: '.*Native driver reply received\..*'
     timeout: 15000
 - takeScreenshot: rider-live-message
 - tapOn: View this trip
@@ -53,6 +56,6 @@ appId: co.roveride.driver
     stopApp: false
     permissions: {}
 - extendedWaitUntil:
-    visible: Native rider check.
+    visible: '.*Native rider check\..*'
     timeout: 15000
 - tapOn: View this trip
