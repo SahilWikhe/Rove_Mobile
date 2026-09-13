@@ -175,15 +175,21 @@ export class PushDelivery {
   }
   /** Atomic shared rate window caps this deployment at 100 sends/sec/project across hosts. */
   private async capacity(installationId: string) {
-    const result = await this.pool.query(
-      `INSERT INTO push_rate_windows(project_id,window_at,count)
+    const result = await transaction(this.pool, async (client) => {
+      await client.query(
+        "SELECT set_config('rove.push_rate_project',COALESCE((SELECT project_id::text FROM push_installations WHERE id=$1),''),true)",
+        [installationId],
+      );
+      return client.query(
+        `INSERT INTO push_rate_windows(project_id,window_at,count)
       SELECT project_id,date_trunc('second',$2::timestamptz),1 FROM push_installations WHERE id=$1
       ON CONFLICT(project_id) DO UPDATE SET window_at=EXCLUDED.window_at,
       count=CASE WHEN push_rate_windows.window_at<EXCLUDED.window_at THEN 1 ELSE push_rate_windows.count+1 END
       WHERE push_rate_windows.window_at<EXCLUDED.window_at OR
         (push_rate_windows.window_at=EXCLUDED.window_at AND push_rate_windows.count<100) RETURNING project_id`,
-      [installationId, this.now()],
-    );
+        [installationId, this.now()],
+      );
+    });
     return !!result.rowCount;
   }
   readonly send: JobHandler = async (job) => {

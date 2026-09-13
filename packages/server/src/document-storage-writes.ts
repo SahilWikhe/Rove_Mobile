@@ -108,7 +108,7 @@ async function persistOutcome(
         // This receipt belongs to an already dispatched write and must survive account closure.
         // Scope is derived from the trusted request's validated reservation and storage key.
         await c.query(
-          "SELECT set_config('rove.actor_id','',true),set_config('rove.actor_role','',true),set_config('rove.actor_mfa','false',true),set_config('rove.rate_key','',true),set_config('rove.rate_prune','false',true),set_config('rove.identity_request','',true),set_config('rove.notification_message','',true),set_config('rove.notification_offer','',true),set_config('rove.closure_guard_owner','',true),set_config('rove.retention_owner','',true),set_config('rove.cleanup_item','',true),set_config('rove.scan_queue','false',true),set_config('rove.scan_document','',true),set_config('rove.write_document',$1,true),set_config('rove.write_key',$2,true)",
+          "SELECT set_config('rove.actor_id','',true),set_config('rove.actor_role','',true),set_config('rove.actor_mfa','false',true),set_config('rove.push_rate_project','',true),set_config('rove.rate_key','',true),set_config('rove.rate_prune','false',true),set_config('rove.identity_request','',true),set_config('rove.notification_message','',true),set_config('rove.notification_offer','',true),set_config('rove.closure_guard_owner','',true),set_config('rove.retention_owner','',true),set_config('rove.cleanup_item','',true),set_config('rove.scan_queue','false',true),set_config('rove.scan_document','',true),set_config('rove.write_document',$1,true),set_config('rove.write_key',$2,true)",
           [documentId, key],
         );
         const row = (

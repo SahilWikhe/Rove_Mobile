@@ -1,9 +1,12 @@
+import { Pool } from 'pg';
+import { transaction } from './transactions';
 import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { testDatabase } from '@rove/database/testing';
 import { PushDelivery } from './push-delivery';
 import { OutboxWorker, type Job } from './outbox';
 import type { PushTicket, PushReceipt } from './push-provider';
+let runtimePool: Pool;
 let db: Awaited<ReturnType<typeof testDatabase>>;
 let now: Date, eventId: string, installation: string, owner: string;
 const projects = { rider: randomUUID(), driver: randomUUID() };
@@ -14,8 +17,25 @@ const provider = {
 let service: PushDelivery;
 beforeAll(async () => {
   db = await testDatabase();
+  await db.pool.query(
+    "CREATE ROLE rls_push_delivery LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'synthetic-local-only'",
+  );
+  await db.pool.query('GRANT USAGE ON SCHEMA public TO rls_push_delivery');
+  await db.pool.query(
+    'GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_push_delivery',
+  );
+  await db.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_push_delivery');
+  runtimePool = new Pool({
+    host: '127.0.0.1',
+    port: (await db.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
+    database: 'postgres',
+    user: 'rls_push_delivery',
+    password: 'synthetic-local-only',
+    max: 5,
+  });
 }, 60000);
 afterAll(async () => {
+  await runtimePool?.end();
   await db?.close();
 });
 beforeEach(async () => {
@@ -53,7 +73,7 @@ beforeEach(async () => {
     VALUES($1::uuid,'ride.matched',$2,'{}',$1::text,$3,$3)`,
     [eventId, ride, now],
   );
-  service = new PushDelivery(db.pool, provider, projects, () => now);
+  service = new PushDelivery(runtimePool, provider, projects, () => now);
 });
 async function job(topic: string): Promise<Job> {
   const row = (
@@ -74,7 +94,7 @@ async function prepared() {
 
 test('real outbox drain fans out once and preserves existing handlers; gateway receipt is distinct from send acceptance', async () => {
   const previous = vi.fn(async () => {});
-  const worker = new OutboxWorker(db.pool, service.handlers({ 'ride.matched': previous }), () => now);
+  const worker = new OutboxWorker(runtimePool, service.handlers({ 'ride.matched': previous }), () => now);
   expect(await worker.runOnce()).toEqual({ processed: 2, failed: 0 });
   expect(previous).toHaveBeenCalledOnce();
   expect(provider.send).toHaveBeenCalledOnce();
@@ -267,4 +287,29 @@ test('receipt persistence and scheduling commit together; a failed commit remain
   expect((await state()).state).toBe('receipt');
   expect((await db.pool.query("SELECT * FROM outbox WHERE topic='push.receipt'")).rowCount).toBe(1);
   expect(provider.send).toHaveBeenCalledTimes(2);
+});
+
+test('push capacity scope isolates project counters without runtime deletion', async () => {
+  await db.pool.query('INSERT INTO push_rate_windows VALUES($1,now(),1),($2,now(),1)', [
+    projects.rider,
+    projects.driver,
+  ]);
+  expect((await runtimePool.query('SELECT * FROM push_rate_windows')).rowCount).toBe(0);
+  await transaction(runtimePool, async (c) => {
+    await c.query("SELECT set_config('rove.push_rate_project',$1,true)", [projects.rider]);
+    expect((await c.query('SELECT project_id FROM push_rate_windows')).rows).toEqual([
+      { project_id: projects.rider },
+    ]);
+    expect(
+      (await c.query('UPDATE push_rate_windows SET count=1 WHERE project_id=$1', [projects.driver])).rowCount,
+    ).toBe(0);
+    expect((await c.query('DELETE FROM push_rate_windows')).rowCount).toBe(0);
+  });
+  await expect(
+    transaction(runtimePool, async (c) => {
+      await c.query("SELECT set_config('rove.push_rate_project',$1,true)", [projects.rider]);
+      await c.query('INSERT INTO push_rate_windows VALUES($1,now(),1)', [randomUUID()]);
+    }),
+  ).rejects.toMatchObject({ code: '42501' });
+  expect((await runtimePool.query('SELECT * FROM push_rate_windows')).rowCount).toBe(0);
 });

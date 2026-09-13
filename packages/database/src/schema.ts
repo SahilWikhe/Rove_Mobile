@@ -611,11 +611,29 @@ export const pushDeliveries = pgTable(
     ),
   ],
 );
-export const pushRateWindows = pgTable('push_rate_windows', {
-  projectId: uuid().primaryKey(),
-  windowAt: timestamp({ withTimezone: true }).notNull(),
-  count: integer().notNull(),
-});
+export const pushRateWindows = pgTable(
+  'push_rate_windows',
+  {
+    projectId: uuid().primaryKey(),
+    windowAt: timestamp({ withTimezone: true }).notNull(),
+    count: integer().notNull(),
+  },
+  (t) => [
+    pgPolicy('push_rate_read', {
+      for: 'select',
+      using: sql`${t.projectId}=NULLIF(current_setting('rove.push_rate_project',true),'')::uuid`,
+    }),
+    pgPolicy('push_rate_insert', {
+      for: 'insert',
+      withCheck: sql`${t.projectId}=NULLIF(current_setting('rove.push_rate_project',true),'')::uuid`,
+    }),
+    pgPolicy('push_rate_update', {
+      for: 'update',
+      using: sql`${t.projectId}=NULLIF(current_setting('rove.push_rate_project',true),'')::uuid`,
+      withCheck: sql`${t.projectId}=NULLIF(current_setting('rove.push_rate_project',true),'')::uuid`,
+    }),
+  ],
+);
 
 const rlsDocumentStaff = sql`${rlsStaff('driver.document.review')} OR ${rlsStaff('driver.eligibility.review')} OR ${rlsStaff('privacy.read')} OR ${rlsStaff('privacy.cleanup')}`;
 

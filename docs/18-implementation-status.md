@@ -1,5 +1,13 @@
 # Implementation status
 
+## Push capacity RLS — September 13
+
+Migration 0061 enables and forces push_rate_windows RLS. Capacity transactions resolve the installation's project and bind that exact project locally before the shared atomic upsert. Other projects cannot be read or changed, and no runtime deletion policy exists. Actor and other worker contexts clear push-rate scope. The existing 100-send-per-second project cap, lease fencing and provider retry behavior remain intact.
+
+Verification: 690 server tests, 208 API tests and 13 database tests passed (911 total), plus server/database typechecks, targeted lint, formatting and documentation validation. All fifteen push-delivery tests now run services and their outbox worker through a restricted non-owner role. They cover concurrency, retry, receipt recovery, token invalidation, foreign-project denial and pooled scope reset. No real push provider was invoked.
+
+Source coverage is nineteen of 47 tables; hosted evidence remains seventeen through 0059. Provider staging and production are unchanged. Next: notification delivery/installation policies and other remaining core/worker tables, followed by hosted verification and compatible staging rollout. Full mobile production acceptance remains incomplete.
+
 ## Request-counter RLS — September 13
 
 Migration 0060 enables and forces rate_limit_buckets RLS. RequestLimiter now binds an exact hashed key inside a transaction around its atomic counter upsert. A separate maintenance scope permits only long-expired rows to be read, locked and deleted. Request scope has no deletion policy; maintenance cannot mutate counter values or access active windows. Actor and background-worker contexts clear limiter scope. Existing window budgets, committed rejected-request counts and fail-closed storage errors remain unchanged.
