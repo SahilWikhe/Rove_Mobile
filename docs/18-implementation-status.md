@@ -2,6 +2,16 @@
 
 Updated: September 12, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Two-app Android trip acceptance in progress — September 12
+
+Added a local two-APK trip runner and shared Maestro booking-to-receipt scenario. The Android lifecycle runner validates both Debug packages, assigns separate Metro ports, switches between the rider and driver apps on its owned temporary emulator, preserves artifacts and cleans up afterward. Setup and limits are documented in the CI/environment runbook.
+
+Native evidence now confirms driver synthetic sign-in/online availability, rider sign-in, Home/Work place search, quote/request and a visible driver ride request. Two attempts lost ADB transport during Maestro's default launch-time permission setup; `permissions: {}` allowed the next app switch to complete. That run then failed because the request action was underneath the floating bar. The scenario now explicitly expands the driving and offer panels before accessing actions. The expanded-panel run then exhausted the offer window while Maestro waited about 12 seconds before the handle tap. Countdown-facing test actions now bound screen-settling waits to 500 ms without changing offer expiry. The latest run failed earlier with DeviceServerDiedException during destination entry; its JUnit and screenshot remain under reports/native-trip-android. No complete-trip pass is claimed.
+
+Targeted runner ESLint/Prettier, documentation/diff checks and all three native process-wrapper regressions passed; formatting/documentation checks also passed after the panel/settling edits. No application business logic, production authentication, hosted migration, cleanup activation or production deployment changed. Full native acceptance, live providers, physical locked-phone tracking, remaining Figma UI and data-erasure fulfillment remain open. The pending Google route-coordinate approval remains separate.
+
+Next: finish native acceptance through pickup, completion and rider paid receipt, then broaden to realtime messaging/location and the other platform.
+
 ## Android account acceptance — September 12
 
 Added the Android account runner with APK package/debuggable validation, isolated temporary AVD ownership, local Metro/API forwarding, retained Maestro/JUnit/runtime evidence and cleanup. Both current Android Debug builds succeeded using existing generated projects/caches and ARM64 compilation. Driver sign-in/deletion/withdrawal passed before the requested pause (33.5 seconds); after resuming, rider passed (48.5 seconds) and both runner processes exited cleanly.

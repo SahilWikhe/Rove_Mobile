@@ -1,0 +1,148 @@
+# Synthetic local providers only; both Debug apps must be installed by the runner.
+appId: co.roveride.driver
+---
+- extendedWaitUntil:
+    visible:
+      text: Get started
+      enabled: true
+    timeout: 60000
+- tapOn:
+    text: Get started
+    enabled: true
+- extendedWaitUntil:
+    visible:
+      text: Go online
+      enabled: true
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      text: Go online
+    direction: DOWN
+    centerElement: true
+- tapOn: Go online
+- extendedWaitUntil:
+    visible: You’re online · looking for rides
+    timeout: 30000
+- launchApp:
+    appId: co.roveride.rider
+    stopApp: false
+    permissions: {}
+- extendedWaitUntil:
+    visible:
+      text: Get started
+      enabled: true
+    timeout: 60000
+- tapOn:
+    text: Get started
+    enabled: true
+- extendedWaitUntil:
+    visible: Where are you going?
+    timeout: 30000
+- tapOn: Where are you going?
+- tapOn: Pickup address
+- inputText: Home
+- hideKeyboard
+- tapOn: Search places
+- extendedWaitUntil:
+    visible: Home · synthetic pickup
+    timeout: 20000
+- tapOn: Home · synthetic pickup
+- tapOn: Destination address
+- inputText: Work
+- hideKeyboard
+- tapOn: Search places
+- extendedWaitUntil:
+    visible: Work · synthetic destination
+    timeout: 20000
+- tapOn: Work · synthetic destination
+- scrollUntilVisible:
+    element:
+      text: See your fare
+    direction: DOWN
+    centerElement: true
+- tapOn: See your fare
+- extendedWaitUntil:
+    visible: Request ride
+    timeout: 30000
+- tapOn: Request ride
+- extendedWaitUntil:
+    visible: Finding your ride.
+    timeout: 30000
+- launchApp:
+    appId: co.roveride.driver
+    stopApp: false
+    permissions: {}
+- extendedWaitUntil:
+    visible: View ride request
+    timeout: 30000
+- tapOn:
+    text: Expand driving panel
+    waitToSettleTimeoutMs: 500
+- scrollUntilVisible:
+    element:
+      text: View ride request
+    direction: DOWN
+    centerElement: true
+    waitToSettleTimeoutMs: 500
+- tapOn:
+    text: View ride request
+    waitToSettleTimeoutMs: 500
+- extendedWaitUntil:
+    visible: Expand driving panel
+    timeout: 10000
+- tapOn:
+    text: Expand driving panel
+    waitToSettleTimeoutMs: 500
+- assertNotVisible: Alex Rider
+- scrollUntilVisible:
+    element:
+      text: Accept ride
+    direction: DOWN
+    centerElement: true
+    waitToSettleTimeoutMs: 500
+- tapOn:
+    text: Accept ride
+    waitToSettleTimeoutMs: 500
+- extendedWaitUntil:
+    visible: Head to pickup
+    timeout: 30000
+- tapOn: Head to pickup
+- tapOn: 'Confirm: Head to pickup'
+- extendedWaitUntil:
+    visible: I’ve arrived
+    timeout: 30000
+- tapOn: I’ve arrived
+- tapOn: 'Confirm: I’ve arrived'
+- extendedWaitUntil:
+    visible: Start trip
+    timeout: 30000
+- tapOn: Start trip
+- tapOn: 'Confirm: Start trip'
+- extendedWaitUntil:
+    visible: Complete trip
+    timeout: 30000
+- tapOn: Complete trip
+- tapOn: 'Confirm: Complete trip'
+- extendedWaitUntil:
+    visible: Back to driving
+    timeout: 30000
+- takeScreenshot: driver-trip-completed
+- launchApp:
+    appId: co.roveride.rider
+    stopApp: false
+    permissions: {}
+- extendedWaitUntil:
+    visible: You’ve arrived.
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      text: View receipt
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- tapOn: View receipt
+- extendedWaitUntil:
+    visible: Your payment record.
+    timeout: 30000
+- assertVisible: 'Payment: paid'
+- takeScreenshot: rider-trip-receipt
