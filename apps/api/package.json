@@ -15,14 +15,14 @@
     "@rove/contracts": "workspace:*",
     "@rove/database": "workspace:*",
     "@rove/server": "workspace:*",
-    "@vercel/functions": "3.9.5",
+    "@vercel/functions": "3.9.7",
     "@vercel/oidc-aws-credentials-provider": "3.3.7",
     "@vercel/queue": "0.5.1",
     "hono": "4.13.7",
     "jose": "6.2.12",
     "pg": "8.23.0",
     "ws": "8.21.3",
-    "zod": "4.5.4"
+    "zod": "4.6.1"
   },
   "devDependencies": {
     "@types/pg": "8.23.1",
