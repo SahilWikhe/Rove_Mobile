@@ -93,7 +93,11 @@ Default scheduling flags off in each environment. Core CI uses deterministic fak
 
 ## Hosted runner billing prerequisite — September 12
 
-CI run `34708488268` at `ad16b3c` failed before any job started. GitHub reports failed recent account payments or a spending limit requiring attention in account Billing & plans. The owner must resolve the reported account condition before rerunning CI for the intended candidate. This is separate from the private-repository CodeQL entitlement prerequisite; neither is bypassed by local tests or a successful Git push.
+CI run `34708488268` at `ad16b3c` failed before any job started. GitHub reports failed recent account payments or a spending limit requiring attention in account Billing & plans. This was a historical account blocker. On September 13, the repository is public and run `34782892925` executed its jobs, including successful security and CodeQL jobs. Hosted execution is therefore available for that run; recheck billing/feature availability if repository visibility or account settings change. Current release acceptance still requires a successful exact-candidate run.
+
+## Database test concurrency
+
+The normal CI test job runs `pnpm exec turbo run test --concurrency=1 -- --maxWorkers=1`. This serializes package tasks and test files so disposable PostgreSQL instances do not compete across suites on the hosted runner. It preserves concurrent requests inside each test, all assertions and existing deadlines. Sonar coverage independently uses one package task and one CI worker. Local `pnpm test` retains its default parallelism; use the explicit CI command to reproduce runner scheduling.
 
 ## Concurrent CI runs
 

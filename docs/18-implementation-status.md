@@ -1,5 +1,13 @@
 # Implementation status
 
+## Normal CI database concurrency bounded and full suite passed — September 13
+
+Run 34782892925 passed both Android release jobs, quality, browser, security, CodeQL, mobile and infrastructure; both iOS jobs were still running at inspection. Its normal tests job failed with seventeen database-test deadlines and a subsequent cleanup rejection after timed-out work. Normal CI still launched concurrent package tasks and multiple disposable PostgreSQL suites, unlike the successful serialized Sonar coverage workflow. The normal test job now invokes turbo with concurrency=1 and passes maxWorkers=1 to Vitest. In-test racing operations, all test assertions and existing deadlines are preserved; no retry, skipped suite or suppressed error was added.
+
+The exact new command with CI=true passed locally: 769 server, 213 API, 172 mobile-core, 41 driver, 13 database and 3 contracts tests (1,211 total), plus prerequisite typechecks, in 3m30.972s. Eleven release/gate tooling tests passed separately. Workflow formatting, all 88 Markdown files and diff validation passed. GitHub must still confirm the runner fix on a new exact-commit run. Repository visibility is verified PUBLIC and the CodeQL job succeeded, so production/environment runbooks now distinguish the historical billing/private-feature blockers from current release requirements.
+
+Latest source c4a0e16 was already pushed; its refreshed high-priority Sonar review and current native CI remain pending. Physical-device/background GPS, payment-provider acceptance and production setup still block release. Next: push this scheduling fix, inspect its CI result and continue the remaining operational/device gates. Prepared for authorized main push; remote confirmation follows.
+
 ## High-priority Sonar sorting findings addressed — September 13
 
 Authenticated SonarCloud inspection returned four open HIGH/BLOCKER-filtered findings, all S2871 reliability findings about implicit sorting. Message cleanup now explicitly uses locale-independent UUID ordering before participant retention locks, preserving the existing lock order. Configuration diagnostics use explicit English string comparison. The Auth0 staging inspector checks the exact two permitted grants directly, including array shape, count and membership, without sorting untyped provider values. No findings were suppressed or marked resolved manually; a new hosted analysis must confirm closure. Medium issues remain deferred as requested.

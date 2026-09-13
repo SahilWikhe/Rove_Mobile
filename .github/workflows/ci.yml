@@ -69,8 +69,9 @@ jobs:
         with:
           run_install: false
       - run: pnpm install --frozen-lockfile
-      # Real disposable PostgreSQL instances. No DATABASE_URL or cloud secrets.
-      - run: pnpm test
+      # Serialize disposable PostgreSQL suites on the shared runner; retain in-test concurrency.
+      # No DATABASE_URL or cloud secrets, no retries or relaxed assertion deadlines.
+      - run: pnpm exec turbo run test --concurrency=1 -- --maxWorkers=1
 
   browser:
     name: browser

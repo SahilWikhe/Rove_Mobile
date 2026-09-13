@@ -69,7 +69,7 @@ This read-only command requires successful CI and staging-provider workflows on 
 
 ### GitHub code-scanning prerequisite
 
-The private repository currently returns Code scanning is not enabled when CodeQL uploads analysis (run `34706864852`, September 12). Its workflow metadata permission is fixed; feature availability is a separate owner setup step. Enable code scanning for this repository under an eligible GitHub Code Security/Advanced Security entitlement, then rerun CI and confirm both analysis upload and the local findings gate pass. If the current account cannot enable it, resolve the repository/account eligibility before release. No plan purchase or feature activation has been performed. Do not bypass CodeQL or treat query execution alone as a green security job.
+The September 12 private-repository code-scanning failure is historical. On September 13, GitHub reports this repository as public and the CodeQL job in run `34782892925` completed successfully. Code scanning is no longer established as a current setup blocker. Preserve the analysis-upload and findings gates, and require their success for the exact release candidate. If repository visibility changes again, verify the applicable GitHub feature entitlement before release; no plan purchase was performed by this work.
 
 ### Manual GitHub release-readiness report
 
