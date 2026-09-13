@@ -2,7 +2,7 @@
 
 ## Scope and state
 
-The backend now supports durable intake for payment.review_required events, a staff queue, acknowledgment and controlled recovery of historical dead letters. This is a local implementation checkpoint. Migration 0088 and staging rollout/hosted verification remain pending. The staff dashboard is maintained in a separate repository; no dashboard UI is included here.
+The backend now supports durable intake for payment.review_required events, a staff queue, acknowledgment and controlled recovery of historical dead letters. Migration 0088 and the staging intake rollout are verified as described below. Staff Auth0 MFA and dashboard acceptance remain pending. The staff dashboard is maintained in a separate repository; no dashboard UI is included here.
 
 A case preserves an escalation even when later reconciliation releases or pays the ride. Acknowledgment records that staff has taken the case into its support process; it does not resolve the payment discrepancy or authorize capture, refunds, transfers or ledger edits. Continue using the separately permissioned financial workflows for any financial action.
 
@@ -35,3 +35,11 @@ Rollback disables the flag; preserve cases and audit records. Existing dead lett
 ## Verification
 
 Restricted PostgreSQL tests cover concurrent delivery, persisted-event/source mismatch, late terminal-ride delivery, acknowledgment retries, source immutability, MFA/current/revoked permissions, disabled staff, pagination, forced RLS, actor-context reset and staff recovery that retains the original dead letter without ledger writes. API tests cover route authentication/authorization, strict input and no-store responses. Runtime tests verify flag validation and preservation of disabled review jobs. Hosted rollout, staff Auth0 MFA and dashboard acceptance remain separate evidence requirements.
+
+## Provider-staging verification — September 13, 2026
+
+Applied migration 0088 to the verified provider-staging endpoint. The restricted application role passed verified TLS and grants for all 48 application tables; all 48 have enabled/forced RLS. Enabled only PAYMENT_REVIEWS_ENABLED on rove-api-staging and redeployed its ready code. Deployment dpl_BunBUKS6kDR6N1qPuxTCtTKkbEBp serves the staging alias. The Vercel production target is the staging project's target, not activation of the real production environment.
+
+One dedicated synthetic review event associated with the previously cancelled/released sandbox fixture completed through the hosted worker and produced one durable case. Restricted service calls verified rider/no-MFA denial, repeated recovery of the exact original review dead letter, acknowledgment retries, unscoped runtime reads returning no cases and zero ledger entries for the fixture. The original dead letter remains intact. A temporary database-only synthetic staff identity supplied service-layer verification; its permission was removed and the identity disabled in cleanup. It has no Auth0 login. This does not prove real staff Auth0 MFA or staff dashboard behavior.
+
+Hosted health returned 200 and anonymous review API access returned 401. Fresh configuration inspection confirmed review intake and read-only refund history enabled, while refund mutation/accounting, Connect/transfers, push and document cleanup remain disabled. No financial work was replayed and no real production setting changed. Private fixture/evidence references remain outside Git. Staff sign-in, dashboard operation, response ownership and production approval remain required.

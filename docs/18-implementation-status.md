@@ -1,5 +1,11 @@
 # Implementation status
 
+## Payment-review intake verified in provider staging — September 13
+
+Applied migration 0088 to the exact provider-staging endpoint; verified TLS, restricted runtime grants, and enabled/forced RLS on all 48 application tables. Enabled PAYMENT_REVIEWS_ENABLED only in rove-api-staging and redeployed its ready code; dpl_BunBUKS6kDR6N1qPuxTCtTKkbEBp serves the staging alias. One synthetic review event on the terminal released sandbox fixture completed through the hosted worker and created a durable case. Restricted service verification passed rider/no-MFA denial, exact historical dead-letter recovery and retry, acknowledgment retry, unscoped read denial and no ledger entries. The original dead letter was preserved. Temporary database-only staff permission was removed and the verifier identity disabled.
+
+Fresh configuration checks confirm other refund mutation/accounting, Connect/transfer, push and cleanup flags remain off. Hosted health returned 200 and anonymous review access 401. This proves hosted worker intake and restricted service behavior, not actual staff Auth0 MFA login or the separate dashboard. No production environment change or financial replay occurred. Documentation checks run before the authorized push. Next: remaining native/provider/device acceptance, staff MFA/dashboard integration and operational recovery; production is not complete. Remote push confirmation follows separately.
+
 ## Durable staff payment-review intake implemented — September 13
 
 Added migration 0088 with enabled/forced RLS for payment_review_cases, exact persisted-event/source validation, deduplicated intake, and audited staff acknowledgment. Staff queue/recovery routes require current payments.review permission and verified MFA. Acknowledgment records a support reference without changing funding. Recovery creates a case from an exact historical review dead letter, records the staff actor and preserves the original event/error; no financial operation is replayed. New distinct events remain visible after earlier acknowledgment. PAYMENT_REVIEWS_ENABLED defaults off; disabled review jobs remain queued without claims/attempts. Environment configuration and rollout runbook are updated.
