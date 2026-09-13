@@ -1,3 +1,4 @@
+import { appendLedgerJournal } from './ledger-append';
 import { createHash } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import { DomainError } from './errors';
@@ -35,17 +36,11 @@ async function journal(
       throw new DomainError('LEDGER_CONFLICT', 'Payment accounting requires review.', 409);
     return;
   }
-  const row = (
-    await client.query<{ id: string }>(
-      'INSERT INTO ledger_journals(key,fingerprint,attempt_id,ride_id,kind) VALUES($1,$2,$3,$4,$5) RETURNING id',
-      [key, fingerprint, capture.attemptId, capture.rideId, kind],
-    )
-  ).rows[0]!;
-  for (const posting of postings)
-    await client.query(
-      'INSERT INTO ledger_postings(journal_id,account,owner_id,amount_cents) VALUES($1,$2,$3,$4)',
-      [row.id, posting.account, posting.ownerId, posting.amountCents],
-    );
+  await appendLedgerJournal(
+    client,
+    { key, fingerprint, attemptId: capture.attemptId, rideId: capture.rideId, kind },
+    postings,
+  );
 }
 /** Positive amounts are debits, negative amounts credits. Every journal is balanced at DB commit. */
 export async function recordCapturedFunds(client: PoolClient, input: Capture): Promise<boolean> {

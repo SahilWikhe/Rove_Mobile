@@ -1,5 +1,13 @@
 # Implementation status
 
+## Ledger write preparation — September 13
+
+Centralized ledger journal/posting inserts in appendLedgerJournal across capture/allocation, refunds, disputes, capture fees, reviewed losses and driver transfers. Callers retain their authorization, locks, fingerprint/idempotency checks and transaction boundaries. Database constraints continue to enforce balanced journals. Supplied journal IDs are preserved where linked loss records require them; otherwise IDs are generated before the insert. No ledger policy has been enabled yet.
+
+All 731 server tests and 208 API tests passed, including existing financial retry, balance and failure checks. Server typechecking and changed-source lint passed. Source search confirms ledger writes now use the helper exclusively.
+
+Next: ledger read/append scopes and versioned policies with restricted-role regressions. Source and hosted RLS remain 39 of 47 tables. Provider staging/production remain unchanged, and device/provider acceptance remains outstanding.
+
 ## Hosted quote verification and coverage gate passed — September 13
 
 Migration 0077 was applied only to the reverified disposable br-shy-bar-axjulxqh / neondb branch. Live catalog confirms 78 migrations and 39 tables with RLS enabled and forced. Through pooled rove_staging_app (NOSUPERUSER/NOBYPASSRLS), synthetic quote creation, route preview, foreign-preview denial, ride request/quote locking, exact-ride access, immutable snapshot checks, unscoped/foreign insert denial and disabled-owner denial passed. Initial fixtures used unsupported place fields and then omitted required area; after correcting the synthetic fixture to the strict shared contract, the check exited successfully. No real maps, payment or other provider operation occurred.

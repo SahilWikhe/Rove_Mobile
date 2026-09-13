@@ -1,3 +1,4 @@
+import { appendLedgerJournal } from './ledger-append';
 import { appendAudit } from './audit';
 import { bindDisputeScope } from './dispute-scope';
 import { bindRefundScope } from './refund-scope';
@@ -182,15 +183,18 @@ export class PaymentLosses {
         const fingerprint = createHash('sha256')
           .update(JSON.stringify({ rideId, input, postings }))
           .digest('hex');
-        await c.query(
-          `INSERT INTO ledger_journals(id,key,fingerprint,attempt_id,ride_id,kind) VALUES($1,$2,$3,$4,$5,$6)`,
-          [journalId, `loss-allocation:${id}`, fingerprint, p.id, rideId, `${input.kind}_loss_allocation`],
+        await appendLedgerJournal(
+          c,
+          {
+            id: journalId,
+            key: `loss-allocation:${id}`,
+            fingerprint,
+            attemptId: p.id,
+            rideId,
+            kind: `${input.kind}_loss_allocation`,
+          },
+          postings.map((p) => ({ account: p.account, ownerId: p.owner, amountCents: p.amount })),
         );
-        for (const entry of postings)
-          await c.query(
-            `INSERT INTO ledger_postings(journal_id,account,owner_id,amount_cents) VALUES($1,$2,$3,$4)`,
-            [journalId, entry.account, entry.owner, entry.amount],
-          );
         await c.query("SELECT set_config('rove.loss_journal',$1,true)", [journalId]);
         await c.query(
           `INSERT INTO payment_loss_allocations(id,journal_id,authorized_by,policy_reference) VALUES($1,$2,$3,$4)`,

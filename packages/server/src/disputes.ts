@@ -1,3 +1,4 @@
+import { appendLedgerJournal } from './ledger-append';
 import { bindDisputeScope } from './dispute-scope';
 import { bindPaymentCustomerRead } from './payment-customer-scope';
 import { z } from 'zod';
@@ -79,17 +80,11 @@ async function recordBalances(
       if (prior.fingerprint !== fingerprint) throw mismatch();
       continue;
     }
-    const journal = (
-      await client.query(
-        "INSERT INTO ledger_journals(key,fingerprint,attempt_id,ride_id,kind) VALUES($1,$2,$3,$4,'dispute_balance') RETURNING id",
-        [key, fingerprint, reference.attemptId, reference.rideId],
-      )
-    ).rows[0];
-    for (const posting of postings)
-      await client.query(
-        'INSERT INTO ledger_postings(journal_id,account,owner_id,amount_cents) VALUES($1,$2,NULL,$3)',
-        [journal.id, posting.account, posting.amount],
-      );
+    await appendLedgerJournal(
+      client,
+      { key, fingerprint, attemptId: reference.attemptId, rideId: reference.rideId, kind: 'dispute_balance' },
+      postings.map((p) => ({ account: p.account, ownerId: null, amountCents: p.amount })),
+    );
   }
 }
 export class DisputeReconciler {

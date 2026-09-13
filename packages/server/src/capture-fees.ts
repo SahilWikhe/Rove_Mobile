@@ -1,3 +1,4 @@
+import { appendLedgerJournal } from './ledger-append';
 import { appendAudit } from './audit';
 import { bindPaymentCustomerRead } from './payment-customer-scope';
 import { createHash, randomUUID } from 'node:crypto';
@@ -177,15 +178,13 @@ export class CaptureFees {
           if (prior.fingerprint !== fingerprint || prior.id !== stored.journal_id) throw review();
         } else {
           if (stored.balance_id) throw review();
-          journalId = (
-            await c.query(
-              `INSERT INTO ledger_journals(key,fingerprint,attempt_id,ride_id,kind) VALUES($1,$2,$3,$4,'capture_fee') RETURNING id`,
-              [key, fingerprint, ref.attemptId, ref.rideId],
-            )
-          ).rows[0].id;
-          await c.query(
-            `INSERT INTO ledger_postings(journal_id,account,owner_id,amount_cents) VALUES($1,'processor_fees',NULL,$2),($1,'stripe_clearing',NULL,-$2)`,
-            [journalId, b.feeCents],
+          journalId = await appendLedgerJournal(
+            c,
+            { key, fingerprint, attemptId: ref.attemptId, rideId: ref.rideId, kind: 'capture_fee' },
+            [
+              { account: 'processor_fees', ownerId: null, amountCents: b.feeCents },
+              { account: 'stripe_clearing', ownerId: null, amountCents: -b.feeCents },
+            ],
           );
         }
       }

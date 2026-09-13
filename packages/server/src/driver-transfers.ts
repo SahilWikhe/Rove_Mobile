@@ -1,3 +1,4 @@
+import { appendLedgerJournal } from './ledger-append';
 import { appendAudit } from './audit';
 import { bindPayoutScope } from './payout-scope';
 import { bindTransferScope } from './transfer-scope';
@@ -278,18 +279,11 @@ export class DriverTransfers {
       if (prior.fingerprint !== fingerprint) throw review();
       return prior.id as string;
     }
-    const j = (
-      await c.query(
-        'INSERT INTO ledger_journals(key,fingerprint,attempt_id,ride_id,kind) VALUES($1,$2,$3,$4,$5) RETURNING id',
-        [key, fingerprint, p.attemptId, p.rideId, kind],
-      )
-    ).rows[0];
-    for (const e of postings)
-      await c.query(
-        'INSERT INTO ledger_postings(journal_id,account,owner_id,amount_cents) VALUES($1,$2,$3,$4)',
-        [j.id, e.account, e.owner, e.amount],
-      );
-    return j.id as string;
+    return appendLedgerJournal(
+      c,
+      { key, fingerprint, attemptId: p.attemptId, rideId: p.rideId, kind },
+      postings.map((e) => ({ account: e.account, ownerId: e.owner, amountCents: e.amount })),
+    );
   }
   async authorize(actor: Actor, rawRideId: string, raw: unknown, key: string) {
     const rideId = z.uuid().parse(rawRideId),
