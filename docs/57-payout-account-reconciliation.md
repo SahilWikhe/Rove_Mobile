@@ -54,3 +54,9 @@ No hosted migration, Stripe destination creation or live account mutation was pe
 - [Stripe thin and snapshot webhook handling](https://docs.stripe.com/webhooks)
 - [Accounts v2 event types](https://docs.stripe.com/api/v2/core/accounts/event-types)
 - [Driver payout onboarding configuration](56-driver-payout-onboarding.md)
+
+## Payout-account row security — September 13
+
+Migration 0072 scopes payout-account reconciliation to the configured source and exact account. Initial revision updates and later status writes run in scoped transactions; provider I/O remains outside. Sweep discovery can read/lock source rows but cannot update them until each selected binding is scoped. Revision fencing and driver eligibility checks are retained. Runtime deletion is denied.
+
+Restricted-role local verification passed. Hosted verification of 0072 remains pending; deploy compatible API/worker code before applying it to provider staging. Production was not changed.

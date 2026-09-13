@@ -1,3 +1,4 @@
+import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { testDatabase } from '@rove/database/testing';
@@ -5,6 +6,7 @@ import { PayoutReconciler } from './payout-reconciliation';
 import { DriverService } from './drivers';
 import { OutboxWorker } from './outbox';
 import type { DriverPayoutProvider } from './driver-payout-provider';
+let runtimePool: Pool;
 let db: Awaited<ReturnType<typeof testDatabase>>,
   now: Date,
   driverId: string,
@@ -22,8 +24,25 @@ const provider: DriverPayoutProvider = {
 };
 beforeAll(async () => {
   db = await testDatabase();
+  await db.pool.query(
+    "CREATE ROLE rls_payout_runtime LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'synthetic-local-only'",
+  );
+  await db.pool.query('GRANT USAGE ON SCHEMA public TO rls_payout_runtime');
+  await db.pool.query(
+    'GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_payout_runtime',
+  );
+  await db.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_payout_runtime');
+  runtimePool = new Pool({
+    host: '127.0.0.1',
+    port: (await db.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
+    database: 'postgres',
+    user: 'rls_payout_runtime',
+    password: 'synthetic-local-only',
+    max: 5,
+  });
 }, 60000);
 afterAll(async () => {
+  await runtimePool?.end();
   await db?.close();
 });
 beforeEach(async () => {
@@ -45,7 +64,7 @@ beforeEach(async () => {
     [bindingId, driverId],
   );
   status.mockReset().mockResolvedValue('ready');
-  service = new PayoutReconciler(db.pool, provider, 'acct_platform:test', () => now);
+  service = new PayoutReconciler(runtimePool, provider, 'acct_platform:test', () => now);
 });
 const row = async () =>
   (

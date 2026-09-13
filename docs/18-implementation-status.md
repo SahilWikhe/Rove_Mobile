@@ -1,5 +1,13 @@
 # Implementation status
 
+## Driver payout-account RLS — September 13
+
+Migration 0072 enables and forces RLS on driver_payout_accounts. Active drivers may read/lock their own configured-source binding and reserve only an unprovisioned initial row. They cannot change account mapping or readiness. Onboarding preserves exact dispatched provider results even after account disablement; result scope requires the matching account ID. Reconciliation binds the configured source and exact account, while sweep discovery has read/lock access and scopes each selected write. Transfers receive target-driver read/lock access. Runtime deletion is denied, and actor/other worker helpers clear payout contexts. Bank-history reads and post-provider revalidation now use actor transactions.
+
+Verification: 710 server, 208 API and 13 database tests passed on disposable PostgreSQL. Payout onboarding, reconciliation and bank-history suites use a NOSUPERUSER/NOBYPASSRLS runtime role. Expanded ownership/source, forged-readiness/result, read-lock and sweep-write checks passed; the added two-driver fixture needed explicit UUID/text casts, then its ten-test suite passed. Server/database typechecks, changed-file lint, formatting, documentation and diff checks passed.
+
+Source coverage is 33 of 47 tables; fourteen remain. Hosted evidence remains 32 through 0071. No provider-staging or production schema changes occurred. Next: isolated hosted payout verification, remaining ledger/identity/trip/worker policies and compatible staging rollout. Physical-device/provider acceptance and full production readiness remain incomplete.
+
 ## Hosted 32-table RLS verification and refund retry fix — September 13
 
 The isolated synthetic Neon branch br-shy-bar-axjulxqh passed the complete expanded workflow through the pooled rove_staging_app role (NOSUPERUSER/NOBYPASSRLS). Catalog verification confirms 72 migrations through 0071, 47 tables and 32 enabled/forced RLS tables. New hosted checks cover staff-authorized refund retry, reviewed loss allocation, driver transfer retry/reversal and immutable transfer receipts. Existing ownership, messaging, notification, vehicle, retention, closure and document cleanup checks passed again. Every external provider adapter was fake.

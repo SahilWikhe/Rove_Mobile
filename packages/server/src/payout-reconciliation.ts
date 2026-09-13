@@ -1,3 +1,4 @@
+import { bindPayoutScope } from './payout-scope';
 import { z } from 'zod';
 import type { Pool } from 'pg';
 import type { DriverPayoutProvider } from './driver-payout-provider';
@@ -26,12 +27,15 @@ export class PayoutReconciler {
   };
   async reconcile(accountId: string) {
     const started = this.now();
-    const binding = (
-      await this.pool.query<{ id: string; driver_id: string; sync_revision: number }>(
-        `UPDATE driver_payout_accounts SET sync_revision=sync_revision+1 WHERE account_id=$1 AND source=$2 RETURNING id,driver_id,sync_revision`,
-        [accountId, this.source],
-      )
-    ).rows[0];
+    const binding = await transaction(this.pool, async (client) => {
+      await bindPayoutScope(client, this.source, { accountId });
+      return (
+        await client.query<{ id: string; driver_id: string; sync_revision: number }>(
+          `UPDATE driver_payout_accounts SET sync_revision=sync_revision+1 WHERE account_id=$1 AND source=$2 RETURNING id,driver_id,sync_revision`,
+          [accountId, this.source],
+        )
+      ).rows[0];
+    });
     // Non-Rove accounts are not looked up. Initial provisioning enqueues its own job after binding.
     if (!binding) return;
     let status: 'ready' | 'pending' | 'needs_information' | 'unavailable';
@@ -45,6 +49,7 @@ export class PayoutReconciler {
       failed = true;
     }
     await transaction(this.pool, async (client) => {
+      await bindPayoutScope(client, this.source, { accountId });
       await client.query('SELECT id FROM drivers WHERE id=$1 FOR UPDATE', [binding.driver_id]);
       const saved = await client.query(
         `UPDATE driver_payout_accounts SET status=$2,checked_at=$3
@@ -72,6 +77,7 @@ export class PayoutReconciler {
   /** Bounded recovery for missed notifications; deduplicated independently of webhook delivery. */
   async sweep() {
     return transaction(this.pool, async (client) => {
+      await bindPayoutScope(client, this.source, { sweep: true });
       const rows = (
         await client.query<{ id: string; account_id: string }>(
           `SELECT id,account_id FROM driver_payout_accounts
@@ -81,6 +87,7 @@ export class PayoutReconciler {
         )
       ).rows;
       for (const row of rows) {
+        await bindPayoutScope(client, this.source, { bindingId: row.id });
         await client.query(
           `INSERT INTO outbox(topic,aggregate_id,payload,dedupe_key) VALUES('payout.reconcile',$1,$2,$3) ON CONFLICT(dedupe_key) DO NOTHING`,
           [

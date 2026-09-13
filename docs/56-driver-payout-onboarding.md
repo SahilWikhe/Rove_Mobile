@@ -46,3 +46,9 @@ The workspace passed 312 automated tests, typechecking, lint, API bundle smoke a
 - [Accounts v2 creation](https://docs.stripe.com/api/v2/core/accounts/create)
 - [Accounts v2 retrieval](https://docs.stripe.com/api/v2/core/accounts/retrieve)
 - [Hosted Account Links v2](https://docs.stripe.com/api/v2/core/account-links/create)
+
+## Payout-account row security — September 13
+
+Migration 0072 enables and forces payout-account RLS. An active driver can read and reserve only their own configured-source binding, with null provider account, initial status/revision and no check timestamps. Existing reservations are read after INSERT ON CONFLICT DO NOTHING; no owner update privilege is needed. Exact provider-result scope saves only the verified account mapping, including results arriving after disablement, before normal access is checked again. Runtime deletion is denied.
+
+Restricted-role local verification passed. Hosted verification of 0072 remains pending; deploy compatible API/worker code before applying it to provider staging. Production was not changed.

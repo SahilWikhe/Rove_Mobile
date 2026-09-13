@@ -1,15 +1,34 @@
+import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { testDatabase } from '@rove/database/testing';
 import { BankPayouts, type BankPayoutProvider } from './bank-payouts';
+let runtimePool: Pool;
 let db: Awaited<ReturnType<typeof testDatabase>>;
 let actor: { id: string; role: 'driver' }, binding: string, service: BankPayouts;
 const list = vi.fn<BankPayoutProvider['list']>();
 const source = 'acct_platform:test';
 beforeAll(async () => {
   db = await testDatabase();
+  await db.pool.query(
+    "CREATE ROLE rls_payout_runtime LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'synthetic-local-only'",
+  );
+  await db.pool.query('GRANT USAGE ON SCHEMA public TO rls_payout_runtime');
+  await db.pool.query(
+    'GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_payout_runtime',
+  );
+  await db.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_payout_runtime');
+  runtimePool = new Pool({
+    host: '127.0.0.1',
+    port: (await db.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
+    database: 'postgres',
+    user: 'rls_payout_runtime',
+    password: 'synthetic-local-only',
+    max: 5,
+  });
 }, 60000);
 afterAll(async () => {
+  await runtimePool?.end();
   await db?.close();
 });
 beforeEach(async () => {
@@ -26,7 +45,7 @@ beforeEach(async () => {
     [binding, actor.id, source],
   );
   list.mockReset().mockResolvedValue({ items: [], nextCursor: null });
-  service = new BankPayouts(db.pool, source, { list });
+  service = new BankPayouts(runtimePool, source, { list });
 });
 test('returns verified current history only for the signed-in driver binding', async () => {
   expect(await service.list(actor)).toMatchObject({ status: 'available', items: [], nextCursor: null });
@@ -34,13 +53,13 @@ test('returns verified current history only for the signed-in driver binding', a
     { driverId: actor.id, bindingId: binding, accountId: 'acct_driver' },
     undefined,
   );
-  expect(await new BankPayouts(db.pool, source).list(actor)).toEqual({
+  expect(await new BankPayouts(runtimePool, source).list(actor)).toEqual({
     status: 'unavailable',
     items: [],
     nextCursor: null,
     checkedAt: null,
   });
-  expect(await new BankPayouts(db.pool, 'acct_other:test', { list }).list(actor)).toMatchObject({
+  expect(await new BankPayouts(runtimePool, 'acct_other:test', { list }).list(actor)).toMatchObject({
     status: 'not_started',
   });
 });

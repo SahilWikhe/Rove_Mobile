@@ -1,8 +1,13 @@
+import { actorTransaction } from './actor-transaction';
+import { transaction } from './transactions';
+import { bindPayoutScope } from './payout-scope';
+import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { testDatabase } from '@rove/database/testing';
 import { DriverPayouts } from './driver-payouts';
 import type { DriverPayoutProvider } from './driver-payout-provider';
+let runtimePool: Pool;
 let db: Awaited<ReturnType<typeof testDatabase>>;
 let actor: { id: string; role: 'driver' }, now: Date, service: DriverPayouts;
 const createAccount = vi.fn<DriverPayoutProvider['createAccount']>();
@@ -11,8 +16,25 @@ const onboardingLink = vi.fn<DriverPayoutProvider['onboardingLink']>();
 const provider = { createAccount, status, onboardingLink };
 beforeAll(async () => {
   db = await testDatabase();
+  await db.pool.query(
+    "CREATE ROLE rls_payout_runtime LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'synthetic-local-only'",
+  );
+  await db.pool.query('GRANT USAGE ON SCHEMA public TO rls_payout_runtime');
+  await db.pool.query(
+    'GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_payout_runtime',
+  );
+  await db.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_payout_runtime');
+  runtimePool = new Pool({
+    host: '127.0.0.1',
+    port: (await db.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
+    database: 'postgres',
+    user: 'rls_payout_runtime',
+    password: 'synthetic-local-only',
+    max: 5,
+  });
 }, 60000);
 afterAll(async () => {
+  await runtimePool?.end();
   await db?.close();
 });
 beforeEach(async () => {
@@ -30,7 +52,7 @@ beforeEach(async () => {
     url: 'https://accounts.stripe.com/r/fixture',
     expiresAt: new Date(now.getTime() + 600000).toISOString(),
   });
-  service = new DriverPayouts(db.pool, 'acct_platform:test', provider, () => now);
+  service = new DriverPayouts(runtimePool, 'acct_platform:test', provider, () => now);
 });
 test('parallel setup and lost responses reuse one durable identity without granting driver eligibility', async () => {
   createAccount.mockRejectedValueOnce(new Error('Uncertain outcome'));
@@ -94,11 +116,11 @@ test('provider errors do not turn a previous ready response into a cached ready 
 });
 test('provider is optional and source separates environments', async () => {
   expect(await service.status(actor)).toEqual({ status: 'not_started' });
-  const off = new DriverPayouts(db.pool, 'acct_platform:test');
+  const off = new DriverPayouts(runtimePool, 'acct_platform:test');
   expect(await off.status(actor)).toEqual({ status: 'unavailable' });
   await expect(off.start(actor)).rejects.toMatchObject({ status: 503 });
   await service.start(actor);
-  expect(await new DriverPayouts(db.pool, 'acct_other:test', provider).status(actor)).toEqual({
+  expect(await new DriverPayouts(runtimePool, 'acct_other:test', provider).status(actor)).toEqual({
     status: 'not_started',
   });
 });
@@ -115,4 +137,79 @@ test('a conflicting provider result cannot overwrite a recorded account mapping'
     'acct_recorded',
   );
   expect(onboardingLink).not.toHaveBeenCalled();
+});
+
+test('payout ownership permits reads and locks but denies forged readiness and foreign reservations', async () => {
+  await service.start(actor);
+  const other = randomUUID();
+  await db.pool.query(
+    "INSERT INTO users(id,subject,name,role) VALUES($1::uuid,$1::text,'Synthetic other driver','driver')",
+    [other],
+  );
+  await db.pool.query('INSERT INTO drivers(id) VALUES($1)', [other]);
+  await db.pool.query(
+    "INSERT INTO driver_payout_accounts(driver_id,source) VALUES($1,'acct_platform:test')",
+    [other],
+  );
+  await expect(
+    actorTransaction(runtimePool, actor, async (c) => {
+      await bindPayoutScope(c, 'acct_platform:test', {});
+      await c.query("INSERT INTO driver_payout_accounts(driver_id,source) VALUES($1,'acct_platform:test')", [
+        other,
+      ]);
+    }),
+  ).rejects.toMatchObject({ code: '42501' });
+  expect((await runtimePool.query('SELECT * FROM driver_payout_accounts')).rowCount).toBe(0);
+  await actorTransaction(runtimePool, actor, async (c) => {
+    await bindPayoutScope(c, 'acct_platform:test', {});
+    expect((await c.query('SELECT * FROM driver_payout_accounts FOR SHARE')).rowCount).toBe(1);
+    expect((await c.query('DELETE FROM driver_payout_accounts')).rowCount).toBe(0);
+  });
+  await expect(
+    actorTransaction(runtimePool, actor, async (c) => {
+      await bindPayoutScope(c, 'acct_platform:test', {});
+      await c.query("UPDATE driver_payout_accounts SET status='ready'");
+    }),
+  ).rejects.toMatchObject({ code: '42501' });
+  await expect(
+    actorTransaction(runtimePool, actor, async (c) => {
+      await bindPayoutScope(c, 'acct_platform:test', {});
+      await c.query(
+        "INSERT INTO driver_payout_accounts(driver_id,source,account_id) VALUES($1,'acct_platform:test','acct_forged')",
+        [actor.id],
+      );
+    }),
+  ).rejects.toMatchObject({ code: '42501' });
+  await actorTransaction(runtimePool, { id: actor.id, role: 'driver' }, async (c) => {
+    await bindPayoutScope(c, 'acct_foreign:test', {});
+    expect((await c.query('SELECT * FROM driver_payout_accounts')).rowCount).toBe(0);
+  });
+  expect((await runtimePool.query('SELECT * FROM driver_payout_accounts')).rowCount).toBe(0);
+});
+test('payout worker scopes restrict source, result identity and sweep writes', async () => {
+  await service.start(actor);
+  const binding = (await db.pool.query('SELECT id FROM driver_payout_accounts')).rows[0].id;
+  await transaction(runtimePool, async (c) => {
+    await bindPayoutScope(c, 'acct_foreign:test', { accountId: 'acct_fixture' });
+    expect((await c.query('SELECT * FROM driver_payout_accounts')).rowCount).toBe(0);
+    expect((await c.query("UPDATE driver_payout_accounts SET status='ready'")).rowCount).toBe(0);
+  });
+  await expect(
+    transaction(runtimePool, async (c) => {
+      await bindPayoutScope(c, 'acct_platform:test', { sweep: true });
+      await c.query("UPDATE driver_payout_accounts SET status='ready'");
+    }),
+  ).rejects.toMatchObject({ code: '42501' });
+  await expect(
+    transaction(runtimePool, async (c) => {
+      await bindPayoutScope(c, 'acct_platform:test', { bindingId: binding, result: 'acct_fixture' });
+      await c.query("UPDATE driver_payout_accounts SET account_id='acct_forged'");
+    }),
+  ).rejects.toMatchObject({ code: '42501' });
+  await transaction(runtimePool, async (c) => {
+    await bindPayoutScope(c, 'acct_platform:test', { driverId: actor.id });
+    expect((await c.query('SELECT * FROM driver_payout_accounts FOR SHARE')).rowCount).toBe(1);
+    expect((await c.query('DELETE FROM driver_payout_accounts')).rowCount).toBe(0);
+  });
+  expect((await runtimePool.query('SELECT * FROM driver_payout_accounts')).rowCount).toBe(0);
 });

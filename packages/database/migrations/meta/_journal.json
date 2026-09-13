@@ -505,6 +505,13 @@
       "when": 1789296471229,
       "tag": "0071_transfer_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1789297547441,
+      "tag": "0072_driver_payout_rls",
+      "breakpoints": true
     }
   ]
 }

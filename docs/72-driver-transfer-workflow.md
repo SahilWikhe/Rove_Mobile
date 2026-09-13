@@ -61,3 +61,9 @@ Migration 0071 enables and forces RLS on driver_transfer_operations and driver_t
 Movement receipts are readable for the exact operation; collision checks may additionally read the exact observed source/balance reference. Inserts require the operation write scope. No movement update/delete or operation delete policy exists, and original authorization/movement invariants remain. Actor and other worker helpers clear transfer contexts.
 
 Restricted-role tests cover authorization, retry/reversal, denied worker authorizations, read-only scope, immutable receipts, source isolation, refund holds and hidden pending-transfer closure denial. Hosted verification of 0071 passed on the isolated synthetic Neon branch using the restricted runtime role, including authorized transfer execution, retry, reversal and immutable movement receipts; all provider adapters were fake. Deploy compatible API/worker code before applying it; provider staging and production were not changed.
+
+## Payout-account row security — September 13
+
+Migration 0072 adds payout-account RLS. Transfer eligibility binds the configured source and target driver before reading/locking the payout account; this scope cannot modify or delete the account.
+
+Restricted-role local verification passed. Hosted verification of 0072 remains pending; deploy compatible API/worker code before applying it to provider staging. Production was not changed.

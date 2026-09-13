@@ -33,3 +33,9 @@ Statuses come from current Stripe records and can change, including paid to fail
 ## Local evidence
 
 Provider and database tests cover account-scoped reads, privacy projection, pagination, changed statuses, malformed responses, authorization, source isolation and disablement/binding changes during a request. HTTP tests verify authenticated boundaries, cursor errors and private caching. Browser tests cover status presentation, pagination and stale-data clearing separately from setup readiness. Exact completed checks are recorded in [implementation status](18-implementation-status.md).
+
+## Payout-account row security — September 13
+
+With migration 0072, bank-history binding lookup and post-provider revalidation run in active-driver transactions. Policies allow only the owner and configured source. Read locking cannot change readiness or account mapping. Provider calls remain outside the transaction; responses are rejected when disablement or binding changes race the request.
+
+Restricted-role local verification passed. Hosted verification of 0072 remains pending; deploy compatible API/worker code before applying it to provider staging. Production was not changed.

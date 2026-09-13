@@ -566,6 +566,33 @@ export const driverPayoutAccounts = pgTable(
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
+    pgPolicy('payout_owner_read', {
+      for: 'select',
+      using: sql`${t.source}=current_setting('rove.payout_source',true) AND ${t.driverId}=NULLIF(current_setting('rove.actor_id',true),'')::uuid AND current_setting('rove.actor_role',true)='driver' AND EXISTS(SELECT 1 FROM public.users u WHERE u.id=${t.driverId} AND u.role='driver' AND u.disabled=false)`,
+    }),
+    pgPolicy('payout_owner_reserve', {
+      for: 'insert',
+      withCheck: sql`${sql`${t.source}=current_setting('rove.payout_source',true) AND ${t.driverId}=NULLIF(current_setting('rove.actor_id',true),'')::uuid AND current_setting('rove.actor_role',true)='driver' AND EXISTS(SELECT 1 FROM public.users u WHERE u.id=${t.driverId} AND u.role='driver' AND u.disabled=false)`} AND ${t.accountId} IS NULL AND ${t.syncRevision}=0 AND ${t.status}='unknown' AND ${t.checkedAt} IS NULL AND ${t.lastRequestedAt} IS NULL`,
+    }),
+    pgPolicy('payout_worker_read', {
+      for: 'select',
+      using: sql`${t.source}=current_setting('rove.payout_source',true) AND (${t.driverId}=NULLIF(current_setting('rove.payout_driver',true),'')::uuid OR ${t.accountId}=NULLIF(current_setting('rove.payout_account',true),'') OR ${t.id}=NULLIF(current_setting('rove.payout_binding',true),'')::uuid OR current_setting('rove.payout_sweep',true)='true')`,
+    }),
+    pgPolicy('payout_read_lock', {
+      for: 'update',
+      using: sql`${sql`${t.source}=current_setting('rove.payout_source',true) AND ${t.driverId}=NULLIF(current_setting('rove.actor_id',true),'')::uuid AND current_setting('rove.actor_role',true)='driver' AND EXISTS(SELECT 1 FROM public.users u WHERE u.id=${t.driverId} AND u.role='driver' AND u.disabled=false)`} OR ${sql`${t.source}=current_setting('rove.payout_source',true) AND (${t.driverId}=NULLIF(current_setting('rove.payout_driver',true),'')::uuid OR ${t.accountId}=NULLIF(current_setting('rove.payout_account',true),'') OR ${t.id}=NULLIF(current_setting('rove.payout_binding',true),'')::uuid OR current_setting('rove.payout_sweep',true)='true')`}`,
+      withCheck: sql`false`,
+    }),
+    pgPolicy('payout_worker_update', {
+      for: 'update',
+      using: sql`${t.source}=current_setting('rove.payout_source',true) AND (${t.accountId}=NULLIF(current_setting('rove.payout_account',true),'') OR (${t.id}=NULLIF(current_setting('rove.payout_binding',true),'')::uuid AND COALESCE(current_setting('rove.payout_result',true),'')=''))`,
+      withCheck: sql`${t.source}=current_setting('rove.payout_source',true) AND (${t.accountId}=NULLIF(current_setting('rove.payout_account',true),'') OR (${t.id}=NULLIF(current_setting('rove.payout_binding',true),'')::uuid AND COALESCE(current_setting('rove.payout_result',true),'')=''))`,
+    }),
+    pgPolicy('payout_result_update', {
+      for: 'update',
+      using: sql`${sql`${t.source}=current_setting('rove.payout_source',true) AND ${t.id}=NULLIF(current_setting('rove.payout_binding',true),'')::uuid AND COALESCE(current_setting('rove.payout_result',true),'')<>''`} AND (${t.accountId} IS NULL OR ${t.accountId}=current_setting('rove.payout_result',true))`,
+      withCheck: sql`${sql`${t.source}=current_setting('rove.payout_source',true) AND ${t.id}=NULLIF(current_setting('rove.payout_binding',true),'')::uuid AND COALESCE(current_setting('rove.payout_result',true),'')<>''`} AND ${t.accountId}=current_setting('rove.payout_result',true)`,
+    }),
     uniqueIndex('driver_payout_driver_source').on(t.driverId, t.source),
     uniqueIndex('driver_payout_account_source').on(t.source, t.accountId),
   ],

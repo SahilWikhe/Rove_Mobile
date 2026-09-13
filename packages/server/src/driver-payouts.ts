@@ -1,3 +1,5 @@
+import { actorTransaction, bindActorIdentity } from './actor-transaction';
+import { bindPayoutScope } from './payout-scope';
 import type { Pool, PoolClient } from 'pg';
 import { DriverPayoutLink, type DriverPayoutStatus } from '@rove/contracts';
 import type { Actor } from './rides';
@@ -30,12 +32,15 @@ export class DriverPayouts {
   async status(actor: Actor): Promise<DriverPayoutStatus> {
     await this.authorize(this.pool, actor);
     if (!this.provider) return { status: 'unavailable' };
-    const binding = (
-      await this.pool.query<Binding>(
-        'SELECT * FROM driver_payout_accounts WHERE driver_id=$1 AND source=$2',
-        [actor.id, this.source],
-      )
-    ).rows[0];
+    const binding = await actorTransaction(this.pool, actor, async (client) => {
+      await bindPayoutScope(client, this.source, {});
+      return (
+        await client.query<Binding>('SELECT * FROM driver_payout_accounts WHERE driver_id=$1 AND source=$2', [
+          actor.id,
+          this.source,
+        ])
+      ).rows[0];
+    });
     if (!binding) return { status: 'not_started' };
     if (!binding.account_id) return { status: 'pending' };
     const status = await this.provider.status({
@@ -50,14 +55,25 @@ export class DriverPayouts {
     await this.authorize(this.pool, actor);
     if (!this.provider) throw unavailable();
     const binding = await transaction(this.pool, async (client) => {
+      await bindActorIdentity(client, actor, 'update');
       await this.authorize(client, actor, true);
-      const row = (
+      await bindPayoutScope(client, this.source, {});
+      const inserted = (
         await client.query<Binding>(
           `INSERT INTO driver_payout_accounts(driver_id,source,created_at) VALUES($1,$2,$3)
-        ON CONFLICT(driver_id,source) DO UPDATE SET driver_id=EXCLUDED.driver_id RETURNING *`,
+        ON CONFLICT(driver_id,source) DO NOTHING RETURNING *`,
           [actor.id, this.source, this.now()],
         )
-      ).rows[0]!;
+      ).rows[0];
+      const row =
+        inserted ??
+        (
+          await client.query<Binding>(
+            'SELECT * FROM driver_payout_accounts WHERE driver_id=$1 AND source=$2',
+            [actor.id, this.source],
+          )
+        ).rows[0];
+      if (!row) throw unavailable();
       if (!row.account_id && this.now().getTime() - row.created_at.getTime() >= 23 * 60 * 60 * 1000)
         throw new DomainError('PAYOUT_SETUP_REVIEW', 'An earlier payout setup needs support review.', 409);
       return row;
@@ -71,6 +87,7 @@ export class DriverPayouts {
       if (!/^acct_[a-zA-Z0-9]{1,96}$/.test(accountId)) throw unavailable();
       // Save recovery mapping before checking disablement again. Never create a second account after an uncertain result.
       await transaction(this.pool, async (client) => {
+        await bindPayoutScope(client, this.source, { bindingId: binding.id, result: accountId! });
         const result = await client.query(
           'UPDATE driver_payout_accounts SET account_id=$2 WHERE id=$1 AND (account_id IS NULL OR account_id=$2)',
           [binding.id, accountId],

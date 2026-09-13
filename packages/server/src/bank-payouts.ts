@@ -1,9 +1,10 @@
+import { actorTransaction } from './actor-transaction';
+import { bindPayoutScope } from './payout-scope';
 import type { Pool, PoolClient } from 'pg';
 import { BankPayoutCursor, BankPayoutHistory } from '@rove/contracts';
 import type { DriverPayoutReference } from './driver-payout-provider';
 import type { Actor } from './rides';
 import { DomainError } from './errors';
-import { transaction } from './transactions';
 export interface BankPayoutProvider {
   list(
     reference: DriverPayoutReference & { accountId: string },
@@ -19,7 +20,7 @@ export class BankPayouts {
   ) {
     if (!/^acct_[a-zA-Z0-9]{1,96}:(test|live)$/.test(source)) throw new Error('Invalid bank payout source.');
   }
-  private async binding(c: Pool | PoolClient, actor: Actor, lock = false) {
+  private async binding(c: PoolClient, actor: Actor, lock = false) {
     if (actor.role !== 'driver') throw new DomainError('FORBIDDEN', 'Payout history is for drivers.', 403);
     const user = (
       await c.query(
@@ -28,6 +29,7 @@ export class BankPayouts {
       )
     ).rows[0];
     if (!user || user.disabled) throw new DomainError('FORBIDDEN', 'Payout history is unavailable.', 403);
+    await bindPayoutScope(c, this.source, {});
     return (
       await c.query(
         `SELECT id,account_id FROM driver_payout_accounts WHERE driver_id=$1 AND source=$2 ${lock ? 'FOR SHARE' : ''}`,
@@ -39,7 +41,7 @@ export class BankPayouts {
     if (rawAfter !== undefined && !BankPayoutCursor.safeParse(rawAfter).success)
       throw new DomainError('INVALID_PAYOUT_CURSOR', 'Choose a valid payout history page.', 400);
     const after = rawAfter;
-    const binding = await this.binding(this.pool, actor);
+    const binding = await actorTransaction(this.pool, actor, (c) => this.binding(c, actor));
     if (!this.provider) return { status: 'unavailable', items: [], nextCursor: null, checkedAt: null };
     if (!binding?.account_id) return { status: 'not_started', items: [], nextCursor: null, checkedAt: null };
     const page = await this.provider.list(
@@ -58,7 +60,7 @@ export class BankPayouts {
         503,
       );
     const result = parsed.data;
-    return transaction(this.pool, async (c) => {
+    return actorTransaction(this.pool, actor, async (c) => {
       const current = await this.binding(c, actor, true);
       if (current?.id !== binding.id || current?.account_id !== binding.account_id)
         throw new DomainError('PAYOUT_HISTORY_CHANGED', 'Payout account changed. Refresh to continue.', 409);

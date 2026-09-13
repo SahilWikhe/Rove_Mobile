@@ -1,3 +1,4 @@
+import { bindPayoutScope } from './payout-scope';
 import { bindTransferScope } from './transfer-scope';
 import { bindRefundOperationScope } from './refund-operation-scope';
 import { bindRefundScope } from './refund-scope';
@@ -228,6 +229,7 @@ export class DriverTransfers {
       ).rowCount
     )
       throw review();
+    await bindPayoutScope(c, this.source, { driverId: p.driverId });
     const b = (
       await c.query(`SELECT * FROM driver_payout_accounts WHERE driver_id=$1 AND source=$2 FOR SHARE`, [
         p.driverId,
