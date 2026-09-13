@@ -11,7 +11,7 @@ import {
   TripMessage,
 } from '@rove/contracts';
 import type { Actor } from './rides';
-import { transaction } from './transactions';
+import { actorTransaction } from './actor-transaction';
 import { DomainError } from './errors';
 
 const active = ['matched', 'en_route', 'arrived', 'in_progress', 'interrupted'];
@@ -85,7 +85,7 @@ export class MessagingService {
     const parsed = ConversationQuery.safeParse(raw);
     if (!parsed.success) throw new DomainError('INVALID_QUERY', 'Invalid conversation cursor.', 400);
     const q = parsed.data;
-    return transaction(this.pool, async (client) => {
+    return actorTransaction(this.pool, actor, async (client) => {
       await this.owner(client, actor);
       const result = await client.query(
         `SELECT o.id,r.id AS ride_id,r.state,r.created_at,u.name,
@@ -130,7 +130,7 @@ export class MessagingService {
     });
   }
   async unread(actor: Actor) {
-    return transaction(this.pool, async (client) => {
+    return actorTransaction(this.pool, actor, async (client) => {
       await this.owner(client, actor);
       const result = await client.query(
         `SELECT count(*)::int AS count FROM trip_messages m JOIN offers o ON o.id=m.offer_id JOIN rides r ON r.id=o.ride_id
@@ -146,7 +146,7 @@ export class MessagingService {
   }
   async forRide(actor: Actor, rideId: string) {
     z.uuid().parse(rideId);
-    return transaction(this.pool, async (client) => {
+    return actorTransaction(this.pool, actor, async (client) => {
       const result = await client.query(
         `SELECT o.id FROM offers o JOIN rides r ON r.id=o.ride_id WHERE r.id=$1 AND o.status='accepted' AND o.driver_id=r.driver_id`,
         [rideId],
@@ -157,7 +157,7 @@ export class MessagingService {
     });
   }
   async thread(actor: Actor, offerId: string) {
-    return transaction(this.pool, async (client) => {
+    return actorTransaction(this.pool, actor, async (client) => {
       const row = await this.assignment(client, actor, offerId);
       const result = await client.query(
         `SELECT * FROM trip_messages WHERE offer_id=$1 AND created_at>now()-interval '30 days' ORDER BY sequence LIMIT 200`,
@@ -171,7 +171,7 @@ export class MessagingService {
   }
   async send(actor: Actor, offerId: string, raw: unknown) {
     const input = MessageInput.parse(raw);
-    return transaction(this.pool, async (client) => {
+    return actorTransaction(this.pool, actor, async (client) => {
       // Authorize inside the same transaction BEFORE retry lookup. No private bodies in commands/audit.
       const row = await this.assignment(client, actor, offerId);
       const existing = await client.query(
@@ -212,7 +212,7 @@ export class MessagingService {
   }
   async read(actor: Actor, offerId: string, raw: unknown) {
     const input = MessageRead.parse(raw);
-    return transaction(this.pool, async (client) => {
+    return actorTransaction(this.pool, actor, async (client) => {
       await this.assignment(client, actor, offerId);
       const found = await client.query(
         'SELECT sequence FROM trip_messages WHERE offer_id=$1 AND sequence=$2',
@@ -230,7 +230,7 @@ export class MessagingService {
   }
   async report(actor: Actor, offerId: string, raw: unknown) {
     const input = MessageReport.parse(raw);
-    return transaction(this.pool, async (client) => {
+    return actorTransaction(this.pool, actor, async (client) => {
       const row = await this.assignment(client, actor, offerId);
       const old = await client.query(
         'SELECT support_id FROM trip_message_reports WHERE offer_id=$1 AND reporter_id=$2',

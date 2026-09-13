@@ -33,7 +33,8 @@ export async function bindActorIdentity(
   if (!parsed.success) throw new DomainError('FORBIDDEN', 'A verified account is required.', 403);
   // Every field is reset first, even when a connection had unexpected session settings.
   await client.query(`SELECT set_config('rove.actor_id','',true),
-      set_config('rove.actor_role','',true),set_config('rove.actor_mfa','false',true)`);
+      set_config('rove.actor_role','',true),set_config('rove.actor_mfa','false',true),
+      set_config('rove.notification_message','',true),set_config('rove.notification_offer','',true)`);
   const owner = await client.query(
     `SELECT id FROM users WHERE id=$1 AND role=$2 AND disabled=false ${ownerLock === 'update' ? 'FOR UPDATE' : 'FOR SHARE'}`,
     [parsed.data.id, parsed.data.role],

@@ -1,24 +1,42 @@
+import { Pool } from 'pg';
 import { randomUUID } from 'node:crypto';
 import { beforeAll, beforeEach, afterAll, test, expect } from 'vitest';
 import { testDatabase } from '@rove/database/testing';
 import { MessagingService } from './messaging';
 import { MessageCleanup } from './message-cleanup';
 import type { Actor } from './rides';
+let runtimePool: Pool;
 let db: Awaited<ReturnType<typeof testDatabase>>, service: MessagingService;
 let rider: Actor, driver: Actor, outsider: Actor, offer: string, ride: string;
 let staff: Actor, requestId: string, messageId: string, cleanup: MessageCleanup;
 beforeAll(async () => {
   db = await testDatabase();
-  service = new MessagingService(db.pool);
+  await db.pool.query(
+    "CREATE ROLE rls_cleanup LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'synthetic-local-only'",
+  );
+  await db.pool.query('GRANT USAGE ON SCHEMA public TO rls_cleanup');
+  await db.pool.query('GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_cleanup');
+  await db.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_cleanup');
+  runtimePool = new Pool({
+    host: '127.0.0.1',
+    port: (await db.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
+    database: 'postgres',
+    user: 'rls_cleanup',
+    password: 'synthetic-local-only',
+    max: 5,
+  });
+
+  service = new MessagingService(runtimePool);
 }, 60000);
 afterAll(async () => {
+  await runtimePool?.end();
   await db?.close();
 });
 beforeEach(async () => {
   await db.pool.query('TRUNCATE users CASCADE');
   await db.pool.query('TRUNCATE outbox CASCADE');
   staff = { id: randomUUID(), role: 'staff', mfa: true };
-  cleanup = new MessageCleanup(db.pool, 'synthetic-policy');
+  cleanup = new MessageCleanup(runtimePool, 'synthetic-policy');
   rider = { id: randomUUID(), role: 'rider' };
   driver = { id: randomUUID(), role: 'driver' };
   outsider = { id: randomUUID(), role: 'driver' };
@@ -101,7 +119,7 @@ test('reviewed deletion removes only authored targets, audits without bodies and
 
 test('disabled policy, missing MFA, open account and mixed ownership refuse the entire batch', async () => {
   await expect(
-    new MessageCleanup(db.pool).erase(staff, requestId, batch(), randomUUID()),
+    new MessageCleanup(runtimePool).erase(staff, requestId, batch(), randomUUID()),
   ).rejects.toMatchObject({ code: 'CLEANUP_DISABLED' });
   await expect(
     cleanup.erase({ ...staff, mfa: false }, requestId, batch(), randomUUID()),

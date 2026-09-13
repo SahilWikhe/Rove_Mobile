@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm';
+import { sql, type SQLWrapper } from 'drizzle-orm';
 import {
   pgTable,
   pgPolicy,
@@ -299,11 +299,11 @@ export const ledgerPostings = pgTable(
 // Identity is installed only by trusted backend transactions; no anonymous/default access.
 const rlsActor = sql`NULLIF(current_setting('rove.actor_id', true), '')::uuid`;
 const rlsStaff = (
-  permission: 'privacy.read' | 'privacy.close',
+  permission: 'privacy.read' | 'privacy.close' | 'privacy.cleanup',
 ) => sql`current_setting('rove.actor_role', true) = 'staff'
   AND current_setting('rove.actor_mfa', true) = 'true'
   AND EXISTS (SELECT 1 FROM public.users u JOIN public.staff_permissions p ON p.staff_id=u.id
-    WHERE u.id=${rlsActor} AND u.role='staff' AND u.disabled=false AND ${permission === 'privacy.read' ? sql`p.permission='privacy.read'` : sql`p.permission='privacy.close'`})`;
+    WHERE u.id=${rlsActor} AND u.role='staff' AND u.disabled=false AND ${permission === 'privacy.read' ? sql`p.permission='privacy.read'` : permission === 'privacy.close' ? sql`p.permission='privacy.close'` : sql`p.permission='privacy.cleanup'`})`;
 
 export const savedPlaces = pgTable(
   'saved_places',
@@ -623,6 +623,18 @@ export const driverDocumentReviews = pgTable(
   ],
 );
 
+const rlsAssignment = (offer: SQLWrapper, activeOnly = false) => sql`EXISTS (
+  SELECT 1 FROM public.offers o JOIN public.rides r ON r.id=o.ride_id
+  JOIN public.users rider ON rider.id=r.rider_id JOIN public.users driver ON driver.id=o.driver_id
+  WHERE o.id=${offer} AND o.status='accepted' AND r.driver_id=o.driver_id
+    AND rider.disabled=false AND driver.disabled=false
+    AND ((current_setting('rove.actor_role',true)='rider' AND r.rider_id=${rlsActor})
+      OR (current_setting('rove.actor_role',true)='driver' AND o.driver_id=${rlsActor}))
+    AND ${activeOnly ? sql`r.state IN ('matched','en_route','arrived','in_progress','interrupted')` : sql`(r.state IN ('matched','en_route','arrived','in_progress','interrupted') OR r.updated_at>now()-interval '30 days')`}
+)`;
+const rlsNotification = (column: SQLWrapper, kind: 'message' | 'offer') => sql`
+  COALESCE(current_setting('rove.actor_id',true),'')='' AND ${column}=NULLIF(current_setting(${kind === 'message' ? sql`'rove.notification_message'` : sql`'rove.notification_offer'`},true),'')::uuid`;
+
 // The accepted offer identifies an assignment; messages never transfer to a replacement driver.
 export const tripMessages = pgTable(
   'trip_messages',
@@ -640,6 +652,21 @@ export const tripMessages = pgTable(
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
+    pgPolicy('messages_participant_read', { for: 'select', using: rlsAssignment(t.offerId) }),
+    pgPolicy('messages_participant_send', {
+      for: 'insert',
+      withCheck: sql`${t.senderId}=${rlsActor} AND ${rlsAssignment(t.offerId, true)} AND NOT EXISTS(SELECT 1 FROM public.trip_message_reports p WHERE p.offer_id=${t.offerId})`,
+    }),
+    pgPolicy('messages_privacy_read', { for: 'select', using: rlsStaff('privacy.read') }),
+    pgPolicy('messages_cleanup_read', {
+      for: 'select',
+      using: sql`${rlsStaff('privacy.cleanup')} AND EXISTS(SELECT 1 FROM public.users u WHERE u.id=${t.senderId} AND u.disabled=true)`,
+    }),
+    pgPolicy('messages_cleanup_delete', {
+      for: 'delete',
+      using: sql`${rlsStaff('privacy.cleanup')} AND EXISTS(SELECT 1 FROM public.users u WHERE u.id=${t.senderId} AND u.disabled=true)`,
+    }),
+    pgPolicy('messages_notification_read', { for: 'select', using: rlsNotification(t.id, 'message') }),
     uniqueIndex('trip_message_retry').on(t.senderId, t.requestId),
     index('trip_message_thread').on(t.offerId, t.sequence),
     index('trip_message_expiry').on(t.createdAt),
@@ -658,7 +685,16 @@ export const tripMessageReads = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     through: integer().notNull(),
   },
-  (t) => [uniqueIndex('trip_message_reader').on(t.offerId, t.ownerId)],
+  (t) => [
+    pgPolicy('message_reads_owner', {
+      for: 'all',
+      using: sql`${t.ownerId}=${rlsActor} AND ${rlsAssignment(t.offerId)}`,
+      withCheck: sql`${t.ownerId}=${rlsActor} AND ${rlsAssignment(t.offerId)}`,
+    }),
+    pgPolicy('message_reads_notification', { for: 'select', using: rlsNotification(t.offerId, 'offer') }),
+    pgPolicy('message_reads_privacy', { for: 'select', using: rlsStaff('privacy.read') }),
+    uniqueIndex('trip_message_reader').on(t.offerId, t.ownerId),
+  ],
 );
 export const tripMessageReports = pgTable(
   'trip_message_reports',
@@ -675,7 +711,19 @@ export const tripMessageReports = pgTable(
       .references(() => supportRequests.id),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex('trip_message_reporter').on(t.offerId, t.reporterId)],
+  (t) => [
+    pgPolicy('message_reports_participant_read', { for: 'select', using: rlsAssignment(t.offerId) }),
+    pgPolicy('message_reports_participant_insert', {
+      for: 'insert',
+      withCheck: sql`${t.reporterId}=${rlsActor} AND ${rlsAssignment(t.offerId)} AND EXISTS(SELECT 1 FROM public.support_requests s WHERE s.id=${t.supportId} AND s.owner_id=${rlsActor})`,
+    }),
+    pgPolicy('message_reports_privacy', {
+      for: 'select',
+      using: sql`${rlsStaff('privacy.read')} OR ${rlsStaff('privacy.cleanup')}`,
+    }),
+    pgPolicy('message_reports_notification', { for: 'select', using: rlsNotification(t.offerId, 'offer') }),
+    uniqueIndex('trip_message_reporter').on(t.offerId, t.reporterId),
+  ],
 );
 
 // Provider observations only; financial postings and refund approval are separate operations.

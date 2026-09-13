@@ -1,3 +1,4 @@
+import { transaction } from './transactions';
 import type { Pool } from 'pg';
 import { z } from 'zod';
 import { PushMessage } from './push-provider';
@@ -59,9 +60,19 @@ export class PushAudience {
     ).rows[0];
     if (!event) return null;
     if (event.topic === 'message.created') {
-      const row = (
-        await this.pool.query(
-          `SELECT m.offer_id,
+      const row = await transaction(this.pool, async (client) => {
+        await client.query(
+          `SELECT set_config('rove.actor_id','',true),set_config('rove.actor_role','',true),set_config('rove.actor_mfa','false',true),set_config('rove.notification_message',$1,true),set_config('rove.notification_offer','',true)`,
+          [event.aggregate_id],
+        );
+        const target = (
+          await client.query('SELECT offer_id FROM trip_messages WHERE id=$1', [event.aggregate_id])
+        ).rows[0];
+        if (!target) return undefined;
+        await client.query("SELECT set_config('rove.notification_offer',$1,true)", [target.offer_id]);
+        return (
+          await client.query(
+            `SELECT m.offer_id,
         CASE WHEN m.sender_id=r.rider_id THEN NULL ELSE r.rider_id END AS rider_id,
         CASE WHEN m.sender_id=r.driver_id THEN NULL ELSE r.driver_id END AS driver_id
         FROM trip_messages m JOIN offers o ON o.id=m.offer_id JOIN rides r ON r.id=o.ride_id
@@ -70,9 +81,10 @@ export class PushAudience {
         AND NOT EXISTS(SELECT 1 FROM trip_message_reports WHERE offer_id=o.id)
         AND NOT EXISTS(SELECT 1 FROM users WHERE id IN(r.rider_id,r.driver_id) AND disabled=true)
         AND m.sequence>COALESCE((SELECT through FROM trip_message_reads WHERE offer_id=o.id AND owner_id=CASE WHEN m.sender_id=r.rider_id THEN r.driver_id ELSE r.rider_id END),0)`,
-          [event.aggregate_id],
-        )
-      ).rows[0];
+            [event.aggregate_id],
+          )
+        ).rows[0];
+      });
       return row
         ? {
             kind: 'message_available',

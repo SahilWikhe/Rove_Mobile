@@ -1,16 +1,35 @@
+import { actorTransaction } from './actor-transaction';
+import { Pool } from 'pg';
 import { randomUUID } from 'node:crypto';
 import { beforeAll, beforeEach, afterAll, test, expect } from 'vitest';
 import { testDatabase } from '@rove/database/testing';
 import { MessagingService } from './messaging';
 import { PushAudience } from './push-audience';
 import type { Actor } from './rides';
+let runtimePool: Pool;
 let db: Awaited<ReturnType<typeof testDatabase>>, service: MessagingService;
 let rider: Actor, driver: Actor, outsider: Actor, offer: string, ride: string;
 beforeAll(async () => {
   db = await testDatabase();
-  service = new MessagingService(db.pool);
+  await db.pool.query(
+    "CREATE ROLE rls_messaging LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'synthetic-local-only'",
+  );
+  await db.pool.query('GRANT USAGE ON SCHEMA public TO rls_messaging');
+  await db.pool.query('GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_messaging');
+  await db.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_messaging');
+  runtimePool = new Pool({
+    host: '127.0.0.1',
+    port: (await db.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
+    database: 'postgres',
+    user: 'rls_messaging',
+    password: 'synthetic-local-only',
+    max: 5,
+  });
+
+  service = new MessagingService(runtimePool);
 }, 60000);
 afterAll(async () => {
+  await runtimePool?.end();
   await db?.close();
 });
 beforeEach(async () => {
@@ -158,7 +177,7 @@ test('message push has no text/identity, targets only recipient and suppresses a
   );
   const sent = await service.send(rider, offer, input());
   const event = (await db.pool.query('SELECT id FROM outbox WHERE aggregate_id=$1', [sent.id])).rows[0].id;
-  const audience = new PushAudience(db.pool, { driver: project });
+  const audience = new PushAudience(runtimePool, { driver: project });
   const recipients = await audience.recipients(event);
   expect(recipients).toHaveLength(1);
   const push = await audience.message(recipients[0]!);
@@ -242,4 +261,44 @@ test('both participants racing for the last message slot cannot exceed the conve
   if (result?.status !== 'fulfilled') throw new Error('Expected one successful send');
   await expect(service.send(actors[winner]!, offer, requests[winner])).resolves.toEqual(result.value);
   expect((await db.pool.query('SELECT id FROM trip_messages')).rowCount).toBe(200);
+});
+
+test('RLS denies unscoped and foreign SQL access and forged message/report ownership', async () => {
+  const sent = await service.send(rider, offer, input());
+  expect((await runtimePool.query('SELECT id FROM trip_messages')).rowCount).toBe(0);
+  await actorTransaction(runtimePool, outsider, async (c) => {
+    expect((await c.query('SELECT id FROM trip_messages')).rowCount).toBe(0);
+    expect((await c.query('DELETE FROM trip_messages WHERE id=$1', [sent.id])).rowCount).toBe(0);
+    expect((await c.query("UPDATE trip_messages SET text='foreign' WHERE id=$1", [sent.id])).rowCount).toBe(
+      0,
+    );
+  });
+  await expect(
+    actorTransaction(runtimePool, rider, (c) =>
+      c.query('INSERT INTO trip_messages(offer_id,sender_id,request_id,text) VALUES($1,$2,$3,$4)', [
+        offer,
+        driver.id,
+        randomUUID(),
+        'forged',
+      ]),
+    ),
+  ).rejects.toMatchObject({ code: '42501' });
+  await service.report(rider, offer, { reason: 'harassment' });
+  expect(
+    (await actorTransaction(runtimePool, outsider, (c) => c.query('SELECT id FROM trip_message_reports')))
+      .rowCount,
+  ).toBe(0);
+  expect(
+    (await actorTransaction(runtimePool, rider, (c) => c.query('DELETE FROM trip_message_reports'))).rowCount,
+  ).toBe(0);
+  await expect(
+    actorTransaction(runtimePool, driver, (c) =>
+      c.query('INSERT INTO trip_messages(offer_id,sender_id,request_id,text) VALUES($1,$2,$3,$4)', [
+        offer,
+        driver.id,
+        randomUUID(),
+        'after report',
+      ]),
+    ),
+  ).rejects.toMatchObject({ code: '42501' });
 });

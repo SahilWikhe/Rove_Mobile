@@ -1,5 +1,13 @@
 # Implementation status
 
+## Messaging RLS and scoped notification access — September 13
+
+Added migration 0049 enabling/forcing RLS on message bodies, read markers and reports. Consumer transactions now bind actor identity; policies enforce participant/owner access and prevent forged senders, foreign reads/writes, participant message-body mutation and report deletion. Notification audience reads use event-specific transaction scope rather than a global bypass. Privacy cleanup binds staff identity and retains its reviewed batch/hold protections.
+
+Verification: 33 related domain tests, 13 database tests and 64 API/runtime tests passed, with server/database typechecks, targeted lint and formatting. Messaging and cleanup suites now use non-owner NOSUPERUSER/NOBYPASSRLS connections. Those tests exposed cleanup's unnecessary message FOR UPDATE, which RLS correctly refused without an UPDATE policy; removed the redundant lock while retaining participant/ride serialization and concurrency coverage.
+
+Source RLS coverage is now four tables. Individual message expiry and other business rules still rely on the domain in addition to RLS. No hosted database settings changed. Next: remaining data/worker policies and isolated Neon rehearsal with compatible API/worker rollout before staging enablement. The RLS priority and full mobile production goal remain incomplete.
+
 ## First versioned RLS policies and staff compatibility — September 13
 
 Added Drizzle migration 0048 enabling and forcing RLS on saved_places. Owner policies require the matching active rider; staff privacy reads and closure deletion require MFA/current distinct permissions, with deletion restricted to disabled accounts. Inventory and account-closure transactions now install staff identity. Tests use the real migrated policies rather than a temporary substitute.
