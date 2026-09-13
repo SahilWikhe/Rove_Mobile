@@ -1,3 +1,5 @@
+import { actorTransaction } from './actor-transaction';
+import { transaction } from './transactions';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -240,4 +242,43 @@ test('installation reads require an active verified actor and transaction identi
   } finally {
     c.release();
   }
+});
+
+test('installation policies isolate owners and make audience scope read only', async () => {
+  const first = input(),
+    second = input();
+  await service.register(a, first);
+  await service.register(b, second);
+  const rows = (await database.pool.query('SELECT id,owner_id,revision FROM push_installations ORDER BY id'))
+    .rows;
+  const foreign = rows.find((r) => r.owner_id === b.id)!;
+  expect((await runtimePool.query('SELECT * FROM push_installations')).rowCount).toBe(0);
+  await actorTransaction(runtimePool, a, async (c) => {
+    expect((await c.query('SELECT * FROM push_installations')).rowCount).toBe(1);
+    expect(
+      (await c.query('UPDATE push_installations SET enabled=false WHERE id=$1', [foreign.id])).rowCount,
+    ).toBe(0);
+    expect((await c.query('DELETE FROM push_installations')).rowCount).toBe(0);
+  });
+  await expect(
+    actorTransaction(runtimePool, a, (c) => c.query('UPDATE push_installations SET owner_id=$1', [b.id])),
+  ).rejects.toMatchObject({ code: '42501' });
+  await transaction(runtimePool, async (c) => {
+    await c.query(
+      "SELECT set_config('rove.audience_rider',$1,true),set_config('rove.audience_rider_project',$2,true)",
+      [a.id, projects.rider],
+    );
+    expect((await c.query('SELECT * FROM push_installations')).rowCount).toBe(1);
+    expect((await c.query('UPDATE push_installations SET enabled=false')).rowCount).toBe(0);
+  });
+  await transaction(runtimePool, async (c) => {
+    await c.query(
+      "SELECT set_config('rove.install_target',$1,true),set_config('rove.install_revision',$2,true)",
+      [foreign.id, String(foreign.revision + 1)],
+    );
+    expect((await c.query('UPDATE push_installations SET enabled=false,revision=revision+1')).rowCount).toBe(
+      0,
+    );
+  });
+  expect((await runtimePool.query('SELECT * FROM push_installations')).rowCount).toBe(0);
 });

@@ -57,6 +57,10 @@ export class PushInstallations {
     const input = PushInstallationProof.parse(raw);
     const project = this.project(actor);
     return actorTransaction(this.pool, actor, async (client) => {
+      await client.query(
+        "SELECT set_config('rove.install_project',$1,true),set_config('rove.install_lookup',$2,true)",
+        [project, input.installationId],
+      );
       const row = (
         await client.query<Row>(
           'SELECT * FROM push_installations WHERE project_id=$1 AND installation_id=$2',
@@ -142,6 +146,10 @@ export class PushInstallations {
         );
         if (!owner.rowCount) throw new DomainError('FORBIDDEN', 'Account is unavailable.', 403);
         await bindActorIdentity(client, actor, 'update');
+        await client.query(
+          "SELECT set_config('rove.install_project',$1,true),set_config('rove.install_lookup',$2,true),set_config('rove.install_token',$3,true)",
+          [project, input.installationId, 'token' in input ? input.token : ''],
+        );
         // Includes non-existent installations: first writes and account transfers serialize.
         await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
           `push:${project}:${input.installationId}`,
@@ -222,11 +230,17 @@ export class PushInstallations {
   async invalidate(id: string, revision: number) {
     z.uuid().parse(id);
     z.number().int().positive().parse(revision);
-    const result = await this.pool.query(
-      `UPDATE push_installations SET enabled=false,revision=revision+1,
+    const result = await transaction(this.pool, async (client) => {
+      await client.query(
+        "SELECT set_config('rove.install_target',$1,true),set_config('rove.install_revision',$2,true)",
+        [id, String(revision)],
+      );
+      return client.query(
+        `UPDATE push_installations SET enabled=false,revision=revision+1,
       mutation_id=NULL,mutation_hash=NULL,updated_at=now() WHERE id=$1 AND revision=$2 AND enabled=true`,
-      [id, revision],
-    );
+        [id, revision],
+      );
+    });
     return { changed: !!result.rowCount };
   }
 }

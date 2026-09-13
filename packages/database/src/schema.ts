@@ -572,6 +572,47 @@ export const pushInstallations = pgTable(
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
+    pgPolicy('installation_owner_read', { for: 'select', using: rlsConsumer(t.ownerId) }),
+    pgPolicy('installation_owner_insert', {
+      for: 'insert',
+      withCheck: sql`${rlsConsumer(t.ownerId)} AND ${t.projectId}=NULLIF(current_setting('rove.install_project',true),'')::uuid AND ${t.installationId}=NULLIF(current_setting('rove.install_lookup',true),'')::uuid`,
+    }),
+    pgPolicy('installation_owner_update', {
+      for: 'update',
+      using: rlsConsumer(t.ownerId),
+      withCheck: rlsConsumer(t.ownerId),
+    }),
+    pgPolicy('installation_lookup_read', {
+      for: 'select',
+      using: sql`${rlsConsumer(rlsActor)} AND ${t.projectId}=NULLIF(current_setting('rove.install_project',true),'')::uuid AND (${t.installationId}=NULLIF(current_setting('rove.install_lookup',true),'')::uuid OR ${t.token}=NULLIF(current_setting('rove.install_token',true),''))`,
+    }),
+    pgPolicy('installation_transfer', {
+      for: 'update',
+      using: sql`${rlsConsumer(rlsActor)} AND ${t.projectId}=NULLIF(current_setting('rove.install_project',true),'')::uuid AND ${t.installationId}=NULLIF(current_setting('rove.install_lookup',true),'')::uuid`,
+      withCheck: rlsConsumer(t.ownerId),
+    }),
+    pgPolicy('installation_staff_read', {
+      for: 'select',
+      using: sql`${rlsStaff('privacy.read')} OR ${rlsStaff('privacy.close')}`,
+    }),
+    pgPolicy('installation_close', {
+      for: 'update',
+      using: sql`${rlsStaff('privacy.close')} AND EXISTS(SELECT 1 FROM public.users u WHERE u.id=${t.ownerId} AND u.disabled=true)`,
+      withCheck: sql`${rlsStaff('privacy.close')} AND ${t.enabled}=false AND ${t.token}='' AND EXISTS(SELECT 1 FROM public.users u WHERE u.id=${t.ownerId} AND u.disabled=true)`,
+    }),
+    pgPolicy('installation_audience_read', {
+      for: 'select',
+      using: sql`(${t.ownerId}=NULLIF(current_setting('rove.audience_rider',true),'')::uuid AND ${t.projectId}=NULLIF(current_setting('rove.audience_rider_project',true),'')::uuid) OR (${t.ownerId}=NULLIF(current_setting('rove.audience_driver',true),'')::uuid AND ${t.projectId}=NULLIF(current_setting('rove.audience_driver_project',true),'')::uuid)`,
+    }),
+    pgPolicy('installation_worker_read', {
+      for: 'select',
+      using: sql`${t.id}=NULLIF(current_setting('rove.install_target',true),'')::uuid`,
+    }),
+    pgPolicy('installation_invalidate', {
+      for: 'update',
+      using: sql`${t.id}=NULLIF(current_setting('rove.install_target',true),'')::uuid AND ${t.revision}=NULLIF(current_setting('rove.install_revision',true),'')::int`,
+      withCheck: sql`${t.id}=NULLIF(current_setting('rove.install_target',true),'')::uuid AND ${t.revision}=NULLIF(current_setting('rove.install_revision',true),'')::int+1 AND ${t.enabled}=false`,
+    }),
     uniqueIndex('push_installation_identity').on(t.projectId, t.installationId),
     uniqueIndex('push_installation_active_token')
       .on(t.projectId, t.token)

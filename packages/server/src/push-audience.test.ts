@@ -1,8 +1,10 @@
+import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
 import { randomUUID, randomBytes } from 'node:crypto';
 import { testDatabase } from '@rove/database/testing';
 import { PushAudience } from './push-audience';
 import { PushInstallations } from './push-installations';
+let runtimePool: Pool;
 let db: Awaited<ReturnType<typeof testDatabase>>;
 let audience: PushAudience;
 let now: Date;
@@ -10,8 +12,23 @@ let rider: string, driver: string, outsider: string, ride: string, eventId: stri
 const projects = { rider: randomUUID(), driver: randomUUID() };
 beforeAll(async () => {
   db = await testDatabase();
+  await db.pool.query(
+    "CREATE ROLE rls_audience LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'synthetic-local-only'",
+  );
+  await db.pool.query('GRANT USAGE ON SCHEMA public TO rls_audience');
+  await db.pool.query('GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_audience');
+  await db.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_audience');
+  runtimePool = new Pool({
+    host: '127.0.0.1',
+    port: (await db.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
+    database: 'postgres',
+    user: 'rls_audience',
+    password: 'synthetic-local-only',
+    max: 5,
+  });
 }, 60000);
 afterAll(async () => {
+  await runtimePool?.end();
   await db?.close();
 });
 beforeEach(async () => {
@@ -54,7 +71,7 @@ beforeEach(async () => {
     VALUES($1::uuid,'ride.matched',$2,'{}',$1::text,$3)`,
     [eventId, ride, now],
   );
-  const registrations = new PushInstallations(db.pool, projects);
+  const registrations = new PushInstallations(runtimePool, projects);
   for (const [id, role] of [
     [rider, 'rider'],
     [driver, 'driver'],
@@ -72,7 +89,7 @@ beforeEach(async () => {
       },
     );
   }
-  audience = new PushAudience(db.pool, projects, () => now);
+  audience = new PushAudience(runtimePool, projects, () => now);
 });
 test('selects current ride participants only, with no token or personal data in queued references', async () => {
   const recipients = await audience.recipients(eventId);

@@ -143,6 +143,10 @@ export class PushDelivery {
       if (!result.rowCount) throw problem('PUSH_DELIVERY_LEASE_CHANGED');
       if (state === 'invalid_token') {
         await client.query(
+          "SELECT set_config('rove.install_target',$1,true),set_config('rove.install_revision',$2,true)",
+          [row.installation_id, String(row.revision)],
+        );
+        await client.query(
           `UPDATE push_installations SET enabled=false,revision=revision+1,mutation_id=NULL,
           mutation_hash=NULL,updated_at=$3 WHERE id=$1 AND revision=$2 AND enabled=true`,
           [row.installation_id, row.revision, this.now()],
@@ -189,6 +193,10 @@ export class PushDelivery {
   /** Atomic shared rate window caps this deployment at 100 sends/sec/project across hosts. */
   private async capacity(installationId: string) {
     const result = await transaction(this.pool, async (client) => {
+      await client.query(
+        "SELECT set_config('rove.install_target',$1,true),set_config('rove.install_revision','',true)",
+        [installationId],
+      );
       await client.query(
         "SELECT set_config('rove.push_rate_project',COALESCE((SELECT project_id::text FROM push_installations WHERE id=$1),''),true)",
         [installationId],

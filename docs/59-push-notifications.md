@@ -188,3 +188,11 @@ Local restricted-role tests cover these boundaries alongside delivery retries, c
 Status and device-list reads now execute in a verified active-actor transaction. Registration, removal and remote revocation bind the same actor identity after their existing account locks. Installation-secret verification, revision checks, advisory locks and same-device account transfer remain unchanged. Disabled, nonexistent or role-mismatched actors receive FORBIDDEN on device reads. Restricted non-owner tests exercise these services.
 
 This prepares consumer paths for installation RLS but does not enable it. Remaining work includes proof-scoped registration lookup/transfer, duplicate-token detection, exact-recipient audience reads, invalid-token receipt mutation and privacy closure/inventory policies before the migration can be applied.
+
+## Installation row isolation
+
+Migration 0063 enables and forces RLS on push_installations. Active owners may read their devices. Registration binds the server-configured project and exact installation lookup; the service still verifies the installation secret and expected revision before any account transfer. Duplicate-token lookup is restricted to the exact candidate token in that project. These trusted backend scopes do not expose lookup or transfer SQL to mobile clients.
+
+Audience transactions bind only the computed rider/driver IDs and their configured app projects; they have read access only. Capacity lookup uses one internal installation ID. Invalid-token handling additionally binds the captured revision and can only disable that exact registration while advancing its revision. Current MFA privacy staff can inventory installations; closure can disable and clear tokens only for disabled owners. No runtime delete policy exists. Actor and other worker contexts clear all installation/audience settings.
+
+Restricted-role installation, audience, delivery and closure tests verify the complete local paths. The earlier pending-installation-policy notes are superseded by this implementation; hosted verification remains pending. This does not prove physical-phone notification delivery or permission setup.

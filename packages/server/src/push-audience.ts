@@ -137,22 +137,33 @@ export class PushAudience {
       : null;
   }
   private installations(audience: Audience, now: Date, recipient?: PushRecipient) {
-    return this.pool.query<{ id: string; revision: number; token: string }>(
-      `SELECT p.id,p.revision,p.token FROM push_installations p JOIN users u ON u.id=p.owner_id
+    return transaction(this.pool, async (client) => {
+      await client.query(
+        "SELECT set_config('rove.audience_rider',$1,true),set_config('rove.audience_rider_project',$2,true),set_config('rove.audience_driver',$3,true),set_config('rove.audience_driver_project',$4,true)",
+        [
+          audience.riderId ?? '',
+          this.projects.rider ?? '',
+          audience.driverId ?? '',
+          this.projects.driver ?? '',
+        ],
+      );
+      return client.query<{ id: string; revision: number; token: string }>(
+        `SELECT p.id,p.revision,p.token FROM push_installations p JOIN users u ON u.id=p.owner_id
        WHERE p.enabled=true AND u.disabled=false AND p.updated_at>$1::timestamptz-interval '30 days'
        AND ((u.role='rider' AND p.owner_id=$2 AND p.project_id=$3)
          OR (u.role='driver' AND p.owner_id=$4 AND p.project_id=$5))
        AND ($6::uuid IS NULL OR (p.id=$6 AND p.revision=$7)) ORDER BY p.id LIMIT 20`,
-      [
-        now,
-        audience.riderId,
-        this.projects.rider ?? null,
-        audience.driverId,
-        this.projects.driver ?? null,
-        recipient?.installationId ?? null,
-        recipient?.revision ?? null,
-      ],
-    );
+        [
+          now,
+          audience.riderId,
+          this.projects.rider ?? null,
+          audience.driverId,
+          this.projects.driver ?? null,
+          recipient?.installationId ?? null,
+          recipient?.revision ?? null,
+        ],
+      );
+    });
   }
   async recipients(eventId: string): Promise<PushRecipient[]> {
     const now = this.now();

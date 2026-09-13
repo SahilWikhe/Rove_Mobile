@@ -442,6 +442,13 @@
       "when": 1789292395959,
       "tag": "0062_push_delivery_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1789292902625,
+      "tag": "0063_push_installation_rls",
+      "breakpoints": true
     }
   ]
 }

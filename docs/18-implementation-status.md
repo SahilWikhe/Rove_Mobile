@@ -1,5 +1,13 @@
 # Implementation status
 
+## Notification installation RLS — September 13
+
+Migration 0063 enables and forces push_installations RLS. Active owners have owned-device access; registration scopes exact project/installation lookup and candidate-token duplicate checks while retaining secret verification and revision fencing for account transfers. Audience transactions bind computed recipient owners and configured projects for read-only access. Capacity reads one installation; invalidation binds its captured revision and permits only disabling that registration with a revision increment. Current MFA privacy inventory and disabled-account closure policies remain compatible. No runtime delete policy exists; actor and other worker transactions clear the new scopes.
+
+Verification: all 694 server tests, 208 API tests and 13 database tests passed (915 total), plus server/database typechecks, targeted lint, formatting and documentation validation. Installation, audience and delivery suites use restricted non-owner roles. Tests cover same-phone account transfers, secret rejection, duplicate tokens, stale revisions, remote revoke, ownership/foreign updates, read-only audience scope, delivery suppression, token invalidation and closure. All push providers were synthetic.
+
+Source coverage is twenty-one of 47 tables. Hosted evidence remains seventeen through 0059; provider staging and production are unchanged. Next: rehearse migrations 0060–0063 and their workflows in isolated Neon, continue the remaining core/worker policies, then compatible staging rollout. Physical-device and full production acceptance remain incomplete.
+
 ## Installation actor boundaries — September 13
 
 Notification installation status/device reads now bind and lock a verified active actor inside the same transaction as the read. Register/remove/remote revoke bind actor context after the existing owner lock. Secret verification, revision fencing, advisory registration/token locks and account-transfer behavior remain unchanged. Invalid, disabled and role-mismatched actors now fail device reads before querying registration data.
