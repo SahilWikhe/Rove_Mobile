@@ -1,5 +1,13 @@
 # Implementation status
 
+## Seventeen-table hosted RLS rehearsal — September 13
+
+Applied migrations through 0059 only to the existing isolated synthetic Neon branch br-shy-bar-axjulxqh. Live catalog inspection confirms 60 migration entries and seventeen of 47 public tables with RLS enabled and forced. The branch remains non-primary/non-default with its September 14 expiry. Provider staging was freshly checked read-only: 31 migrations, 32 tables, zero enabled/forced RLS tables. Production was not changed.
+
+Hosted workflow verification passed using pooled rove_staging_app with NOSUPERUSER/NOBYPASSRLS. The six new document tables were exercised through real services: owned reservation/upload, scoped write settlement, consumer settlement/verdict denial, scanner clean result, staff review, support-backed account closure, unapproved cleanup denial, approved exact-version cleanup and retry without a second provider call. All six deny unscoped reads. Existing saved places, vehicles, messaging/read notifications, retention/closure safeguards, inventory and reviewed message cleanup/replay also passed. Storage, scanning and removal adapters were synthetic; no real S3, identity erasure, push delivery or payment operation occurred.
+
+This supersedes the earlier eleven-table hosted evidence. Thirty tables still require RLS policies. Next: remaining data/worker policies, then the compatible API/worker deployment and reviewed provider-staging migration delta. Physical-device, payment and full production acceptance remain incomplete.
+
 ## Document storage-write RLS — September 13
 
 Migration 0059 enables and forces document_storage_writes RLS. Active document owners may create unsettled intents; current MFA privacy staff and assigned cleanup workers have scoped reads. Settlement transactions bind only the trusted dispatched document and storage key, preserving verified outcomes after account closure. Consumer/staff actors cannot forge settlement, and runtime deletion has no policy. Existing immutable evidence, retry idempotency and cleanup settlement barriers remain intact. Actor, identity, scanner and cleanup transactions clear receipt scope.

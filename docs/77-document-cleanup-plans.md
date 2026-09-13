@@ -100,3 +100,7 @@ Migration 0057 limits cleanup-worker reservation reads to the owner of its exact
 ## Storage-write receipt row isolation
 
 Migration 0059 protects write evidence. Current MFA privacy staff can inspect relevant rows; workers can read writes for their assigned cleanup owner. Settlement uses the exact document and object key from an already dispatched trusted request, so account closure does not discard a later verified provider result. Driver/staff actors cannot update settlement evidence, and there is no runtime deletion policy. Existing immutable-evidence triggers and owner-wide unsettled-write barriers remain active. Hosted rollout is pending.
+
+## Hosted RLS rehearsal evidence
+
+The isolated synthetic Neon branch was migrated through 0059 and verified through the pooled restricted application role. A synthetic document upload settled, scanned and received staff review; its account closed, unapproved cleanup was rejected, and approved version cleanup completed with replay avoiding duplicate provider calls. All six document lifecycle tables denied unscoped reads. Provider adapters were fake: this proves hosted database/service compatibility, not actual S3 deletion. Provider staging and production remain unchanged.
