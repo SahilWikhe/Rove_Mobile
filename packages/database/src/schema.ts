@@ -172,14 +172,23 @@ export const outbox = pgTable('outbox', {
   lastErrorCode: text(),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
-export const audit = pgTable('audit', {
-  id: uuid().primaryKey().defaultRandom(),
-  actorId: uuid().references(() => users.id),
-  action: text().notNull(),
-  aggregateId: uuid().notNull(),
-  metadata: jsonb().notNull(),
-  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
-});
+export const audit = pgTable(
+  'audit',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    actorId: uuid().references(() => users.id),
+    action: text().notNull(),
+    aggregateId: uuid().notNull(),
+    metadata: jsonb().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    pgPolicy('audit_append', {
+      for: 'insert',
+      withCheck: sql`jsonb_build_object('id',${t.id},'actor',${t.actorId},'action',${t.action},'aggregate',${t.aggregateId},'metadata',${t.metadata}) = NULLIF(current_setting('rove.audit_append',true),'')::jsonb`,
+    }),
+  ],
+);
 
 export const driverTrackingSessions = pgTable(
   'driver_tracking_sessions',

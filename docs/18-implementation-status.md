@@ -1,5 +1,13 @@
 # Implementation status
 
+## Audit RLS implemented locally — September 13
+
+Migration 0076 enables and forces RLS on audit. The backend append helper binds the exact record (id, actor, action, aggregate and metadata) within its existing transaction, inserts it and clears that scope. The runtime has no audit SELECT, UPDATE or DELETE policy. Business authorization remains in service methods; backend-set scope is defense in depth, not protection from an attacker controlling arbitrary SQL with the runtime credential.
+
+All 729 server, 208 API and 13 database tests passed. New restricted-role tests verify exact-field mismatch denial, unscoped insert denial, invisible and immutable history, scope clearing, catalog flags and atomic rollback. An initial test fixture used one parameter as UUID/text without casts; explicit casts fixed setup, and the complete suite then passed. Database/server typechecks and changed-source lint passed.
+
+Source RLS coverage is now 38 of 47 tables; hosted rehearsal remains 37 pending migration and hosted verification. Provider staging and production are unchanged. Next: verify 0076 on the isolated synthetic branch, then address the nine remaining core tables and compatible staging rollout. Physical-device and real-provider acceptance remain incomplete.
+
 ## Audit append preparation — September 13
 
 Centralized the server’s audit inserts behind appendAudit, preserving each caller’s transaction, actor, action, aggregate and JSON metadata. This prepares one enforcement point for audit RLS; it does not yet enable an audit policy or migrate hosted environments.

@@ -203,3 +203,9 @@ Migration 0055 adds enabled/forced RLS to document_cleanup_plans and document_cl
 ## Document-review policy extension in source
 
 Migration 0056 adds enabled/forced RLS to driver_document_reviews, bringing source coverage to fourteen of 47 tables. Driver ownership and current MFA review/eligibility permissions govern reads; document-review permission governs inserts. Document services now prepare verified actor context for the remaining lifecycle policies. The full server suite passed 684 tests alongside API/database checks. Hosted verification remains the earlier eleven-table rehearsal, and provider staging is unchanged.
+
+## Audit append policy — migration 0076
+
+Source RLS coverage reaches 38 of 47 tables. Audit inserts require the exact transaction-local record scope populated by appendAudit; runtime SELECT, UPDATE and DELETE are denied. Service methods continue to authorize the underlying actions. The policy does not claim protection against arbitrary SQL execution by a compromised backend credential. Deploy the compatible backend/worker helper before applying this migration.
+
+Local verification passed 729 server, 208 API and 13 database tests, including restricted-role field mismatch, unscoped insertion, history mutation/read denial and rollback tests. Hosted rehearsal remains at migration 0075 (37 tables) until the next explicit rehearsal. Provider staging and production remain unchanged.
