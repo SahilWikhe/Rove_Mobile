@@ -25,8 +25,15 @@ const server = createServer((req, res) => {
 });
 const wss = new WebSocketServer({ noServer: true, maxPayload: 65536 });
 let sequence = 0;
+let unavailableUntil = 0;
+let recoveryTimer;
 server.on('upgrade', (req, socket, head) => {
   if (req.url !== '/v1/realtime') return socket.destroy();
+  if (Date.now() < unavailableUntil) {
+    record({ type: 'fault-rejected-upgrade' });
+    socket.end('HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n');
+    return;
+  }
   wss.handleUpgrade(req, socket, head, (client) => {
     const connection = ++sequence;
     const target = new WebSocket(`ws://127.0.0.1:${upstream}/v1/realtime`);
@@ -61,7 +68,18 @@ server.on('upgrade', (req, socket, head) => {
   });
 });
 server.listen(+listen, '127.0.0.1', () => record({ type: 'listening', port: +listen }));
+// Explicit local fault injection: drop sockets for eight seconds, preserving HTTPS fallback.
+// Signal only the owned proxy PID; this handler is never installed in the application API.
+process.on('SIGUSR1', () => {
+  if (process.env.NATIVE_REALTIME_FAULTS !== '1') return;
+  unavailableUntil = Date.now() + 8000;
+  clearTimeout(recoveryTimer);
+  record({ type: 'fault-started' });
+  for (const client of wss.clients) client.terminate();
+  recoveryTimer = setTimeout(() => record({ type: 'fault-ended' }), 8000);
+});
 const stop = () => {
+  clearTimeout(recoveryTimer);
   for (const client of wss.clients) client.terminate();
   server.close();
 };

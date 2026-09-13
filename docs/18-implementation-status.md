@@ -2,6 +2,12 @@
 
 Updated: September 12, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Native reconnect fault tooling — September 12
+
+Added opt-in socket fault injection to the loopback observation proxy. Signaling only its owned PID creates an eight-second WebSocket outage while preserving HTTP fallback. Regression verification passed for active socket termination, rejected upgrades, continuing HTTP traffic, fresh stream readiness after recovery and omission of private data from logs. Both proxy tests and targeted lint/formatting passed.
+
+This prepares controlled native reconnect acceptance; it is not a native reconnect pass. No API, client, hosted service or provider configuration changed. Next: exercise the fault while a native conversation remains open, check missed-message recovery and subsequent delivery on a fresh ready connection, then native location coverage. Physical/provider, Figma, erasure and production-release work remain open.
+
 ## Complete iOS trip and both message recipients verified — September 12
 
 The full two-app iOS 26.5 simulator scenario passed in 116.546 seconds with zero failures: synthetic sign-in, driver availability, rider booking, offer acceptance, both native composers sending and receiving delayed counterpart messages, driver conversation recovery, pickup/arrival/start/completion and the rider paid receipt. The inspected receipt shows $11.85 quoted and captured, Ride: completed and Payment: paid. This is a synthetic provider result, not a live payment or payout.

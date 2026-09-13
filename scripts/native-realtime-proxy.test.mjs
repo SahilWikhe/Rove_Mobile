@@ -10,7 +10,7 @@ const script = new URL('./native-realtime-proxy.mjs', import.meta.url);
 
 test(
   'forwards HTTP and WebSocket traffic while recording only allowed event types',
-  { timeout: 10000 },
+  { timeout: 20000 },
   async () => {
     const upstream = createServer((req, res) => {
       assert.equal(req.headers.authorization, 'Bearer test-secret');
@@ -32,7 +32,9 @@ test(
     await once(reservation, 'listening');
     const port = reservation.address().port;
     await new Promise((resolve) => reservation.close(resolve));
-    const child = spawn(process.execPath, [script.pathname, String(port), String(upstream.address().port)]);
+    const child = spawn(process.execPath, [script.pathname, String(port), String(upstream.address().port)], {
+      env: { ...process.env, NATIVE_REALTIME_FAULTS: '1' },
+    });
     let output = '';
     let eventObserved;
     const recordedEvent = new Promise((resolve) => {
@@ -76,6 +78,32 @@ test(
       // stdout can arrive just after the network frame.
       await recordedEvent;
       assert.match(output, /messages.changed/);
+      assert.doesNotMatch(output, /test-secret|private-content|private-test/);
+      const recovered = new Promise((resolve) => {
+        child.stdout.on('data', (data) => {
+          if (data.toString().includes('fault-ended')) resolve();
+        });
+      });
+      const disconnected = once(client, 'close');
+      child.kill('SIGUSR1');
+      await disconnected;
+      const fallback = await fetch(`http://127.0.0.1:${port}/v1/test`, {
+        headers: { Authorization: 'Bearer test-secret' },
+      });
+      assert.equal(fallback.status, 201, 'HTTP fallback remains reachable during socket outage');
+      await fallback.text();
+      const rejected = new WebSocket(`ws://127.0.0.1:${port}/v1/realtime`);
+      const [error] = await once(rejected, 'error');
+      assert.match(error.message, /503/);
+      await recovered;
+      client = new WebSocket(`ws://127.0.0.1:${port}/v1/realtime`);
+      const ready = once(client, 'message');
+      await once(client, 'open');
+      client.send('test-secret');
+      const [frame] = await ready;
+      assert.equal(JSON.parse(frame).type, 'ready', 'new authenticated stream recovers after outage');
+      assert.match(output, /fault-started/);
+      assert.match(output, /fault-rejected-upgrade/);
       assert.doesNotMatch(output, /test-secret|private-content|private-test/);
     } finally {
       client?.terminate();
