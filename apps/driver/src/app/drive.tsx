@@ -1,3 +1,4 @@
+import { TrackingRecovery } from '../tracking/recovery';
 import { DriveSurface } from '../home/drive-surface';
 import { DriveEarnings } from '../home/drive-earnings';
 import { DriveHeader } from '../home/drive-header';
@@ -100,7 +101,7 @@ export default function Drive() {
       )}
       {account && <DriveEarnings key={account.id} />}
       {(error || readError) && <Banner error message={error ?? readError!} />}
-      {trackingError && <Banner error message={trackingError} />}
+      {trackingError && <TrackingRecovery message={trackingError} disabled={busy} />}
       {waiting ? (
         <Copy kind="muted" style={{ textAlign: 'center', fontSize: 12 }}>
           Waiting for a request…
@@ -145,24 +146,6 @@ export default function Drive() {
           <Button title="Continue with location" loading={busy} onPress={() => void availability(true)} />
           <Button title="Not now" variant="secondary" onPress={() => setExplainLocation(false)} />
         </Card>
-      )}
-      {trackingError && profile?.online && !synthetic && (
-        <Button
-          title="Reconnect location"
-          variant="secondary"
-          loading={busy}
-          onPress={() => {
-            if (!account) return;
-            setBusy(true);
-            void requestTrackingPermissions()
-              .then(unblockTracking)
-              .then(() => synchronizeBackgroundTracking(api, account.id))
-              .catch((failure) =>
-                setError(failure instanceof Error ? failure.message : 'Location could not reconnect.'),
-              )
-              .finally(() => setBusy(false));
-          }}
-        />
       )}
       {profile && !profile.eligible && (
         <>

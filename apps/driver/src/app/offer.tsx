@@ -1,3 +1,4 @@
+import { TrackingRecovery } from '../tracking/recovery';
 import { useOperations } from '@rove/mobile-core/use-operations';
 import { useTrackingError } from '../tracking/provider';
 import { useCallback, useRef, useState } from 'react';
@@ -122,7 +123,7 @@ function OfferContent({ id }: { id: string }) {
     <DriveSurface online={Boolean(offer)} synthetic={synthetic} request>
       <Stack.Screen options={{ headerShown: false }} />
       {error && <Banner error message={error} />}
-      {trackingError && <Banner error message={trackingError} />}
+      {trackingError && <TrackingRecovery message={trackingError} disabled={busy} />}
       {offer ? (
         <>
           <OfferSummary offer={offer} remaining={remaining} />

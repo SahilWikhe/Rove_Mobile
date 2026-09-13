@@ -1,3 +1,4 @@
+import { TrackingRecovery } from '../tracking/recovery';
 import { RequestStorageRecovery } from '@rove/mobile-ui/request-storage-recovery';
 import { OpenConversation } from '../messaging/open-conversation';
 import completionMark from '../../assets/completion/check.png';
@@ -180,7 +181,7 @@ function TripContent({ id }: { id: string }) {
         </Card>
       )}
 
-      {action && trackingError && <Banner error message={trackingError} />}
+      {action && trackingError && <TrackingRecovery message={trackingError} disabled={busy} />}
       {ride ? (
         <>
           {ride.state === 'completed' ? (

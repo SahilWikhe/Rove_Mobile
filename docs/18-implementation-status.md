@@ -2,6 +2,12 @@
 
 Updated: September 12, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## In-trip tracking recovery controls — September 12
+
+Drive, offers and active trips now share native Reconnect location and Open location settings actions alongside tracking errors. Previously only Drive offered reconnection, leaving the active-trip warning without a direct recovery action. The controls reuse existing secondary buttons, suppress overlapping taps, surface recovery failures and respect pending screen actions. Native recovery controls remain hidden for synthetic/web sessions. Settings opens app settings; reconnection preserves ride state and availability and reuses permission checks and serialized tracking lifecycle.
+
+Verification: all six driver test files / 41 tests passed, driver typecheck and targeted ESLint passed. These existing tests cover the underlying lifecycle, not rendered control interaction or OS settings navigation; native layout/settings acceptance remains pending. No provider or production changes occurred. Remaining release requirements include physical GPS/push/provider acceptance, complete UI review, full erasure and isolated production setup. Next: verify native recovery interaction when device access is available and continue outstanding release implementation.
+
 ## Driver precise-location permission enforcement — September 12
 
 Native tracking now requires explicit iOS full / Android fine accuracy before online permission setup completes, including a fresh foreground check after the background request. Foreground synchronization detects lost precision, stops the native task, removes its local grant and attempts server revocation. Android background permission responses omit accuracy metadata, so the check deliberately uses foreground permissions. Missing metadata fails closed; recovery directs the driver to Precise Location in Settings.
