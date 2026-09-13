@@ -1,5 +1,13 @@
 # Implementation status
 
+## Workflow security hardening — September 13
+
+Production release now defaults to no GitHub token permissions and declares contents:read/actions:read only on the candidate and promotion jobs that inspect release evidence. Both pinned Vercel CLI installs disable dependency lifecycle scripts. Both pinned Maestro download commands enforce HTTPS for initial and redirected URLs, retaining checksum verification. The application dependency install keeps pnpm's explicit allowBuilds policy for required native/build tooling.
+
+Verification: Vercel 59.16.0 installed in a temporary prefix with scripts disabled and returned its version successfully. Both changed workflows passed formatting and actionlint; all four release configuration, candidate-history and HTTPS readiness tests passed. A malformed YAML indentation from the initial edit was caught and corrected before commit. No production workflow was dispatched and no provider/deployment was changed.
+
+Latest issue inspection showed 19 open security findings: the password findings and proxy redirect/prototype findings were absent; the proxy SSRF finding and five CLI path findings were still open while run 34770383910 was in progress. These counts do not claim a completed scan of this workflow change. Next: hosted scan confirmation, remaining tooling findings, then core-table RLS and provider/device acceptance.
+
 ## CLI evidence-file containment — September 13
 
 Production/staging preflight and Stripe staging/transfer CLIs now read through a shared canonical working-directory boundary. Relative/absolute paths within the directory are supported; traversal, external symlinks, non-regular files and files over 1 MiB are rejected. Reads open the canonical target without following a replacement final symlink. CLI errors remain redacted. The transfer command now runs from the repository root instead of changing to its package directory. Setup docs describe this input contract.

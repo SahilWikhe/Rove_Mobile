@@ -34,9 +34,9 @@ Initial authenticated CLI review found 24 open security-impacting findings on ma
 | Area | Findings | Review state |
 | --- | ---: | --- |
 | Test PostgreSQL credentials | 3 | Fixed constants replaced with generated per-run credentials. The subsequent authenticated issue list confirms all three password findings cleared. |
-| Local realtime proxy | 3 | Forwarding now uses fixed loopback Host, origin-form paths and header allowlists; unexpected redirects are rejected. A local HTTP/WebSocket regression passed for malicious headers/paths and normal forwarding. Scanner confirmation remains pending; no manual dismissal. |
+| Local realtime proxy | 3 | Forwarding now uses fixed loopback Host, origin-form paths and header allowlists; unexpected redirects are rejected. A local HTTP/WebSocket regression passed for malicious headers/paths and normal forwarding. The next issue inspection no longer listed redirect/prototype findings; SSRF remained open. No manual dismissal. |
 | CLI evidence paths | 5 | Environment/evidence reads now enforce canonical containment in the working directory and reject external symlinks, non-regular files and inputs over 1 MiB. Three regression tests passed; scanner confirmation pending. These commands do not write input files. |
-| GitHub workflows | 5 | Job permission scope, lifecycle script policy and HTTPS download enforcement need review against build requirements. |
+| GitHub workflows | 5 | Job-scoped read permissions, script-disabled pinned Vercel installs and HTTPS-only Maestro downloads are implemented. Local CLI startup, actionlint and release tests passed; scanner confirmation pending. |
 | Development executable lookup | 6 | PATH resolution in six local tooling scripts needs trust-boundary review. |
 | Realtime retry jitter | 1 | Randomness is used for reconnect timing, not authentication; retain for explicit review. |
 | Android emulator address | 1 | The development host alias 10.0.2.2 needs environment-boundary confirmation. |

@@ -202,3 +202,7 @@ For native map acceptance, explicitly supply the existing platform map keys to t
 ## CLI input-file boundary
 
 Run production/staging preflight and Stripe staging/transfer checks from the repository root. Explicit environment and evidence files must be inside that working directory after symlinks are resolved; external paths, directories and files over 1 MiB are rejected. Keep credential inputs ignored by Git. These commands retain their existing redacted error output and do not load ambient credentials to fill missing settings. The transfer-check package script now retains the repository working directory.
+
+## Release workflow supply-chain controls
+
+Production release grants contents/actions read permission per job, with no workflow-level grant. Pinned Vercel CLI installs use --ignore-scripts; candidate dependencies retain the repository pnpm allowBuilds policy for required build packages. Native CI downloads the pinned Maestro archive with HTTPS-only initial/redirect protocols and verifies its SHA-256 before extraction. These controls do not bypass protected production approvals or release-evidence checks.

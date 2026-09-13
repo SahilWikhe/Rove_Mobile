@@ -24,9 +24,7 @@ on:
         default: false
         type: boolean
 
-permissions:
-  contents: read
-  actions: read
+permissions: {}
 
 concurrency:
   group: production-release
@@ -40,6 +38,9 @@ env:
 
 jobs:
   candidate:
+    permissions:
+      contents: read
+      actions: read
     if: github.ref == 'refs/heads/main'
     environment: production-candidate
     runs-on: ubuntu-24.04
@@ -80,7 +81,7 @@ jobs:
       - name: Install verified candidate dependencies
         run: pnpm --dir candidate install --frozen-lockfile
       - name: Install pinned deployment CLI
-        run: npm install --global vercel@59.16.0
+        run: npm install --global --ignore-scripts vercel@59.16.0
       - name: Pull and validate production configuration
         run: |
           vercel pull --cwd candidate --yes --environment=production --token="$VERCEL_TOKEN"
@@ -118,6 +119,9 @@ jobs:
         run: rm -rf candidate/.vercel
 
   promote:
+    permissions:
+      contents: read
+      actions: read
     needs: candidate
     if: inputs.promote && github.ref == 'refs/heads/main'
     environment: production-promotion
@@ -152,7 +156,7 @@ jobs:
         env:
           DEPLOYMENT_URL: ${{ needs.candidate.outputs.url }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-      - run: npm install --global vercel@59.16.0
+      - run: npm install --global --ignore-scripts vercel@59.16.0
       - name: Promote the candidate created by this run
         run: vercel promote "$DEPLOYMENT_URL" --scope "$VERCEL_ORG_ID" --yes --token="$VERCEL_TOKEN"
         env:
