@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { Pool } from 'pg';
+import { transaction } from './transactions';
 import { DomainError } from './errors';
 
 export const requestLimits = {
@@ -34,8 +35,13 @@ export class RequestLimiter {
       .digest('hex');
     let result;
     try {
-      result = await this.pool.query<{ count: number; retry_after: number }>(
-        `INSERT INTO rate_limit_buckets(key,count,expires_at)
+      result = await transaction(this.pool, async (client) => {
+        await client.query(
+          "SELECT set_config('rove.rate_key',$1,true),set_config('rove.rate_prune','false',true)",
+          [key],
+        );
+        return client.query<{ count: number; retry_after: number }>(
+          `INSERT INTO rate_limit_buckets(key,count,expires_at)
          VALUES ($1,1,statement_timestamp()+interval '60 seconds')
          ON CONFLICT(key) DO UPDATE SET
            count=CASE WHEN rate_limit_buckets.expires_at <= statement_timestamp() THEN 1
@@ -43,8 +49,9 @@ export class RequestLimiter {
            expires_at=CASE WHEN rate_limit_buckets.expires_at <= statement_timestamp()
              THEN statement_timestamp()+interval '60 seconds' ELSE rate_limit_buckets.expires_at END
          RETURNING count, GREATEST(1,CEIL(EXTRACT(EPOCH FROM expires_at-statement_timestamp())))::int AS retry_after`,
-        [key, requestLimits[policy]],
-      );
+          [key, requestLimits[policy]],
+        );
+      });
     } catch {
       // Do not turn a database outage into unrestricted billable provider calls.
       throw new DomainError('RATE_LIMIT_UNAVAILABLE', 'Please try again shortly.', 503);
@@ -55,10 +62,15 @@ export class RequestLimiter {
   }
   /** Maintenance only: bounded batches, safe alongside active traffic and other cleaners. */
   async prune(): Promise<number> {
-    const result = await this.pool.query(`DELETE FROM rate_limit_buckets WHERE key IN (
+    const result = await transaction(this.pool, async (client) => {
+      await client.query(
+        "SELECT set_config('rove.rate_key','',true),set_config('rove.rate_prune','true',true)",
+      );
+      return client.query(`DELETE FROM rate_limit_buckets WHERE key IN (
       SELECT key FROM rate_limit_buckets WHERE expires_at < statement_timestamp()-interval '1 day'
       ORDER BY expires_at LIMIT 1000 FOR UPDATE SKIP LOCKED
     )`);
+    });
     return result.rowCount ?? 0;
   }
 }

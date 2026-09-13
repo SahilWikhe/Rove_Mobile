@@ -52,3 +52,9 @@ Additional PostgreSQL tests verify concurrent background-upload enforcement, rot
 ## Verification-email recovery budget
 
 The separately authenticated `/auth/v1/verification-email` route consumes `verificationEmail` (one attempt per subject per 60 seconds) and `verificationEmailTenant` (30 attempts across subjects per 60 seconds) before invoking Auth0. Its JWT verifier permits unverified email only for recovery; signature, issuer, audience and expiry remain mandatory. Invalid bodies and disabled accounts do not call the provider. Provider failures retain their consumed counters to bound retries. These policies use the existing counter table and require no new migration. See [authentication recovery](46-auth-refresh-recovery.md).
+
+## Counter row isolation
+
+Migration 0060 enables and forces RLS on rate_limit_buckets. Each consume transaction binds the server-derived hashed key, permitting only that counter's read/insert/update. The atomic upsert, database clock and committed exhausted budget remain unchanged. Maintenance binds a separate scope restricted to counters expired more than one day; it can lock and delete them but cannot alter counts or remove active windows. Both scopes are transaction-local, and actor/worker contexts clear them.
+
+Restricted non-owner tests verify concurrency, foreign-counter denial, unscoped reads, maintenance retention and scope reset. Deploy the compatible scoped limiter code before applying migration 0060 to an existing environment. Hosted rollout remains pending; source tests do not establish production maintenance scheduling or edge protection.

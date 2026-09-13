@@ -190,6 +190,32 @@ export const rateLimitBuckets = pgTable(
     expiresAt: timestamp({ withTimezone: true }).notNull(),
   },
   (t) => [
+    pgPolicy('request_limit_read', {
+      for: 'select',
+      using: sql`${t.key}=current_setting('rove.rate_key',true)`,
+    }),
+    pgPolicy('request_limit_insert', {
+      for: 'insert',
+      withCheck: sql`${t.key}=current_setting('rove.rate_key',true)`,
+    }),
+    pgPolicy('request_limit_update', {
+      for: 'update',
+      using: sql`${t.key}=current_setting('rove.rate_key',true)`,
+      withCheck: sql`${t.key}=current_setting('rove.rate_key',true)`,
+    }),
+    pgPolicy('request_limit_prune_read', {
+      for: 'select',
+      using: sql`current_setting('rove.rate_prune',true)='true' AND ${t.expiresAt}<statement_timestamp()-interval '1 day'`,
+    }),
+    pgPolicy('request_limit_prune_lock', {
+      for: 'update',
+      using: sql`current_setting('rove.rate_prune',true)='true' AND ${t.expiresAt}<statement_timestamp()-interval '1 day'`,
+      withCheck: sql`false`,
+    }),
+    pgPolicy('request_limit_prune_delete', {
+      for: 'delete',
+      using: sql`current_setting('rove.rate_prune',true)='true' AND ${t.expiresAt}<statement_timestamp()-interval '1 day'`,
+    }),
     index('rate_limit_expiry').on(t.expiresAt),
     check('rate_limit_positive_count', sql`${t.count} > 0`),
     check('rate_limit_digest_key', sql`${t.key} ~ '^[a-f0-9]{64}$'`),

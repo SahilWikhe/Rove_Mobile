@@ -421,6 +421,13 @@
       "when": 1789291358949,
       "tag": "0059_document_write_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1789291961956,
+      "tag": "0060_request_limit_rls",
+      "breakpoints": true
     }
   ]
 }

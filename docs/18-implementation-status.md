@@ -1,5 +1,13 @@
 # Implementation status
 
+## Request-counter RLS — September 13
+
+Migration 0060 enables and forces rate_limit_buckets RLS. RequestLimiter now binds an exact hashed key inside a transaction around its atomic counter upsert. A separate maintenance scope permits only long-expired rows to be read, locked and deleted. Request scope has no deletion policy; maintenance cannot mutate counter values or access active windows. Actor and background-worker contexts clear limiter scope. Existing window budgets, committed rejected-request counts and fail-closed storage errors remain unchanged.
+
+Verification: all 689 server tests, 208 API tests and 13 database tests passed (910 total), plus server/database typechecks, targeted lint, formatting and docs validation. Restricted-role tests prove shared concurrent limits, foreign/unscoped counter denial, expiry reset, active-window preservation and pooled scope reset. No external provider operation was invoked.
+
+Source coverage is eighteen of 47 tables; hosted evidence remains seventeen tables through 0059. Provider staging and production are unchanged. Next: remaining worker/core data policies and hosted verification, then compatible API/worker deployment before the reviewed staging migration delta. Full production acceptance remains incomplete.
+
 ## Seventeen-table hosted RLS rehearsal — September 13
 
 Applied migrations through 0059 only to the existing isolated synthetic Neon branch br-shy-bar-axjulxqh. Live catalog inspection confirms 60 migration entries and seventeen of 47 public tables with RLS enabled and forced. The branch remains non-primary/non-default with its September 14 expiry. Provider staging was freshly checked read-only: 31 migrations, 32 tables, zero enabled/forced RLS tables. Production was not changed.
