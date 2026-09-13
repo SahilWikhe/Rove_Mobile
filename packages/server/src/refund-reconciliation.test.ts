@@ -1,3 +1,4 @@
+import { bindRefundScope } from './refund-scope';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
@@ -288,4 +289,31 @@ test('refund accounting and verified observations commit together and retry afte
   expect(
     (await database.pool.query("SELECT * FROM ledger_journals WHERE kind='refund_balance'")).rowCount,
   ).toBe(1);
+});
+
+test('refund evidence read scope can lock but not mutate and history stays append-only', async () => {
+  await reconcile.reconcile(reference.intentId!);
+  for (const table of ['payment_refund_checks', 'payment_refund_observations'])
+    expect((await runtimePool.query('SELECT * FROM ' + table)).rowCount).toBe(0);
+  await transaction(runtimePool, async (c) => {
+    await bindRefundScope(c, source, 'read', reference.attemptId);
+    expect((await c.query('SELECT * FROM payment_refund_checks FOR SHARE')).rowCount).toBe(1);
+    expect((await c.query('SELECT * FROM payment_refund_observations')).rowCount).toBe(1);
+    expect((await c.query('DELETE FROM payment_refund_checks')).rowCount).toBe(0);
+    expect((await c.query('DELETE FROM payment_refund_observations')).rowCount).toBe(0);
+  });
+  await expect(
+    transaction(runtimePool, async (c) => {
+      await bindRefundScope(c, source, 'read', reference.attemptId);
+      await c.query('UPDATE payment_refund_checks SET received_cents=0');
+    }),
+  ).rejects.toMatchObject({ code: '42501' });
+  await transaction(runtimePool, async (c) => {
+    await bindRefundScope(c, source, 'write', reference.attemptId);
+    expect((await c.query('UPDATE payment_refund_observations SET received_cents=0')).rowCount).toBe(0);
+    await bindRefundScope(c, 'acct_foreign:test', 'write', reference.attemptId);
+    expect((await c.query('SELECT * FROM payment_refund_checks')).rowCount).toBe(0);
+    expect((await c.query('SELECT * FROM payment_refund_observations')).rowCount).toBe(0);
+  });
+  expect((await runtimePool.query('SELECT * FROM payment_refund_checks')).rowCount).toBe(0);
 });

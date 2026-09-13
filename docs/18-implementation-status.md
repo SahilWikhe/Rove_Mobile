@@ -1,5 +1,13 @@
 # Implementation status
 
+## Refund evidence RLS — September 13
+
+Migration 0067 enables and forces RLS on payment_refund_checks and payment_refund_observations. Reconciliation writes bind one persisted attempt and configured source. Sweep discovery is source-scoped, with exact attempt scope before each write. Refund authorization/recovery, transfer eligibility and loss-allocation freshness checks retain evidence locks using read-only scope. Observation history has no runtime update/delete policy; check deletion is denied. Actor and other worker contexts clear refund scopes.
+
+Verification: all 702 server, 208 API and 13 database tests passed (923 total), plus server/database typechecks, targeted lint, formatting and diff checks. Restricted-role tests cover read locks with denied mutations, immutable history, foreign-source denial, pooled scope reset and existing refund/transfer/loss workflows. An initial duplicate test import prevented that suite from loading; it was removed and the full suites reran successfully. No real provider operation occurred.
+
+Source coverage is twenty-six of 47 tables; twenty-one remain. Hosted evidence remains twenty-four through 0066. Provider staging and production were not changed. Next: remaining financial, identity/trip and worker policies, extended isolated hosted verification, and compatible provider-staging rollout. Full mobile physical-device and production acceptance remain incomplete.
+
 ## Twenty-four-table hosted RLS verification — September 13
 
 Applied migrations through 0066 only to the confirmed non-primary/non-default synthetic Neon rehearsal branch br-shy-bar-axjulxqh. Fresh catalog inspection confirms 67 migrations, 47 tables and twenty-four tables with RLS enabled and forced. Provider staging was separately checked read-only and remains at 31 migrations, 32 tables and zero enabled/forced RLS tables. Production was not changed.

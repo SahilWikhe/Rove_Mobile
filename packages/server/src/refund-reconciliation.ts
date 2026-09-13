@@ -1,3 +1,4 @@
+import { bindRefundScope } from './refund-scope';
 import { bindPaymentCustomerRead } from './payment-customer-scope';
 import { z } from 'zod';
 import { RefundBalances, recordRefundBalances } from './refund-accounting';
@@ -63,18 +64,20 @@ export class RefundReconciler {
     });
     if (!row)
       throw new DomainError('PAYMENT_REFERENCE_PENDING', 'Payment reference is not available yet.', 503);
-    await this.pool.query(
-      'INSERT INTO payment_refund_checks(attempt_id) VALUES ($1) ON CONFLICT DO NOTHING',
-      [row.id],
-    );
-    const before = (
-      await this.pool.query<{
-        revision: number;
-        refunds: unknown;
-        received_cents: number;
-        verified_at: Date | null;
-      }>('SELECT * FROM payment_refund_checks WHERE attempt_id=$1', [row.id])
-    ).rows[0]!;
+    const before = await transaction(this.pool, async (client) => {
+      await bindRefundScope(client, this.source, 'write', row.id);
+      await client.query('INSERT INTO payment_refund_checks(attempt_id) VALUES ($1) ON CONFLICT DO NOTHING', [
+        row.id,
+      ]);
+      return (
+        await client.query<{
+          revision: number;
+          refunds: unknown;
+          received_cents: number;
+          verified_at: Date | null;
+        }>('SELECT * FROM payment_refund_checks WHERE attempt_id=$1', [row.id])
+      ).rows[0]!;
+    });
     const reference: PaymentReference = {
       intentId,
       attemptId: row.id,
@@ -164,6 +167,7 @@ export class RefundReconciler {
         [row.id, this.source, intentId, row.customer_binding_id, row.customer_id, row.amount_cents],
       );
       if (valid.rowCount !== 1) throw mismatch();
+      await bindRefundScope(client, this.source, 'write', row.id);
       if (this.accountingEnabled)
         await recordRefundBalances(client, {
           source: this.source,
@@ -186,6 +190,7 @@ export class RefundReconciler {
   }
   async sweep() {
     return transaction(this.pool, async (client) => {
+      await bindRefundScope(client, this.source, 'sweep');
       const candidates = await client.query<{ id: string; intent_id: string }>(
         `SELECT p.id,p.intent_id FROM payment_attempts p
        JOIN rides r ON r.id=p.ride_id LEFT JOIN payment_refund_checks c ON c.attempt_id=p.id
@@ -195,6 +200,7 @@ export class RefundReconciler {
       );
       let inserted = 0;
       for (const row of candidates.rows) {
+        await bindRefundScope(client, this.source, 'write', row.id);
         await client.query(
           'INSERT INTO payment_refund_checks(attempt_id,requested_at) VALUES ($1,$2) ON CONFLICT(attempt_id) DO UPDATE SET requested_at=EXCLUDED.requested_at',
           [row.id, this.now()],

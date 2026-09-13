@@ -1,3 +1,4 @@
+import { bindRefundScope } from './refund-scope';
 import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { PaymentLossAuthorization, PaymentLossReview } from '@rove/contracts';
@@ -60,6 +61,7 @@ export class PaymentLosses {
     ).rows;
   }
   private async fresh(c: PoolClient, p: Payment) {
+    await bindRefundScope(c, this.source, 'read', p.id);
     const row = (
       await c.query(
         `SELECT f.verified_at AS refunds,d.verified_at AS disputes FROM payment_refund_checks f

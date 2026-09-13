@@ -1,3 +1,4 @@
+import { bindRefundScope } from './refund-scope';
 import { bindPaymentCustomerRead } from './payment-customer-scope';
 import { z } from 'zod';
 import { RefundAuthorization, RefundOperation } from '@rove/contracts';
@@ -54,6 +55,7 @@ export class RefundOperations {
     };
   }
   private async available(client: PoolClient, reference: PaymentReference, exclude?: string) {
+    await bindRefundScope(client, this.source, 'read', reference.attemptId);
     await this.disputes?.assertRefundable(client, reference.attemptId);
     if (
       (
@@ -178,6 +180,7 @@ export class RefundOperations {
       if (!op) throw unavailable();
       if (op.provider_refund_id) return true;
       if (!op.first_attempt_at) return false;
+      await bindRefundScope(client, this.source, 'read', reference.attemptId);
       const check = (
         await client.query('SELECT * FROM payment_refund_checks WHERE attempt_id=$1 FOR SHARE', [
           reference.attemptId,

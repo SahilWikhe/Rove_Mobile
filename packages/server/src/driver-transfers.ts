@@ -1,3 +1,4 @@
+import { bindRefundScope } from './refund-scope';
 import { bindPaymentCustomerRead } from './payment-customer-scope';
 import type { CaptureFees } from './capture-fees';
 import { createHash, randomUUID } from 'node:crypto';
@@ -161,6 +162,7 @@ export class DriverTransfers {
       throw review();
     await this.captureFees.assertReady(c, p.attemptId, p.amountCents);
     await this.disputes.assertRefundable(c, p.attemptId);
+    await bindRefundScope(c, this.source, 'read', p.attemptId);
     const f = (
       await c.query('SELECT * FROM payment_refund_checks WHERE attempt_id=$1 FOR SHARE', [p.attemptId])
     ).rows[0];

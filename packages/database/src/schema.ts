@@ -988,6 +988,12 @@ export const tripMessageReports = pgTable(
 );
 
 // Provider observations only; financial postings and refund approval are separate operations.
+const refundSource = (attempt: SQLWrapper) =>
+  sql`EXISTS(SELECT 1 FROM public.payment_attempts p WHERE p.id=${attempt} AND p.source=current_setting('rove.refund_source',true))`;
+const refundWrite = (attempt: SQLWrapper) =>
+  sql`${refundSource(attempt)} AND ${attempt}=NULLIF(current_setting('rove.refund_write',true),'')::uuid`;
+const refundRead = (attempt: SQLWrapper) =>
+  sql`${refundSource(attempt)} AND (${attempt}=NULLIF(current_setting('rove.refund_read',true),'')::uuid OR ${attempt}=NULLIF(current_setting('rove.refund_write',true),'')::uuid)`;
 export const paymentRefundChecks = pgTable(
   'payment_refund_checks',
   {
@@ -1001,6 +1007,21 @@ export const paymentRefundChecks = pgTable(
     requestedAt: timestamp({ withTimezone: true }),
   },
   (t) => [
+    pgPolicy('refund_check_read', {
+      for: 'select',
+      using: sql`${refundRead(t.attemptId)} OR (${refundSource(t.attemptId)} AND current_setting('rove.refund_sweep',true)='true')`,
+    }),
+    pgPolicy('refund_check_insert', { for: 'insert', withCheck: refundWrite(t.attemptId) }),
+    pgPolicy('refund_check_update', {
+      for: 'update',
+      using: refundWrite(t.attemptId),
+      withCheck: refundWrite(t.attemptId),
+    }),
+    pgPolicy('refund_check_read_lock', {
+      for: 'update',
+      using: refundRead(t.attemptId),
+      withCheck: sql`false`,
+    }),
     check('refund_check_revision', sql`${t.revision} >= 0`),
     check('refund_check_array', sql`jsonb_typeof(${t.refunds}) = 'array'`),
     check('refund_check_amount', sql`${t.receivedCents} >= 0 AND ${t.receivedCents} <= 99999999`),
@@ -1019,6 +1040,8 @@ export const paymentRefundObservations = pgTable(
     verifiedAt: timestamp({ withTimezone: true }).notNull(),
   },
   (t) => [
+    pgPolicy('refund_observation_read', { for: 'select', using: refundRead(t.attemptId) }),
+    pgPolicy('refund_observation_insert', { for: 'insert', withCheck: refundWrite(t.attemptId) }),
     uniqueIndex('refund_observation_revision').on(t.attemptId, t.revision),
     check('refund_observation_positive_revision', sql`${t.revision} > 0`),
     check('refund_observation_array', sql`jsonb_typeof(${t.refunds}) = 'array'`),

@@ -1,3 +1,4 @@
+import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { testDatabase } from '@rove/database/testing';
@@ -8,12 +9,30 @@ import type { Actor } from './rides';
 let staff: Actor;
 let service: PaymentLosses;
 const now = new Date('2026-09-12T20:00:00Z');
+let runtimePool: Pool;
 let database: Awaited<ReturnType<typeof testDatabase>>;
 let input: Parameters<typeof recordCapturedFunds>[1];
 beforeAll(async () => {
   database = await testDatabase();
+  await database.pool.query(
+    "CREATE ROLE rls_loss_reader LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'synthetic-local-only'",
+  );
+  await database.pool.query('GRANT USAGE ON SCHEMA public TO rls_loss_reader');
+  await database.pool.query(
+    'GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_loss_reader',
+  );
+  await database.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_loss_reader');
+  runtimePool = new Pool({
+    host: '127.0.0.1',
+    port: (await database.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
+    database: 'postgres',
+    user: 'rls_loss_reader',
+    password: 'synthetic-local-only',
+    max: 5,
+  });
 }, 60000);
 afterAll(async () => {
+  await runtimePool?.end();
   await database?.close();
 });
 beforeEach(async () => {
@@ -66,7 +85,7 @@ beforeEach(async () => {
     attempt,
     now,
   ]);
-  service = new PaymentLosses(database.pool, 'acct_fixture:test', () => now);
+  service = new PaymentLosses(runtimePool, 'acct_fixture:test', () => now);
   input = {
     attemptId: attempt,
     rideId: ride,
@@ -251,7 +270,7 @@ test('MFA, explicit permission, source ownership and replay authorization remain
     code: 'FORBIDDEN',
   });
   await expect(
-    new PaymentLosses(database.pool, 'acct_other:test', () => now).allocate(
+    new PaymentLosses(runtimePool, 'acct_other:test', () => now).allocate(
       staff,
       input.rideId,
       allocation(),
