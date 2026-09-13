@@ -6,7 +6,10 @@ import { Button, Copy, Screen } from '@rove/mobile-ui';
 import { SupportForm } from '@rove/mobile-ui/support-form';
 export default function AccountDeletion() {
   const { profile, api, ready } = useSession();
-  const list = useCallback(() => api.supportRequests(), [api]);
+  const list = useCallback(async () => {
+    const [support, deletion] = await Promise.all([api.supportRequests(), api.accountDeletionStatus()]);
+    return { ...support, deletionRequest: deletion.request };
+  }, [api]);
   return (
     <>
       <Stack.Screen options={{ title: 'Account deletion' }} />

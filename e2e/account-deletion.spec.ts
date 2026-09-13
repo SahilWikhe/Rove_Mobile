@@ -27,6 +27,17 @@ for (const [role, port] of [
     await page.getByRole('button', { name: 'Request account deletion', exact: true }).click();
     await expect(page.getByText(/Your account remains active while the request is reviewed/)).toBeVisible();
     expect(keys).toHaveLength(0);
+    await page.route('**/v1/account-deletion', (route) =>
+      route.fulfill({
+        status: 503,
+        json: { error: { code: 'UNAVAILABLE', message: 'Deletion status temporarily unavailable.' } },
+      }),
+    );
+    await page.getByRole('button', { name: 'Load / refresh my requests', exact: true }).click();
+    await expect(page.getByText('Deletion status temporarily unavailable.', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Send deletion request', exact: true })).toHaveCount(0);
+    await page.unroute('**/v1/account-deletion');
+    await page.getByRole('button', { name: 'Load / refresh my requests', exact: true }).click();
     const send = page.getByRole('button', { name: 'Send deletion request', exact: true });
     await send.click();
     await expect(
@@ -80,11 +91,21 @@ for (const [role, port] of [
     );
     await page.getByRole('link', { name: 'Go back', exact: true }).click();
     await page.getByRole('button', { name: 'Request account deletion', exact: true }).click();
-    await expect(page.getByText('Deletion request received', { exact: true })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Send deletion request', exact: true })).toBeEnabled();
+    await expect(page.getByText('Deletion request received', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Send deletion request', exact: true })).toHaveCount(0);
     await expect(
       page.getByText('Please contact support about the remaining account steps.', { exact: true }),
     ).toBeVisible();
+    await page.route('**/v1/account-deletion', (route) =>
+      route.fulfill({
+        status: 503,
+        json: { error: { code: 'UNAVAILABLE', message: 'Deletion status temporarily unavailable.' } },
+      }),
+    );
+    await page.getByRole('link', { name: 'Go back', exact: true }).click();
+    await page.getByRole('button', { name: 'Request account deletion', exact: true }).click();
+    await expect(page.getByText('Deletion status temporarily unavailable.', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Send deletion request', exact: true })).toHaveCount(0);
   });
 }
 

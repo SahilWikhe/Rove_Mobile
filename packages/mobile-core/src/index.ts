@@ -1,3 +1,4 @@
+import { AccountDeletionStatus } from '@rove/contracts';
 import { BankPayoutHistory } from '@rove/contracts';
 import { MessageRealtime } from './message-realtime';
 import {
@@ -153,6 +154,9 @@ export class ApiClient {
       body: DriverDocumentUploadCompletion.parse({ key }),
       ...(signal ? { signal } : {}),
     });
+  }
+  accountDeletionStatus() {
+    return this.request('/v1/account-deletion', AccountDeletionStatus);
   }
   supportRequests() {
     return this.request('/v1/support-requests', SupportRequests);

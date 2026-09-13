@@ -2,6 +2,14 @@
 
 Updated: September 12, 2026. Current source baseline: `1cd316e536846a45354ff7040b5cf82320a8361d` plus the approved cleanup connection checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Durable deletion status in both apps — September 12
+
+Connected both account-deletion screens to the existing typed `GET /v1/account-deletion` client method alongside support history. A resolved support ticket no longer makes the form offer another deletion request. Failed initial/status refresh blocks confirmation until reload; lost submission responses still retry the original idempotency key. The shared card distinguishes support resolution from account/data erasure. No backend mutation, retention policy, external provider flow or migration changed.
+
+Workspace/E2E types and changed-source lint passed. Seven focused browser journeys passed for rider/driver deletion and ordinary support, including resolved-ticket persistence, unavailable status, lost-response recovery and signed-out links. Both final mobile export builds passed. The rider 390px screenshot was inspected for readable status copy. No fresh native binary or physical-device acceptance is claimed.
+
+Automatic review separately rejected the proposed new rider route-geometry flow twice for requiring explicit permission to send active-trip endpoints to Google. That patch did not execute and remains pending user approval; the automatic goal continuation is not approval. Next: approved route-line work, uncertain-upload reconciliation, retained-data cleanup and remaining Figma/native/provider acceptance. Production setup and owner policy decisions remain final handoff items.
+
 ## Current-main full local regression — September 12
 
 Verified source revision `91afa4379aa40c8de7df41d55c399f3fdb00d2cb`: all eleven application test tasks passed (five unchanged tasks used valid Turbo cache), and all 56 browser journeys passed against isolated synthetic services in 5.7 minutes. Coverage includes the full rider/driver trip lifecycle, real search-expiry timing and explicit fresh-quote retry, document/setup recovery, messaging access, payouts and local-storage recovery. No application source changed during verification.

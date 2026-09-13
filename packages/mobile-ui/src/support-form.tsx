@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { Banner, Button, Card, Copy, Field, Screen } from './index';
+type DeletionRequest = { id: string; supportRequestId: string };
 type Category = 'account' | 'vehicle' | 'trip' | 'payment' | 'other';
 type Request = {
   id: string;
@@ -22,7 +23,10 @@ export function SupportForm({
   accountDeletion = false,
   initialDraft,
 }: {
-  list: () => Promise<{ requests: Request[] }>;
+  list: () => Promise<{
+    requests: Request[];
+    deletionRequest?: DeletionRequest | null;
+  }>;
   submit: (
     input: { category: Category; message: string; deletionConsent?: 'account-deletion-v1' },
     key: string,
@@ -38,13 +42,8 @@ export function SupportForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<string | null>(null);
-  const openDeletion = accountDeletion
-    ? requests.find(
-        (request) =>
-          request.category === 'account' && request.status === 'open' && request.message === deletionMessage,
-      )
-    : undefined;
-  const deletionReceived = accountDeletion && Boolean(receipt || openDeletion);
+  const [deletionRequest, setDeletionRequest] = useState<DeletionRequest | null>(null);
+  const deletionReceived = accountDeletion && Boolean(receipt || deletionRequest);
   const mounted = useRef(true),
     running = useRef(false);
   const attempt = useRef<{ category: Category; message: string; key: string } | null>(null);
@@ -62,6 +61,7 @@ export function SupportForm({
       .then((result) => {
         if (current) {
           setRequests(result.requests);
+          setDeletionRequest(result.deletionRequest ?? null);
           setLoaded(true);
         }
       })
@@ -104,9 +104,11 @@ export function SupportForm({
       const result = await list();
       if (mounted.current) {
         setRequests(result.requests);
+        setDeletionRequest(result.deletionRequest ?? null);
         setLoaded(true);
       }
     } catch (failure) {
+      if (mounted.current && accountDeletion && !send) setLoaded(false);
       if (mounted.current)
         setError(
           failure instanceof Error
@@ -177,9 +179,10 @@ export function SupportForm({
             deletionReceived ? (
               <Card>
                 <Copy>
-                  Your request is saved. Check Recent requests below for its status and any support response.
+                  Your deletion request is saved. A resolved support conversation does not mean your account
+                  or retained records have been deleted.
                 </Copy>
-                <Copy kind="muted">Reference: {receipt ?? openDeletion?.id}</Copy>
+                <Copy kind="muted">Reference: {deletionRequest?.supportRequestId ?? receipt}</Copy>
               </Card>
             ) : (
               <Copy>{deletionMessage}</Copy>
