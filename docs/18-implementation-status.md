@@ -2,6 +2,14 @@
 
 Updated: September 12, 2026. Current source baseline: `1cd316e536846a45354ff7040b5cf82320a8361d` plus the approved cleanup connection checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Current-main full local regression — September 12
+
+Verified source revision `91afa4379aa40c8de7df41d55c399f3fdb00d2cb`: all eleven application test tasks passed (five unchanged tasks used valid Turbo cache), and all 56 browser journeys passed against isolated synthetic services in 5.7 minutes. Coverage includes the full rider/driver trip lifecycle, real search-expiry timing and explicit fresh-quote retry, document/setup recovery, messaging access, payouts and local-storage recovery. No application source changed during verification.
+
+At the last hosted read, run 34726005360 was still building both iOS debug binaries; current-source run 34727291502 was pending behind it. Superseded pending runs for `fa128c9` and `6bc9e70` were cancelled. This does not establish hosted success for the six-minute native runner adjustment. Local browser tests do not verify native maps/navigation, physical locked-phone GPS, real payment/provider credentials or production readiness.
+
+Next implementation gaps remain rider route-line geometry (the shared Google route response currently returns distance/duration only), remaining Figma/native acceptance, verified uncertain-upload reconciliation and retained-data/backup cleanup. The full objective remains incomplete; production and owner policy decisions remain final setup items.
+
 ## Audited upload-blocker inspection — September 12
 
 Added shared `DocumentUploadInspection` and staff `GET /v1/staff/documents/:id/upload-inspection`, with MFA/current `privacy.read`, transactional audit and document-scoped cursor pagination. The view reports reservation expiry/activity, account-access closure and unresolved write keys/timestamps without document contents or provider calls. It does not settle ambiguous writes, override barriers or claim full quiescence; it shares the cleanup feature's default-off availability.
