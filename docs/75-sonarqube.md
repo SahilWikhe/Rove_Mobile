@@ -50,3 +50,5 @@ The authenticated issue inventory listed three open maintainability Blockers: tw
 ## Coverage provider boundaries
 
 Node’s tooling coverage is restricted to .mjs files. Vitest remains responsible for TypeScript application/backend coverage. The prior Node report also included 104 TypeScript files and overlapped the Vitest statement mapping, causing Sonar to count type/signature and multiline-expression lines as uncovered. The corrected tooling command passed all 70 tests and retains realtime proxy coverage. No quality threshold or source-analysis scope was reduced; confirmation awaits the next scan.
+
+Coverage fix confirmed: [run 34772127493](https://github.com/SahilWikhe/Rove_Mobile/actions/runs/34772127493) passed on 1b6c606. All six gate conditions pass; new coverage is 89.2% against the unchanged 80% threshold, duplication 0%, hotspot review 100%, and reliability/security/maintainability ratings A.

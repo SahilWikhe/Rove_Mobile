@@ -1,5 +1,13 @@
 # Implementation status
 
+## Hosted quote verification and coverage gate passed — September 13
+
+Migration 0077 was applied only to the reverified disposable br-shy-bar-axjulxqh / neondb branch. Live catalog confirms 78 migrations and 39 tables with RLS enabled and forced. Through pooled rove_staging_app (NOSUPERUSER/NOBYPASSRLS), synthetic quote creation, route preview, foreign-preview denial, ride request/quote locking, exact-ride access, immutable snapshot checks, unscoped/foreign insert denial and disabled-owner denial passed. Initial fixtures used unsupported place fields and then omitted required area; after correcting the synthetic fixture to the strict shared contract, the check exited successfully. No real maps, payment or other provider operation occurred.
+
+Sonar coverage-fix run 34772127493 completed successfully on 1b6c606. All quality-gate conditions pass, with new coverage 89.2% against the unchanged 80% threshold, duplication 0%, hotspot review 100%, and security/reliability/maintainability ratings A.
+
+Next: remaining eight core tables (users, drivers, rides, offers, payment_attempts, ledger_journals, ledger_postings, outbox), compatible provider-staging rollout, and device/provider acceptance. Provider staging and production remain unchanged; overall production readiness is incomplete.
+
 ## Quote RLS implemented locally — September 13
 
 Migration 0077 enables/forces RLS on quotes. Active rider owners can create and read their quotes; quote row locks remain available for booking while mutation/deletion is denied. Matching and authorized offer acceptance bind the exact associated ride for backend quote reads. Quote creation/preview now use transactions, and actor/worker identity resets clear quote scopes. Service authorization remains required; backend-controlled scope is not an arbitrary-SQL compromise defense.
