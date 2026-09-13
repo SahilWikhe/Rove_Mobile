@@ -29,6 +29,14 @@ Three payment.updated jobs became dead letters because runtime had no consumer f
 
 This correction has local PostgreSQL/runtime regression evidence. It does not enable push in staging or establish APNs/FCM display. See [push notification behavior](59-push-notifications.md#payment-update-delivery).
 
+## Authenticated cancellation and hold release
+
+A separate persisted synthetic $2 fixture was placed directly in matched state, then authorized using the existing test instrument and restricted runtime reconciliation. This deliberately bypasses booking, driver matching and Maps lookup. The dedicated rider called the hosted transitions endpoint to cancel, then repeated the same request body and idempotency key. Both returned 200 and the same cancelled ride response. The hosted ride.cancelled and payment.release jobs each completed once with no dead letters.
+
+Stripe readback showed canceled with zero received and zero capturable cents; the local ride recorded released. Repeating the release handler twice through the restricted runtime retained that result. No ledger journal or matching job existed for this fixture. The terminal cancelled fixture and original provider identifiers remain private for safe inspection; no production or live-mode operation occurred.
+
+The first reconciliation encountered the expected concurrent-webhook revision conflict and resumed the same persisted attempt. An evidence query initially referenced a nonexistent outbox status column; it was corrected to completed_at/dead_letter_at. A later HTTP retry returned 401 after the test token expired; dedicated Universal Login/PKCE was refreshed and the complete same-fixture check then exited successfully. None of these retries created a replacement payment. Native cancellation controls, process-death recovery and the complete booking journey still need separate acceptance.
+
 ## Remaining acceptance and setup
 
 - The staging key's Accounts v2 list request returned HTTP 403/forbidden. Connect onboarding and driver transfers remain disabled. Review the sandbox key's Accounts v2 access before provisioning a dedicated recipient; this check does not establish account creation, account-link creation or recipient capability readiness.

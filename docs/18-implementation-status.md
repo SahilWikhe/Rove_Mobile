@@ -1,5 +1,11 @@
 # Implementation status
 
+## Hosted rider cancellation releases sandbox authorization — September 13
+
+Verified a separate persisted $2 synthetic matched ride with the dedicated Auth0 rider/driver identities, expected Stripe sandbox and provider-staging restricted runtime. The rider cancelled through the hosted transitions API and repeated the original key/body; both returned the same cancelled response. Hosted ride.cancelled and payment.release jobs each completed once without dead letters. Provider readback was canceled with zero received/capturable cents and local payment state released. Two explicit release-handler retries preserved the result. No ledger journals or matching jobs were created; the terminal fixture and original keys are retained privately. No production, Maps, live money or driver transfer operations.
+
+Verification resumed the same attempt after a concurrent webhook revision conflict. Corrected a harness-only outbox status-column error and refreshed expired dedicated Auth0 tokens after a 401; the final complete check exited 0. This covers hosted authenticated cancellation/worker release, not native UI or full booking. Documentation and diff checks run before the authorized push. Next: native payment/decline/3DS acceptance, current CI and remaining device/provider/recovery work. Production remains incomplete; remote confirmation follows separately.
+
 ## Rider iOS outer job timeout identified — September 13
 
 GitHub job 103799754713 in run 34785366398 is terminal cancelled. Its annotation states that the maximum one-hour execution time was exceeded. Both rider Debug/Release builds and bundled-JavaScript verification passed. Setup/builds consumed approximately 53 minutes and simulator preparation another four; the logs show Maestro starting at 22:55:23 UTC and external cancellation at 22:58:33, before its existing four-minute startup allowance expired. Driver iOS and both Android jobs passed. This is not rider UI acceptance or a current-main green run.
