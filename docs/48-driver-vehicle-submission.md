@@ -45,3 +45,7 @@ See [driver document upload and review](65-driver-documents.md) for the implemen
 ## Database row isolation
 
 Migration 0050 enables/forces RLS on submissions and immutable history, with driver ownership and explicit staff permission policies. The service now verifies the current active actor inside its database transaction, including reads. An unknown or disabled account is rejected. Pending-only driver write policies prevent self-approval; immutable history has no runtime update/delete policy. Local tests run the actual migrations under a restricted non-owner role. Hosted rollout remains pending; see [Neon staging](60-neon-staging.md).
+
+## Hosted rehearsal update — September 13
+
+The implemented RLS policies through migration 0054 passed the isolated synthetic Neon rehearsal using the restricted pooled application role. This supersedes earlier statements in this document that hosted rehearsal was pending. Provider staging remains unchanged with no enabled RLS tables; production rollout is not authorized or verified. See [current hosted RLS evidence](60-neon-staging.md#latest-rls-verification) for scope and remaining work.

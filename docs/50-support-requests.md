@@ -63,3 +63,7 @@ The complete synthetic booking journey verifies the driver's persisted Trip requ
 Migration 0051 enables/forces support_requests RLS. Consumers can read owned tickets and insert open requests with no response or resolution fields. They cannot update or delete tickets. MFA staff with current support.read or privacy.read can read; resolution requires both support.read and support.resolve, and must name the current staff resolver. Consumer and staff operations bind transaction-local identity. The normal service still enforces response validation, immutable consumer input, audit, request limits and idempotent transitions.
 
 Restricted-role tests verify those boundaries and legitimate support, messaging-report and deletion-inventory workflows. Hosted rollout is pending; see [Neon staging](60-neon-staging.md). Policies provide row access control, not field redaction or permission to expose private support text through unrelated API responses.
+
+## Hosted rehearsal update — September 13
+
+The implemented RLS policies through migration 0054 passed the isolated synthetic Neon rehearsal using the restricted pooled application role. This supersedes earlier statements in this document that hosted rehearsal was pending. Provider staging remains unchanged with no enabled RLS tables; production rollout is not authorized or verified. See [current hosted RLS evidence](60-neon-staging.md#latest-rls-verification) for scope and remaining work.

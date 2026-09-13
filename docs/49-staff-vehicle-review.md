@@ -51,3 +51,7 @@ See [driver document upload and review](65-driver-documents.md) for the implemen
 ## Database row isolation
 
 Migration 0050 protects review decisions and the submission/history rows they reference. Current vehicle-review permission and verified MFA are required by staff policies; inserted decisions must identify the current reviewer. Review and eligibility transactions bind actor identity, and eligibility permission grants only current-submission reads. Decisions and submitted history have no runtime update/delete policies. Driver API projections still hide private review notes. Restricted-role tests cover legitimate review/retry, missing MFA, revoked permission and immutable records; hosted rollout remains pending.
+
+## Hosted rehearsal update — September 13
+
+The implemented RLS policies through migration 0054 passed the isolated synthetic Neon rehearsal using the restricted pooled application role. This supersedes earlier statements in this document that hosted rehearsal was pending. Provider staging remains unchanged with no enabled RLS tables; production rollout is not authorized or verified. See [current hosted RLS evidence](60-neon-staging.md#latest-rls-verification) for scope and remaining work.

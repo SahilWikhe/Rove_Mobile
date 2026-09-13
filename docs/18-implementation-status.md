@@ -1,5 +1,13 @@
 # Implementation status
 
+## Eleven-table hosted RLS rehearsal — September 13
+
+Applied the committed migration delta through 0054 to the existing isolated synthetic Neon rehearsal branch. Live catalog verification returned 55 migrations, 47 tables, and eleven tables with both RLS enabled and forced. The branch remains non-primary/non-default and expires September 14. No production or provider-staging migration was performed.
+
+Hosted synthetic checks passed through the pooled non-owner rove_staging_app role: saved-place isolation/foreign insert rejection, vehicle submission/self-approval denial/staff review, message assignment/retry, notification suppression after reading, pooled identity reset, support-backed consent, staff inventory, account closure, blocked reactivation, hidden-hold enforcement, explicit hold release and reviewed expired-message deletion/replay. No push delivery, external identity removal or payment provider was invoked. The complete local server suite also passed: 681 tests across 65 files. Documentation validation passed across 87 files.
+
+Fresh read-only provider-staging inspection still reports 31 migrations, 32 tables and zero enabled/forced RLS tables. The isolated rehearsal is now verified for all eleven implemented policy tables, replacing the earlier four-table hosted evidence; 36 current-schema tables remain uncovered. Next: complete remaining worker/data policies and verify compatible deployment before the full provider-staging migration delta. Full mobile and production acceptance remain incomplete.
+
 ## Retention-hold RLS — September 13
 
 Migration 0054 enables/forces retention_holds RLS with separate current MFA permissions for reading, placement and release. Placement/release must name the current staff actor; runtime deletion has no policy. The immutable evidence trigger remains active. A narrowly scoped database helper locks the owner, returns only whether an active hold exists, and restores its temporary read scope. Closure dispatch and document cleanup triggers use this helper so RLS-hidden holds cannot permit deletion.

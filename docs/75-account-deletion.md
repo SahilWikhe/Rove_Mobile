@@ -162,3 +162,7 @@ Migration 0054 enables/forces retention_holds RLS. Current MFA privacy.read, pri
 The has_active_retention_hold database helper locks one owner, temporarily scopes hold reads to that owner, returns a boolean and restores the prior scope. Closure and document cleanup triggers call it, preserving retention enforcement even when ordinary reads cannot see the hold. It neither expires holds by review date nor authorizes erasure. Actor/worker transactions clear the temporary guard setting. This is trusted backend context; the helper does not expose hold reasons or provide a consumer API.
 
 Restricted-role tests verify hidden-hold enforcement, scope restoration, consumer denial, separate placement/release permissions, concurrency and synthetic provider retry. Hosted migration and production acceptance remain pending.
+
+## Hosted rehearsal update — September 13
+
+The implemented RLS policies through migration 0054 passed the isolated synthetic Neon rehearsal using the restricted pooled application role. This supersedes earlier statements in this document that hosted rehearsal was pending. Provider staging remains unchanged with no enabled RLS tables; production rollout is not authorized or verified. See [current hosted RLS evidence](60-neon-staging.md#latest-rls-verification) for scope and remaining work.
