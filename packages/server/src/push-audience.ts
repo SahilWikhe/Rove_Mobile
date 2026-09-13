@@ -1,3 +1,4 @@
+import { bindUserAudience } from './user-scope';
 import { outboxTransaction } from './outbox-scope';
 import { transaction } from './transactions';
 import type { Pool } from 'pg';
@@ -73,6 +74,18 @@ export class PushAudience {
         ).rows[0];
         if (!target) return undefined;
         await client.query("SELECT set_config('rove.notification_offer',$1,true)", [target.offer_id]);
+        const participants = (
+          await client.query<{ rider_id: string; driver_id: string | null }>(
+            'SELECT r.rider_id,r.driver_id FROM offers o JOIN rides r ON r.id=o.ride_id WHERE o.id=$1',
+            [target.offer_id],
+          )
+        ).rows[0];
+        if (!participants) return undefined;
+        await bindUserAudience(
+          client,
+          [participants.rider_id, participants.driver_id].filter((id): id is string => id !== null),
+        );
+
         return (
           await client.query(
             `SELECT m.offer_id,
@@ -144,6 +157,10 @@ export class PushAudience {
   }
   private installations(audience: Audience, now: Date, recipient?: PushRecipient) {
     return transaction(this.pool, async (client) => {
+      await bindUserAudience(
+        client,
+        [audience.riderId, audience.driverId].filter((id): id is string => id !== null),
+      );
       await client.query(
         "SELECT set_config('rove.audience_rider',$1,true),set_config('rove.audience_rider_project',$2,true),set_config('rove.audience_driver',$3,true),set_config('rove.audience_driver_project',$4,true)",
         [

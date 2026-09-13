@@ -18,6 +18,10 @@ beforeAll(async () => {
   await db.pool.query('GRANT USAGE ON SCHEMA public TO rls_audience');
   await db.pool.query('GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_audience');
   await db.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_audience');
+  await db.pool
+    .query(`ALTER TABLE users ENABLE ROW LEVEL SECURITY; ALTER TABLE users FORCE ROW LEVEL SECURITY;
+    CREATE POLICY push_user_probe ON users FOR SELECT USING(id=NULLIF(current_setting('rove.user_read',true),'')::uuid OR COALESCE(NULLIF(current_setting('rove.user_audience',true),'')::jsonb,'[]'::jsonb) ? id::text);
+    CREATE POLICY push_user_lock_probe ON users FOR UPDATE USING(id=NULLIF(current_setting('rove.user_read',true),'')::uuid) WITH CHECK(false)`);
   runtimePool = new Pool({
     host: '127.0.0.1',
     port: (await db.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
@@ -210,4 +214,29 @@ test('offer delivery checks current location, payout and eligibility deadlines a
   }
   await db.pool.query('UPDATE rides SET search_deadline=$2 WHERE id=$1', [ride, now]);
   expect(await audience.message(recipient)).toBeNull();
+});
+
+test('message notification checks both participants under restricted account visibility', async () => {
+  const offerId = randomUUID(),
+    messageId = randomUUID();
+  await db.pool.query(
+    "INSERT INTO offers(id,ride_id,driver_id,snapshot,status,expires_at) VALUES($1,$2,$3,'{}','accepted',$4)",
+    [offerId, ride, driver, now],
+  );
+  await db.pool.query(
+    "INSERT INTO trip_messages(id,offer_id,sender_id,request_id,text) VALUES($1,$2,$3,$4,'Synthetic hello')",
+    [messageId, offerId, driver, randomUUID()],
+  );
+  await db.pool.query("UPDATE outbox SET topic='message.created',aggregate_id=$2 WHERE id=$1", [
+    eventId,
+    messageId,
+  ]);
+  const recipients = await audience.recipients(eventId);
+  expect(recipients).toHaveLength(1);
+  expect((await audience.message(recipients[0]!))?.hint.kind).toBe('message_available');
+  // A disabled sender must suppress delivery even though the recipient is still active.
+  await db.pool.query('UPDATE users SET disabled=true WHERE id=$1', [driver]);
+  expect(await audience.recipients(eventId)).toEqual([]);
+  expect(await audience.message(recipients[0]!)).toBeNull();
+  expect((await runtimePool.query('SELECT id FROM users')).rowCount).toBe(0);
 });

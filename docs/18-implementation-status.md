@@ -1,5 +1,11 @@
 # Implementation status
 
+## Notification account scope preparation — September 13
+
+Notification account reads now bind at most the persisted rider/driver pair, with UUID validation and scope replacement. Message events resolve their participants from the stored message/offer/ride before checking disabled accounts; installation lookup binds the resolved audience. Actor/worker resets and identity replacement clear audience authority. Device registration/removal now scope their pre-actor account locks, a dependency exposed by the restricted users-policy test.
+
+All 759 server and 208 API tests passed with server types, changed-source lint and diff checks. The nine audience tests run with users RLS limited to exact account/audience IDs. A new message test confirms a disabled sender suppresses notification even while the recipient remains active, and no account rows are visible after the transaction. Existing revision, logout, transferred-account, project, expiry and offer-eligibility checks remain. No application users migration or hosted policy changed; source/isolated hosted remains 44/47. Next: matching and remaining core-policy dependencies, users/drivers/rides enforcement and provider-staging rollout, then device/provider acceptance. This checkpoint is prepared for the authorized main push; remote confirmation follows.
+
 ## Driver payout and tracking account scope preparation — September 13
 
 Driver payout authorization now runs on a transaction client with exact user lookup scope, including rechecks around provider operations. Transfer eligibility and payout reconciliation bind their persisted driver IDs before account reads. Background tracking first resolves the driver from the scoped server-issued grant, then binds that exact account; the existing hash, expiry, offline, disabled, rotation and sample checks remain in place. Location payloads cannot select the driver.

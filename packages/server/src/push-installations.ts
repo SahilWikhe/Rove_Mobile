@@ -1,3 +1,4 @@
+import { bindUserRead } from './user-scope';
 import { actorTransaction, bindActorIdentity } from './actor-transaction';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
@@ -103,6 +104,7 @@ export class PushInstallations {
     const project = this.project(actor);
     const fingerprint = hash(JSON.stringify({ action: 'remote-revoke', actorId: actor.id, id, input }));
     return transaction(this.pool, async (client) => {
+      await bindUserRead(client, actor.id);
       const owner = await client.query(
         'SELECT id FROM users WHERE id=$1 AND role=$2 AND disabled=false FOR UPDATE',
         [actor.id, actor.role],
@@ -140,6 +142,7 @@ export class PushInstallations {
     const fingerprint = hash(JSON.stringify({ actorId: actor.id, enabled, input }));
     try {
       return await transaction(this.pool, async (client) => {
+        await bindUserRead(client, actor.id);
         const owner = await client.query(
           'SELECT id FROM users WHERE id=$1 AND role=$2 AND disabled=false FOR UPDATE',
           [actor.id, actor.role],
