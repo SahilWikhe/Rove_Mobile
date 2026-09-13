@@ -50,6 +50,21 @@ appId: co.roveride.driver
     visible: '.*Native driver reply received\..*'
     timeout: 15000
 - takeScreenshot: rider-live-message
+- runFlow:
+    when:
+      true: ${ENABLE_RECONNECT === "1"}
+    commands:
+      - tapOn:
+          id: message-input
+      - inputText: Native reconnect check.
+      - tapOn: Send message
+      - extendedWaitUntil:
+          visible: '.*Native outage reply\..*'
+          timeout: 30000
+      - extendedWaitUntil:
+          visible: '.*Native reconnected reply\..*'
+          timeout: 60000
+      - takeScreenshot: rider-reconnected-message
 - tapOn: View this trip
 - launchApp:
     appId: co.roveride.driver

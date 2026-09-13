@@ -102,3 +102,7 @@ The next iOS run used the existing message-input test ID and successfully sent t
 ### Complete iOS acceptance
 
 The corrected shared scenario passed on iOS 26.5 in 116.546 seconds with zero failures. Both native participants sent and received delayed counterpart replies, the driver recovered the rider message on reopening, and the ride completed through the paid synthetic receipt. Screenshots, JUnit and WebSocket/peer logs are retained under reports/native-trip-ios/details/2026-09-12_211812. This closes the local foreground iOS trip/message check; reconnect, background/locked-phone and full provider acceptance remain separate.
+
+### iOS foreground reconnect
+
+The optional outage variant passed in 142.413 seconds, including complete-trip and paid synthetic receipt checks. With the rider conversation open, HTTP fallback recovered a message during an eight-second WebSocket outage. After a fresh ready socket, a later reply produced messages.changed on that connection and appeared natively. Evidence is retained under reports/native-trip-ios/details/2026-09-12_212652. This is iOS foreground recovery; Android outage acceptance and background/physical-device delivery remain open.

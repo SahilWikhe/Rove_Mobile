@@ -2,6 +2,14 @@
 
 Updated: September 12, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## iOS native outage and reconnect acceptance — September 12
+
+The optional rider conversation outage scenario passed inside the complete two-app iOS trip in 142.413 seconds with zero failures. The native rider remained in its conversation while the owned loopback proxy dropped sockets and rejected upgrades for eight seconds. A synthetic counterpart posted during the outage; the rider displayed that message at 21:28:47.391 PDT, before the fault ended at 04:28:48.493 UTC. This confirms HTTP fallback recovery, not WebSocket delivery during an outage.
+
+A fresh socket (connection 12) became ready at 04:28:56.585 UTC. The peer waited five more seconds, posted the second reply, and that socket received messages.changed at 04:29:01.633 UTC. The native assertion completed at 21:29:01.800 PDT. Screenshot inspection confirms both replies; the scenario then completed the ride and paid synthetic receipt. JUnit, screenshots and proxy/peer logs are preserved under reports/native-trip-ios/details/2026-09-12_212652. The runner exited zero and removed its simulator.
+
+Added opt-in reconnect switches to both runners and a shared rider subflow. The peer requires the explicit owned proxy PID/log and fault-start confirmation before posting, then a new ready event after fault-ended before the final reply. No app/API behavior or hosted configuration changed. Tooling lint/formatting, documentation and diff checks passed. Android has not run this outage variant yet. Next: Android reconnect and native location coverage, then physical/provider acceptance; Figma, erasure and production setup remain open.
+
 ## Native reconnect fault tooling — September 12
 
 Added opt-in socket fault injection to the loopback observation proxy. Signaling only its owned PID creates an eight-second WebSocket outage while preserving HTTP fallback. Regression verification passed for active socket termination, rejected upgrades, continuing HTTP traffic, fresh stream readiness after recovery and omission of private data from logs. Both proxy tests and targeted lint/formatting passed.

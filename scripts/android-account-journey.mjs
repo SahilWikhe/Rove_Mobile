@@ -190,6 +190,8 @@ try {
       `APP_ID=${bundle}`,
       '-e',
       `ENABLE_MESSAGES=${messaging ? '1' : '0'}`,
+      '-e',
+      `ENABLE_RECONNECT=${process.env.NATIVE_RECONNECT === '1' ? '1' : '0'}`,
       '--format',
       'junit',
       '--output',

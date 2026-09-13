@@ -105,6 +105,8 @@ try {
       `APP_ID=${bundle}`,
       '-e',
       `ENABLE_MESSAGES=${process.env.NATIVE_TRIP_MESSAGES === '1' ? '1' : '0'}`,
+      '-e',
+      `ENABLE_RECONNECT=${process.env.NATIVE_RECONNECT === '1' ? '1' : '0'}`,
       '--format',
       'junit',
       '--output',
