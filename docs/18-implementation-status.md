@@ -1,5 +1,13 @@
 # Implementation status
 
+## Ledger policy isolation prototype verified — September 13
+
+Automatic approval review rejected the initial ledger migration proposal because the posting-read predicate appeared too broad and focused isolation tests were absent. No proposed source or migration edits executed. A safer local PostgreSQL prototype now explicitly binds posting reads to the selected payment, with a separate owner-only posting scope for closure balances.
+
+Both restricted-role tests passed: unscoped/other-payment reads return no rows; the selected payment exposes its two journals/five postings; mutation/deletion remains denied; closure scope exposes only the selected owner’s posting and no journal headers; scope disappears at transaction end. Server typechecking and test lint passed. The prototype runs only in disposable test databases and is not a deployed migration.
+
+Next: use this verified explicit predicate when implementing the ledger policies, add append and deferred-balance scope verification, and run full financial regressions. RLS coverage remains 39 of 47 tables; provider staging/production and physical-device/provider acceptance remain outstanding.
+
 ## Ledger write preparation — September 13
 
 Centralized ledger journal/posting inserts in appendLedgerJournal across capture/allocation, refunds, disputes, capture fees, reviewed losses and driver transfers. Callers retain their authorization, locks, fingerprint/idempotency checks and transaction boundaries. Database constraints continue to enforce balanced journals. Supplied journal IDs are preserved where linked loss records require them; otherwise IDs are generated before the insert. No ledger policy has been enabled yet.
