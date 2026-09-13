@@ -57,3 +57,9 @@ Tests use 55 synthetic records with tied and sub-millisecond timestamps and reso
 Rider trip/receipt help and driver trip help use the shared `TripSupportForm`. It verifies the trip through the current authenticated API before attaching a reference and selecting Trip or Payment. Description starts empty and remains required; the combined reference and description fit the server's existing message limit. A failed, malformed or inaccessible trip reference cannot enter the form; retry or general support remains available. Opening help neither submits a request nor changes the trip/payment.
 
 The complete synthetic booking journey verifies the driver's persisted Trip request and rider contextual support plus denied-read fallback. This is browser/API evidence; it does not establish staffed response or a physical-device accessibility pass.
+
+## Database row isolation
+
+Migration 0051 enables/forces support_requests RLS. Consumers can read owned tickets and insert open requests with no response or resolution fields. They cannot update or delete tickets. MFA staff with current support.read or privacy.read can read; resolution requires both support.read and support.resolve, and must name the current staff resolver. Consumer and staff operations bind transaction-local identity. The normal service still enforces response validation, immutable consumer input, audit, request limits and idempotent transitions.
+
+Restricted-role tests verify those boundaries and legitimate support, messaging-report and deletion-inventory workflows. Hosted rollout is pending; see [Neon staging](60-neon-staging.md). Policies provide row access control, not field redaction or permission to expose private support text through unrelated API responses.

@@ -1,3 +1,4 @@
+import { Pool } from 'pg';
 import { randomUUID } from 'node:crypto';
 import { beforeAll, afterAll, beforeEach, test, expect } from 'vitest';
 import { testDatabase } from '@rove/database/testing';
@@ -5,6 +6,7 @@ import { users } from '@rove/database';
 import type { Actor } from './rides';
 import { AccountDeletions } from './account-deletions';
 import { SupportService } from './support';
+let runtimePool: Pool;
 let db: Awaited<ReturnType<typeof testDatabase>>;
 let service: AccountDeletions, support: SupportService;
 let rider: Actor, driver: Actor, staff: Actor;
@@ -15,10 +17,25 @@ const input = {
 };
 beforeAll(async () => {
   db = await testDatabase();
-  service = new AccountDeletions(db.pool);
-  support = new SupportService(db.pool);
+  await db.pool.query(
+    "CREATE ROLE rls_support LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'synthetic-local-only'",
+  );
+  await db.pool.query('GRANT USAGE ON SCHEMA public TO rls_support');
+  await db.pool.query('GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_support');
+  await db.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_support');
+  runtimePool = new Pool({
+    host: '127.0.0.1',
+    port: (await db.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
+    database: 'postgres',
+    user: 'rls_support',
+    password: 'synthetic-local-only',
+    max: 5,
+  });
+  service = new AccountDeletions(runtimePool);
+  support = new SupportService(runtimePool);
 }, 60000);
 afterAll(async () => {
+  await runtimePool?.end();
   await db?.close();
 });
 beforeEach(async () => {

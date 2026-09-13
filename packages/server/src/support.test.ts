@@ -1,17 +1,35 @@
+import { Pool } from 'pg';
+import { actorTransaction } from './actor-transaction';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
 import { testDatabase } from '@rove/database/testing';
 import { users } from '@rove/database';
 import { SupportService } from './support';
 import type { Actor } from './rides';
+let runtimePool: Pool;
 let db: Awaited<ReturnType<typeof testDatabase>>, service: SupportService;
 let rider: Actor, driver: Actor, staff: Actor;
 const input = { category: 'vehicle', message: 'Synthetic vehicle review question' };
 beforeAll(async () => {
   db = await testDatabase();
-  service = new SupportService(db.pool);
+  await db.pool.query(
+    "CREATE ROLE rls_support LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'synthetic-local-only'",
+  );
+  await db.pool.query('GRANT USAGE ON SCHEMA public TO rls_support');
+  await db.pool.query('GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_support');
+  await db.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_support');
+  runtimePool = new Pool({
+    host: '127.0.0.1',
+    port: (await db.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
+    database: 'postgres',
+    user: 'rls_support',
+    password: 'synthetic-local-only',
+    max: 5,
+  });
+  service = new SupportService(runtimePool);
 }, 60000);
 afterAll(async () => {
+  await runtimePool?.end();
   await db?.close();
 });
 beforeEach(async () => {
@@ -223,4 +241,55 @@ test('queue permission, MFA, filters and cursor are enforced', async () => {
   expect(await service.queue(staff)).toEqual({ requests: [], nextCursor: null });
   await db.pool.query('UPDATE users SET disabled=true WHERE id=$1', [staff.id]);
   await expect(service.queue(staff)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+});
+
+test('RLS denies foreign reads, forged responses and consumer mutation of support records', async () => {
+  const request = await service.create(rider, input, randomUUID());
+  expect((await runtimePool.query('SELECT * FROM support_requests')).rowCount).toBe(0);
+  await actorTransaction(runtimePool, driver, async (client) => {
+    expect((await client.query('SELECT * FROM support_requests')).rowCount).toBe(0);
+    expect((await client.query('DELETE FROM support_requests')).rowCount).toBe(0);
+  });
+  await actorTransaction(runtimePool, rider, async (client) => {
+    expect((await client.query('SELECT * FROM support_requests')).rowCount).toBe(1);
+    expect(
+      (await client.query("UPDATE support_requests SET response='forged response' WHERE id=$1", [request.id]))
+        .rowCount,
+    ).toBe(0);
+    expect((await client.query('DELETE FROM support_requests')).rowCount).toBe(0);
+  });
+  await expect(
+    actorTransaction(runtimePool, driver, (client) =>
+      client.query(
+        "INSERT INTO support_requests(owner_id,category,message) VALUES($1,'account','Synthetic foreign request')",
+        [rider.id],
+      ),
+    ),
+  ).rejects.toMatchObject({ code: '42501' });
+  await expect(
+    actorTransaction(runtimePool, rider, (client) =>
+      client.query(
+        "INSERT INTO support_requests(owner_id,category,message,status,response,resolved_by,resolved_at) VALUES($1,'account','Synthetic forged resolution','resolved','Forged response',$1,now())",
+        [rider.id],
+      ),
+    ),
+  ).rejects.toMatchObject({ code: '42501' });
+});
+
+test('RLS distinguishes privacy inventory access from support resolution and requires current MFA', async () => {
+  await service.create(driver, input, randomUUID());
+  await db.pool.query("INSERT INTO staff_permissions(staff_id,permission) VALUES($1,'privacy.read')", [
+    staff.id,
+  ]);
+  await actorTransaction(runtimePool, staff, async (client) => {
+    expect((await client.query('SELECT * FROM support_requests')).rowCount).toBe(1);
+    expect((await client.query("UPDATE support_requests SET response='Synthetic answer'")).rowCount).toBe(0);
+  });
+  await actorTransaction(runtimePool, { ...staff, mfa: false }, async (client) => {
+    expect((await client.query('SELECT * FROM support_requests')).rowCount).toBe(0);
+  });
+  await db.pool.query('DELETE FROM staff_permissions WHERE staff_id=$1', [staff.id]);
+  await actorTransaction(runtimePool, staff, async (client) => {
+    expect((await client.query('SELECT * FROM support_requests')).rowCount).toBe(0);
+  });
 });

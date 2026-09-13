@@ -1,5 +1,13 @@
 # Implementation status
 
+## Support-request RLS — September 13
+
+Migration 0051 enables and forces support_requests RLS. Active consumers may read their own tickets and insert open requests without fabricated staff responses; no consumer update/delete policy exists. Staff reads require current support.read or privacy.read plus MFA. Resolution requires both support.read and support.resolve, with the current staff actor as resolver. Support owner/staff transactions now bind identity; messaging report creation and privacy inventory remain compatible.
+
+Verification: 62 domain tests, 208 API tests and 13 database tests passed (283 total), plus server/database typechecks, targeted lint, formatting and documentation validation. Support and account-deletion suites now use non-owner NOSUPERUSER/NOBYPASSRLS connections. Tests cover foreign reads/inserts, forged resolutions, consumer mutation denial, MFA/revoked permissions, retry/concurrent request caps, report creation, privacy inventory, closure and cleanup.
+
+Source RLS coverage is eight of 47 tables. Hosted evidence remains the earlier four-table rehearsal, and provider staging remains unchanged. Next: remaining data/worker policies, hosted rehearsal of the new migration delta and compatible staging rollout. Row policies supplement backend resource authorization and audited domain transitions; they do not replace them. Full production acceptance remains incomplete.
+
 ## Vehicle onboarding RLS — September 13
 
 Migration 0050 enables and forces RLS on current vehicle submissions, immutable submission history and immutable review decisions. Drivers receive ownership-scoped access and can write only pending submissions; staff review requires current vehicle-review permission and MFA. Eligibility reviewers have read access to current submissions without vehicle-edit authority. Driver reads/submissions, staff review and eligibility command transactions now bind verified actor identity.

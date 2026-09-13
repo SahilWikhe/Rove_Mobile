@@ -1,3 +1,4 @@
+import { bindActorIdentity } from './actor-transaction';
 import type { Pool, PoolClient } from 'pg';
 import {
   SupportRequest,
@@ -14,11 +15,7 @@ import { requireStaffPermission } from './staff-access';
 async function owner(client: PoolClient, actor: Actor) {
   if (!['rider', 'driver'].includes(actor.role))
     throw new DomainError('FORBIDDEN', 'A consumer account is required.', 403);
-  const result = await client.query(
-    'SELECT id FROM users WHERE id=$1 AND role=$2 AND disabled=false FOR UPDATE',
-    [actor.id, actor.role],
-  );
-  if (!result.rowCount) throw new DomainError('FORBIDDEN', 'This account cannot submit requests.', 403);
+  await bindActorIdentity(client, actor, 'update');
 }
 function dto(row: Record<string, unknown>) {
   return SupportRequest.parse({
@@ -96,6 +93,7 @@ export class SupportService {
     const input = parsed.data;
     return transaction(this.pool, async (client) => {
       await requireStaffPermission(client, actor, 'support.read');
+      await bindActorIdentity(client, actor);
       const result = await client.query(
         `SELECT id,category,status,created_at,
           to_char(created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_time
@@ -136,6 +134,7 @@ export class SupportService {
       { action: 'support.resolve', requestId, ...input },
       async (client) => {
         await authorize(client);
+        await bindActorIdentity(client, actor);
         const found = await client.query('SELECT id,status FROM support_requests WHERE id=$1 FOR UPDATE', [
           requestId,
         ]);
@@ -161,6 +160,7 @@ export class SupportService {
   async inspect(actor: Actor, requestId: string) {
     return transaction(this.pool, async (client) => {
       await requireStaffPermission(client, actor, 'support.read');
+      await bindActorIdentity(client, actor);
       const result = await client.query(
         'SELECT id,category,message,status,created_at,response,resolved_at FROM support_requests WHERE id=$1',
         [requestId],

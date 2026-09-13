@@ -298,17 +298,25 @@ export const ledgerPostings = pgTable(
 // Persist user-chosen labels and provider IDs, not indefinitely cached provider addresses.
 // Identity is installed only by trusted backend transactions; no anonymous/default access.
 const rlsActor = sql`NULLIF(current_setting('rove.actor_id', true), '')::uuid`;
+const rlsPermissions = {
+  'privacy.read': sql`p.permission='privacy.read'`,
+  'privacy.close': sql`p.permission='privacy.close'`,
+  'privacy.cleanup': sql`p.permission='privacy.cleanup'`,
+  'driver.vehicle.review': sql`p.permission='driver.vehicle.review'`,
+  'driver.eligibility.review': sql`p.permission='driver.eligibility.review'`,
+  'support.read': sql`p.permission='support.read'`,
+  'support.resolve': sql`p.permission='support.resolve'`,
+};
 const rlsStaff = (
-  permission:
-    | 'privacy.read'
-    | 'privacy.close'
-    | 'privacy.cleanup'
-    | 'driver.vehicle.review'
-    | 'driver.eligibility.review',
+  permission: keyof typeof rlsPermissions,
 ) => sql`current_setting('rove.actor_role', true) = 'staff'
   AND current_setting('rove.actor_mfa', true) = 'true'
   AND EXISTS (SELECT 1 FROM public.users u JOIN public.staff_permissions p ON p.staff_id=u.id
-    WHERE u.id=${rlsActor} AND u.role='staff' AND u.disabled=false AND ${permission === 'privacy.read' ? sql`p.permission='privacy.read'` : permission === 'privacy.close' ? sql`p.permission='privacy.close'` : permission === 'privacy.cleanup' ? sql`p.permission='privacy.cleanup'` : permission === 'driver.vehicle.review' ? sql`p.permission='driver.vehicle.review'` : sql`p.permission='driver.eligibility.review'`})`;
+    WHERE u.id=${rlsActor} AND u.role='staff' AND u.disabled=false AND ${rlsPermissions[permission]})`;
+const rlsConsumer = (
+  owner: SQLWrapper,
+) => sql`${owner}=${rlsActor} AND current_setting('rove.actor_role',true) IN ('rider','driver')
+  AND EXISTS(SELECT 1 FROM public.users u WHERE u.id=${rlsActor} AND u.role=current_setting('rove.actor_role',true) AND u.disabled=false)`;
 
 export const savedPlaces = pgTable(
   'saved_places',
@@ -457,6 +465,20 @@ export const supportRequests = pgTable(
   },
   (table) => [
     index('support_requests_owner').on(table.ownerId, table.createdAt),
+    pgPolicy('support_owner_read', { for: 'select', using: rlsConsumer(table.ownerId) }),
+    pgPolicy('support_owner_insert', {
+      for: 'insert',
+      withCheck: sql`${rlsConsumer(table.ownerId)} AND ${table.status}='open' AND ${table.response} IS NULL AND ${table.resolvedAt} IS NULL AND ${table.resolvedBy} IS NULL`,
+    }),
+    pgPolicy('support_staff_read', {
+      for: 'select',
+      using: sql`${rlsStaff('support.read')} OR ${rlsStaff('privacy.read')}`,
+    }),
+    pgPolicy('support_staff_resolve', {
+      for: 'update',
+      using: sql`${rlsStaff('support.read')} AND ${rlsStaff('support.resolve')}`,
+      withCheck: sql`${rlsStaff('support.read')} AND ${rlsStaff('support.resolve')} AND ${table.status}='resolved' AND ${table.resolvedBy}=${rlsActor} AND ${table.resolvedAt} IS NOT NULL AND ${table.response} IS NOT NULL`,
+    }),
     index('support_requests_queue').on(table.status, table.createdAt, table.id),
     check('support_request_status', sql`${table.status} IN ('open','resolved')`),
     check(
