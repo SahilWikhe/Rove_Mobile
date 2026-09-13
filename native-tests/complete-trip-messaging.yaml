@@ -70,7 +70,10 @@ appId: co.roveride.driver
     appId: co.roveride.driver
     stopApp: false
     permissions: {}
-- extendedWaitUntil:
-    visible: '.*Native rider check\..*'
+- scrollUntilVisible:
+    element:
+      text: '.*Native rider check\..*'
+    direction: UP
+    centerElement: true
     timeout: 15000
 - tapOn: View this trip

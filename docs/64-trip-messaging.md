@@ -106,3 +106,7 @@ The corrected shared scenario passed on iOS 26.5 in 116.546 seconds with zero fa
 ### iOS foreground reconnect
 
 The optional outage variant passed in 142.413 seconds, including complete-trip and paid synthetic receipt checks. With the rider conversation open, HTTP fallback recovered a message during an eight-second WebSocket outage. After a fresh ready socket, a later reply produced messages.changed on that connection and appeared natively. Evidence is retained under reports/native-trip-ios/details/2026-09-12_212652. This is iOS foreground recovery; Android outage acceptance and background/physical-device delivery remain open.
+
+### Android foreground reconnect
+
+The Android variant passed in 189.396 seconds, including fallback during the forced outage, a pushed reply after fresh socket readiness, conversation recovery and the paid synthetic receipt. The driver recovery assertion scrolls to the older message when extra replies move it offscreen. Evidence is under reports/native-trip-android/android-driver-details/2026-09-12_213752. Both platforms now have local foreground reconnect evidence; background and physical/provider acceptance remain separate.

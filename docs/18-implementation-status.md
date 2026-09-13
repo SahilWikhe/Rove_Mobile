@@ -2,6 +2,16 @@
 
 Updated: September 12, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Android native outage and reconnect acceptance — September 12
+
+The complete Android outage variant passed in 189.396 seconds with zero failures. Both normal foreground message exchanges passed; the rider then remained in its conversation during an eight-second socket outage, recovered the outage reply through HTTP fallback, received a later pushed reply after a fresh ready socket, and returned through the driver's recovered conversation to complete the trip and rider paid synthetic receipt. The runner exited zero and removed its owned emulator.
+
+The outage reply assertion completed at 21:40:21.048 PDT before fault-ended at 04:40:21.952 UTC. Connection 41 became ready at 04:40:29.451 UTC, received messages.changed at 04:40:34.538 UTC, and the final reply assertion completed at 21:40:35.283 PDT. Per-run JUnit, screenshots and proxy/peer logs are preserved under reports/native-trip-android/android-driver-details/2026-09-12_213752.
+
+The first outage variant recovered both replies but failed after returning to the driver because the older rider message had scrolled out of view. The shared test now scrolls upward to that message instead of assuming it remains visible. No app behavior was changed. Formatting, documentation and diff checks passed. Android and iOS now each have a passing local foreground fallback/reconnect scenario; this is not background/locked-phone or hosted-provider acceptance.
+
+Next: native location display/update/freshness coverage. Current synthetic iOS can use the existing Apple map preview; the synthetic Android Metro setup needs its map configuration for visual map acceptance. Full Google/physical-device verification, Figma completion, data-erasure fulfillment and production setup remain open. No hosted mutation or production activation occurred.
+
 ## iOS native outage and reconnect acceptance — September 12
 
 The optional rider conversation outage scenario passed inside the complete two-app iOS trip in 142.413 seconds with zero failures. The native rider remained in its conversation while the owned loopback proxy dropped sockets and rejected upgrades for eight seconds. A synthetic counterpart posted during the outage; the rider displayed that message at 21:28:47.391 PDT, before the fault ended at 04:28:48.493 UTC. This confirms HTTP fallback recovery, not WebSocket delivery during an outage.
