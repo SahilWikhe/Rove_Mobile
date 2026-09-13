@@ -1,6 +1,6 @@
 import { nativeSmokeCommand } from './native-smoke-command.mjs';
 import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, mkdirSync, openSync, closeSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, openSync, closeSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -101,12 +101,20 @@ try {
   });
   const deadline = Date.now() + 180000;
   let booted = false;
+  let readySamples = 0;
   while (Date.now() < deadline) {
     if (spawnError || emulator.exitCode !== null) throw new Error('Smoke emulator exited before boot.');
     try {
-      booted = run(adb, ['-s', serial, 'shell', 'getprop', 'sys.boot_completed'], { timeout: 5000 }) === '1';
+      const connected = run(adb, ['-s', serial, 'get-state'], { timeout: 5000 }) === 'device';
+      const completed =
+        run(adb, ['-s', serial, 'shell', 'getprop', 'sys.boot_completed'], { timeout: 5000 }) === '1';
+      const packages = run(adb, ['-s', serial, 'shell', 'pm', 'path', 'android'], {
+        timeout: 5000,
+      }).startsWith('package:');
+      readySamples = connected && completed && packages ? readySamples + 1 : 0;
+      booted = readySamples >= 3;
     } catch {
-      /* Still booting. */
+      readySamples = 0; // An offline transport or unready package manager resets readiness.
     }
     if (booted) break;
     await sleep(1000);
@@ -144,6 +152,24 @@ try {
   );
   console.log(`${role}: standalone Android welcome and relaunch verified on a fresh emulator.`);
 } catch (error) {
+  // Inspect the exact owned device before cleanup; never restart ADB or other emulators.
+  if (emulator && existsSync('reports/native-smoke')) {
+    const evidence = { emulatorExitCode: emulator.exitCode, emulatorSignalCode: emulator.signalCode };
+    for (const [key, args] of [
+      ['transport', ['-s', serial, 'get-state']],
+      ['boot', ['-s', serial, 'shell', 'getprop', 'sys.boot_completed']],
+    ]) {
+      try {
+        evidence[key] = run(adb, args, { timeout: 5000 });
+      } catch {
+        evidence[key] = 'unavailable';
+      }
+    }
+    writeFileSync(
+      `reports/native-smoke/android-${role}-failure-state.json`,
+      JSON.stringify(evidence, null, 2),
+    );
+  }
   console.error('Android release smoke failed:', error.message);
   process.exitCode = 1;
 } finally {

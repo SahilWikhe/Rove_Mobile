@@ -160,6 +160,9 @@ jobs:
           unzip -p app/build/outputs/apk/release/app-release.apk assets/index.android.bundle > "$RUNNER_TEMP/android-release.bundle"
           test -s "$RUNNER_TEMP/android-release.bundle"
 
+      - name: Release Gradle build resources before emulator startup
+        working-directory: apps/${{ matrix.role }}/android
+        run: ./gradlew --stop
       - name: Prepare isolated Android emulator and UI test tool
         run: |
           sudo chmod a+rw /dev/kvm
