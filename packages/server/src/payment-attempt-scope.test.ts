@@ -1,9 +1,14 @@
+import { actorTransaction } from './actor-transaction';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
 import { createDatabase } from '@rove/database';
 import { testDatabase } from '@rove/database/testing';
 import { transaction } from './transactions';
-import { bindPaymentAttemptRead, bindPaymentAttemptWrite } from './payment-attempt-scope';
+import {
+  bindPaymentAttemptRead,
+  bindPaymentAttemptWrite,
+  bindPaymentAttemptScan,
+} from './payment-attempt-scope';
 import { bindPaymentCustomerRead } from './payment-customer-scope';
 let db: Awaited<ReturnType<typeof testDatabase>>;
 let runtime: ReturnType<typeof createDatabase>;
@@ -16,20 +21,6 @@ beforeAll(async () => {
   await db.pool.query(
     'GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO payment_read_probe',
   );
-  // Disposable read-policy prototype; the application migration is not enabled yet.
-  await db.pool
-    .query(`ALTER TABLE payment_attempts ENABLE ROW LEVEL SECURITY; ALTER TABLE payment_attempts FORCE ROW LEVEL SECURITY;
- CREATE POLICY payment_read_probe ON payment_attempts FOR SELECT USING (
- source=NULLIF(current_setting('rove.payment_attempt_read',true),'')::jsonb->>'source' AND (
- id=(NULLIF(current_setting('rove.payment_attempt_read',true),'')::jsonb->>'attemptId')::uuid OR
- ride_id=(NULLIF(current_setting('rove.payment_attempt_read',true),'')::jsonb->>'rideId')::uuid OR
- intent_id=NULLIF(current_setting('rove.payment_attempt_read',true),'')::jsonb->>'intentId'));`);
-  await db.pool.query(`CREATE POLICY payment_write_probe ON payment_attempts FOR UPDATE USING (
-    jsonb_build_object('attemptId',id,'rideId',ride_id,'bindingId',customer_binding_id,'source',source,'amountCents',amount_cents)
-    = (NULLIF(current_setting('rove.payment_attempt_write',true),'')::jsonb-'intentId')
-    AND (intent_id IS NULL OR intent_id=NULLIF(current_setting('rove.payment_attempt_write',true),'')::jsonb->>'intentId'))
-    WITH CHECK (jsonb_build_object('attemptId',id,'rideId',ride_id,'bindingId',customer_binding_id,'source',source,'amountCents',amount_cents,'intentId',intent_id)
-    = NULLIF(current_setting('rove.payment_attempt_write',true),'')::jsonb);`);
   const connection = new URL(db.connectionString);
   connection.username = 'payment_read_probe';
   connection.password = password;
@@ -82,7 +73,11 @@ test('each lookup selects only its exact payment and provider source', async () 
     await transaction(runtime.pool, async (c) => {
       await bindPaymentAttemptRead(c, row.source, ref);
       expect((await c.query('SELECT id FROM payment_attempts')).rows).toEqual([{ id: row.id }]);
-      expect((await c.query('UPDATE payment_attempts SET amount_cents=1')).rowCount).toBe(0);
+      await c.query('SAVEPOINT denied_write');
+      await expect(c.query('UPDATE payment_attempts SET amount_cents=500')).rejects.toMatchObject({
+        code: '42501',
+      });
+      await c.query('ROLLBACK TO SAVEPOINT denied_write');
       expect((await c.query('DELETE FROM payment_attempts')).rowCount).toBe(0);
     });
   expect((await runtime.pool.query('SELECT * FROM payment_attempts')).rowCount).toBe(0);
@@ -143,9 +138,11 @@ test('verified result scope preserves the exact payment while rejecting retarget
       ).rowCount,
     ).toBe(1);
     await bindPaymentAttemptRead(c, row.source, { attemptId: row.id });
-    expect(
-      (await c.query('UPDATE payment_attempts SET revision=revision+1 WHERE id=$1', [row.id])).rowCount,
-    ).toBe(0);
+    await c.query('SAVEPOINT denied_write');
+    await expect(
+      c.query('UPDATE payment_attempts SET revision=revision+1 WHERE id=$1', [row.id]),
+    ).rejects.toMatchObject({ code: '42501' });
+    await c.query('ROLLBACK TO SAVEPOINT denied_write');
   });
   await expect(
     transaction(runtime.pool, async (c) => {
@@ -180,4 +177,79 @@ test('a verified in-flight result remains recordable after owner disablement', a
     ).toBe(1);
   });
   expect((await runtime.pool.query('SELECT * FROM payment_attempts')).rowCount).toBe(0);
+});
+
+test('recovery scans expose only the selected provider and cannot mutate attempts', async () => {
+  await transaction(runtime.pool, async (c) => {
+    await bindPaymentAttemptScan(c, 'acct_scope:test');
+    expect(
+      (await c.query('SELECT id FROM payment_attempts ORDER BY id')).rows.map((r) => r.id).sort(),
+    ).toEqual(
+      records
+        .slice(0, 2)
+        .map((r) => r.id)
+        .sort(),
+    );
+    expect((await c.query('SELECT id FROM payment_attempts FOR UPDATE')).rowCount).toBe(2);
+    await expect(
+      c.query("UPDATE payment_attempts SET provider_status='succeeded' WHERE id=$1", [records[0]!.id]),
+    ).rejects.toMatchObject({ code: '42501' });
+  });
+});
+test('rider creation requires its own ride, customer binding and unchanged fare', async () => {
+  const row = records[0]!,
+    foreign = records[1]!;
+  const rider = (await db.pool.query('SELECT rider_id FROM rides WHERE id=$1', [row.ride])).rows[0].rider_id;
+  await db.pool.query('DELETE FROM payment_attempts WHERE id=$1', [row.id]);
+  const actor = { id: rider, role: 'rider' as const };
+  for (const [binding, amount] of [
+    [foreign.binding, 1000],
+    [row.binding, 500],
+  ] as const) {
+    await expect(
+      actorTransaction(runtime.pool, actor, async (c) => {
+        await c.query("SELECT set_config('rove.customer_source',$1,true)", [row.source]);
+        await c.query(
+          'INSERT INTO payment_attempts(ride_id,customer_binding_id,source,amount_cents) VALUES($1,$2,$3,$4)',
+          [row.ride, binding, row.source, amount],
+        );
+      }),
+    ).rejects.toMatchObject({ code: '42501' });
+  }
+  await actorTransaction(runtime.pool, actor, async (c) => {
+    await c.query("SELECT set_config('rove.customer_source',$1,true)", [row.source]);
+    expect(
+      (
+        await c.query(
+          'INSERT INTO payment_attempts(ride_id,customer_binding_id,source,amount_cents) VALUES($1,$2,$3,1000) RETURNING id',
+          [row.ride, row.binding, row.source],
+        )
+      ).rowCount,
+    ).toBe(1);
+    expect((await c.query('SELECT id FROM payment_attempts FOR UPDATE')).rowCount).toBe(1);
+  });
+});
+test('closure locks require staff MFA and permission and stay with the selected owner', async () => {
+  const staff = randomUUID();
+  await db.pool.query(
+    "INSERT INTO users(id,subject,name,role) VALUES($1::uuid,$1::text,'Synthetic staff','staff')",
+    [staff],
+  );
+  await db.pool.query("INSERT INTO staff_permissions(staff_id,permission) VALUES($1,'privacy.close')", [
+    staff,
+  ]);
+  const row = records[0]!;
+  const rider = (await db.pool.query('SELECT rider_id FROM rides WHERE id=$1', [row.ride])).rows[0].rider_id;
+  for (const mfa of [false, true])
+    await actorTransaction(runtime.pool, { id: staff, role: 'staff', mfa }, async (c) => {
+      await c.query("SELECT set_config('rove.payment_attempt_closure',$1,true)", [rider]);
+      expect((await c.query('SELECT id FROM payment_attempts FOR UPDATE')).rows).toEqual(
+        mfa ? [{ id: row.id }] : [],
+      );
+    });
+  await db.pool.query('DELETE FROM staff_permissions WHERE staff_id=$1', [staff]);
+  await actorTransaction(runtime.pool, { id: staff, role: 'staff', mfa: true }, async (c) => {
+    await c.query("SELECT set_config('rove.payment_attempt_closure',$1,true)", [rider]);
+    expect((await c.query('SELECT id FROM payment_attempts')).rowCount).toBe(0);
+  });
 });

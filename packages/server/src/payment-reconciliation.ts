@@ -1,4 +1,4 @@
-import { bindPaymentAttemptWrite } from './payment-attempt-scope';
+import { bindPaymentAttemptRideEvent, bindPaymentAttemptWrite } from './payment-attempt-scope';
 import { enqueueOutbox } from './outbox-enqueue';
 import { bindOfferRide } from './offer-scope';
 import { bindPaymentCustomerRead } from './payment-customer-scope';
@@ -67,10 +67,13 @@ export class PaymentReconciler {
   };
   readonly rideChanged: JobHandler = async (job) => {
     const row = (
-      await this.pool.query<{ intent_id: string | null; source: string }>(
-        'SELECT intent_id,source FROM payment_attempts WHERE ride_id=$1',
-        [job.aggregateId],
-      )
+      await transaction(this.pool, async (client) => {
+        await bindPaymentAttemptRideEvent(client, job.aggregateId);
+        return client.query<{ intent_id: string | null; source: string }>(
+          'SELECT intent_id,source FROM payment_attempts WHERE ride_id=$1',
+          [job.aggregateId],
+        );
+      })
     ).rows[0];
     // No attempt means no provider call was started; a later session cannot start on a terminal ride.
     if (!row) return;

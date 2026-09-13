@@ -440,11 +440,35 @@ export const paymentAttempts = pgTable(
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     reconciledAt: timestamp({ withTimezone: true }),
   },
-  (t) => [
-    uniqueIndex('payment_attempt_provider_source').on(t.source, t.intentId),
-    check('valid_payment_attempt_amount', sql`${t.amountCents} >= 50 and ${t.amountCents} <= 99999999`),
-    check('valid_payment_attempt_revision', sql`${t.revision} >= 0`),
-  ],
+  (t) => {
+    const read = sql`NULLIF(current_setting('rove.payment_attempt_read',true),'')::jsonb`;
+    const write = sql`NULLIF(current_setting('rove.payment_attempt_write',true),'')::jsonb`;
+    const owner = sql`current_setting('rove.actor_role',true)='rider' AND EXISTS(SELECT 1 FROM public.rides r JOIN public.users u ON u.id=r.rider_id WHERE r.id=${t.rideId} AND r.rider_id=NULLIF(current_setting('rove.actor_id',true),'')::uuid AND u.role='rider' AND u.disabled=false)`;
+    const selected = sql`(${t.source}=${read}->>'source' AND (${t.id}=(${read}->>'attemptId')::uuid OR ${t.rideId}=(${read}->>'rideId')::uuid OR ${t.intentId}=${read}->>'intentId')) OR (${read}->>'kind'='ride-event' AND ${t.rideId}=(${read}->>'rideId')::uuid) OR ${t.source}=NULLIF(current_setting('rove.payment_attempt_scan',true),'') OR ${t.id}=NULLIF(current_setting('rove.payment_attempt_lock',true),'')::uuid`;
+    const closure = sql`${outboxStaff('privacy.close')} AND EXISTS(SELECT 1 FROM public.rides r WHERE r.id=${t.rideId} AND (r.rider_id=NULLIF(current_setting('rove.payment_attempt_closure',true),'')::uuid OR r.driver_id=NULLIF(current_setting('rove.payment_attempt_closure',true),'')::uuid))`;
+    const visible = sql`(${owner}) OR (${selected}) OR (${closure})`;
+    const immutable = sql`jsonb_build_object('attemptId',${t.id},'rideId',${t.rideId},'bindingId',${t.customerBindingId},'source',${t.source},'amountCents',${t.amountCents})`;
+    return [
+      pgPolicy('payment_attempt_read', { for: 'select', using: visible }),
+      pgPolicy('payment_attempt_lock', {
+        for: 'update',
+        using: sql`(${visible}) AND ${write} IS NULL`,
+        withCheck: sql`false`,
+      }),
+      pgPolicy('payment_attempt_insert', {
+        for: 'insert',
+        withCheck: sql`${owner} AND ${t.intentId} IS NULL AND ${t.revision}=0 AND ${t.providerStatus} IS NULL AND ${t.reconciledAt} IS NULL AND EXISTS(SELECT 1 FROM public.rides r JOIN public.payment_customers c ON c.rider_id=r.rider_id WHERE r.id=${t.rideId} AND r.state='searching' AND c.id=${t.customerBindingId} AND c.source=${t.source} AND c.customer_id IS NOT NULL AND r.fare_cents=${t.amountCents})`,
+      }),
+      pgPolicy('payment_attempt_result', {
+        for: 'update',
+        using: sql`${immutable}=(${write}-'intentId') AND (${t.intentId} IS NULL OR ${t.intentId}=${write}->>'intentId')`,
+        withCheck: sql`${immutable}=(${write}-'intentId') AND ${t.intentId}=${write}->>'intentId'`,
+      }),
+      uniqueIndex('payment_attempt_provider_source').on(t.source, t.intentId),
+      check('valid_payment_attempt_amount', sql`${t.amountCents} >= 50 and ${t.amountCents} <= 99999999`),
+      check('valid_payment_attempt_revision', sql`${t.revision} >= 0`),
+    ];
+  },
 );
 
 const ledgerAppend = sql`NULLIF(current_setting('rove.ledger_append',true),'')::jsonb`;

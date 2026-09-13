@@ -1,3 +1,4 @@
+import { bindPaymentAttemptRead } from './payment-attempt-scope';
 import { bindLedgerAttempt } from './ledger-scope';
 import { appendLedgerJournal } from './ledger-append';
 import { appendAudit } from './audit';
@@ -31,6 +32,7 @@ export class PaymentLosses {
       .parse(source);
   }
   private async payment(c: PoolClient, rideId: string): Promise<Payment> {
+    await bindPaymentAttemptRead(c, this.source, { rideId });
     const p = (
       await c.query<Payment>(
         `SELECT p.id,p.ride_id,r.rider_id,r.driver_id FROM payment_attempts p

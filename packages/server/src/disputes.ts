@@ -1,3 +1,4 @@
+import { bindPaymentAttemptRead } from './payment-attempt-scope';
 import { enqueueOutbox } from './outbox-enqueue';
 import { bindLedgerAttempt } from './ledger-scope';
 import { appendLedgerJournal } from './ledger-append';
@@ -218,6 +219,7 @@ export class DisputeReconciler {
     const rideId = z.uuid().parse(rawRideId);
     const intentId = await transaction(this.pool, async (client) => {
       await requireStaffPermission(client, actor, 'payments.dispute.review');
+      await bindPaymentAttemptRead(client, this.source, { rideId });
       const row = (
         await client.query('SELECT intent_id FROM payment_attempts WHERE ride_id=$1 AND source=$2', [
           rideId,

@@ -1,5 +1,13 @@
 # Implementation status
 
+## Payment-attempt RLS implemented and verified locally — September 13
+
+Migration 0081 enables and forces payment_attempts RLS. Rider creation requires an active owner, a searching ride, matching fare and a bound provider customer. Verified result writes preserve attempt, ride, binding, source, amount and an already-bound intent. Exact payment lookups and accounting locks, provider-scoped read-only recovery scans, ride-event source-mismatch detection and staff-authorized closure access are integrated. Lock-only UPDATE authority is disabled during result-write scope so permissive policies cannot combine to retarget an intent. Backend-controlled scopes supplement domain authorization; they do not protect against arbitrary SQL with a compromised runtime credential.
+
+All 752 server, 208 API and 13 database tests passed, with server/database typechecking, changed-source lint and diff checks. Eight focused tests use the actual migration and a restricted runtime role. The full run identified one direct loss-policy test missing the newly required parent lookup scope; it now exercises that scope and retains permission, wrong-source and mutation-denial assertions.
+
+Source coverage reaches 44/47; isolated hosted verification remains 43/47 through 0080. Next: apply 0081 to the reverified disposable branch and run the full synthetic hosted rehearsal, then implement users/drivers/rides policies and compatible provider-staging rollout. Provider staging and production remain unchanged. Physical-device and real-provider acceptance remain outstanding. This checkpoint is prepared for the authorized main push; remote confirmation follows.
+
 ## Payment-attempt result write preparation — September 13
 
 Payment session result binding and reconciliation now establish an exact write scope from the persisted attempt ID, ride, customer binding, provider source and amount, plus the verified provider intent. Read scope replacement and identity resets clear write authority. Existing provider validation, immutable request matching and optimistic revision predicates remain in place. No payment-attempt application migration is enabled yet.

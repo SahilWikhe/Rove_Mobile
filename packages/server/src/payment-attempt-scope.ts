@@ -17,7 +17,7 @@ export async function bindPaymentAttemptRead(
 ) {
   const selected = referenceSchema.parse(reference);
   await client.query(
-    "SELECT set_config('rove.payment_attempt_read',$1,true),set_config('rove.payment_attempt_write','',true)",
+    "SELECT set_config('rove.payment_attempt_read',$1,true),set_config('rove.payment_attempt_write','',true),set_config('rove.payment_attempt_scan','',true),set_config('rove.payment_attempt_lock','',true),set_config('rove.payment_attempt_closure','',true)",
     [JSON.stringify({ source: sourceSchema.parse(source), ...selected })],
   );
 }
@@ -38,4 +38,27 @@ export async function bindPaymentAttemptWrite(client: PoolClient, input: z.infer
   const selected = writeSchema.parse(input);
   await bindPaymentAttemptRead(client, selected.source, { attemptId: selected.attemptId });
   await client.query("SELECT set_config('rove.payment_attempt_write',$1,true)", [JSON.stringify(selected)]);
+}
+
+/** Source-wide read-only access for trusted recovery scans and durable operation lookups. */
+export async function bindPaymentAttemptScan(client: PoolClient, source: string) {
+  sourceSchema.parse(source);
+  await client.query(
+    "SELECT set_config('rove.payment_attempt_scan',$1,true),set_config('rove.payment_attempt_read','',true),set_config('rove.payment_attempt_write','',true),set_config('rove.payment_attempt_lock','',true),set_config('rove.payment_attempt_closure','',true)",
+    [source],
+  );
+}
+/** Exact payment lock for already-validated accounting operations. */
+export async function bindPaymentAttemptLock(client: PoolClient, attemptId: string) {
+  z.uuid().parse(attemptId);
+  await client.query("SELECT set_config('rove.payment_attempt_lock',$1,true)", [attemptId]);
+}
+
+/** A queued ride event must detect a mismatched provider before dispatching any external work. */
+export async function bindPaymentAttemptRideEvent(client: PoolClient, rideId: string) {
+  z.uuid().parse(rideId);
+  await client.query(
+    "SELECT set_config('rove.payment_attempt_read',$1,true),set_config('rove.payment_attempt_write','',true),set_config('rove.payment_attempt_scan','',true),set_config('rove.payment_attempt_lock','',true),set_config('rove.payment_attempt_closure','',true)",
+    [JSON.stringify({ kind: 'ride-event', rideId })],
+  );
 }

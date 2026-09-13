@@ -1,3 +1,4 @@
+import { bindPaymentAttemptRead, bindPaymentAttemptScan } from './payment-attempt-scope';
 import { enqueueOutbox } from './outbox-enqueue';
 import { bindLedgerAttempt } from './ledger-scope';
 import { appendLedgerJournal } from './ledger-append';
@@ -219,6 +220,8 @@ export class CaptureFees {
   }
   private async bindScope(c: PoolClient, mode: 'read' | 'write' | 'sweep', attemptId?: string) {
     if (mode !== 'sweep') z.uuid().parse(attemptId);
+    if (mode === 'sweep') await bindPaymentAttemptScan(c, this.source);
+    else await bindPaymentAttemptRead(c, this.source, { attemptId: attemptId! });
     await c.query(
       "SELECT set_config('rove.capture_source',$1,true),set_config('rove.capture_write',$2,true),set_config('rove.capture_read',$3,true),set_config('rove.capture_sweep',$4,true),set_config('rove.capture_balance','',true)",
       [

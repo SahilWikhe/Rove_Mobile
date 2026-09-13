@@ -1,3 +1,4 @@
+import { bindPaymentAttemptLock } from './payment-attempt-scope';
 import { bindLedgerAttempt } from './ledger-scope';
 import { appendLedgerJournal } from './ledger-append';
 import { createHash } from 'node:crypto';
@@ -53,6 +54,7 @@ export async function recordCapturedFunds(client: PoolClient, input: Capture): P
   )
     throw new DomainError('INVALID_LEDGER_AMOUNT', 'Payment accounting requires review.', 409);
   // Serialize financial decisions for this payment with reconciliation and loss allocation.
+  await bindPaymentAttemptLock(client, input.attemptId);
   await client.query('SELECT id FROM payment_attempts WHERE id=$1 FOR UPDATE', [input.attemptId]);
   await journal(client, input, 'capture', [
     { account: 'stripe_clearing', ownerId: null, amountCents: input.receivedCents },

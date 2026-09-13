@@ -1,3 +1,4 @@
+import { bindPaymentAttemptRead, bindPaymentAttemptScan } from './payment-attempt-scope';
 import type { PoolClient } from 'pg';
 import { z } from 'zod';
 /** Internal transaction scopes; execution writes target one durable transfer authorization. */
@@ -13,6 +14,8 @@ export async function bindTransferScope(
   if (scope.operationId) z.uuid().parse(scope.operationId);
   if ((!scope.sweep && !scope.attemptId && !scope.operationId) || (scope.writable && !scope.operationId))
     throw new Error('Exact transfer scope required.');
+  if (scope.attemptId) await bindPaymentAttemptRead(client, source, { attemptId: scope.attemptId });
+  else await bindPaymentAttemptScan(client, source);
   await client.query(
     "SELECT set_config('rove.transfer_source',$1,true),set_config('rove.transfer_attempt',$2,true),set_config('rove.transfer_read',$3,true),set_config('rove.transfer_write',$4,true),set_config('rove.transfer_sweep',$5,true),set_config('rove.transfer_balance','',true),set_config('rove.transfer_closure_owner','',true)",
     [

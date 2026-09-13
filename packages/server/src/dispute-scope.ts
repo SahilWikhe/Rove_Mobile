@@ -1,3 +1,4 @@
+import { bindPaymentAttemptRead, bindPaymentAttemptScan } from './payment-attempt-scope';
 import type { PoolClient } from 'pg';
 import { z } from 'zod';
 /** Internal transaction scope. Read mode allows evidence locks but never accounting changes. */
@@ -11,6 +12,8 @@ export async function bindDisputeScope(
     .regex(/^acct_[a-zA-Z0-9]{1,96}:(test|live)$/)
     .parse(source);
   if (mode === 'read' || mode === 'write') z.uuid().parse(attemptId);
+  if (mode === 'sweep' || mode === 'queue') await bindPaymentAttemptScan(client, source);
+  else await bindPaymentAttemptRead(client, source, { attemptId: attemptId! });
   await client.query(
     "SELECT set_config('rove.dispute_source',$1,true),set_config('rove.dispute_read',$2,true),set_config('rove.dispute_write',$3,true),set_config('rove.dispute_sweep',$4,true)",
     [

@@ -1,3 +1,4 @@
+import { bindPaymentAttemptRead } from './payment-attempt-scope';
 import { actorTransaction } from './actor-transaction';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
@@ -335,11 +336,13 @@ test('allocation evidence requires current permission and exact payment scope an
   await movement();
   const result = await service.allocate(staff, input.rideId, allocation(), 'rls-allocation');
   expect((await runtimePool.query('SELECT * FROM payment_loss_allocations')).rowCount).toBe(0);
-  const scope = async (c: import('pg').PoolClient) =>
-    c.query(
+  const scope = async (c: import('pg').PoolClient) => {
+    await bindPaymentAttemptRead(c, 'acct_fixture:test', { attemptId: input.attemptId });
+    await c.query(
       "SELECT set_config('rove.loss_source','acct_fixture:test',true),set_config('rove.loss_attempt',$1,true),set_config('rove.ledger_attempt',$1,true)",
       [input.attemptId],
     );
+  };
   await actorTransaction(runtimePool, staff, async (c) => {
     await scope(c);
     expect((await c.query('SELECT id FROM payment_loss_allocations')).rows).toEqual([{ id: result.id }]);
