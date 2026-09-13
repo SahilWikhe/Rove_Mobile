@@ -101,3 +101,7 @@ Implement all scheduling flag combinations and rollback/provider-failure tests i
 ## Driver UI state in recovery checks
 
 Storage-recovery browser tests wait for the Account navigation control after sign-in, which exists in both offline and online driver layouts. The offline header's Open your account button is not a session-readiness signal. Preserve the existing online state when checking recovery; do not force drivers offline or relax the no-automatic-mutation assertions to make the test pass.
+
+## Current local regression checkpoint — September 12
+
+On source `3097f62`, the complete 57-journey browser suite passed in 5.2 minutes using isolated synthetic services. Workspace typechecks, configured test tasks (including 648 server tests), lint, formatting and package-boundary checks passed. Browser coverage includes real local persistence/lifecycle and simulated provider responses; it does not prove physical-device scheduling, actual push delivery, production payments or complete hosted-provider acceptance. See docs/18-implementation-status.md for remaining release gaps and separate native evidence.

@@ -2,6 +2,12 @@
 
 Updated: September 12, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Full local regression baseline on 3097f62 — September 12
+
+All 57 Playwright browser journeys passed in 5.2 minutes against disposable local synthetic services, including the full two-app trip, live location, messaging, no-driver expiry/reconfirmation, uncertain-command recovery, credential renewal, account deletion requests, support and refund receipts. All workspace typecheck tasks and configured unit/integration test tasks passed (server: 62 files / 648 tests). Workspace lint, formatting and import-boundary checks passed. Test servers exited successfully. This checkpoint changes documentation only.
+
+Re-read rider Figma completion frame `6:107`; the existing completion hero preserves the approved consumer-payment adaptations and separates completed travel from payment settlement. This review is not a whole-app visual certification. Hosted CI run 34740659664 for 3097f62 was pending with no jobs when inspected; no hosted pass is claimed. Remaining release requirements include physical/locked-phone GPS and push, complete real-provider/device acceptance, outstanding UI audit, historical upload/inbox reconciliation and full erasure fulfillment, reviewed migrations and isolated production setup. Next: progress these remaining acceptance and implementation requirements; do not repeat this baseline without a new change or failure.
+
 ## Driver credential renewal warning — September 12
 
 Reviewed live Figma driver Account `4:106` and implemented its missing expiring-soon badge using the latest approved credential per kind. A display-only 30-day window supplies the count; document details show the actual reviewed expiry and renewal guidance. Expired/rejected/upload-failure attention takes precedence, superseded credentials do not count, and upload reservation expiry is never treated as credential expiry. Eligibility remains server-controlled.
