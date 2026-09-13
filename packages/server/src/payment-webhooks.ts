@@ -1,3 +1,4 @@
+import { bindWebhookScope } from './webhook-scope';
 import type { Pool } from 'pg';
 import { z } from 'zod';
 import { DomainError } from './errors';
@@ -64,6 +65,7 @@ export class PaymentWebhookInbox {
     if (!/^pi_[a-zA-Z0-9]{1,96}$/.test(hint.resourceId))
       throw new DomainError('INVALID_PAYMENT_WEBHOOK', 'Invalid payment event.', 400);
     await transaction(this.pool, async (client) => {
+      await bindWebhookScope(client, 'payment', this.source, hint.id);
       const inserted = await client.query<{ id: string }>(
         `INSERT INTO payment_webhook_events (source,event_id,event_type,resource_id,provider_created)
          VALUES ($1,$2,$3,$4,$5) ON CONFLICT (source,event_id) DO NOTHING RETURNING id`,

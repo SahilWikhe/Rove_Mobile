@@ -1,5 +1,15 @@
 # Implementation status
 
+## Webhook inbox RLS and hosted 35-table verification — September 13
+
+Migration 0073 enables and forces RLS on payment_webhook_events and payout_webhook_events. Verified ingress binds only the configured source and exact event ID; receipts permit scoped SELECT/INSERT, with no runtime UPDATE/DELETE. Both inboxes preserve signature verification, conflicting-replay detection and atomic receipt/job persistence. Actor and unrelated worker helpers clear webhook contexts.
+
+Verification: 716 server, 208 API and 13 database tests passed. Six new restricted-role tests cover replay/conflict, source/event isolation, immutable receipts, denied foreign inserts and rollback/retry after enqueue failure. Server/database typechecks, changed-file lint, formatting and documentation checks passed.
+
+The isolated Neon rehearsal passed first with payout RLS (0072), then with both inboxes (0073) and the full existing workflow. Catalog inspection confirms 74 migrations through 0073 and 35 of 47 tables with RLS enabled/forced. Hosted payout checks cover onboarding retry, bank history, reconciliation and ownership/mutation denial; webhook checks cover exact source/event scope, replay/conflict, immutable receipts and one reconciliation job. All provider adapters/verifiers were synthetic, so this is database/service evidence, not a live Stripe delivery or money-movement claim. Provider staging was separately checked read-only and remains 31 migrations, 32 tables and zero RLS-enabled/forced tables; production was not changed.
+
+Twelve tables still need RLS policies. Next: tracking-session protection and the remaining core ledger, identity/trip, audit/command/outbox policies, then compatible provider-staging rollout. Physical-device/provider acceptance and full production readiness remain incomplete.
+
 ## Driver payout-account RLS — September 13
 
 Migration 0072 enables and forces RLS on driver_payout_accounts. Active drivers may read/lock their own configured-source binding and reserve only an unprovisioned initial row. They cannot change account mapping or readiness. Onboarding preserves exact dispatched provider results even after account disablement; result scope requires the matching account ID. Reconciliation binds the configured source and exact account, while sweep discovery has read/lock access and scopes each selected write. Transfers receive target-driver read/lock access. Runtime deletion is denied, and actor/other worker helpers clear payout contexts. Bank-history reads and post-provider revalidation now use actor transactions.

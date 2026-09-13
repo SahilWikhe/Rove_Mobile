@@ -38,4 +38,4 @@ Provider and database tests cover account-scoped reads, privacy projection, pagi
 
 With migration 0072, bank-history binding lookup and post-provider revalidation run in active-driver transactions. Policies allow only the owner and configured source. Read locking cannot change readiness or account mapping. Provider calls remain outside the transaction; responses are rejected when disablement or binding changes race the request.
 
-Restricted-role local verification passed. Hosted verification of 0072 remains pending; deploy compatible API/worker code before applying it to provider staging. Production was not changed.
+Restricted-role local verification and isolated Neon verification of 0072 passed, including onboarding retry, bank history, status reconciliation, ownership/mutation denial and transfer execution. All provider adapters were fake. Deploy compatible API/worker code before applying it to provider staging; production was not changed.

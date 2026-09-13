@@ -512,6 +512,13 @@
       "when": 1789297547441,
       "tag": "0072_driver_payout_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1789311874051,
+      "tag": "0073_webhook_inbox_rls",
+      "breakpoints": true
     }
   ]
 }

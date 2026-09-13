@@ -66,4 +66,4 @@ Restricted-role tests cover authorization, retry/reversal, denied worker authori
 
 Migration 0072 adds payout-account RLS. Transfer eligibility binds the configured source and target driver before reading/locking the payout account; this scope cannot modify or delete the account.
 
-Restricted-role local verification passed. Hosted verification of 0072 remains pending; deploy compatible API/worker code before applying it to provider staging. Production was not changed.
+Restricted-role local verification and isolated Neon verification of 0072 passed, including onboarding retry, bank history, status reconciliation, ownership/mutation denial and transfer execution. All provider adapters were fake. Deploy compatible API/worker code before applying it to provider staging; production was not changed.

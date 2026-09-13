@@ -234,7 +234,17 @@ export const paymentWebhookEvents = pgTable(
     providerCreated: integer().notNull(),
     receivedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex('payment_webhook_source_event').on(t.source, t.eventId)],
+  (t) => [
+    uniqueIndex('payment_webhook_source_event').on(t.source, t.eventId),
+    pgPolicy('payment_webhook_read', {
+      for: 'select',
+      using: sql`${t.source}=current_setting('rove.payment_webhook_source',true) AND ${t.eventId}=current_setting('rove.payment_webhook_event',true)`,
+    }),
+    pgPolicy('payment_webhook_insert', {
+      for: 'insert',
+      withCheck: sql`${t.source}=current_setting('rove.payment_webhook_source',true) AND ${t.eventId}=current_setting('rove.payment_webhook_event',true)`,
+    }),
+  ],
 );
 
 export const paymentCustomers = pgTable(
@@ -609,7 +619,17 @@ export const payoutWebhookEvents = pgTable(
     providerCreated: timestamp({ withTimezone: true }).notNull(),
     receivedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex('payout_webhook_source_event').on(t.source, t.eventId)],
+  (t) => [
+    uniqueIndex('payout_webhook_source_event').on(t.source, t.eventId),
+    pgPolicy('payout_webhook_read', {
+      for: 'select',
+      using: sql`${t.source}=current_setting('rove.payout_webhook_source',true) AND ${t.eventId}=current_setting('rove.payout_webhook_event',true)`,
+    }),
+    pgPolicy('payout_webhook_insert', {
+      for: 'insert',
+      withCheck: sql`${t.source}=current_setting('rove.payout_webhook_source',true) AND ${t.eventId}=current_setting('rove.payout_webhook_event',true)`,
+    }),
+  ],
 );
 
 export const pushInstallations = pgTable(

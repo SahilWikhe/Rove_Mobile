@@ -1,3 +1,4 @@
+import { bindWebhookScope } from './webhook-scope';
 import Stripe from 'stripe';
 import { z } from 'zod';
 import type { Pool } from 'pg';
@@ -69,6 +70,7 @@ export class PayoutWebhookInbox {
     const hint = this.verifier.verify(body, signature);
     if (!hint) return;
     await transaction(this.pool, async (client) => {
+      await bindWebhookScope(client, 'payout', this.source, hint.id);
       const row = (
         await client.query<{ id: string }>(
           `INSERT INTO payout_webhook_events(source,event_id,event_type,account_id,provider_created)

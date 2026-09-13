@@ -33,3 +33,11 @@ When refund tracking is enabled, signed `refund.created`, `refund.updated` and `
 ## Dispute event hints
 
 The separate dispute rollout flag enables five signed charge-dispute event types. They queue current PaymentIntent dispute verification; event amounts, status and customer evidence are never stored as financial truth. Unlinked legacy events are ignored. See [subscriptions and recovery](69-disputes.md).
+
+## Webhook inbox row security — September 13
+
+Migration 0073 enables and forces RLS on payment_webhook_events. After signature and hint validation, ingress binds the configured account/mode and exact event ID. Only that receipt can be read or inserted; no runtime update/delete policies exist. Duplicate delivery still verifies the signature and compares immutable receipt fields before returning. The receipt and reconciliation job remain atomic. Actor and unrelated worker helpers clear webhook scopes.
+
+Restricted-role PostgreSQL tests cover duplicate/conflicting deliveries, source/event isolation, immutable receipts, denied foreign inserts and rollback/retry when enqueue fails. Runtime database credentials remain backend-only; signature validation remains mandatory.
+
+Hosted verification of 0073 passed on the isolated synthetic Neon branch through the restricted runtime role, including source/event isolation, duplicate/conflicting delivery and immutable receipts. The hosted verifiers were fake; signed Stripe SDK validation remains covered separately by API tests. Provider staging and production were not changed.
