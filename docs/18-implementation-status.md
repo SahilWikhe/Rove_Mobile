@@ -1,5 +1,11 @@
 # Implementation status
 
+## Hosted outbox RLS verified — September 13
+
+Applied migration 0080 only to reverified disposable branch br-shy-bar-axjulxqh / neondb, with explicit direct/pooled endpoint and database assertions. The catalog confirms 81 migrations and 43 tables with RLS enabled and forced. The full pooled rove_staging_app rehearsal exited successfully with NOSUPERUSER/NOBYPASSRLS. Synthetic financial, messaging, push, tracking, closure and document cleanup workflows passed. New hosted checks verify enqueue deduplication, exact read-only notification scope, unscoped denial, a failed job's retry and successful acknowledgement. Only a newly created synthetic job was dispatched, scheduled before existing pending work; external providers remained fake adapters.
+
+Source and isolated-hosted RLS are both 43/47. Four remaining tables are users, drivers, rides and payment_attempts. Payment-attempt access tracing identifies exact provider/intent/ride reads, rider session creation/result binding, financial sweeps and closure row locks as required paths for the next policy. Provider staging and production remain unchanged. Next: remaining core policies, compatible provider-staging rollout, and physical-device/provider acceptance. Sonar run 34775062543 for b8b2aeb was still in progress at the last observation; the preceding caller-integration run 34774660279 passed. This checkpoint is prepared for the authorized main push; remote confirmation follows.
+
 ## Outbox RLS implemented and verified locally — September 13
 
 Migration 0080 enables and forces RLS on outbox, bringing source coverage to 43 of 47 tables. Exact append and deduplication scopes protect single-job creation. Workers use short claim/acknowledgement transactions with a shared claim timestamp and exact lease token. Queue scheduling and notification event reads are separate read-only scopes. Authorized identity retries require privacy.close; bulk document jobs and cleanup retries require privacy.cleanup, MFA and the selected approved plan. The bulk INSERT SELECT remains intact. Common identity resets clear the new scopes. Domain authorization and fenced SQL predicates remain required; these backend-controlled scopes are defense in depth, not protection from arbitrary SQL using a compromised runtime credential.
