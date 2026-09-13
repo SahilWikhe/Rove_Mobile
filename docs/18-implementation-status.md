@@ -1,5 +1,11 @@
 # Implementation status
 
+## Provider-staging RLS rollout verified — September 13
+
+Reverified logical staging alias against READY deployment dpl_FnDP7zDqgJB53ag2Wy6WiNcgbjzL at e5c988818a745685ac526ecfe60f92a4fb2183f9. Current project configuration confirms staging mode, Stripe test mode and pooled rove_staging_app on provider branch br-super-leaf-axpo6edu. Applied versioned migrations 0031–0087 and refreshed existing runtime grants without rotating credentials. Live catalog now confirms 88 migrations and all 47 public tables enabled/forced. Production was not changed.
+
+Read-only verification using the hosted runtime credential passed all-table grants, non-owner/NOBYPASSRLS checks, policy presence and empty unscoped users/drivers/rides/trip_messages reads. Hosted liveness/readiness returned 200 and unauthenticated /v1/me returned 401. These checks do not prove authenticated journeys; dedicated Auth0 messaging/trip/provider and physical-device acceptance remain next. Realtime connection configuration is sensitive and could not be independently inspected through environment pull. Sonar run 34781278085 remains in progress and CI 34781278012 was pending at observation. No green gate claim. An initial local verification import failed before connection and was corrected using the database workspace dependency. Documentation is prepared for the authorized main push; remote confirmation follows.
+
 ## All-table hosted RLS verified and coverage runner bounded — September 13
 
 Applied 0086–0087 only to reverified disposable br-shy-bar-axjulxqh / neondb. Catalog confirms 88 migrations and all 47 public tables enabled/forced. The full hosted synthetic rehearsal passed through rove_staging_app with NOSUPERUSER/NOBYPASSRLS. Added runtime booking/history/cancellation and receipt/driver-earnings API checks passed alongside the existing signup, financial, tracking, messaging, push, vehicle, closure, document and outbox workflows. External providers remained fake. A rehearsal-only duplicate variable name was corrected before execution. No provider-staging or production mutation occurred.

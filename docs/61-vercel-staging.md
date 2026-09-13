@@ -1,12 +1,12 @@
 # Vercel staging
 
-Updated: September 12, 2026.
+Updated: September 13, 2026.
 
 ## Scope and current state
 
 The separate `rove-api-staging` project in `team-7536` (`team_lNgElVK3RUXfpIY43YCvpbCS`) is deployed and Git-connected to `Rove_Mobile` main. Project ID: `prj_rLOcpNrXI7eftPgzzRebQbgfCkMC`. The marketing project remains separate. [Open staging project](https://vercel.com/team-7536/rove-api-staging).
 
-On September 12, the stable alias [rove-api-staging.vercel.app](https://rove-api-staging.vercel.app) resolved to READY deployment `dpl_38Me36WZxPomkGGw4Bv7tjp7XwEZ`, source `31f7e42199448b4686be82a3e9738947752b324d` on main. This is a point-in-time read, not proof of every provider journey or the next deployment's health.
+On September 13, the stable alias [rove-api-staging.vercel.app](https://rove-api-staging.vercel.app) resolved to READY deployment `dpl_FnDP7zDqgJB53ag2Wy6WiNcgbjzL`, source `e5c988818a745685ac526ecfe60f92a4fb2183f9` on main. Provider staging was then migrated through 0087 (88 migrations; 47 tables enabled/forced RLS), and existing runtime grants refreshed. Post-migration liveness/readiness returned 200 and unauthenticated profile access returned 401. Authenticated journey verification remains pending; health only checks connectivity. Current project environment matches the restricted provider-staging database and sandbox payments; sensitive realtime credentials were not exportable for independent inspection.
 
 ## Project settings and release boundary
 
