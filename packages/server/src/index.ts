@@ -103,3 +103,5 @@ export { DocumentCleanup, type DocumentCleanupProvider } from './document-cleanu
 export * from './message-cleanup';
 
 export * from './identity-profiles';
+
+export { actorTransaction } from './actor-transaction';

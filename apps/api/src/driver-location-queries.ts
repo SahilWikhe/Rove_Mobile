@@ -1,23 +1,29 @@
 import type { Pool } from 'pg';
 import { Coordinate, RideDriverLocation } from '@rove/contracts';
-import { DomainError, type Actor } from '@rove/server';
+import { actorTransaction, DomainError, type Actor } from '@rove/server';
 
 /** A rider can read only their currently assigned driver's recent sample. */
 export async function getDriverLocation(pool: Pool, actor: Actor, rideId: string, now = new Date()) {
   if (actor.role !== 'rider') throw new DomainError('NOT_FOUND', 'Driver location not available.', 404);
-  const { rows } = await pool.query<{
-    location: unknown;
-    location_sampled_at: Date | null;
-    online: boolean;
-    disabled: boolean;
-  }>(
-    `SELECT d.location,d.location_sampled_at,d.online,u.disabled
+  const { rows } = await actorTransaction(pool, actor, (client) =>
+    client.query<{
+      location: unknown;
+      location_sampled_at: Date | null;
+      online: boolean;
+      disabled: boolean;
+    }>(
+      `SELECT d.location,d.location_sampled_at,d.online,u.disabled
       FROM rides r JOIN users owner ON owner.id=r.rider_id
       JOIN drivers d ON d.id=r.driver_id JOIN users u ON u.id=d.id
       WHERE r.id=$1 AND r.rider_id=$2 AND NOT owner.disabled
         AND r.state IN ('matched','en_route','arrived','in_progress','interrupted')`,
-    [rideId, actor.id],
-  );
+      [rideId, actor.id],
+    ),
+  ).catch((error: unknown) => {
+    if (error instanceof DomainError && error.code === 'FORBIDDEN')
+      throw new DomainError('NOT_FOUND', 'Driver location not available.', 404);
+    throw error;
+  });
   const row = rows[0];
   if (!row) throw new DomainError('NOT_FOUND', 'Driver location not available.', 404);
   const point = Coordinate.safeParse(row.location);

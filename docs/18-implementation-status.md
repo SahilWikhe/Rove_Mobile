@@ -1,5 +1,14 @@
 # Implementation status
 
+## Hosted driver RLS verified and live-location API scoped — September 13
+
+Applied migration 0085 only to reverified disposable br-shy-bar-axjulxqh / neondb. Catalog confirms 86 migrations, 47 tables and 46 enabled/forced RLS tables. The complete hosted synthetic rehearsal exited successfully as rove_staging_app with NOSUPERUSER/NOBYPASSRLS. Driver coverage and protected-field isolation passed alongside signup, financial reconciliation, tracking, messaging, push, vehicle review, closure, document scanning/cleanup and outbox retry checks. External adapters remained fake. The inherited rehearsal summary retained a stale 45-table display constant; independent catalog evidence and its updated 46-table assertion establish the actual count. The saved script has the display constant corrected for subsequent runs.
+
+The API audit found the rider live-driver-location query lacked actor scope. It now checks the persisted active rider and executes the assignment/location read inside an actor transaction. All live-location tests now use a restricted database role, including pickup/in-trip movement, stale/malformed samples, disabled drivers, assignment revocation and a new disabled-rider/scope-reset case. All 209 API tests passed, plus API typechecking, changed-source lint and diff checks. The test role has UPDATE on users solely to permit account row locking; RLS still denies unauthorized mutations.
+
+Source and isolated-hosted coverage match at 46/47. Rides RLS remains, with 43 server ride-read/join references identified for scope preparation. Additional API read paths need restricted-runtime auditing before provider-staging rollout. Provider staging and production are unchanged; physical-device/provider acceptance and production readiness remain incomplete. This checkpoint is prepared for the authorized main push; remote confirmation follows.
+
+
 ## Driver RLS implemented and verified locally — September 13
 
 Migration 0085 enables and forces driver RLS. Backend mutation scopes capture a locked persisted driver row and constrain updates to the operation's fields: coverage, availability, location, eligibility, invalidation, vehicle review, payout readiness or closure. Read scope permits locking but cannot independently update or delete records. Identity/account rebinding clears driver mutation authority. Compatible callers retain existing authorization, lifecycle, freshness and provider checks; vehicle changes remain approval-only. Backend-controlled scopes provide defense in depth, not protection against arbitrary SQL using a compromised runtime credential.

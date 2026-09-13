@@ -1,15 +1,27 @@
+import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { testDatabase } from '@rove/database/testing';
 import { getDriverLocation } from './driver-location-queries';
 let db: Awaited<ReturnType<typeof testDatabase>>;
+let runtime: Pool;
 let rider: string, other: string, driver: string, ride: string;
 const now = new Date('2026-09-08T12:00:00Z');
 const coordinate = { latitude: 35.78, longitude: -78.64 };
 beforeAll(async () => {
   db = await testDatabase();
+  const password = randomBytes(32).toString('hex');
+  await db.pool.query(`CREATE ROLE location_reader LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`);
+  await db.pool.query(
+    'GRANT USAGE ON SCHEMA public TO location_reader; GRANT SELECT ON ALL TABLES IN SCHEMA public TO location_reader; GRANT UPDATE ON users TO location_reader',
+  );
+  const connection = new URL(db.connectionString);
+  connection.username = 'location_reader';
+  connection.password = password;
+  runtime = new Pool({ connectionString: connection.toString(), max: 1 });
 }, 60000);
 afterAll(async () => {
+  await runtime?.end();
   await db?.close();
 });
 beforeEach(async () => {
@@ -42,7 +54,7 @@ beforeEach(async () => {
     [ride, quote, rider, driver, now],
   );
 });
-const read = (time = now) => getDriverLocation(db.pool, { id: rider, role: 'rider' }, ride, time);
+const read = (time = now) => getDriverLocation(runtime, { id: rider, role: 'rider' }, ride, time);
 test('only the assigned ride owner receives a bounded location sample without identity details', async () => {
   expect(await read()).toEqual({
     rideId: ride,
@@ -58,7 +70,7 @@ test('only the assigned ride owner receives a bounded location sample without id
     { id: driver, role: 'driver' as const },
     { id: rider, role: 'staff' as const },
   ])
-    await expect(getDriverLocation(db.pool, actor, ride, now)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await expect(getDriverLocation(runtime, actor, ride, now)).rejects.toMatchObject({ code: 'NOT_FOUND' });
 });
 test('old, future, missing and malformed samples return no coordinates', async () => {
   expect((await read(new Date(now.getTime() + 60000))).location).toBeNull();
@@ -101,7 +113,14 @@ test('moving driver samples remain available during pickup and in the vehicle', 
     expect(result.location?.sampledAt).toBe(sampledAt.toISOString());
     expect((await read(new Date(sampledAt.getTime() + 60000))).location).toBeNull();
     await expect(
-      getDriverLocation(db.pool, { id: other, role: 'rider' }, ride, sampledAt),
+      getDriverLocation(runtime, { id: other, role: 'rider' }, ride, sampledAt),
     ).rejects.toMatchObject({ code: 'NOT_FOUND' });
   }
+});
+
+test('disabled rider access and unscoped pooled reads stay denied', async () => {
+  await db.pool.query('UPDATE users SET disabled=true WHERE id=$1', [rider]);
+  await expect(read()).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  expect((await runtime.query('SELECT location FROM drivers')).rowCount).toBe(0);
+  expect((await runtime.query('SELECT id FROM users')).rowCount).toBe(0);
 });
