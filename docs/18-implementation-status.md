@@ -1,5 +1,13 @@
 # Implementation status
 
+## Twenty-eight-table hosted RLS verification — September 13
+
+Applied migrations 0067–0068 only to the confirmed isolated synthetic Neon branch br-shy-bar-axjulxqh. Fresh catalog inspection shows 69 migrations, 47 tables and twenty-eight tables with RLS enabled and forced. Separate read-only inspection confirms provider staging remains at 31 migrations, 32 tables and zero RLS-enabled/forced tables. Production was not changed.
+
+The full hosted workflow passed through pooled rove_staging_app with NOSUPERUSER/NOBYPASSRLS. New checks verify refund/dispute reconciliation retry, read-lock mutation denial, immutable observations, active-dispute refund holds and resolution, staff queue MFA/permission enforcement and source isolation. All earlier customer/capture, staff, request-limit, notification, vehicle, messaging, retention, closure and document lifecycle checks passed again. Provider adapters were fake; no real refund, dispute, payment, push, identity or storage operation occurred.
+
+Hosted evidence now matches all twenty-eight implemented policy tables. Nineteen tables remain, including identity/trip and remaining financial/worker records. Next: refund operation authorization/worker policies while preserving closure and transfer holds, then the remaining policies and compatible provider-staging rollout. Full mobile physical-device and production acceptance remain incomplete. The isolated branch remains non-primary/non-default and expires September 14.
+
 ## Dispute evidence RLS — September 13
 
 Migration 0068 enables and forces RLS on payment_dispute_checks and payment_dispute_observations. Reconciliation binds a configured source and exact persisted attempt; sweep discovery reads only the configured source and scopes each write. Refundability and loss-allocation checks retain read locks without accounting mutation permission. Staff queue access requires current active staff identity, MFA and payments.dispute.review. Observation history cannot be updated or deleted through the runtime role; check deletion is denied. Actor and other worker contexts clear dispute scope.
