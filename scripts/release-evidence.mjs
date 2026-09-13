@@ -1,3 +1,4 @@
+import { developerTool } from './developer-tool.mjs';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
@@ -73,7 +74,7 @@ export function checkReleaseEvidence({ repository, sha, ci, providers, ciJobs, p
 }
 function api(path) {
   return JSON.parse(
-    execFileSync('gh', ['api', path], {
+    execFileSync(developerTool('gh'), ['api', path], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: 30000,

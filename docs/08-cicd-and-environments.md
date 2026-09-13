@@ -206,3 +206,7 @@ Run production/staging preflight and Stripe staging/transfer checks from the rep
 ## Release workflow supply-chain controls
 
 Production release grants contents/actions read permission per job, with no workflow-level grant. Pinned Vercel CLI installs use --ignore-scripts; candidate dependencies retain the repository pnpm allowBuilds policy for required build packages. Native CI downloads the pinned Maestro archive with HTTPS-only initial/redirect protocols and verifies its SHA-256 before extraction. These controls do not bypass protected production approvals or release-evidence checks.
+
+## Local developer executable paths
+
+GitHub/Auth0 tools use known system/Homebrew installation paths instead of inherited PATH. For custom installations, set ROVE_GH_BINARY or ROVE_AUTH0_BINARY to an explicit absolute executable path. These are trusted startup settings; do not derive them from external request data. Apple simulator commands and archive extraction use fixed system paths. Start the mobile staging apps with pnpm dev:staging:rider or pnpm dev:staging:driver so the launcher can reuse the invoking package manager.

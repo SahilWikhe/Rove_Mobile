@@ -1,3 +1,4 @@
+import { developerTool } from './developer-tool.mjs';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
@@ -76,7 +77,7 @@ export function inspectAuth0({ api, clients, connectionClients, discovery, jwks 
 }
 function read(path) {
   return JSON.parse(
-    execFileSync('auth0', ['api', 'get', path, '--tenant', staging.tenant], {
+    execFileSync(developerTool('auth0'), ['api', 'get', path, '--tenant', staging.tenant], {
       encoding: 'utf8',
       timeout: 30000,
       stdio: ['ignore', 'pipe', 'pipe'],

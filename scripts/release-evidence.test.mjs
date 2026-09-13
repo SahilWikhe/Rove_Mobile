@@ -140,7 +140,7 @@ console.log(JSON.stringify(response));
     {
       encoding: 'utf8',
       timeout: 10000,
-      env: { PATH: directory },
+      env: { PATH: directory, ROVE_GH_BINARY: join(directory, 'gh') },
     },
   );
   const callsPath = join(directory, 'calls.json');

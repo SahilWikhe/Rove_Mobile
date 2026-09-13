@@ -21,6 +21,6 @@ if (createHash('sha256').update(bytes).digest('hex') !== checksums[platform])
 const directory = await mkdtemp(join(tmpdir(), 'rove-gitleaks-'));
 const archive = join(directory, asset);
 await writeFile(archive, bytes);
-execFileSync('tar', ['-xzf', archive, '-C', directory, 'gitleaks']);
+execFileSync('/usr/bin/tar', ['-xzf', archive, '-C', directory, 'gitleaks']);
 if (process.env.GITHUB_PATH) await appendFile(process.env.GITHUB_PATH, directory + '\n');
 console.log(join(directory, 'gitleaks'));

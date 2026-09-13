@@ -18,7 +18,10 @@ try {
 }
 const app = `co.roveride.${role}`;
 const simctl = (...args) =>
-  execFileSync('xcrun', ['simctl', ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  execFileSync('/usr/bin/xcrun', ['simctl', ...args], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
 try {
   const container = simctl('get_app_container', device, app, 'data');
   // An already stopped app is expected; launching below still reports real simulator failures.

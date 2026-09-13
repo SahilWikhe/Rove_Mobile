@@ -39,7 +39,7 @@ const command = (binary, args, timeout = 60000) =>
     stdio: ['ignore', 'pipe', 'pipe'],
     timeout,
   }).trim();
-const simctl = (...args) => command('xcrun', ['simctl', ...args], 180000);
+const simctl = (...args) => command('/usr/bin/xcrun', ['simctl', ...args], 180000);
 let device;
 let recording;
 let recordingStopped;
@@ -94,7 +94,7 @@ try {
   simctl('bootstatus', device, '-b');
   if (process.env.NATIVE_RECORD_VIDEO === '1') {
     recording = spawn(
-      'xcrun',
+      '/usr/bin/xcrun',
       ['simctl', 'io', device, 'recordVideo', '--codec=h264', '--force', `${output}/journey.mp4`],
       { stdio: 'ignore' },
     );

@@ -1,5 +1,13 @@
 # Implementation status
 
+## Developer executable-path hardening — September 13
+
+Replaced inherited PATH lookup for Apple simulator commands and archive extraction with /usr/bin/xcrun and /usr/bin/tar. GitHub/Auth0 tooling resolves known installation paths or explicit absolute ROVE_GH_BINARY/ROVE_AUTH0_BINARY settings, validating regular executable files. Relative overrides fail rather than falling back to PATH. The mobile staging launcher starts the invoking pnpm script through the current Node executable; direct node invocation explains the supported pnpm launch commands.
+
+All 70 Node tooling tests passed with coverage, including release-evidence subprocess fixtures updated to use an explicit tool path and two new executable-boundary tests. A disposable pnpm script verified that the reused executable reports pnpm 11.19.0. An initial probe through pnpm exec lacked npm_execpath; the supported pnpm run context was then tested successfully. Changed-source lint, formatting and documentation checks passed; an initial formatting warning in ios-simulator.mjs was corrected. These checks do not claim new physical-device acceptance or authenticated provider operations.
+
+Next: scanner confirmation, remaining proxy SSRF/jitter/emulator-address review, then core-table RLS and device/provider acceptance. No issues were manually dismissed.
+
 ## Workflow security hardening — September 13
 
 Production release now defaults to no GitHub token permissions and declares contents:read/actions:read only on the candidate and promotion jobs that inspect release evidence. Both pinned Vercel CLI installs disable dependency lifecycle scripts. Both pinned Maestro download commands enforce HTTPS for initial and redirected URLs, retaining checksum verification. The application dependency install keeps pnpm's explicit allowBuilds policy for required native/build tooling.

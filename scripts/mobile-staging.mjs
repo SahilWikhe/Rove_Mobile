@@ -1,3 +1,4 @@
+import { absoluteTool } from './developer-tool.mjs';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
@@ -27,8 +28,10 @@ export function stagingLaunch(role, inherited = process.env) {
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const launch = stagingLaunch(process.argv[2]);
+  if (!process.env.npm_execpath)
+    throw new Error('Start with pnpm dev:staging:rider or pnpm dev:staging:driver.');
   console.log(`Starting ${process.argv[2]} against Rove staging with Auth0 sign-in.`);
-  const child = spawn('pnpm', launch.args, {
+  const child = spawn(process.execPath, [absoluteTool(process.env.npm_execpath), ...launch.args], {
     cwd: fileURLToPath(new URL('../', import.meta.url)),
     env: launch.env,
     stdio: 'inherit',
