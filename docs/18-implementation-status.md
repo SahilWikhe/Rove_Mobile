@@ -2,6 +2,14 @@
 
 Updated: September 12, 2026. Current source baseline: `1cd316e536846a45354ff7040b5cf82320a8361d` plus the approved cleanup connection checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Restricted staging cleanup role and metadata-only verification — September 12
+
+Created the separate staging cleanup CloudFormation role using only the verified `claude-agent` operator. Persisted that identity requirement in `AGENTS.md`. The role allows bucket-versioning checks, prefix-restricted version inventory and exact-version deletion, without document reads, writes, unversioned deletion or governance bypass. Template lint/CloudFormation validation and Access Analyzer checks passed; deployed trust/sole inline policy readback matched the reviewed template and all thirteen allow/deny simulations passed. No S3 objects, bucket policies, hosted migrations or deployment settings changed; cleanup remains off.
+
+Replaced erasure HEAD checks with complete validated version inventories before and after deletion, sharing the runtime's dedicated OIDC inventory provider. This avoids requiring quarantine content-read permissions. Failed/partial discovery cannot establish absence. All eleven local application test tasks, 38 focused inventory/erasure tests, workspace/E2E types, 63 tooling tests, changed-source lint and packaged API build/authentication checks passed. Role simulation and local tests do not establish a live Vercel OIDC/S3 cleanup or full account erasure.
+
+Next: live synthetic OIDC/storage acceptance, uncertain-write/inbox reconciliation, residual versions/copies, retained-data anonymization and backup replay. Figma/native/provider/physical-device acceptance and production setup remain incomplete. See [role scope and verification](77-document-cleanup-plans.md#dedicated-staging-role-and-absence-verification).
+
 ## Hosted iOS smoke deadline investigation — September 12
 
 Inspected job 103638208050 in hosted run 34725187223 (`a6991735`). Both driver iOS builds and the embedded JavaScript check passed. Retained Maestro output and JUnit report show the unchanged welcome/relaunch flow passed in 48 seconds with zero failures; the enclosing command then hit its three-minute deadline. Cold runner startup consumed roughly two minutes before the flow. Increased only the iOS whole-command deadline to six minutes, preserving 60-second screen waits, nonzero-exit failure handling, diagnostics and disposable-simulator cleanup. A passing report does not override a command failure.

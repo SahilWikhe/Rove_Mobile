@@ -22,6 +22,10 @@ Current scope: Rove is consumer ride-hailing with automatic matching, online dri
 - Consumer signup/booking/matching/payment must work without organization membership or a B2B deployment. Keep institution access scoped to explicitly associated rides, never a member's full personal history.
 - Share versioned API contracts across product repositories; do not share database credentials, duplicate ride/payment mutations or create cross-repository filesystem imports.
 
+## AWS operator identity
+
+User requirement: every agent-initiated AWS operation must use the `claude-agent` profile and resolve to `arn:aws:iam::719623059339:user/claude-agent`. Explicitly select the profile and exclude ambient AWS credentials that could override it. Verify STS caller identity before cloud changes. Never fall back to the default/root session, another IAM user or a broader identity when access fails; report the missing permission instead. This operator requirement does not replace the separately authorized least-privilege application runtime roles.
+
 ## Status updates before commits and pushes
 
 For every commit or push, update `docs/18-implementation-status.md` with the current checkpoint, work completed, verification actually executed, outstanding blockers and the next concrete step. Update affected setup/runbook documents in the same commit. Distinguish local implementation, cloud resource creation and verified deployment; never imply one proves another. Record push confirmation in the user-facing result after verifying the remote commit; do not claim a pending push succeeded in committed documentation.

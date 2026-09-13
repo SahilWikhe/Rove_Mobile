@@ -283,7 +283,7 @@ export function createRuntime(env: Record<string, string | undefined>) {
     ? new S3DocumentInventory(config.documentCleanup.storage, undefined, cleanupCredentials!)
     : undefined;
   const erasure = config.documentCleanup
-    ? new S3DocumentErasure(config.documentCleanup.storage, undefined, cleanupCredentials!)
+    ? new S3DocumentErasure(config.documentCleanup.storage, undefined, cleanupCredentials!, inventory!)
     : undefined;
   const documentCredentials = config.documentAwsRoleArn
     ? awsCredentialsProvider({

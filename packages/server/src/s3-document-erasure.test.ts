@@ -1,9 +1,8 @@
+import type { S3DocumentInventory } from './s3-document-inventory';
 import { randomUUID } from 'node:crypto';
 import { test, expect, vi } from 'vitest';
 import { S3DocumentErasure, type S3DocumentErasureOperations } from './s3-document-erasure';
 const config = { bucket: 'rove-private-fixture', region: 'us-east-2', ownerAccountId: '123456789012' };
-const missing = () =>
-  Object.assign(new Error('missing'), { name: 'NotFound', $metadata: { httpStatusCode: 404 } });
 function fixture() {
   const documentId = randomUUID();
   const input = {
@@ -17,16 +16,22 @@ function fixture() {
       $metadata: {},
       Status: 'Enabled',
     })),
-    head: vi.fn<S3DocumentErasureOperations['head']>(async () => {
-      if (!present) throw missing();
-      return { $metadata: { httpStatusCode: 200 }, VersionId: input.version };
-    }),
     remove: vi.fn<S3DocumentErasureOperations['remove']>(async () => {
       present = false;
       return { $metadata: { httpStatusCode: 204 }, VersionId: input.version };
     }),
   };
-  return { input, operations, provider: new S3DocumentErasure(config, operations) };
+  const inventory = {
+    discover: vi.fn<S3DocumentInventory['discover']>(async () =>
+      present ? [{ documentId, key: input.key, version: input.version, kind: 'object' }] : [],
+    ),
+  };
+  return {
+    input,
+    operations,
+    inventory,
+    provider: new S3DocumentErasure(config, operations, undefined, inventory),
+  };
 }
 test('removes only the bound version and independently verifies absence; retry makes no second delete', async () => {
   const f = fixture();
@@ -38,8 +43,8 @@ test('removes only the bound version and independently verifies absence; retry m
     VersionId: f.input.version,
   };
   expect(f.operations.remove).toHaveBeenCalledWith(target, expect.any(AbortSignal));
-  expect(f.operations.head).toHaveBeenNthCalledWith(1, target, expect.any(AbortSignal));
-  expect(f.operations.head).toHaveBeenNthCalledWith(2, target, expect.any(AbortSignal));
+  expect(f.inventory.discover).toHaveBeenNthCalledWith(1, f.input.documentId);
+  expect(f.inventory.discover).toHaveBeenNthCalledWith(2, f.input.documentId);
   expect(await f.provider.erase(f.input)).toEqual({ status: 'absent' });
   expect(f.operations.remove).toHaveBeenCalledTimes(1);
 });
@@ -63,7 +68,7 @@ test.each([undefined, 'Suspended'] as const)('fails closed when bucket versionin
   const f = fixture();
   f.operations.versioning.mockResolvedValue({ $metadata: {}, Status });
   await expect(f.provider.erase(f.input)).rejects.toMatchObject({ code: 'DOCUMENT_ERASURE_UNAVAILABLE' });
-  expect(f.operations.head).not.toHaveBeenCalled();
+  expect(f.inventory.discover).not.toHaveBeenCalled();
 });
 test.each([
   { name: 'AccessDenied', $metadata: { httpStatusCode: 403 } },
@@ -73,23 +78,25 @@ test.each([
   { name: 'NotFound', $metadata: { httpStatusCode: 404 }, DeleteMarker: true },
 ])('does not confuse provider failure or delete markers with absence: %j', async (error) => {
   const f = fixture();
-  f.operations.head.mockRejectedValue(error);
+  f.inventory.discover.mockRejectedValue(error);
   await expect(f.provider.erase(f.input)).rejects.toMatchObject({ code: 'DOCUMENT_ERASURE_UNAVAILABLE' });
   expect(f.operations.remove).not.toHaveBeenCalled();
 });
-test.each([{ VersionId: 'wrong' }, { DeleteMarker: true }, { $metadata: { httpStatusCode: 206 } }])(
-  'rejects mismatched head evidence: %j',
-  async (override) => {
-    const f = fixture();
-    f.operations.head.mockResolvedValue({
-      $metadata: { httpStatusCode: 200 },
-      VersionId: f.input.version,
-      ...override,
-    });
-    await expect(f.provider.erase(f.input)).rejects.toMatchObject({ code: 'DOCUMENT_ERASURE_UNAVAILABLE' });
-    expect(f.operations.remove).not.toHaveBeenCalled();
-  },
-);
+test('a target that is a delete marker is not an erasable document version', async () => {
+  const f = fixture();
+  f.inventory.discover.mockResolvedValue([{ ...f.input, kind: 'delete_marker' }]);
+  await expect(f.provider.erase(f.input)).rejects.toMatchObject({ code: 'DOCUMENT_ERASURE_UNAVAILABLE' });
+  expect(f.operations.remove).not.toHaveBeenCalled();
+});
+test('other versions and other keys do not cause a second deletion of an absent target', async () => {
+  const f = fixture();
+  f.inventory.discover.mockResolvedValue([
+    { ...f.input, version: 'another-version', kind: 'object' },
+    { ...f.input, key: f.input.key + '-other', kind: 'object' },
+  ]);
+  expect(await f.provider.erase(f.input)).toEqual({ status: 'absent' });
+  expect(f.operations.remove).not.toHaveBeenCalled();
+});
 test('does not accept deletion receipt when the exact version still exists', async () => {
   const f = fixture();
   f.operations.remove.mockResolvedValue({ $metadata: { httpStatusCode: 204 }, VersionId: f.input.version });
@@ -129,9 +136,8 @@ test('Object Lock or permission denial stays a failure without bypass options', 
 
 test('also removes bound inbox versions without permitting arbitrary storage prefixes', async () => {
   const f = fixture();
-  await expect(
-    f.provider.erase({ ...f.input, key: f.input.key.replace('/quarantine/', '/inbox/') }),
-  ).resolves.toEqual({ status: 'absent' });
+  f.input.key = f.input.key.replace('/quarantine/', '/inbox/');
+  await expect(f.provider.erase(f.input)).resolves.toEqual({ status: 'absent' });
   expect(f.operations.remove.mock.calls[0]![0].Key).toContain('/inbox/');
   const other = fixture();
   await expect(
