@@ -342,6 +342,7 @@ export const ledgerPostings = pgTable(
 // Identity is installed only by trusted backend transactions; no anonymous/default access.
 const rlsActor = sql`NULLIF(current_setting('rove.actor_id', true), '')::uuid`;
 const rlsPermissions = {
+  'payments.dispute.review': sql`p.permission='payments.dispute.review'`,
   'privacy.read': sql`p.permission='privacy.read'`,
   'privacy.close': sql`p.permission='privacy.close'`,
   'privacy.cleanup': sql`p.permission='privacy.cleanup'`,
@@ -1070,6 +1071,12 @@ export const refundOperations = pgTable(
   (t) => [index('refund_operations_attempt').on(t.attemptId)],
 );
 
+const disputeSource = (attempt: SQLWrapper) =>
+  sql`EXISTS(SELECT 1 FROM public.payment_attempts p WHERE p.id=${attempt} AND p.source=current_setting('rove.dispute_source',true))`;
+const disputeWrite = (attempt: SQLWrapper) =>
+  sql`${disputeSource(attempt)} AND ${attempt}=NULLIF(current_setting('rove.dispute_write',true),'')::uuid`;
+const disputeRead = (attempt: SQLWrapper) =>
+  sql`${disputeSource(attempt)} AND (${attempt}=NULLIF(current_setting('rove.dispute_read',true),'')::uuid OR ${attempt}=NULLIF(current_setting('rove.dispute_write',true),'')::uuid)`;
 export const paymentDisputeChecks = pgTable(
   'payment_dispute_checks',
   {
@@ -1082,6 +1089,21 @@ export const paymentDisputeChecks = pgTable(
     requestedAt: timestamp({ withTimezone: true }),
   },
   (t) => [
+    pgPolicy('dispute_check_read', {
+      for: 'select',
+      using: sql`${disputeRead(t.attemptId)} OR (${disputeSource(t.attemptId)} AND (current_setting('rove.dispute_sweep',true)='true' OR ${rlsStaff('payments.dispute.review')}))`,
+    }),
+    pgPolicy('dispute_check_insert', { for: 'insert', withCheck: disputeWrite(t.attemptId) }),
+    pgPolicy('dispute_check_update', {
+      for: 'update',
+      using: disputeWrite(t.attemptId),
+      withCheck: disputeWrite(t.attemptId),
+    }),
+    pgPolicy('dispute_check_read_lock', {
+      for: 'update',
+      using: disputeRead(t.attemptId),
+      withCheck: sql`false`,
+    }),
     check('dispute_check_revision', sql`${t.revision} >= 0`),
     check('dispute_check_array', sql`jsonb_typeof(${t.disputes}) = 'array'`),
   ],
@@ -1098,6 +1120,8 @@ export const paymentDisputeObservations = pgTable(
     verifiedAt: timestamp({ withTimezone: true }).notNull(),
   },
   (t) => [
+    pgPolicy('dispute_observation_read', { for: 'select', using: disputeRead(t.attemptId) }),
+    pgPolicy('dispute_observation_insert', { for: 'insert', withCheck: disputeWrite(t.attemptId) }),
     uniqueIndex('dispute_observation_revision').on(t.attemptId, t.revision),
     check('dispute_observation_positive_revision', sql`${t.revision} > 0`),
     check('dispute_observation_array', sql`jsonb_typeof(${t.disputes}) = 'array'`),

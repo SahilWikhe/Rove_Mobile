@@ -1,3 +1,5 @@
+import { actorTransaction } from './actor-transaction';
+import { bindDisputeScope } from './dispute-scope';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
@@ -262,4 +264,46 @@ test('source-scoped hourly recovery deduplicates queued checks', async () => {
   await reconcile.reconcile(reference.intentId);
   now = new Date(now.getTime() + 3600001);
   expect(await reconcile.sweep()).toBe(1);
+});
+
+test('dispute evidence locks cannot rewrite history and queue access requires current MFA permission', async () => {
+  await reconcile.reconcile(reference.intentId!);
+  for (const table of ['payment_dispute_checks', 'payment_dispute_observations'])
+    expect((await runtimePool.query('SELECT * FROM ' + table)).rowCount).toBe(0);
+  await transaction(runtimePool, async (c) => {
+    await bindDisputeScope(c, source, 'read', reference.attemptId);
+    expect((await c.query('SELECT * FROM payment_dispute_checks FOR SHARE')).rowCount).toBe(1);
+    expect((await c.query('SELECT * FROM payment_dispute_observations')).rowCount).toBe(1);
+    expect((await c.query('DELETE FROM payment_dispute_checks')).rowCount).toBe(0);
+    expect((await c.query('DELETE FROM payment_dispute_observations')).rowCount).toBe(0);
+  });
+  await expect(
+    transaction(runtimePool, async (c) => {
+      await bindDisputeScope(c, source, 'read', reference.attemptId);
+      await c.query("UPDATE payment_dispute_checks SET disputes='[]'");
+    }),
+  ).rejects.toMatchObject({ code: '42501' });
+  await transaction(runtimePool, async (c) => {
+    await bindDisputeScope(c, source, 'write', reference.attemptId);
+    expect((await c.query("UPDATE payment_dispute_observations SET disputes='[]'")).rowCount).toBe(0);
+    await bindDisputeScope(c, 'acct_foreign:test', 'read', reference.attemptId);
+    expect((await c.query('SELECT * FROM payment_dispute_checks')).rowCount).toBe(0);
+  });
+  await actorTransaction(runtimePool, staff, async (c) => {
+    await bindDisputeScope(c, source, 'queue');
+    expect((await c.query('SELECT * FROM payment_dispute_checks')).rowCount).toBe(1);
+  });
+  await actorTransaction(runtimePool, { ...staff, mfa: false }, async (c) => {
+    await bindDisputeScope(c, source, 'queue');
+    expect((await c.query('SELECT * FROM payment_dispute_checks')).rowCount).toBe(0);
+  });
+  await database.pool.query(
+    "DELETE FROM staff_permissions WHERE staff_id=$1 AND permission='payments.dispute.review'",
+    [staff.id],
+  );
+  await actorTransaction(runtimePool, staff, async (c) => {
+    await bindDisputeScope(c, source, 'queue');
+    expect((await c.query('SELECT * FROM payment_dispute_checks')).rowCount).toBe(0);
+  });
+  expect((await runtimePool.query('SELECT * FROM payment_dispute_checks')).rowCount).toBe(0);
 });

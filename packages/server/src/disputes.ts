@@ -1,3 +1,4 @@
+import { bindDisputeScope } from './dispute-scope';
 import { bindPaymentCustomerRead } from './payment-customer-scope';
 import { z } from 'zod';
 import { createHash } from 'node:crypto';
@@ -126,13 +127,15 @@ export class DisputeReconciler {
   };
   async reconcile(intentId: string) {
     const reference = await transaction(this.pool, (c) => this.reference(c, intentId));
-    await this.pool.query(
-      'INSERT INTO payment_dispute_checks(attempt_id) VALUES($1) ON CONFLICT DO NOTHING',
-      [reference.attemptId],
-    );
-    const before = (
-      await this.pool.query('SELECT * FROM payment_dispute_checks WHERE attempt_id=$1', [reference.attemptId])
-    ).rows[0];
+    const before = await transaction(this.pool, async (client) => {
+      await bindDisputeScope(client, this.source, 'write', reference.attemptId);
+      await client.query('INSERT INTO payment_dispute_checks(attempt_id) VALUES($1) ON CONFLICT DO NOTHING', [
+        reference.attemptId,
+      ]);
+      return (
+        await client.query('SELECT * FROM payment_dispute_checks WHERE attempt_id=$1', [reference.attemptId])
+      ).rows[0];
+    });
     const result = await this.provider.disputes(reference);
     const parsed = History.safeParse(result.disputes);
     if (
@@ -176,6 +179,7 @@ export class DisputeReconciler {
     await transaction(this.pool, async (client) => {
       const current = await this.reference(client, intentId, true);
       if (JSON.stringify(current) !== JSON.stringify(reference)) throw mismatch();
+      await bindDisputeScope(client, this.source, 'write', reference.attemptId);
       const check = (
         await client.query('SELECT revision FROM payment_dispute_checks WHERE attempt_id=$1 FOR UPDATE', [
           reference.attemptId,
@@ -196,6 +200,7 @@ export class DisputeReconciler {
     });
   }
   async assertRefundable(client: PoolClient, attemptId: string) {
+    await bindDisputeScope(client, this.source, 'read', attemptId);
     const row = (
       await client.query('SELECT * FROM payment_dispute_checks WHERE attempt_id=$1 FOR SHARE', [attemptId])
     ).rows[0];
@@ -245,6 +250,7 @@ export class DisputeReconciler {
     }
     return transaction(this.pool, async (client) => {
       await requireStaffPermission(client, actor, 'payments.dispute.review');
+      await bindDisputeScope(client, this.source, 'queue');
       const result = await client.query(
         `SELECT p.id AS attempt_id,p.ride_id,c.verified_at,d.item,COALESCE((d.item->>'dueBy')::bigint,2147483647) AS due FROM payment_dispute_checks c JOIN payment_attempts p ON p.id=c.attempt_id CROSS JOIN LATERAL jsonb_array_elements(c.disputes) d(item) WHERE p.source=$1 AND ($5::text IS NULL OR d.item->>'status'=$5) AND (COALESCE((d.item->>'dueBy')::bigint,2147483647),p.id,d.item->>'id')>($2::bigint,$3::uuid,$4::text) ORDER BY due,p.id,d.item->>'id' LIMIT 51`,
         [
@@ -282,12 +288,14 @@ export class DisputeReconciler {
   }
   async sweep() {
     return transaction(this.pool, async (client) => {
+      await bindDisputeScope(client, this.source, 'sweep');
       const candidates = await client.query(
         `SELECT p.id,p.intent_id FROM payment_attempts p JOIN rides r ON r.id=p.ride_id LEFT JOIN payment_dispute_checks c ON c.attempt_id=p.id WHERE p.source=$1 AND p.intent_id IS NOT NULL AND r.payment_state IN ('paid','review_required') AND (c.verified_at IS NULL OR c.verified_at<$2) AND (c.requested_at IS NULL OR c.requested_at<$3) ORDER BY c.requested_at NULLS FIRST,p.id LIMIT 100`,
         [this.source, new Date(this.now().getTime() - 3600000), new Date(this.now().getTime() - 600000)],
       );
       let count = 0;
       for (const row of candidates.rows) {
+        await bindDisputeScope(client, this.source, 'write', row.id);
         await client.query(
           'INSERT INTO payment_dispute_checks(attempt_id,requested_at) VALUES($1,$2) ON CONFLICT(attempt_id) DO UPDATE SET requested_at=EXCLUDED.requested_at',
           [row.id, this.now()],

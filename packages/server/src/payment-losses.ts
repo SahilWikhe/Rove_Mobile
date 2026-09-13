@@ -1,3 +1,4 @@
+import { bindDisputeScope } from './dispute-scope';
 import { bindRefundScope } from './refund-scope';
 import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
@@ -61,6 +62,7 @@ export class PaymentLosses {
     ).rows;
   }
   private async fresh(c: PoolClient, p: Payment) {
+    await bindDisputeScope(c, this.source, 'read', p.id);
     await bindRefundScope(c, this.source, 'read', p.id);
     const row = (
       await c.query(

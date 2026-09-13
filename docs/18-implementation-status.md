@@ -1,5 +1,13 @@
 # Implementation status
 
+## Dispute evidence RLS — September 13
+
+Migration 0068 enables and forces RLS on payment_dispute_checks and payment_dispute_observations. Reconciliation binds a configured source and exact persisted attempt; sweep discovery reads only the configured source and scopes each write. Refundability and loss-allocation checks retain read locks without accounting mutation permission. Staff queue access requires current active staff identity, MFA and payments.dispute.review. Observation history cannot be updated or deleted through the runtime role; check deletion is denied. Actor and other worker contexts clear dispute scope.
+
+Verification: all 703 server, 208 API and 13 database tests passed (924 total), plus server/database typechecks, targeted lint, formatting and diff checks. Restricted-role tests cover immutable history, read-lock mutation denial, foreign sources, missing MFA, revoked queue permission, pooled scope reset and existing dispute/refund/transfer/loss workflows. All providers were synthetic.
+
+Source policy coverage is twenty-eight of 47 tables; nineteen remain. Hosted evidence remains twenty-four through 0066. Provider staging and production were not changed. Next: remaining financial, core identity/trip and worker policies, hosted refund/dispute verification, then compatible provider-staging rollout. Full mobile physical-device and production acceptance remain incomplete.
+
 ## Refund evidence RLS — September 13
 
 Migration 0067 enables and forces RLS on payment_refund_checks and payment_refund_observations. Reconciliation writes bind one persisted attempt and configured source. Sweep discovery is source-scoped, with exact attempt scope before each write. Refund authorization/recovery, transfer eligibility and loss-allocation freshness checks retain evidence locks using read-only scope. Observation history has no runtime update/delete policy; check deletion is denied. Actor and other worker contexts clear refund scopes.

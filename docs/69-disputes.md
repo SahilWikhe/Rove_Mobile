@@ -58,3 +58,9 @@ Disposable PostgreSQL tests cover balanced deduction/reversal journals, unknown/
 ## Payment loss allocation checkpoint
 
 The protected, audited allocation API is implemented locally behind a default-off flag. See [payment loss allocation](70-payment-loss-allocation.md) for signed balances, policy requirements, migration 0035 and remaining net driver earnings/transfer integration. No hosted rollout or production settlement acceptance is implied.
+
+## Dispute evidence row security
+
+Migration 0068 enables and forces RLS on payment_dispute_checks and payment_dispute_observations. Reconciliation binds one persisted payment attempt and configured provider source. Source-scoped sweep discovery binds each selected attempt before writing. Refund eligibility and loss-allocation freshness checks use evidence read/lock scope without modification permission. Staff queue reads require the configured source, current active staff identity, MFA and payments.dispute.review permission. Observation history has no runtime update/delete policy; checks cannot be deleted. Actor and other worker helpers clear dispute contexts.
+
+Restricted-role tests verify reconciliation and financial guards, read locks with denied writes, append-only observations, foreign-source isolation, missing MFA, revoked queue permission and pooled scope reset. Hosted verification of 0068 remains pending. Deploy compatible API/worker code before the migration; provider-staging and production were not changed.
