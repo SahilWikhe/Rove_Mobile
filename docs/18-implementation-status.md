@@ -1,5 +1,13 @@
 # Implementation status
 
+## Maintainability blocker cleanup — September 13
+
+Reviewed all three open maintainability Blocker findings through the authenticated Sonar CLI. Build validation and decoder timeout tests now explicitly assert successful completion. The session expiration helper returns void; token callers continue to return null after expiration, preserving credential clearing and refresh failure propagation. Existing race/outage/storage-failure coverage remains in place.
+
+All 172 mobile-core tests and 11 targeted Node tests passed, along with mobile-core typechecking and changed-source lint. Two mobile security boundary regressions also passed: exact local HTTP hostname matching and retry jitter remaining independent of authentication tokens. These checks do not dismiss scanner findings or prove production readiness. Medium findings are deferred at the user’s request.
+
+Next: push this checkpoint and inspect the resulting scan; resume the ten remaining core-table RLS policies and provider/device acceptance. Hosted synthetic RLS remains 37 of 47 tables; provider staging and production have not received that rollout.
+
 ## Developer executable-path hardening — September 13
 
 Replaced inherited PATH lookup for Apple simulator commands and archive extraction with /usr/bin/xcrun and /usr/bin/tar. GitHub/Auth0 tooling resolves known installation paths or explicit absolute ROVE_GH_BINARY/ROVE_AUTH0_BINARY settings, validating regular executable files. Relative overrides fail rather than falling back to PATH. The mobile staging launcher starts the invoking pnpm script through the current Node executable; direct node invocation explains the supported pnpm launch commands.

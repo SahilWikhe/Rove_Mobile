@@ -407,3 +407,16 @@ test('bank payout history preserves authentication and pagination while rejectin
   );
   await expect(api.bankPayoutHistory()).rejects.toMatchObject({ code: 'INCOMPATIBLE_RESPONSE' });
 });
+
+test('local HTTP exception uses exact hostnames and cannot admit remote lookalikes', () => {
+  for (const host of ['localhost', '127.0.0.1', '10.0.2.2'])
+    expect(() => new ApiClient(`http://${host}:4085`, async () => null)).not.toThrow();
+  for (const host of [
+    'localhost.example.test',
+    '127.0.0.1.example.test',
+    '10.0.2.2.example.test',
+    '192.168.1.10',
+  ])
+    expect(() => new ApiClient(`http://${host}:4085`, async () => null)).toThrow('HTTPS');
+  expect(() => new ApiClient('http://localhost@remote.example.test', async () => null)).toThrow('HTTPS');
+});

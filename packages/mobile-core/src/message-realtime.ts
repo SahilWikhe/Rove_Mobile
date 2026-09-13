@@ -53,6 +53,7 @@ export class MessageRealtime {
       socket?.close();
       this.connected(false);
       if (!this.listeners.size) return;
+      // Non-secret retry jitter only; authentication always comes from the token provider.
       const delay = this.retry + Math.floor(Math.random() * 500);
       this.retry = Math.min(this.retry * 2, 30000);
       this.timer = setTimeout(() => this.connect(), delay);

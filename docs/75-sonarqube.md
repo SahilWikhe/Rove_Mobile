@@ -42,3 +42,7 @@ Initial authenticated CLI review found 24 open security-impacting findings on ma
 | Android emulator address | 1 | The development host alias 10.0.2.2 needs environment-boundary confirmation. |
 
 The password findings concern synthetic fixtures, not known production credentials. The generated database password is retained only in the test fixture for additional test connections; tests continue to use disposable local PostgreSQL. The build verifier retains its explicit child environment and example.test database host. No cloud credentials were read or rotated.
+
+## Maintainability review — September 13
+
+The authenticated issue inventory listed three open maintainability Blockers: two tests without explicit assertions (S2699), and the session expiration helper always returning null (S3516). Tests now assert successful validation/subprocess completion; expiration performs its side effects through a void return contract while token callers preserve null results. All 172 mobile-core tests and 11 targeted Node tests passed, plus typechecking and lint. Scanner closure requires the next analysis; no findings were manually dismissed. Medium findings are deferred per user direction.

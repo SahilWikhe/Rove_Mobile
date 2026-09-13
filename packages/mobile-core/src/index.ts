@@ -243,6 +243,7 @@ export class ApiClient {
     private transport: Transport = (url, options) => fetch(url, options),
   ) {
     const url = new URL(baseUrl);
+    // Exact local development hosts, including the Android emulator host alias; remote APIs require TLS.
     if (
       url.protocol !== 'https:' &&
       !(url.protocol === 'http:' && ['localhost', '127.0.0.1', '10.0.2.2'].includes(url.hostname))

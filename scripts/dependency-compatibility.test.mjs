@@ -16,10 +16,12 @@ test('patched Expo query parsing preserves Unicode, spaces, arrays and malformed
 });
 test('malformed percent sequences cannot monopolize the query decoder', () => {
   // A subprocess timeout catches synchronous CPU exhaustion, which an in-process timer cannot.
-  execFileSync(
-    process.execPath,
-    ['-e', 'const q=require(' + JSON.stringify(queryPath) + '); q.parse("q="+"%EA".repeat(10000));'],
-    { timeout: 3000, stdio: 'pipe' },
+  assert.doesNotThrow(() =>
+    execFileSync(
+      process.execPath,
+      ['-e', 'const q=require(' + JSON.stringify(queryPath) + '); q.parse("q="+"%EA".repeat(10000));'],
+      { timeout: 3000, stdio: 'pipe' },
+    ),
   );
 });
 test('the patched UUID dependency preserves the Xcode project identifier API', () => {

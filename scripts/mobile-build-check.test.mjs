@@ -17,7 +17,8 @@ function fixture(role, platform) {
 }
 test('both staging apps validate each native platform', () => {
   for (const role of ['rider', 'driver'])
-    for (const platform of ['ios', 'android']) checkMobileBuild(role, fixture(role, platform));
+    for (const platform of ['ios', 'android'])
+      assert.doesNotThrow(() => checkMobileBuild(role, fixture(role, platform)));
 });
 test('rejects environment crossover, synthetic mode and missing credentials without disclosing values', () => {
   for (const [key, value] of Object.entries({

@@ -112,3 +112,31 @@ test('location subscriptions share the socket but only stop fallback when the se
   stop();
   stopMessages();
 });
+
+test('retry randomness changes only the reconnect delay and never authentication material', async () => {
+  const random = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+  const sockets: FakeSocket[] = [];
+  const token = vi.fn(async () => 'provider-issued-token');
+  const stream = new MessageRealtime('https://api.example.test', token, () => {
+    const socket = new FakeSocket();
+    sockets.push(socket);
+    return socket;
+  });
+  const stop = stream.subscribe({ changed: vi.fn(), connection: vi.fn() });
+  try {
+    sockets[0]!.emit('close');
+    await vi.advanceTimersByTimeAsync(1249);
+    expect(sockets).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(sockets).toHaveLength(2);
+    sockets[1]!.emit('open');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(sockets[1]!.send).toHaveBeenCalledWith(
+      JSON.stringify({ type: 'authenticate', token: 'provider-issued-token' }),
+    );
+    expect(token).toHaveBeenCalledOnce();
+  } finally {
+    stop();
+    random.mockRestore();
+  }
+});
