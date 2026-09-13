@@ -1,5 +1,13 @@
 # Implementation status
 
+## Hosted offer RLS and restricted matching verified — September 13
+
+The isolated br-shy-bar-axjulxqh / neondb catalog confirms 80 migrations and 42 of 47 tables with RLS enabled and forced. The complete pooled rove_staging_app rehearsal exited successfully with NOSUPERUSER/NOBYPASSRLS: driver/rider offer ownership, foreign/unscoped denial, exact read-only notification scope, messaging retries, notification suppression, synthetic push, tracking, financial processing, closure and document cleanup passed. External providers were fake adapters; this does not prove real-device or real-provider acceptance.
+
+Added a persistent restricted-role service regression: concurrent matching produces one private offer, another driver cannot see it, and the assigned driver can accept and retry safely. All three offer-policy tests, server typechecking and changed-test lint passed. The preceding full source regression remains 736 server, 208 API and 13 database tests; this checkpoint ran the targeted suite rather than claiming a new full-suite count. Sonar run 34773707537 completed successfully for source commit 3c9f440.
+
+Provider staging remains 32 tables with RLS disabled, confirmed read-only; production is unchanged. Next: users, drivers, rides, payment_attempts and outbox policies, compatible provider-staging rollout, and physical-device/provider acceptance. Do not enable console RLS switches independently of compatible backend changes. This checkpoint is prepared for the authorized push to main; remote confirmation is reported after the push.
+
 ## Offer RLS implemented locally — September 13
 
 Migration 0079 enables/forces RLS on offers. Drivers access their own offers; riders read accepted offers attached to their assigned trip. Matching has scoped ride writes plus pending-offer visibility for contention checks. Lifecycle workers expire/revoke only the selected ride’s offers. Notifications use an exact offer ID; cleanup reads require current staff MFA and privacy.cleanup permission. Driver activity/offers, matching candidates and offer notifications now run inside scoped transactions. Service authorization and transition rules remain required.
