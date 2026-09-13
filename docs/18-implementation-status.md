@@ -1,5 +1,13 @@
 # Implementation status
 
+## Hosted audit RLS verified — September 13
+
+Applied migration 0076 only to disposable branch br-shy-bar-axjulxqh / neondb after Neon API verification of the exact endpoint/branch/database mapping. The initial command was rejected by automatic approval review for proving only the hostname; the verified retry was approved. Live catalog reports 77 migrations and 38 of 47 tables with RLS enabled and forced.
+
+The full hosted synthetic rehearsal exited successfully through rove_staging_app (NOSUPERUSER/NOBYPASSRLS). Audit append/read/mutation denial and rollback passed, along with command retries, tracking, messaging, payment/capture/refund/dispute/transfer/payout flows, push, vehicle review, retention, closure, document upload/scan/review and approved cleanup. All provider adapters were synthetic; no actual provider operation occurred. Provider staging and production remain unchanged.
+
+Sonar run 34771261033 passed the maintainability-fix commit. Later runs 34771436288 and 34771660695 failed; the inspected quality gate reports changed-code coverage 77.8% below 80%, while security and maintainability conditions pass. Local audit LCOV reports all five executable lines covered; investigate source mapping/report interpretation before changing tests or code. No threshold was lowered. Next: resolve that gate and continue the nine remaining core-table policies, followed by compatible staging rollout and device/provider acceptance.
+
 ## Audit RLS implemented locally — September 13
 
 Migration 0076 enables and forces RLS on audit. The backend append helper binds the exact record (id, actor, action, aggregate and metadata) within its existing transaction, inserts it and clears that scope. The runtime has no audit SELECT, UPDATE or DELETE policy. Business authorization remains in service methods; backend-set scope is defense in depth, not protection from an attacker controlling arbitrary SQL with the runtime credential.
