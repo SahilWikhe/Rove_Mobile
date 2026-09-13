@@ -1,0 +1,7 @@
+appId: ${APP_ID}
+---
+- extendedWaitUntil:
+    visible: Get started
+    timeout: 60000
+- assertVisible: Get started
+- assertNotVisible: No script URL provided.*

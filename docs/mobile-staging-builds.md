@@ -55,7 +55,7 @@ node scripts/ios-release-smoke.mjs driver /path/to/RoveDriver.app
 
 ## Standalone Android CI launch smoke
 
-Both Android jobs now run the same welcome/relaunch flow after the Release APK bundle check. The runner validates the package name, creates an isolated temporary API 36 Google APIs AVD, boots it on an unused port, installs the APK and runs checksum-pinned Maestro 2.10.0. It stops its own emulator and removes its temporary AVD afterward. Existing preview emulators are left intact. JUnit, Maestro diagnostics and emulator logs are retained for seven days.
+Both Android jobs verify welcome/relaunch after the Release APK bundle check. Targeted ADB resolves, force-stops and launches the installed app; checksum-pinned Maestro then runs `native-tests/release-visible.yaml` for both launch and relaunch. Each phase requires successful activity launch, visible Get started and absence of the missing-script error. This avoids the reproducible Maestro launchApp transport failure without skipping app assertions. The runner validates the package name, creates an isolated temporary API 36 Google APIs AVD, boots it on an unused port, installs the APK and runs checksum-pinned Maestro 2.10.0. It stops its own emulator and removes its temporary AVD afterward. Existing preview emulators are left intact. JUnit, Maestro diagnostics and emulator logs are retained for seven days.
 
 With Java 21, Android command-line tools, the API 36 Google APIs image matching the host architecture, and Maestro available:
 
@@ -75,3 +75,5 @@ Both apps passed locally on iOS 26.5 and Android API 36 with current JavaScript 
 ### Android transport diagnostics
 
 The runner requires three consecutive successful ADB, boot-complete and package-manager probes before installation. CI stops Gradle daemons before emulator startup. On UI failure, it records the owned emulator process status and targeted ADB/boot responses in `android-ROLE-failure-state.json` before cleanup; it does not restart the global ADB server or retry failed app assertions. September 13 local reproduction still failed in Maestro even though the emulator remained live and ADB reported device/booted. These startup changes do not yet prove the CI transport issue fixed. Full welcome/relaunch acceptance remains required.
+
+September 13: both ADB launch/relaunch phases passed on a fresh local ARM64 API 36 emulator using the existing driver Release APK. Current-head GitHub rider/driver APK validation remains pending. See [Maestro issue 3451](https://github.com/mobile-dev-inc/Maestro/issues/3451) for the matching dadb/offline report. Direct-port experiments were unsuccessful and are not retained.

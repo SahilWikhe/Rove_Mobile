@@ -1,5 +1,11 @@
 # Implementation status
 
+## Android release launch workaround verified locally — September 13
+
+The pinned Maestro 2.10.0 source and upstream issue 3451 identify a failing dadb shell path despite healthy ordinary ADB. Direct host/port experiments did not solve it and were removed. The Android runner now resolves the installed APK launcher activity, validates its package/component, force-stops and launches it with targeted ADB, requires am start Status: ok, then runs Maestro visible-screen assertions. It repeats the full stop/launch/UI check for relaunch. No assertion, missing-bundle check or failure requirement is skipped; no blanket retry or global ADB restart is added. iOS retains its existing flow.
+
+A fresh isolated ARM64 API 36 emulator passed both phases against the existing local driver Release APK: welcome visible and missing-script error absent on initial launch and after relaunch. The owned emulator/temporary AVD were cleaned up. This verifies the harness with that artifact, not current-head Android CI or full device/provider acceptance; rider release artifact was not present locally. Separate launch/relaunch JUnit and diagnostic files remain uploaded by CI. Changed files passed format/lint, all three native-smoke-command tests passed, and docs/diff checks are rerun. Next: verify both fresh GitHub APK jobs and remaining production gates. Prepared for authorized main push; remote confirmation follows.
+
 ## Android smoke transport failure reproduced and isolated — September 13
 
 Inspected failed Android driver job 103786129397 from run 34779911396. Release compilation/bundle verification completed; Maestro failed at its initial launch command with device offline before app assertions. Logs show high guest CPU/memory pressure, but this did not establish emulator failure. CI now stops Gradle daemons before emulator launch, and the runner requires three consecutive ADB-connected/boot-complete/package-manager-ready samples. No smoke assertion, timeout or failure requirement was removed.

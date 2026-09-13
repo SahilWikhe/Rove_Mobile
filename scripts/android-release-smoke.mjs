@@ -129,27 +129,52 @@ try {
     ['-s', serial, 'logcat', '-v', 'threadtime', 'AndroidRuntime:E', 'ActivityManager:I', '*:S'],
     { stdio: ['ignore', logcatFile, logcatFile] },
   );
-  nativeSmokeCommand(
-    process.env.MAESTRO_BINARY || 'maestro',
-    [
-      '--device',
-      serial,
-      'test',
-      '-e',
-      `APP_ID=${bundle}`,
-      '--format',
-      'junit',
-      '--output',
-      `reports/native-smoke/android-${role}.xml`,
-      '--test-output-dir',
-      `reports/native-smoke/android-${role}-details`,
-      '--debug-output',
-      `reports/native-smoke/android-${role}-debug`,
-      'native-tests/release-welcome.yaml',
-    ],
-    `reports/native-smoke/android-${role}-maestro.log`,
-    180000,
-  );
+  const component = run(adb, [
+    '-s',
+    serial,
+    'shell',
+    'cmd',
+    'package',
+    'resolve-activity',
+    '--brief',
+    '-a',
+    'android.intent.action.MAIN',
+    '-c',
+    'android.intent.category.LAUNCHER',
+    bundle,
+  ])
+    .split('\n')
+    .at(-1);
+  if (!component?.startsWith(`${bundle}/`) || !/^[a-zA-Z0-9_.$/]+$/.test(component))
+    throw new Error('Release launcher activity could not be resolved.');
+  // Maestro's launchApp can lose its dadb transport even while ordinary ADB is healthy.
+  // Exercise the same installed release launch/relaunch through ADB, then assert the UI.
+  for (const phase of ['launch', 'relaunch']) {
+    run(adb, ['-s', serial, 'shell', 'am', 'force-stop', bundle]);
+    const launched = run(adb, ['-s', serial, 'shell', 'am', 'start', '-W', '-n', component]);
+    if (!/^Status: ok$/m.test(launched)) throw new Error(`Release ${phase} failed.`);
+    nativeSmokeCommand(
+      process.env.MAESTRO_BINARY || 'maestro',
+      [
+        '--device',
+        serial,
+        'test',
+        '-e',
+        `APP_ID=${bundle}`,
+        '--format',
+        'junit',
+        '--output',
+        `reports/native-smoke/android-${role}-${phase}.xml`,
+        '--test-output-dir',
+        `reports/native-smoke/android-${role}-${phase}-details`,
+        '--debug-output',
+        `reports/native-smoke/android-${role}-${phase}-debug`,
+        'native-tests/release-visible.yaml',
+      ],
+      `reports/native-smoke/android-${role}-${phase}-maestro.log`,
+      180000,
+    );
+  }
   console.log(`${role}: standalone Android welcome and relaunch verified on a fresh emulator.`);
 } catch (error) {
   // Inspect the exact owned device before cleanup; never restart ADB or other emulators.
