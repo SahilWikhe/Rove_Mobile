@@ -1,3 +1,4 @@
+import { RoutePreview } from './route-preview';
 import { useEffect, useState } from 'react';
 import { AppState, Image, Pressable, StyleSheet, View } from 'react-native';
 import type { Quote } from '@rove/contracts';
@@ -60,6 +61,7 @@ export function QuoteConfirmation({
         <Copy style={styles.heading}>Confirm your ride</Copy>
         <View style={styles.spacer} />
       </View>
+      <RoutePreview quote={quote} />
       <Card style={styles.card}>
         <View style={styles.routeRow}>
           <Image source={pickup} style={styles.dot} accessible={false} />

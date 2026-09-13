@@ -133,3 +133,56 @@ test('nearby uses a bounded distance-ranked circle and rejects malformed coordin
   await expect(maps.nearby({ latitude: 91, longitude: 0 })).rejects.toThrow();
   expect(transport).toHaveBeenCalledTimes(1);
 });
+
+test('route preview converts GeoJSON longitude-first points and rejects unusable lines', async () => {
+  const transport = vi.fn(
+    async (_url: string, _options: RequestInit) =>
+      new Response(
+        JSON.stringify({
+          routes: [
+            {
+              polyline: {
+                geoJsonLinestring: {
+                  type: 'LineString',
+                  coordinates: [
+                    [-78.6, 35.8],
+                    [-78.61, 35.81],
+                  ],
+                },
+              },
+            },
+          ],
+        }),
+      ),
+  );
+  const maps = new GoogleMapsProvider('key', area, transport);
+  const place = {
+    id: fixture.id,
+    label: fixture.formattedAddress,
+    area: 'Raleigh',
+    coordinate: fixture.location,
+  };
+  expect(await maps.preview(place, place)).toEqual([
+    { latitude: 35.8, longitude: -78.6 },
+    { latitude: 35.81, longitude: -78.61 },
+  ]);
+  expect(JSON.parse(String(transport.mock.calls[0]![1].body))).toMatchObject({
+    polylineEncoding: 'GEO_JSON_LINESTRING',
+    routeModifiers: { avoidTolls: true, avoidFerries: true },
+  });
+  transport.mockImplementation(async () => new Response(JSON.stringify({ routes: [] })));
+  await expect(maps.preview(place, place)).rejects.toMatchObject({ code: 'MAPS_UNAVAILABLE' });
+});
+test('current pickup resolves a reverse-geocoded address and rejects empty results', async () => {
+  const transport = vi.fn(
+    async (url: string, _options: RequestInit) =>
+      new Response(
+        JSON.stringify(url.includes('geocode') ? { results: [{ placeId: fixture.id }] } : fixture),
+      ),
+  );
+  const maps = new GoogleMapsProvider('key', area, transport);
+  expect((await maps.currentPlace(fixture.location)).id).toBe(fixture.id);
+  expect(transport.mock.calls[0]![0]).not.toContain('key=');
+  transport.mockImplementation(async () => new Response(JSON.stringify({ results: [] })));
+  await expect(maps.currentPlace(fixture.location)).rejects.toMatchObject({ code: 'PLACE_UNAVAILABLE' });
+});

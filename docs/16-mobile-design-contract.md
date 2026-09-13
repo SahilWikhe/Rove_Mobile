@@ -4,11 +4,11 @@ Status: founder-approved direction from September 7, with implemented amendments
 
 ## Design authority and reference files
 
-| Reference | Role |
-| --- | --- |
-| [Rove Ride App](https://www.figma.com/design/8S3vQl4P3bVTLSKgxPDghv/Rove-Ride-App?node-id=0-1) | Rider layout, component patterns, visual theme and existing flow reference |
-| [Rove Driver App](https://www.figma.com/design/1IzXAu67Sogja8SvfPtOlB/Rove-Driver-App?node-id=0-1) | Driver layout, offer sheet, trip controls, earnings and account reference |
-| [Rove Ops Dashboard](https://www.figma.com/design/GcQbsY8y7NN7Slys7ZAvHq/Rove-Ops-Dashboard?node-id=0-1) | Internal staff design reference, implemented in its separate repository |
+| Reference                                                                                                | Role                                                                       |
+| -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| [Rove Ride App](https://www.figma.com/design/8S3vQl4P3bVTLSKgxPDghv/Rove-Ride-App?node-id=0-1)           | Rider layout, component patterns, visual theme and existing flow reference |
+| [Rove Driver App](https://www.figma.com/design/1IzXAu67Sogja8SvfPtOlB/Rove-Driver-App?node-id=0-1)       | Driver layout, offer sheet, trip controls, earnings and account reference  |
+| [Rove Ops Dashboard](https://www.figma.com/design/GcQbsY8y7NN7Slys7ZAvHq/Rove-Ops-Dashboard?node-id=0-1) | Internal staff design reference, implemented in its separate repository    |
 
 Precedence: latest approved product decisions in this document override conflicting Figma copy or behavior. Otherwise preserve the supplied design language and applicable screen structure. Do not treat example names, prices, clocks, medical coverage, vehicle credentials or subscription terms as live data or approved business policy. Future Figma edits need a reviewed change record before changing product scope.
 
@@ -16,13 +16,13 @@ Review evidence: page metadata for both mobile files and rendered rider Home (`2
 
 ## Approved deviations
 
-| Decision | Implementation requirement |
-| --- | --- |
-| Consumer-funded rides first | Replace default NEMT/Medicaid/covered-$0 content with the rider's real quote, payment method and receipt. Institutional sponsorship remains a separate later extension. |
-| Scheduling is retained behind flags | Keep one-time advance, weekly and monthly scheduling as planned optional modules, all off initially. Hide their creation entry points and enforce restrictions in the API; do not delete the future design references. |
-| Remove Rove Pro | Remove the $199/month subscription, renewal dates, subscription account menu, zero-commission and “keep 100% of fares” promises. Do not add subscription billing or an alternative subscription price. |
-| Driver offer privacy | Do not transmit exact pickup/drop-off addresses, rider identity/history, medical information or payer/coverage details before acceptance. Show operationally necessary coarse route/ETA and verified service requirements. |
-| Fill missing journeys | Design auth, consumer payments, onboarding, trip-start and failure/recovery states using the existing black/gold components and layout patterns. These extensions do not authorize an unrelated visual redesign. |
+| Decision                            | Implementation requirement                                                                                                                                                                                                 |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Consumer-funded rides first         | Replace default NEMT/Medicaid/covered-$0 content with the rider's real quote, payment method and receipt. Institutional sponsorship remains a separate later extension.                                                    |
+| Scheduling is retained behind flags | Keep one-time advance, weekly and monthly scheduling as planned optional modules, all off initially. Hide their creation entry points and enforce restrictions in the API; do not delete the future design references.     |
+| Remove Rove Pro                     | Remove the $199/month subscription, renewal dates, subscription account menu, zero-commission and “keep 100% of fares” promises. Do not add subscription billing or an alternative subscription price.                     |
+| Driver offer privacy                | Do not transmit exact pickup/drop-off addresses, rider identity/history, medical information or payer/coverage details before acceptance. Show operationally necessary coarse route/ETA and verified service requirements. |
+| Fill missing journeys               | Design auth, consumer payments, onboarding, trip-start and failure/recovery states using the existing black/gold components and layout patterns. These extensions do not authorize an unrelated visual redesign.           |
 
 Removing Rove Pro does not remove earnings, payout setup, receipts or transparent driver compensation. The actual fare/fee/earnings formula remains an open business decision. Do not replace “100%” with an invented commission. Likewise, no recurring schedule implies institutional membership, guaranteed driver assignment, early arrival or an automatically booked return.
 
@@ -42,49 +42,49 @@ Implement reusable native primitives such as Screen, Card, RouteSummary, GoldBut
 
 ## Rider screen mapping
 
-| Existing Figma frame | Decision |
-| --- | --- |
-| `2:12` Home | Preserve greeting/search/cards/nav; remove scheduled-only sections when off and default medical-coverage assumptions. |
-| `4:20` Book a ride | Preserve route fields and place suggestions; default Pick up now; expose scheduling only through capabilities. |
-| `4:79` Pickup date & time; `5:20` Repeat; `17:73` scheduled booking | Flagged references. Weekly exists visually; monthly needs the extension specified below. |
-| `5:89` Confirm ride | Convert to consumer quote review with payment method, applicable fees/terms and quote expiry; no default coverage or promised early/return service. |
-| `5:127` Finding your ride | Real searching state with cancel, then explicit matched/no-driver outcomes. |
-| `6:20` Tracking | Distinguish driver approaching, driver arrived, rider onboard and destination arrival. Rider actions cannot assert driver milestones. |
-| `6:107` Arrived + tip; `7:20` Tip confirmed | Completion and truthful payment result first; tips/ratings only when implemented and optional. |
-| `7:45` My rides; `8:20` Ride details | History, payment state and receipt remain available without scheduling. Existing commitments remain accessible after flags turn off. |
-| `8:146` Messages; `9:20` Message thread | Preserve reference style; scope communication to authorized rides and approved contact windows. |
-| `9:67` Account | Consumer payment methods, profile, saved places, privacy/account deletion and help; coverage not a default section. |
+| Existing Figma frame                                                | Decision                                                                                                                                            |
+| ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `2:12` Home                                                         | Preserve greeting/search/cards/nav; remove scheduled-only sections when off and default medical-coverage assumptions.                               |
+| `4:20` Book a ride                                                  | Preserve route fields and place suggestions; default Pick up now; expose scheduling only through capabilities.                                      |
+| `4:79` Pickup date & time; `5:20` Repeat; `17:73` scheduled booking | Flagged references. Weekly exists visually; monthly needs the extension specified below.                                                            |
+| `5:89` Confirm ride                                                 | Convert to consumer quote review with payment method, applicable fees/terms and quote expiry; no default coverage or promised early/return service. |
+| `5:127` Finding your ride                                           | Real searching state with cancel, then explicit matched/no-driver outcomes.                                                                         |
+| `6:20` Tracking                                                     | Distinguish driver approaching, driver arrived, rider onboard and destination arrival. Rider actions cannot assert driver milestones.               |
+| `6:107` Arrived + tip; `7:20` Tip confirmed                         | Completion and truthful payment result first; tips/ratings only when implemented and optional.                                                      |
+| `7:45` My rides; `8:20` Ride details                                | History, payment state and receipt remain available without scheduling. Existing commitments remain accessible after flags turn off.                |
+| `8:146` Messages; `9:20` Message thread                             | Preserve reference style; scope communication to authorized rides and approved contact windows.                                                     |
+| `9:67` Account                                                      | Consumer payment methods, profile, saved places, privacy/account deletion and help; coverage not a default section.                                 |
 
 ## Proposed rider additions
 
-| Screen/state | Composition and copy direction | Actions and behavior |
-| --- | --- | --- |
-| Welcome / sign in | Rove mark, short heading, charcoal form/card, gold Continue | Final login method follows managed-auth decision. Verify/recovery variants reuse fields; no custom OTP/password engine. |
-| Verification / recovery | Clear destination hint, validation text, resend/retry status | Provider-supported verification, expired/invalid attempt, rate-limit and recovery states; no success before server confirmation. |
-| Location permission | Short explanation and matching gold action | Allow location or enter pickup manually. Denial does not block manual booking. |
-| Quote review | Route summary at top; available service choices; fare breakdown and selected payment card; bottom gold “Request ride” | Price/terms visible before request. Changed/expired quote requires review and fresh confirmation; preserve route input. |
-| Payment methods / add method | Existing account-row/card patterns; masked details; gold Add payment method | Use processor-supported secure collection, never raw card storage. Loading, failure and additional authentication return to the same quote. |
-| No driver found | Existing finding-ride sheet becomes an honest empty state | “No drivers available right now,” then Try again / Change pickup / Back home. Retry revalidates quote and payment, with no automatic second charge. |
-| Cancel confirmation | Bottom sheet with plain-language consequence and actual applicable fee | Keep ride / Confirm cancellation. Hide stale confirmation and refresh if state changes; backend decides admissibility. |
-| Payment pending / failed | Completion still says trip completed; separate settlement banner and masked method | Update method or approved retry through the same financial operation. Pending is not failure; do not issue a duplicate charge. |
-| Tracking unavailable | Map retains last known sample with timestamp and explicit stale/offline banner | Support/contact remains reachable. No fake moving driver marker or invented ETA. |
-| Help / account deletion | Existing grouped account rows plus readable detail page | Trip-linked help, lost-item/safety issue entry, deletion request and clear outstanding-trip/payment handling. No promise of immediate erasure of required records. |
+| Screen/state                 | Composition and copy direction                                                                                        | Actions and behavior                                                                                                                                               |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Welcome / sign in            | Rove mark, short heading, charcoal form/card, gold Continue                                                           | Final login method follows managed-auth decision. Verify/recovery variants reuse fields; no custom OTP/password engine.                                            |
+| Verification / recovery      | Clear destination hint, validation text, resend/retry status                                                          | Provider-supported verification, expired/invalid attempt, rate-limit and recovery states; no success before server confirmation.                                   |
+| Location permission          | Short explanation and matching gold action                                                                            | Allow location or enter pickup manually. Denial does not block manual booking.                                                                                     |
+| Quote review                 | Route summary at top; available service choices; fare breakdown and selected payment card; bottom gold “Request ride” | Price/terms visible before request. Changed/expired quote requires review and fresh confirmation; preserve route input.                                            |
+| Payment methods / add method | Existing account-row/card patterns; masked details; gold Add payment method                                           | Use processor-supported secure collection, never raw card storage. Loading, failure and additional authentication return to the same quote.                        |
+| No driver found              | Existing finding-ride sheet becomes an honest empty state                                                             | “No drivers available right now,” then Try again / Change pickup / Back home. Retry revalidates quote and payment, with no automatic second charge.                |
+| Cancel confirmation          | Bottom sheet with plain-language consequence and actual applicable fee                                                | Keep ride / Confirm cancellation. Hide stale confirmation and refresh if state changes; backend decides admissibility.                                             |
+| Payment pending / failed     | Completion still says trip completed; separate settlement banner and masked method                                    | Update method or approved retry through the same financial operation. Pending is not failure; do not issue a duplicate charge.                                     |
+| Tracking unavailable         | Map retains last known sample with timestamp and explicit stale/offline banner                                        | Support/contact remains reachable. No fake moving driver marker or invented ETA.                                                                                   |
+| Help / account deletion      | Existing grouped account rows plus readable detail page                                                               | Trip-linked help, lost-item/safety issue entry, deletion request and clear outstanding-trip/payment handling. No promise of immediate erasure of required records. |
 
 Rider happy path: Home → pickup/destination → quote/payment review → request acknowledged → searching → matched/approaching → arrived → in trip → completed → payment status/receipt. No “I've arrived” rider control may stand in for driver arrival, pickup or completion; any rider location message must be clearly a message only.
 
 ## Driver screen mapping and additions
 
-| Existing frame | Required adaptation |
-| --- | --- |
-| `1:12` Offline; `1:62` Online waiting | Keep status and earnings hierarchy; remove Pro copy and flagged schedule cards. Going online requires current eligibility, permission and server acknowledgement. |
-| `2:2` Ride request | Keep map, sheet, gold estimated earnings, timing and accept/decline buttons; apply the restricted offer payload below. No standing-ride badge while scheduling is off. |
-| `2:108` Heading to pickup | Exact authorized pickup available after acceptance; retain navigation handoff and arrival action. |
-| New Arrived / start trip | Extend the same sheet with “Waiting at pickup,” rider identity appropriate to the assignment, gold “Start trip,” and issue/no-show support. No-show needs policy/evidence; never infer pickup from GPS. |
-| `2:186` Trip in progress | Show authorized destination, navigation handoff, active state and Complete trip; online/offline or logout transitions cannot silently abandon active work. |
-| `2:262` Trip complete | Actual earned amount and settlement/payout status; remove 0% commission promise. No fabricated tip, fee or payout date. |
-| `3:2` Schedule; `3:74` Scheduled ride details | Flagged Upcoming views under Trips. Completed-trip history remains available with flags off. |
-| `3:162` Earnings; `4:106` Account | Preserve charts/rows; remove Pro subscription and “you keep 100%.” Use server amounts and chosen payout schedule; retain payout setup and credentials. |
-| `4:2` Messages; `4:51` Message thread | Assignment-scoped communication and cleanup on revoked access; availability follows the communication feature's readiness. |
+| Existing frame                                | Required adaptation                                                                                                                                                                                     |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `1:12` Offline; `1:62` Online waiting         | Keep status and earnings hierarchy; remove Pro copy and flagged schedule cards. Going online requires current eligibility, permission and server acknowledgement.                                       |
+| `2:2` Ride request                            | Keep map, sheet, gold estimated earnings, timing and accept/decline buttons; apply the restricted offer payload below. No standing-ride badge while scheduling is off.                                  |
+| `2:108` Heading to pickup                     | Exact authorized pickup available after acceptance; retain navigation handoff and arrival action.                                                                                                       |
+| New Arrived / start trip                      | Extend the same sheet with “Waiting at pickup,” rider identity appropriate to the assignment, gold “Start trip,” and issue/no-show support. No-show needs policy/evidence; never infer pickup from GPS. |
+| `2:186` Trip in progress                      | Show authorized destination, navigation handoff, active state and Complete trip; online/offline or logout transitions cannot silently abandon active work.                                              |
+| `2:262` Trip complete                         | Actual earned amount and settlement/payout status; remove 0% commission promise. No fabricated tip, fee or payout date.                                                                                 |
+| `3:2` Schedule; `3:74` Scheduled ride details | Flagged Upcoming views under Trips. Completed-trip history remains available with flags off.                                                                                                            |
+| `3:162` Earnings; `4:106` Account             | Preserve charts/rows; remove Pro subscription and “you keep 100%.” Use server amounts and chosen payout schedule; retain payout setup and credentials.                                                  |
+| `4:2` Messages; `4:51` Message thread         | Assignment-scoped communication and cleanup on revoked access; availability follows the communication feature's readiness.                                                                              |
 
 New driver onboarding: Sign in → basic profile → vehicle and supported capability details → secure document submission → review status → payout setup where required → permission explanation → eligible to go online. Use the existing account-list, card and gold-button patterns. Show per-document pending/approved/rejected/expired state, safe rejection guidance and resubmit. A front-end checkmark cannot approve a driver; the backend/staff workflow decides eligibility.
 
@@ -98,11 +98,11 @@ Additional state designs:
 
 ## Driver offer data boundary
 
-| Stage | Allowed display/data | Excluded |
-| --- | --- | --- |
-| Before acceptance | Offer id/expiry, estimated driver earnings with terms, coarse pickup/drop-off areas, estimated pickup/trip time/distance, necessary verified service capability such as wheelchair-accessible vehicle | Rider name/avatar/contact/rating/history, exact address/unit/coordinates, street-level route revealing endpoints, Medicaid/NEMT/payer labels, diagnoses and private rider notes |
-| After committed acceptance | Assignment-scoped identity/contact channel, exact route and minimum necessary assistance instructions for this ride | Unrelated rider history, payment instrument details, medical funding/diagnosis information without an explicitly approved operational need |
-| After revocation/end | Only role-authorized history/earnings/contact scope under retention policy | Continuing live location stream or cached access to a revoked assignment |
+| Stage                      | Allowed display/data                                                                                                                                                                                  | Excluded                                                                                                                                                                        |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Before acceptance          | Offer id/expiry, estimated driver earnings with terms, coarse pickup/drop-off areas, estimated pickup/trip time/distance, necessary verified service capability such as wheelchair-accessible vehicle | Rider name/avatar/contact/rating/history, exact address/unit/coordinates, street-level route revealing endpoints, Medicaid/NEMT/payer labels, diagnoses and private rider notes |
+| After committed acceptance | Assignment-scoped identity/contact channel, exact route and minimum necessary assistance instructions for this ride                                                                                   | Unrelated rider history, payment instrument details, medical funding/diagnosis information without an explicitly approved operational need                                      |
+| After revocation/end       | Only role-authorized history/earnings/contact scope under retention policy                                                                                                                            | Continuing live location stream or cached access to a revoked assignment                                                                                                        |
 
 This is an API allowlist, not merely visual masking. Use separate offer and assignment DTOs; exclude sensitive values from push payloads, logs, analytics, map assets, error objects and caches. Broad-area maps must not reveal exact endpoints through markers, polyline geometry, deep links or geocoding results. Validate service capability server-side without exposing diagnoses. Test serialization as well as visible UI.
 
@@ -431,3 +431,7 @@ Both consumer account-deletion screens reuse the existing charcoal cards and gol
 Re-read driver Account frame `4:106` through Figma design context, including its gold “1 expiring soon” document badge. Account now shows the count of latest approved credentials expiring within 30 days, using reviewed credential expiry rather than upload reservation expiry. Existing expired/rejected/failed-upload warnings take priority. The document screen shows the expiry date and asks for a renewed copy. The 30-day interval is a display-only reminder, not a change to server eligibility, review policy or approval validity. Replaced documents no longer contribute the old warning. No sample ratings, acceptance percentages, subscription or payout details were introduced from the frame.
 
 Browser verification at 390×844 passed Account → Documents and both screenshots were inspected (`/tmp/rove-driver-renewal-account.png`, `/tmp/rove-driver-renewal-guidance.png`). Native rendering of this change remains unverified. Exact whole-app Figma parity is not claimed.
+
+### Founder-requested booking map preview — September 12
+
+The user requested a zoomed-out road route on confirmation and direct saved Home/Work → current pickup → fare/map preview. This extends Figma 5:89 while retaining explicit Request ride confirmation and editable route/service. Use the existing dark/gold native map and fit all road geometry plus endpoint markers. Empty saved slots open setup; unavailable location falls back to manual pickup. Do not draw a straight line as a substitute for a failed live road route. Browser tests verify flow; native camera acceptance remains pending.

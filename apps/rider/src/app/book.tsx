@@ -1,3 +1,4 @@
+import { currentPickup } from '../booking/current-pickup';
 import { NearbyPlaces } from '../booking/nearby-places';
 import { BookingHeader, RouteEntry, PlaceResult } from '../booking/route-entry';
 import { useEffect, useRef, useState } from 'react';
@@ -86,10 +87,21 @@ function BookingForm({ fromRide, savedKind }: { fromRide?: string; savedKind?: S
     let current = true;
     void api
       .savedPlace(savedKind, controller.signal)
-      .then((place) => {
-        if (current) {
-          setDestination(place);
-          setTarget('pickup');
+      .then(async (place) => {
+        if (!current) return;
+        setDestination(place);
+        setTarget('pickup');
+        try {
+          const start = await currentPickup(api, synthetic, controller.signal);
+          if (!current) return;
+          setPickup(start);
+          const preview = await api.quote(start, place, 'standard', controller.signal);
+          if (current) setQuote(preview);
+        } catch (failure) {
+          if (current)
+            setError(
+              failure instanceof Error ? failure.message : 'Enter your pickup address to preview this ride.',
+            );
         }
       })
       .catch(() => {
@@ -105,7 +117,7 @@ function BookingForm({ fromRide, savedKind }: { fromRide?: string; savedKind?: S
       current = false;
       controller.abort();
     };
-  }, [api, fromRide, savedKind, profileId]);
+  }, [api, fromRide, savedKind, profileId, synthetic]);
   async function submit(quoteId: string) {
     const ride = await execute({ kind: 'book', quoteId });
     if (!mounted.current) return;

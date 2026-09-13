@@ -53,6 +53,12 @@ const places = [
 ];
 const maps: MapsProvider = {
   nearby: async () => places,
+  currentPlace: async () => places[0]!,
+  preview: async (pickup, destination) => [
+    pickup.coordinate,
+    { latitude: pickup.coordinate.latitude, longitude: destination.coordinate.longitude },
+    destination.coordinate,
+  ],
   search: async (query) =>
     places.filter((place) => `${place.label} ${place.area}`.toLowerCase().includes(query.toLowerCase())),
   resolve: async (id) => {

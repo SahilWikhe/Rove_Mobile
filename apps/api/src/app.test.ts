@@ -15,6 +15,8 @@ const place = {
 const maps: MapsProvider = {
   search: async () => [place],
   nearby: vi.fn(async () => [place]),
+  currentPlace: vi.fn(async () => place),
+  preview: vi.fn(async () => [place.coordinate, { latitude: 35.81, longitude: -78.61 }]),
   resolve: async () => place,
   route: async () => ({ distanceMeters: 5000, durationSeconds: 720 }),
 };
@@ -867,4 +869,19 @@ test('nearby places require authentication and a valid bounded coordinate', asyn
   const response = await request('/v1/places/nearby', { coordinate: place.coordinate });
   expect(response.status).toBe(200);
   expect(await response.json()).toEqual({ places: [place] });
+});
+
+test('route previews are owned, expire, and never accept client route endpoints', async () => {
+  const quote = await (
+    await request('/v1/quotes', { pickup: place, destination: place, service: 'standard' })
+  ).json();
+  expect((await app.request(`/v1/quotes/${quote.id}/route`)).status).toBe(401);
+  expect((await request(`/v1/quotes/${randomUUID()}/route`)).status).toBe(404);
+  await request('/v1/me', { name: 'Other rider', role: 'rider' }, 'new-user');
+  expect((await request(`/v1/quotes/${quote.id}/route`, undefined, 'new-user')).status).toBe(404);
+  expect((await request(`/v1/quotes/${quote.id}/route`)).status).toBe(200);
+  expect(maps.preview).toHaveBeenCalledWith(place, place);
+  quote.expiresAt = new Date(Date.now() - 1000).toISOString();
+  await database.pool.query('UPDATE quotes SET snapshot=$2 WHERE id=$1', [quote.id, JSON.stringify(quote)]);
+  expect((await request(`/v1/quotes/${quote.id}/route`)).status).toBe(409);
 });

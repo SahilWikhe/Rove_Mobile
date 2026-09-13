@@ -53,7 +53,7 @@ import {
   DriverProfile,
   DriverActivity,
   DriverOffer,
-  type Coordinate,
+  Coordinate,
   type Heartbeat,
 } from '@rove/contracts';
 export class ApiError extends Error {
@@ -311,6 +311,20 @@ export class ApiClient {
   }
   capabilities() {
     return this.request('/v1/me/capabilities', Capabilities);
+  }
+  currentPlace(coordinate: Coordinate, signal?: AbortSignal) {
+    return this.request('/v1/places/current', Place, {
+      method: 'POST',
+      body: { coordinate },
+      ...(signal ? { signal } : {}),
+    });
+  }
+  quoteRoute(id: string, signal?: AbortSignal) {
+    return this.request(
+      `/v1/quotes/${encodeURIComponent(id)}/route`,
+      z.object({ coordinates: z.array(Coordinate).min(2).max(20000) }),
+      signal ? { signal } : {},
+    );
   }
   nearbyPlaces(coordinate: Coordinate, signal?: AbortSignal) {
     return this.request('/v1/places/nearby', z.object({ places: z.array(Place) }), {

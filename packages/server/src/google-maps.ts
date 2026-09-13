@@ -110,6 +110,66 @@ export class GoogleMapsProvider implements MapsProvider {
     if (!parsed.success) throw new MapsProviderUnavailable();
     return (parsed.data.places ?? []).map(placeFromGoogle);
   }
+  async currentPlace(coordinate: Coordinate): Promise<Place> {
+    const point = Coordinate.parse(coordinate);
+    const result = await this.call(
+      `https://geocode.googleapis.com/v4/geocode/location/${point.latitude},${point.longitude}?types=street_address&types=premise`,
+      'results.placeId',
+    );
+    const parsed = z
+      .object({ results: z.array(z.object({ placeId: z.string() })).optional() })
+      .safeParse(result);
+    const id = parsed.success ? parsed.data.results?.[0]?.placeId : undefined;
+    if (!id)
+      throw new DomainError(
+        'PLACE_UNAVAILABLE',
+        'Your pickup address could not be located. Enter it manually.',
+        422,
+      );
+    return this.resolve(id);
+  }
+  async preview(pickup: Place, destination: Place): Promise<Coordinate[]> {
+    Coordinate.parse(pickup.coordinate);
+    Coordinate.parse(destination.coordinate);
+    const result = await this.call(
+      'https://routes.googleapis.com/directions/v2:computeRoutes',
+      'routes.polyline.geoJsonLinestring',
+      {
+        origin: { location: { latLng: pickup.coordinate } },
+        destination: { location: { latLng: destination.coordinate } },
+        travelMode: 'DRIVE',
+        routingPreference: 'TRAFFIC_AWARE',
+        computeAlternativeRoutes: false,
+        routeModifiers: { avoidTolls: true, avoidFerries: true },
+        polylineEncoding: 'GEO_JSON_LINESTRING',
+        polylineQuality: 'OVERVIEW',
+      },
+    );
+    const parsed = z
+      .object({
+        routes: z
+          .array(
+            z.object({
+              polyline: z.object({
+                geoJsonLinestring: z.object({
+                  type: z.literal('LineString'),
+                  coordinates: z
+                    .array(z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]))
+                    .min(2)
+                    .max(20000),
+                }),
+              }),
+            }),
+          )
+          .min(1),
+      })
+      .safeParse(result);
+    if (!parsed.success) throw new MapsProviderUnavailable();
+    return parsed.data.routes[0]!.polyline.geoJsonLinestring.coordinates.map(([longitude, latitude]) => ({
+      latitude,
+      longitude,
+    }));
+  }
   async resolve(id: string): Promise<Place> {
     if (!/^[A-Za-z0-9_-]{3,200}$/.test(id))
       throw new DomainError('INVALID_PLACE', 'Select a place from search.', 400);

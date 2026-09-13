@@ -1,4 +1,6 @@
 export interface TripMapProps {
+  route?: { latitude: number; longitude: number }[];
+  height?: number;
   pickup: { latitude: number; longitude: number };
   destination: { latitude: number; longitude: number };
   androidEnabled?: boolean;

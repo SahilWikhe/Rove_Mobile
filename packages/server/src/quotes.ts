@@ -13,6 +13,8 @@ export interface MapsProvider {
   ): Promise<{ distanceMeters: number; durationSeconds: number }>;
   search(query: string): Promise<Place[]>;
   nearby?(coordinate: Coordinate): Promise<Place[]>;
+  currentPlace?(coordinate: Coordinate): Promise<Place>;
+  preview?(pickup: Place, destination: Place): Promise<Coordinate[]>;
   resolve(id: string): Promise<Place>;
 }
 export interface ServiceArea {
@@ -29,6 +31,19 @@ export class QuoteService {
     private area: ServiceArea,
     private now: () => Date = () => new Date(),
   ) {}
+  async preview(actor: Actor, quoteId: string) {
+    if (actor.role !== 'rider') throw new DomainError('FORBIDDEN', 'Only riders can view quotes.', 403);
+    const result = await this.pool.query<{ snapshot: unknown }>(
+      'SELECT snapshot FROM quotes WHERE id=$1 AND rider_id=$2',
+      [quoteId, actor.id],
+    );
+    if (!result.rows[0]) throw new DomainError('NOT_FOUND', 'Quote not found.', 404);
+    const quote = Quote.parse(result.rows[0].snapshot);
+    if (Date.parse(quote.expiresAt) <= this.now().getTime())
+      throw new DomainError('QUOTE_EXPIRED', 'Review an updated fare.', 409);
+    if (!this.maps.preview) throw new DomainError('MAPS_UNAVAILABLE', 'Route preview is unavailable.', 503);
+    return { coordinates: await this.maps.preview(quote.pickup, quote.destination) };
+  }
   async create(actor: Actor, input: { pickup: Place; destination: Place; service: Service }) {
     if (actor.role !== 'rider') throw new DomainError('FORBIDDEN', 'Only riders can request a quote.', 403);
     // Resolve authoritative places. A client cannot relabel a provider place or move its coordinates.

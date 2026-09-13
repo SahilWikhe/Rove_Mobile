@@ -4,15 +4,15 @@ This is the setup sequence for the existing Rove code. It does not provision res
 
 ## 1. Establish isolated resources
 
-| Service         | Production setup                                                                                                                           | Existing implementation                                                                            |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| Neon Postgres   | Separate production project, empty application database, dedicated runtime and migration roles, verified backups and restore procedure     | Versioned SQL in `packages/database/migrations`; runtime requires `sslmode=verify-full`            |
-| Vercel          | Separate API project rooted at `apps/api`, production domain and environment-scoped secrets                                                | `apps/api/vercel.json` defines API rewrites, queue consumer and minute recovery cron               |
-| Auth0           | Production tenant/API and separate native clients for rider and driver; configure native callbacks/logout, email delivery and verification | OIDC validation and mobile callback/session recovery                                               |
-| Stripe          | Approved live platform account, payment-method configuration, separate payment and Connect webhook secrets                                 | Payment authorization/capture, payment records, Connect onboarding and capability reconciliation   |
-| Google Maps     | Production project/quotas and separate server, iOS and Android keys with appropriate restrictions                                          | Server Places/Routes integration, native maps and in-app navigation                                |
-| AWS documents   | Production stack with private storage, malware scanning and scoped application role                                                        | `infra/aws/driver-documents.template.json`; [document storage setup](65-driver-documents.md) |
-| Expo and stores | Rider and driver Expo project IDs, production build environments, signing and APNs/FCM credentials                                         | App-specific EAS profiles and [native build setup](mobile-staging-builds.md)                       |
+| Service         | Production setup                                                                                                                           | Existing implementation                                                                          |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| Neon Postgres   | Separate production project, empty application database, dedicated runtime and migration roles, verified backups and restore procedure     | Versioned SQL in `packages/database/migrations`; runtime requires `sslmode=verify-full`          |
+| Vercel          | Separate API project rooted at `apps/api`, production domain and environment-scoped secrets                                                | `apps/api/vercel.json` defines API rewrites, queue consumer and minute recovery cron             |
+| Auth0           | Production tenant/API and separate native clients for rider and driver; configure native callbacks/logout, email delivery and verification | OIDC validation and mobile callback/session recovery                                             |
+| Stripe          | Approved live platform account, payment-method configuration, separate payment and Connect webhook secrets                                 | Payment authorization/capture, payment records, Connect onboarding and capability reconciliation |
+| Google Maps     | Production project/quotas and separate server, iOS and Android keys with appropriate restrictions                                          | Server Places/Routes integration, native maps and in-app navigation                              |
+| AWS documents   | Production stack with private storage, malware scanning and scoped application role                                                        | `infra/aws/driver-documents.template.json`; [document storage setup](65-driver-documents.md)     |
+| Expo and stores | Rider and driver Expo project IDs, production build environments, signing and APNs/FCM credentials                                         | App-specific EAS profiles and [native build setup](mobile-staging-builds.md)                     |
 
 Confirm provider plans, quotas and budgets before activation. Staging is an environment name, not a guarantee that provider usage is free. No prices or paid resources are approved by this document.
 
@@ -24,7 +24,7 @@ Required core settings:
 
 - `ROVE_ENVIRONMENT=production` and production `DATABASE_URL` using the runtime role.
 - `OIDC_ISSUER`, `OIDC_AUDIENCE`, `OIDC_JWKS_URL`; production requires verified email. Validate signup, delivery, verification, refresh and logout with the configured native clients.
-- Server-only `GOOGLE_MAPS_API_KEY`, with the APIs used by the server enabled and allowed for this key.
+- Server-only `GOOGLE_MAPS_API_KEY`, with Places API (New), Routes API and Geocoding API enabled and allowed for this key. Geocoding supports saved-shortcut pickup address lookup; route preview requires Routes.
 - `RATE_POLICY_JSON`, `RATE_POLICY_APPROVED_VERSION` and `SERVICE_AREA_JSON` with approved operating geography and prices. The approved version must match the rate policy. Synthetic/test rate versions are rejected.
 - `ALLOWED_ORIGINS_JSON` containing only intended web origins, and a fresh `CRON_SECRET` matching the configured recovery-secret rules.
 - `STRIPE_MODE=live`, `STRIPE_ACCOUNT_ID`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and `STRIPE_PAYMENT_METHOD_CONFIGURATION`. Register the payment endpoint at `/webhooks/stripe`; verify account, mode, signing and durable processing.

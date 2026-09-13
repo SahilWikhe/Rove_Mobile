@@ -264,6 +264,7 @@ export function createApp(deps: Dependencies) {
     if (
       c.req.path === '/v1/places' ||
       c.req.path.startsWith('/v1/places/') ||
+      /^\/v1\/quotes\/[^/]+\/route$/.test(c.req.path) ||
       c.req.path.startsWith('/v1/saved-places/')
     )
       policy = 'places';
@@ -390,6 +391,15 @@ export function createApp(deps: Dependencies) {
       throw new DomainError('PAYOUT_SETUP_UNAVAILABLE', 'Payout setup is not available yet.', 503);
     return c.json(await deps.driverPayouts.start(c.var.actor));
   });
+  app.post('/v1/places/current', async (c) => {
+    const input = await body(c, z.object({ coordinate: Coordinate }).strict());
+    if (!deps.maps.currentPlace)
+      throw new DomainError('MAPS_UNAVAILABLE', 'Enter your pickup address manually.', 503);
+    return c.json(await deps.maps.currentPlace(input.coordinate));
+  });
+  app.get('/v1/quotes/:id/route', async (c) =>
+    c.json(await deps.quotes.preview(c.var.actor, id(c.req.param('id')))),
+  );
   app.post('/v1/places/nearby', async (c) => {
     const input = await body(c, z.object({ coordinate: Coordinate }).strict());
     if (!deps.maps.nearby)

@@ -2,6 +2,14 @@
 
 Updated: September 12, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Saved-destination and confirmation route previews — September 12
+
+Home/Work with a saved address now resolves one foreground pickup address and obtains a standard fare before opening confirmation; empty shortcuts still open saved-place setup. Permission, GPS, geocoding or quote failure preserves the destination and manual route entry. The rider still explicitly presses Request ride. A check-pickup reminder acknowledges that reverse geocoding estimates an address rather than guaranteeing a physical meeting point.
+
+Confirmation includes the native dark/gold map with pickup/destination markers, provider road geometry and full-route camera fitting. Route geometry loads through an authenticated, rate-limited quote-owned endpoint, rejects missing/foreign/expired quotes and does not change the strict Quote response or database schema. No straight-line live route substitute is used; errors retain markers/details and provide retry. Preview routing is a separate request and may differ from the quoted estimate as conditions change. Synthetic local routes are fixtures.
+
+Verification: 14 Google adapter tests and 38 API tests passed; five browser booking/saved-shortcut tests passed in 10.9 seconds. The initial ownership test used a token not supported by the test fixture; rerunning with a supported second identity passed ownership and expiry checks. Rider/API typechecks, targeted ESLint and iOS/Android Expo exports passed. Browser confirmation screenshot was reviewed; browser uses an explicit native-map placeholder. No native camera screenshot, installed rebuild, hosted deployment or live Google request is claimed. Live pickup resolution additionally requires Geocoding API access on the server key. Remaining: native rebuild/visual verification and provider/device acceptance, plus broader production gaps. Next: install verified native builds and check route camera behavior and the foreground permission flow.
+
 ## Rider nearby booking suggestions — September 12
 
 Compared rider Figma 4:20 with booking: the suggestion rows were missing until explicit text search. Added foreground-location nearby suggestions using existing Figma place-row assets, automatic 500ms text search with obsolete-result cancellation, and manual-search recovery. Already-granted location permits automatic lookup; otherwise Suggest places around me requests permission explicitly. Rider location is used for one lookup, not background tracking. Synthetic sessions use local fixtures and the label Suggested places. Empty nearby results and provider/location failures retain manual search. No fabricated pickup is selected automatically.

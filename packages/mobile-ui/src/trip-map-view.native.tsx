@@ -1,11 +1,13 @@
 import { darkMapStyle } from './map-style';
 import { useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Button, Card, Copy } from './index';
 import type { TripMapProps } from './trip-map-types';
 export function TripMap({
   pickup,
+  route,
+  height = 210,
   destination,
   androidEnabled,
   iosEnabled,
@@ -30,10 +32,13 @@ export function TripMap({
   const initialTilesLoaded = useRef(false);
   const showFullTrip = () => {
     setFollowing(false);
-    map.current?.fitToCoordinates([pickup, destination, ...(driver ? [driver.coordinate] : [])], {
-      edgePadding: { top: 56 + topInset, right: 48, bottom: 56, left: 48 },
-      animated: false,
-    });
+    map.current?.fitToCoordinates(
+      [pickup, destination, ...(route ?? []), ...(driver ? [driver.coordinate] : [])],
+      {
+        edgePadding: { top: 56 + topInset, right: 48, bottom: 56, left: 48 },
+        animated: false,
+      },
+    );
   };
   const applePreview = Platform.OS === 'ios' && !!synthetic && !iosEnabled;
   const configured = Platform.OS === 'ios' ? iosEnabled : androidEnabled;
@@ -51,7 +56,7 @@ export function TripMap({
   };
   return (
     <View style={[styles.container, fill && { flex: 1 }]}>
-      <View style={[styles.viewport, fill && styles.fillViewport]}>
+      <View style={[styles.viewport, { height }, fill && styles.fillViewport]}>
         <MapView
           ref={map}
           onMapReady={() => {
@@ -87,6 +92,9 @@ export function TripMap({
               : 'Trip map with pickup and destination markers'
           }
         >
+          {route && route.length > 1 && (
+            <Polyline coordinates={route} strokeColor="#CFB97D" strokeWidth={5} />
+          )}
           <Marker coordinate={pickup} title="Pickup" pinColor="#D6B26D" />
           <Marker coordinate={destination} title="Destination" pinColor="#F4F0E8" />
           {driver && (
