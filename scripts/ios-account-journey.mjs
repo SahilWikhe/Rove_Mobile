@@ -1,4 +1,5 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
+import { once } from 'node:events';
 import { existsSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { nativeSmokeCommand } from './native-smoke-command.mjs';
@@ -40,6 +41,8 @@ const command = (binary, args, timeout = 60000) =>
   }).trim();
 const simctl = (...args) => command('xcrun', ['simctl', ...args], 180000);
 let device;
+let recording;
+let recordingStopped;
 try {
   const identifier = command('/usr/libexec/PlistBuddy', [
     '-c',
@@ -89,6 +92,15 @@ try {
   );
   simctl('boot', device);
   simctl('bootstatus', device, '-b');
+  if (process.env.NATIVE_RECORD_VIDEO === '1') {
+    recording = spawn(
+      'xcrun',
+      ['simctl', 'io', device, 'recordVideo', '--codec=h264', '--force', `${output}/journey.mp4`],
+      { stdio: 'ignore' },
+    );
+    recordingStopped = once(recording, 'exit').catch(() => undefined);
+    recording.on('error', () => console.error('Native recording could not start.'));
+  }
   simctl('install', device, app);
   if (trip) {
     simctl('install', device, resolve(companion));
@@ -136,6 +148,12 @@ try {
     }
   }
 } finally {
+  if (recording && recording.exitCode === null && !recording.signalCode) {
+    recording.kill('SIGINT');
+    const forceStop = setTimeout(() => recording.kill('SIGKILL'), 10000);
+    await recordingStopped;
+    clearTimeout(forceStop);
+  }
   if (device) {
     try {
       simctl('shutdown', device);

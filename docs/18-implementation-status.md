@@ -2,6 +2,14 @@
 
 Updated: September 12, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## iOS native location display and expiry verified — September 12
+
+The recorded two-app location scenario passed in 268.132 seconds with zero failures, continuing through completion and the paid synthetic receipt. During pickup and in-progress states, the peer uploaded three changing samples and verified exact assigned-rider API responses. The native Follow driver control recentered the Google map; inspected screenshots show the blue driver marker and the latest sample timestamp in both phases. After updates stopped, both screenshots and native assertions confirmed marker/reporting-time removal and the unavailable message after normal expiry (22:02:29.316 and 22:03:54.589 PDT).
+
+Artifacts, JUnit, peer/event logs and the owned-simulator recording are preserved under reports/native-trip-ios/details/2026-09-12_215940. The earlier unexpected return home did not recur. Source inspection found no location-expiry navigation action and no recent Rove crash report; its cause remains unresolved, so no navigation fix is claimed. This passing run proves one native lifecycle scenario, not absence of intermittent faults.
+
+Added optional NATIVE_RECORD_VIDEO capture to the iOS runner, stopping it with bounded shutdown before deleting the owned simulator. Tooling lint/formatting, docs and diff checks passed. No application behavior or hosted configuration changed. Next: Android location display/expiry acceptance, then broader physical/provider verification and remaining Figma/erasure/production work. Synthetic samples and visible Google tiles do not prove physical GPS, locked-phone uploads or full navigation-provider acceptance.
+
 ## Native location freshness acceptance in progress — September 12
 
 Added an optional pickup/in-trip native location subflow and loopback-only synthetic location peer. The peer uploads three changing samples in each phase and verifies the assigned rider API returns the exact coordinates/sample time, then stops updates so normal expiry can occur. Both runners expose the optional switch. No app GPS or expiry behavior changed.

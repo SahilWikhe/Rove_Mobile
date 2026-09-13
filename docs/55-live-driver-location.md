@@ -31,3 +31,7 @@ Historical initial-map evidence: the iPhone 17 Pro / iOS 26.5 simulator smoke pa
 ### Native freshness scenario in progress
 
 The optional two-app scenario supplies changing synthetic samples during pickup and in-progress states, checks native reporting and waits for normal expiry. The September 12 iOS retry verified all six samples through the assigned rider API, displayed reporting times for both phases, and passed pickup expiry. In-trip expiry was not verified because the rider returned to home during the wait. Google tiles were visible, but test scrolling moved the camera away from the driver; explicit Follow driver was added for the next run. This remains a failed full scenario, not complete native location acceptance.
+
+### Passing iOS native display/expiry evidence
+
+The recorded retry passed in 268.132 seconds. Inspected pickup and in-trip screenshots show the blue marker centered after Follow driver and the latest synthetic sample time. Both normal-expiry checks removed the marker and reporting time and showed unavailability, followed by a completed ride and paid synthetic receipt. Artifacts are under reports/native-trip-ios/details/2026-09-12_215940. The prior unexpected navigation did not recur but remains unexplained; no app navigation fix was made. Physical GPS/locked-phone and Android location acceptance remain separate.
