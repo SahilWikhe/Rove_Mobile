@@ -1,5 +1,14 @@
 # Implementation status
 
+## Ride detail and history RLS compatibility verified — September 13
+
+Ride detail/history queries now establish a verified active actor transaction. Detail reads verify persisted ownership/assignment before binding the exact associated quote scope, then repeat ownership filtering in the returned query. Counterpart profile joins are optional so completed driver history survives profile-access expiry without restoring exact endpoints or identity fields. Existing consumer/staff separation and pagination semantics remain.
+
+All 211 API tests passed, plus API typechecking, changed-source lint and diff checks. The entire history suite now uses a NOSUPERUSER/NOBYPASSRLS role. Added checks cover old completed rides after counterpart-profile access expires, active rider/driver details, unrelated-account denial, disabled-account denial and no pooled quote/user scope leakage. These prove compatibility with the current 46-table policies; rides itself is not yet protected by RLS.
+
+Next: finish remaining API profile/receipt/earnings scope audit and prepare ride service/worker scopes before the rides migration. Source and isolated hosted remain 46/47. Provider staging and production are unchanged; native/provider acceptance and production readiness remain incomplete. This checkpoint is prepared for the authorized main push; remote confirmation follows.
+
+
 ## Hosted driver RLS verified and live-location API scoped — September 13
 
 Applied migration 0085 only to reverified disposable br-shy-bar-axjulxqh / neondb. Catalog confirms 86 migrations, 47 tables and 46 enabled/forced RLS tables. The complete hosted synthetic rehearsal exited successfully as rove_staging_app with NOSUPERUSER/NOBYPASSRLS. Driver coverage and protected-field isolation passed alongside signup, financial reconciliation, tracking, messaging, push, vehicle review, closure, document scanning/cleanup and outbox retry checks. External adapters remained fake. The inherited rehearsal summary retained a stale 45-table display constant; independent catalog evidence and its updated 46-table assertion establish the actual count. The saved script has the display constant corrected for subsequent runs.

@@ -1,19 +1,27 @@
 import type { Pool } from 'pg';
 import { Quote, RideDetails, RideVehicle } from '@rove/contracts';
-import { DomainError, type Actor } from '@rove/server';
+import { actorTransaction, bindQuoteRide, DomainError, type Actor } from '@rove/server';
 
 export async function getRide(pool: Pool, actor: Actor, rideId: string) {
   // Consumer endpoint intentionally excludes staff. Staff uses separately permissioned APIs.
   const ownerColumn = actor.role === 'rider' ? 'r.rider_id' : actor.role === 'driver' ? 'r.driver_id' : null;
   if (!ownerColumn) throw new DomainError('FORBIDDEN', 'Use the staff API for this operation.', 403);
   const row = (
-    await pool.query(
-      `SELECT r.*,q.snapshot,u.name AS rider_name,d.name AS driver_name,p.vehicle
-    FROM rides r JOIN quotes q ON q.id=r.quote_id JOIN users u ON u.id=r.rider_id
+    await actorTransaction(pool, actor, async (client) => {
+      const owned = await client.query(`SELECT r.id FROM rides r WHERE r.id=$1 AND ${ownerColumn}=$2`, [
+        rideId,
+        actor.id,
+      ]);
+      if (!owned.rowCount) throw new DomainError('NOT_FOUND', 'Ride not found.', 404);
+      await bindQuoteRide(client, rideId);
+      return client.query(
+        `SELECT r.*,q.snapshot,u.name AS rider_name,d.name AS driver_name,p.vehicle
+    FROM rides r JOIN quotes q ON q.id=r.quote_id LEFT JOIN users u ON u.id=r.rider_id
     LEFT JOIN users d ON d.id=r.driver_id LEFT JOIN drivers p ON p.id=d.id
     WHERE r.id=$1 AND ${ownerColumn}=$2`,
-      [rideId, actor.id],
-    )
+        [rideId, actor.id],
+      );
+    })
   ).rows[0];
   if (!row) throw new DomainError('NOT_FOUND', 'Ride not found.', 404);
   const quote = Quote.parse(row.snapshot);
@@ -43,9 +51,11 @@ export async function listRides(pool: Pool, actor: Actor, before?: string) {
   const ownerColumn = actor.role === 'rider' ? 'rider_id' : actor.role === 'driver' ? 'driver_id' : null;
   if (!ownerColumn) throw new DomainError('FORBIDDEN', 'Use the staff API for this operation.', 403);
   const rows = (
-    await pool.query<{ id: string }>(
-      `SELECT id FROM rides WHERE ${ownerColumn}=$1 AND ($2::uuid IS NULL OR (created_at,id) < (SELECT created_at,id FROM rides WHERE id=$2 AND ${ownerColumn}=$1)) ORDER BY created_at DESC,id DESC LIMIT 21`,
-      [actor.id, before ?? null],
+    await actorTransaction(pool, actor, (client) =>
+      client.query<{ id: string }>(
+        `SELECT id FROM rides WHERE ${ownerColumn}=$1 AND ($2::uuid IS NULL OR (created_at,id) < (SELECT created_at,id FROM rides WHERE id=$2 AND ${ownerColumn}=$1)) ORDER BY created_at DESC,id DESC LIMIT 21`,
+        [actor.id, before ?? null],
+      ),
     )
   ).rows;
   const hasMore = rows.length > 20;

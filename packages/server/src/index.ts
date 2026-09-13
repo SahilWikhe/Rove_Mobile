@@ -105,3 +105,4 @@ export * from './message-cleanup';
 export * from './identity-profiles';
 
 export { actorTransaction } from './actor-transaction';
+export { bindQuoteRide } from './quote-scope';
