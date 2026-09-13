@@ -1,0 +1,160 @@
+name: Production release
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: 'Full main-branch SHA verified in staging'
+        required: true
+        type: string
+      ci_run_id:
+        description: 'Successful CI run for the exact SHA'
+        required: true
+        type: string
+      provider_run_id:
+        description: 'Successful staging-provider run for the exact SHA'
+        required: true
+        type: string
+      review_reference:
+        description: 'Reviewed device, migration, restore and release acceptance record'
+        required: true
+        type: string
+      promote:
+        description: 'Request separate protected approval to switch the production domain'
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: production-release
+  cancel-in-progress: false
+
+env:
+  CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+  CI_RUN_ID: ${{ inputs.ci_run_id }}
+  PROVIDER_RUN_ID: ${{ inputs.provider_run_id }}
+  RELEASE_REVIEW_REFERENCE: ${{ inputs.review_reference }}
+
+jobs:
+  candidate:
+    if: github.ref == 'refs/heads/main'
+    environment: production-candidate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
+      project: ${{ env.VERCEL_PROJECT_ID }}
+      team: ${{ env.VERCEL_ORG_ID }}
+    env:
+      PRODUCTION_RELEASE_ENABLED: ${{ vars.PRODUCTION_RELEASE_ENABLED }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      STAGING_VERCEL_PROJECT_ID: ${{ vars.STAGING_VERCEL_PROJECT_ID }}
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Verify candidate evidence and isolated target
+        run: |
+          node scripts/production-release-config.mjs
+          node scripts/release-candidate.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.candidate_sha }}
+          path: candidate
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          package_json_file: candidate/package.json
+          run_install: false
+      - name: Install verified candidate dependencies
+        run: pnpm --dir candidate install --frozen-lockfile
+      - name: Install pinned deployment CLI
+        run: npm install --global vercel@59.16.0
+      - name: Pull and validate production configuration
+        run: |
+          vercel pull --cwd candidate --yes --environment=production --token="$VERCEL_TOKEN"
+          node scripts/production-release-config.mjs candidate/.vercel/project.json
+          pnpm --dir candidate production:preflight .vercel/.env.production.local
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      - name: Build production candidate
+        run: vercel build --cwd candidate --prod --token="$VERCEL_TOKEN"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      - name: Recheck release evidence before deployment
+        run: node scripts/release-candidate.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Deploy without production-domain assignment
+        id: deploy
+        run: |
+          url=$(vercel deploy --cwd candidate --prebuilt --prod --skip-domain --yes --token="$VERCEL_TOKEN")
+          if [[ ! "$url" =~ ^https://[a-zA-Z0-9-]+\.vercel\.app$ ]]; then
+            echo 'Unexpected deployment output. Inspect Vercel before retrying.' >&2
+            exit 1
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          printf 'Candidate: `%s`\n\nDeployment: %s\n\nReview record: `%s`\n\nProduction domain not promoted by this step.\n' "$CANDIDATE_SHA" "$url" "$RELEASE_REVIEW_REFERENCE" >> "$GITHUB_STEP_SUMMARY"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      - name: Check candidate API liveness
+        run: node scripts/production-candidate-health.mjs
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+      - name: Remove pulled secrets and build output
+        if: always()
+        run: rm -rf candidate/.vercel
+
+  promote:
+    needs: candidate
+    if: inputs.promote && github.ref == 'refs/heads/main'
+    environment: production-promotion
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      PRODUCTION_RELEASE_ENABLED: ${{ vars.PRODUCTION_RELEASE_ENABLED }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      STAGING_VERCEL_PROJECT_ID: ${{ vars.STAGING_VERCEL_PROJECT_ID }}
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Revalidate after protected approval
+        run: |
+          test "$VERCEL_PROJECT_ID" = "$BUILT_PROJECT_ID"
+          test "$VERCEL_ORG_ID" = "$BUILT_TEAM_ID"
+          node scripts/production-release-config.mjs
+          node scripts/release-candidate.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILT_PROJECT_ID: ${{ needs.candidate.outputs.project }}
+          BUILT_TEAM_ID: ${{ needs.candidate.outputs.team }}
+      - name: Recheck candidate API after approval
+        run: node scripts/production-candidate-health.mjs
+        env:
+          DEPLOYMENT_URL: ${{ needs.candidate.outputs.url }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+      - run: npm install --global vercel@59.16.0
+      - name: Promote the candidate created by this run
+        run: vercel promote "$DEPLOYMENT_URL" --scope "$VERCEL_ORG_ID" --yes --token="$VERCEL_TOKEN"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          DEPLOYMENT_URL: ${{ needs.candidate.outputs.url }}

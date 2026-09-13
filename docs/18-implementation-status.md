@@ -2,6 +2,12 @@
 
 Updated: September 12, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Manual production release infrastructure — September 12
+
+Added a main-only manually dispatched production candidate/promotion workflow. It requires explicit environment enablement, a distinct production Vercel project/team, a release review reference and fresh successful exact-candidate CI/provider evidence. It builds the verified candidate using production configuration, creates an unaliased deployment, checks liveness, and optionally promotes only that same run's URL through a separate environment approval gate. Target consistency and evidence are rechecked after approval; pulled secrets/build outputs are removed. No workflow was dispatched, no secrets/settings were changed, and no deployment or production activation occurred.
+
+Verification: ten release config/candidate/evidence tests and the candidate health test passed; changed-script lint and actionlint 1.7.12 workflow structure/expression validation passed (ShellCheck integration not run). Production setup documents required environment protection, isolated resources, flags/secrets, migration/device review, candidate production-side effects, post-promotion checks and rollback limits. Live CLI/hosting rehearsal remains outstanding, and YAML alone does not configure required reviewers. Broader release gaps remain physical/provider acceptance, remaining UI review, historical write reconciliation and full erasure. Next: continue outstanding implementation/acceptance; configure and rehearse production only after the final setup decisions.
+
 ## Full local regression baseline on 3097f62 — September 12
 
 All 57 Playwright browser journeys passed in 5.2 minutes against disposable local synthetic services, including the full two-app trip, live location, messaging, no-driver expiry/reconfirmation, uncertain-command recovery, credential renewal, account deletion requests, support and refund receipts. All workspace typecheck tasks and configured unit/integration test tasks passed (server: 62 files / 648 tests). Workspace lint, formatting and import-boundary checks passed. Test servers exited successfully. This checkpoint changes documentation only.

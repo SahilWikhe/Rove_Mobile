@@ -77,7 +77,7 @@ In GitHub Actions, choose **Release readiness → Run workflow**, select `main`,
 
 The workflow runs the trusted main-checkout verifier, validates all required jobs and current run attempts for the exact candidate, and retains `evidence.txt` for 30 days. It records both candidate and verifier source commits. Missing, mismatched, pending or failed evidence fails the job and produces no success artifact. Inputs are passed as environment values and validated before invoking Git or GitHub.
 
-This workflow reads existing GitHub evidence only. It does not rerun staging providers, incur Maps requests, deploy Vercel, migrate a database, approve production or submit mobile apps. The report is a point-in-time snapshot: rerun readiness before a release if evidence changes. Device acceptance, approved policies, production isolation, migration/restore rehearsal and actual deployment remain separate requirements. The existing main-to-staging integration is unchanged; the protected production promotion workflow still needs the final production project and release setup.
+This workflow reads existing GitHub evidence only. It does not rerun staging providers, incur Maps requests, deploy Vercel, migrate a database, approve production or submit mobile apps. The report is a point-in-time snapshot: rerun readiness before a release if evidence changes. Device acceptance, approved policies, production isolation, migration/restore rehearsal and actual deployment remain separate requirements. The existing main-to-staging integration is unchanged; the manual Production release workflow is implemented, but remains unconfigured and unverified against a live production project.
 
 ## 4. Configure mobile production builds
 
@@ -107,7 +107,7 @@ Do not enable public rides just because the services are configured. Outstanding
 - Repeat [realtime messaging acceptance](realtime-messaging.md) against the production configuration before launch. Staging authenticated WebSocket delivery, retry, read updates and reconnect recovery passed with dedicated test accounts; permanent message deletion policy remains separate from visibility expiry.
 - Verify physical-device background location, notifications, native authentication and complete rider/driver trip/payment recovery on both platforms.
 - Complete the remaining Figma/UI acceptance and store-release review.
-- Implement and rehearse controlled production migrations/releases, monitoring, support ownership and incident recovery.
+- Rehearse the implemented manual production release workflow and reviewed migrations; configure monitoring, support ownership and incident recovery.
 
 Final business decisions include launch geography, rider prices/driver compensation, Connect responsibility and payout policy, refunds/cancellation handling, retention/deletion rules, support ownership, and activation budgets. Record these before changing their corresponding production settings.
 
@@ -130,3 +130,25 @@ Apply migration 0038 and complete the [capture fee acceptance steps](73-capture-
 ## Document cleanup activation (still off)
 
 The source includes default-off staff plan/approval/recovery routes and exact-version cleanup jobs. Follow [cleanup configuration and scope](77-document-cleanup-plans.md#pending-runtime-connection-and-approval). The staging cleanup role is created and policy-simulated as recorded in that runbook. Provision a separate limited production cleanup role trusted by its intended Vercel deployment identity; configure `DOCUMENT_CLEANUP_AWS_ROLE_ARN` and an owner-approved `DOCUMENT_CLEANUP_POLICY_REFERENCE` alongside the existing document bucket/account/region. Keep `DOCUMENT_CLEANUP_ENABLED=false` until reviewed migrations, upload quiescence, complete version-list absence behavior and synthetic hosted recovery checks pass. The current constructor requires Vercel OIDC credentials; other worker platforms need their own reviewed provider. No cloud provisioning or production activation is established by source tests.
+
+## Manual production candidate and promotion workflow
+
+`.github/workflows/production-release.yml` adds a manual, main-only workflow. It never runs on pushes and is not enabled by adding this file. No live deployment rehearsal has been performed. The existing main-to-staging integration remains unchanged.
+
+Before enabling it:
+
+1. Create a separate production Vercel API project with repository root settings matching the current staging monorepo (`apps/api`), production resources and reviewed environment configuration. Disable automatic Git production deployment/domain assignment for this project so a main push cannot bypass this workflow. Keep staging's Git integration intact.
+2. Create GitHub environments `production-candidate` and `production-promotion`. For both, restrict deployment branches to main, configure required reviewers, prevent self-review where available, and restrict bypass. These are platform settings: YAML environment names alone do not create approval protection. Verify the protections before adding credentials or enabling the workflow.
+3. In **both** environments configure variables `PRODUCTION_RELEASE_ENABLED=true`, `VERCEL_PROJECT_ID` (the production `prj_…` ID), `STAGING_VERCEL_PROJECT_ID` (the distinct staging ID), and `VERCEL_ORG_ID` (the `team_…` ID). Add the limited deployment `VERCEL_TOKEN` secret and, if deployment protection is enabled, `VERCEL_AUTOMATION_BYPASS_SECRET` for this project. Leave enablement unset until all release prerequisites are satisfied.
+4. Review migration compatibility, completed migration/restore evidence, physical-device/provider acceptance, approved business policies and support/monitoring readiness. Store the review in the operational system and supply its nonsecret reference. The workflow validates the reference's shape; it cannot certify the review's contents. Migrations are deliberately separate and are not run by build/deploy steps.
+5. Run **Production release** on main with the full candidate SHA, successful exact-commit CI and staging-provider run IDs, and review reference. By default `promote=false` creates only an unaliased production candidate. Set `promote=true` to request the separate promotion job and approval after candidate creation.
+
+The candidate job verifies main ancestry and fresh successful run evidence, checks target isolation, checks out the exact candidate, installs frozen dependencies and pinned Vercel CLI 59.16.0, pulls production configuration, checks the linked project/team and runs the existing production configuration preflight. It builds with production settings and deploys `--prebuilt --prod --skip-domain`. It verifies API liveness and removes pulled environment files/build output from the runner. No secret file or build artifact is uploaded. The job summary records candidate SHA, deployment URL and review reference.
+
+An unaliased production deployment **still uses production resources** and may expose its deployment URL or run platform integrations. It is not a sandbox; approve creation accordingly, enable Vercel deployment protection and review cron/queue behavior. The health probe checks only `/health/live`, rejects redirects and bounds requests to fifteen seconds. It does not verify database migrations, money movement, device behavior or the full production configuration. Do not treat that probe as release acceptance.
+
+When requested, the promotion job waits at its separate protected environment, rechecks CI/provider evidence and target consistency, then checks candidate liveness again before promoting the URL created by the same workflow run. The project/team variables must match in both environments. A failed check prevents promotion. Review the candidate URL before approving. If you created a candidate with `promote=false`, a later workflow run creates a fresh candidate; this initial workflow does not accept an arbitrary existing deployment URL.
+
+After promotion, verify the production domain, API readiness, authenticated operations and monitoring. Record the prior deployment ID before release and rehearse `vercel rollback <reviewed-prior-deployment>` for application rollback; it does not reverse database migrations or external side effects. If deployment output is uncertain, inspect the Vercel project before retrying to avoid duplicate deployments. No automatic rollback is performed.
+
+Vercel documents [staged production deployment](https://vercel.com/docs/cli/deploy) using `--skip-domain` and [promotion](https://vercel.com/docs/deployments/promoting-a-deployment). Building this candidate with production settings avoids treating staging credentials or a preview artifact as production configuration.
