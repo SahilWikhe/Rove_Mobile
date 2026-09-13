@@ -282,28 +282,23 @@ Full actual-migration verification passed 759 server, 208 API and 13 database te
 
 Hosted users verification: migrations 0082–0084 applied only to the reverified disposable br-shy-bar-axjulxqh / neondb branch. Catalog confirms 85 migrations and 45 enabled/forced tables. The complete restricted-role synthetic rehearsal passed, including signup retries, immutable profile identity, disabled-account protection and the existing financial, tracking, messaging, notification and reviewed cleanup workflows. Source and isolated-hosted coverage now match at 45/47. Drivers/rides policies, compatible provider-staging rollout and native/provider acceptance remain. Provider staging and production are unchanged.
 
-
 ## Driver RLS migration 0085 — local verification
 
 Deploy compatible driver, tracking, document/vehicle review, eligibility, payout reconciliation and account-closure callers with this migration. Driver mutations bind a locked row snapshot and an operation-specific field set; reads alone cannot mutate or delete drivers. Signup creates only default unapproved/offline drivers for verified active driver identities. Targeted worker/reviewer reads bind the persisted target account before driver locking. Scope resets revoke prior mutation authority. Domain authorization and freshness checks remain mandatory; these backend-controlled settings are not a defense against arbitrary SQL with a compromised runtime credential.
 
 Local verification passed 764 server, 208 API and 13 database tests, server/database types, changed-source lint and diff checks. Restricted-role cases cover cross-driver isolation, protected-field updates, invalidation and scope reset. Source coverage reaches 46/47. Isolated hosted remains 45/47 pending migration/rehearsal. Rides RLS and restricted-runtime API auditing remain before coordinated provider-staging deployment. Provider staging and production are unchanged; do not manually toggle RLS there.
 
-
 Hosted driver verification: migration 0085 applied only to the disposable br-shy-bar-axjulxqh / neondb branch after branch/endpoint checks. Catalog confirms 86 migrations and 46 enabled/forced tables. The complete synthetic workflow passed through the NOSUPERUSER/NOBYPASSRLS runtime role, including new driver scope checks. Source and isolated hosted now match at 46/47. Provider staging and production remain unchanged.
 
 The rider live-location API must deploy with actor-scoped reads before these policies reach provider staging. Restricted-role tests verify that assigned riders receive fresh samples through pickup and in-trip states, while stale samples, disabled accounts and ended assignments remain protected. All 209 API tests, API types and changed-source lint passed. Rides RLS and the remaining API read audit precede coordinated rollout.
 
-
 Ride read compatibility: deploy actor-scoped detail/history queries before RLS rollout. A detail query verifies trip ownership before binding its quote scope. Optional counterpart joins preserve old completed history while post-trip identity/address redaction remains. All 211 API tests passed, including the full history suite under a restricted database role, types and lint. Current policies still cover 46/47 tables; this check does not prove rides-table isolation. Profile/receipt/earnings queries and ride service/worker scopes remain under audit before the final migration and provider-staging rollout.
-
 
 ## Financial/profile read compatibility and migration 0086
 
 Deploy actor-scoped profile, receipt and earnings reads with migration 0086. The new ledger header policy grants only SELECT for allocation and refund/dispute loss-allocation headers associated with the verified driver, requiring matching ledger-owner scope. It grants no mutation authority. Receipt scopes derive from the persisted payment on the rider-owned ride, including exact customer and optional refund evidence. Missing capture evidence still yields a pending receipt.
 
 Local verification: 213 API, 764 server and 13 database tests passed, API/database types and changed-source lint passed. Earnings and receipt read tests run through restricted roles and preserve cross-account, disabled-account, recorded-capture and adjustment safeguards. Isolated hosted remains through 0085; apply/rehearse 0086 with the remaining rides work before provider-staging rollout. Table coverage remains 46/47. Provider staging and production are unchanged.
-
 
 ## Rides RLS migration 0087 — local verification
 

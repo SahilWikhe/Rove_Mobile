@@ -50,3 +50,5 @@ A subsequent fresh zero-fare fixture for those same dedicated accounts passed ho
 ### GPS notification RLS correction
 
 Post-rollout hosted checks exposed accepted driver heartbeats and successful rider location reads without pushed invalidations. The notification trigger could not see the assigned rider under a driver-only lookup scope. Foreground and verified background location writes now bind the persisted driver actor identity. Restricted-role socket regressions cover both upload paths, rollback, unrelated-recipient exclusion and completion cutoff; hosted verification of this fix remains pending deployment. Physical-phone background acceptance is separate.
+
+Hosted retest on `1193397` passed both foreground and background upload invalidations, authorized rider coordinate fetch, driver read denial and cancellation cutoff. The background grant was revoked, the test driver returned offline and coordinates cleared. Samples were synthetic; physical locked-phone collection remains unverified.

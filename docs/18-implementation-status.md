@@ -1,5 +1,11 @@
 # Implementation status
 
+## Hosted GPS fix verified and full regressions passed — September 13
+
+Staging deployment dpl_7BybtuLSDMKSY8VGes2RkbEzYsHX (1193397) became READY. Fresh dedicated Auth0 accounts passed the synthetic foreground heartbeat while matched and the background grant upload while in_progress. Each produced a rider WSS invalidation and an authorized coordinate fetch; driver access to the rider-only endpoint returned 404. Notifications contained no coordinates. Cancelling the fixture revoked rider location access. The tracking grant was revoked (200), and the exact unapproved fixture driver returned offline with coordinates cleared. No Maps/payment provider calls or production changes. This verifies hosted transport, not physical GPS collection or the full booking lifecycle. No physical iPhone was connected according to devicectl.
+
+The first full server run passed 769 assertions but failed on an unhandled PostgreSQL shutdown error in push-installations teardown. Its runtime pool now waits for client end events before stopping the database, without suppressing errors. The subsequent full server run passed all 769 tests, and all 213 API tests passed. Changed-test lint/format passed. Older CI quality logs identified repeated blank lines in status/Neon docs; those are normalized and docs validation rerun. Android driver smoke diagnostics identify an offline emulator during Maestro launch, not a successful app acceptance test. The latest CI/Sonar remain queued behind older verification; no current-head green gate claim. Next: resolve native emulator stability, complete device/provider acceptance and remaining release gates. Prepared for authorized main push; remote confirmation follows.
+
 ## Restricted-runtime live-location notification fix — September 13
 
 Hosted synthetic location verification found a real post-RLS gap: both WSS accounts became ready, the driver heartbeat returned 200 and the assigned rider location read returned 200, but no location invalidation arrived. Both attempts terminated and cleaned up their exact zero-fare fixtures; the dedicated unapproved driver was returned offline with coordinates cleared. Auth0 sessions were unexpired. RLS hid the rider user row from the notification trigger because GPS writes bound only the driver lookup, not the verified actor identity.
@@ -34,7 +40,6 @@ Fresh provider-staging catalog inspection still shows 31 migrations, 32 tables a
 
 SonarQube runs 34779911343 and 34780774422 failed during test coverage, before analysis, on integration deadlines. The latter included multiple database fixture timeouts. CI coverage now serializes Turbo package tasks and uses one Vitest worker, retaining all tests, assertions, reports and gate thresholds. A local CI=true server coverage run passed all 769 tests in 167.55 seconds (92.63% line, 85.03% branch coverage). Workflow/config formatting, config lint and diff checks passed. Hosted GitHub coverage and quality-gate confirmation remain pending; no green CI claim is made. This checkpoint is prepared for the authorized main push; remote confirmation follows.
 
-
 ## Rides RLS implemented and locally verified — September 13
 
 Migration 0087 enables and forces rides RLS, bringing source coverage to 47/47 tables. Reads use verified participant/account scopes, exact stored ride references, bounded payment-recovery batches, overdue-search scope or active-assignment matching scope. Policies intentionally do not query users/offers/payment tables, avoiding dependency cycles with their existing policies. Creation matches a validated locked quote and server deadline. Mutation snapshots preserve fare, earnings, ownership and other unrelated fields; updates increment version, assignment requires a funded searching ride and the accepting driver, and expiry cannot cancel an assigned trip. No DELETE policy is granted. Backend scopes remain defense in depth, not protection from arbitrary SQL with a compromised runtime credential.
@@ -45,7 +50,6 @@ All 769 server, 213 API and 13 database tests passed. Server/API/database types,
 
 Isolated hosted remains through 0085 at 46/47. Next: apply/rehearse 0086–0087 only on that isolated branch with all real runtime read paths, then coordinate compatible provider-staging rollout. Provider staging and production remain unchanged. Physical-device/provider acceptance and production readiness remain incomplete. This checkpoint is prepared for the authorized main push; remote confirmation follows.
 
-
 ## Financial and profile API RLS compatibility verified — September 13
 
 Profile, rider receipt and driver earnings queries now run inside verified active actor transactions. Receipts resolve the payment for the owned ride before binding exact ledger, customer and optional refund evidence scopes. Earnings bind the verified driver's ledger owner scope. Migration 0086 adds SELECT-only access to allocation/refund/dispute allocation journal headers for the assigned driver with matching actor/ledger-owner scope; it grants no financial writes. This fixes missing header access that could otherwise silently produce empty earnings under RLS.
@@ -53,7 +57,6 @@ Profile, rider receipt and driver earnings queries now run inside verified activ
 All 213 API, 764 server and 13 database tests passed, plus API/database typechecking, changed-source lint and diff checks. The complete earnings suite and receipt API dependencies now use restricted database roles. Added tests verify active profile reads, disabled-account denial and no pooled ledger/customer/payment/user scope leakage. Existing cross-account cursor, receipt, adjustment, pagination and recorded-capture checks remain. Injected fake financial mutation services in receipt tests still use fixture connections; this checkpoint proves the changed read paths, not all hosted provider behavior.
 
 Migration 0086 is local only; isolated hosted remains through 0085. Source and hosted table coverage remains 46/47. Next: ride service/worker scope preparation and rides RLS, then hosted rehearsal including 0086 and compatible provider-staging rollout. Provider staging and production are unchanged; physical-device/provider acceptance and production readiness remain incomplete. This checkpoint is prepared for the authorized main push; remote confirmation follows.
-
 
 ## Ride detail and history RLS compatibility verified — September 13
 
@@ -63,7 +66,6 @@ All 211 API tests passed, plus API typechecking, changed-source lint and diff ch
 
 Next: finish remaining API profile/receipt/earnings scope audit and prepare ride service/worker scopes before the rides migration. Source and isolated hosted remain 46/47. Provider staging and production are unchanged; native/provider acceptance and production readiness remain incomplete. This checkpoint is prepared for the authorized main push; remote confirmation follows.
 
-
 ## Hosted driver RLS verified and live-location API scoped — September 13
 
 Applied migration 0085 only to reverified disposable br-shy-bar-axjulxqh / neondb. Catalog confirms 86 migrations, 47 tables and 46 enabled/forced RLS tables. The complete hosted synthetic rehearsal exited successfully as rove_staging_app with NOSUPERUSER/NOBYPASSRLS. Driver coverage and protected-field isolation passed alongside signup, financial reconciliation, tracking, messaging, push, vehicle review, closure, document scanning/cleanup and outbox retry checks. External adapters remained fake. The inherited rehearsal summary retained a stale 45-table display constant; independent catalog evidence and its updated 46-table assertion establish the actual count. The saved script has the display constant corrected for subsequent runs.
@@ -72,7 +74,6 @@ The API audit found the rider live-driver-location query lacked actor scope. It 
 
 Source and isolated-hosted coverage match at 46/47. Rides RLS remains, with 43 server ride-read/join references identified for scope preparation. Additional API read paths need restricted-runtime auditing before provider-staging rollout. Provider staging and production are unchanged; physical-device/provider acceptance and production readiness remain incomplete. This checkpoint is prepared for the authorized main push; remote confirmation follows.
 
-
 ## Driver RLS implemented and verified locally — September 13
 
 Migration 0085 enables and forces driver RLS. Backend mutation scopes capture a locked persisted driver row and constrain updates to the operation's fields: coverage, availability, location, eligibility, invalidation, vehicle review, payout readiness or closure. Read scope permits locking but cannot independently update or delete records. Identity/account rebinding clears driver mutation authority. Compatible callers retain existing authorization, lifecycle, freshness and provider checks; vehicle changes remain approval-only. Backend-controlled scopes provide defense in depth, not protection against arbitrary SQL using a compromised runtime credential.
@@ -80,7 +81,6 @@ Migration 0085 enables and forces driver RLS. Backend mutation scopes capture a 
 All 764 server, 208 API and 13 database tests passed, plus server/database typechecking, changed-source lint and diff checks. New restricted-role tests verify unscoped denial, lock-only access, coverage behavior, cross-driver isolation, protected approval/payout fields, invalidation restrictions and scope reset. A migration JSON precedence error and vehicle-review conditional regression were caught and corrected before this checkpoint. API tests alone do not prove every route is compatible with the restricted runtime.
 
 Source coverage reaches 46/47; isolated hosted remains 45/47 through 0084. Next: verify driver migration and full synthetic workflow on the isolated hosted branch, implement rides RLS, audit API restricted-role reads and coordinate provider-staging rollout. Provider staging and production are unchanged. Physical-device/provider acceptance and production readiness remain incomplete. This checkpoint is prepared for the authorized main push; remote confirmation follows.
-
 
 ## Hosted users RLS verified — September 13
 

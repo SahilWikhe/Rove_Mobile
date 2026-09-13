@@ -1,12 +1,13 @@
 import { actorTransaction } from './actor-transaction';
 import { transaction } from './transactions';
-import { Pool } from 'pg';
+import { Pool, type PoolClient } from 'pg';
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { testDatabase } from '@rove/database/testing';
 import { users } from '@rove/database';
 import { PushInstallations } from './push-installations';
 let runtimePool: Pool;
+const runtimeClients = new Set<PoolClient>();
 let database: Awaited<ReturnType<typeof testDatabase>>;
 const projects = { rider: randomUUID(), driver: randomUUID() };
 let service: PushInstallations;
@@ -36,10 +37,20 @@ beforeAll(async () => {
     password: 'synthetic-local-only',
     max: 5,
   });
+  runtimePool.on('connect', (client) => {
+    runtimeClients.add(client);
+    client.once('end', () => runtimeClients.delete(client));
+  });
   service = new PushInstallations(runtimePool, projects);
 }, 60000);
 afterAll(async () => {
+  // Pool.end can resolve before removed clients finish their socket shutdown.
+  // Wait for those sockets before stopping the disposable PostgreSQL process.
+  const closed = Promise.all(
+    [...runtimeClients].map((client) => new Promise<void>((resolve) => client.once('end', resolve))),
+  );
   await runtimePool?.end();
+  await closed;
   await database?.close();
 });
 beforeEach(async () => {

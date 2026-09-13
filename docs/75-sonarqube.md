@@ -53,7 +53,6 @@ Node’s tooling coverage is restricted to .mjs files. Vitest remains responsibl
 
 Coverage fix confirmed: [run 34772127493](https://github.com/SahilWikhe/Rove_Mobile/actions/runs/34772127493) passed on 1b6c606. All six gate conditions pass; new coverage is 89.2% against the unchanged 80% threshold, duplication 0%, hotspot review 100%, and reliability/security/maintainability ratings A.
 
-
 ## Coverage runner recovery — September 13
 
 SonarQube run 34780774422 stopped before analysis because several instrumented database integration cases exceeded their test deadlines. The preceding run failed on the 105-payment recovery case's old five-second allowance. Local non-coverage suites passed, so the workflow now serializes package coverage tasks and limits CI Vitest coverage to one worker. A local run with `CI=true` passed all 769 server tests in 167.55 seconds using the same coverage configuration (92.63% line and 85.03% branch coverage). Workflow/config formatting and config lint passed. Hosted CI confirmation is still required before reporting the scan or quality gate green.
