@@ -195,3 +195,7 @@ Migration 0053 adds enabled/forced RLS to account_closures, bringing source cove
 ## Retention policy extension in source
 
 Migration 0054 adds enabled/forced RLS to retention_holds, bringing source coverage to eleven of 47 tables. Distinct current MFA staff permissions govern placement, reads and release. A scoped boolean database helper preserves hold visibility for closure/document deletion guards without exposing hold records to ordinary consumers. Local restricted-role and API/database suites passed; hosted verification remains the earlier four-table rehearsal. Deploy compatible backend code before the migration delta.
+
+## Cleanup plan policy extension in source
+
+Migration 0055 adds enabled/forced RLS to document_cleanup_plans and document_cleanup_items, bringing source coverage to thirteen of 47 tables. Staff approval and exact-item worker execution have separate policies, and both dispatch/receipt transactions bind worker scope. Local restricted-role/API/database verification passed. Hosted evidence remains the preceding eleven-table rehearsal; this migration has not been applied to Neon. Deploy compatible backend code before staging migration.

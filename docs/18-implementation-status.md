@@ -1,5 +1,15 @@
 # Implementation status
 
+## Document-cleanup plan and receipt RLS — September 13
+
+Migration 0055 enables/forces RLS on document_cleanup_plans and document_cleanup_items. Current MFA privacy staff can read; privacy.cleanup controls draft creation and approval. Workers read/update only their assigned cleanup item and can read its parent plan. Staff cannot forge attempted/removed receipts, and runtime deletion has no policy. Both provider dispatch and completion transactions bind exact item scope.
+
+Removed worker plan UPDATE requirements from SELECT FOR SHARE reads; approved plan facts remain immutable and owner locks still serialize approval/dispatch. Initial restricted-role tests exposed a recursive item-insert/parent-plan policy dependency. Removed that reference while preserving existing same-transaction item creation and immutable-plan triggers, then regenerated the uncommitted migration before the passing run.
+
+Verification: 56 domain tests, 208 API tests and 13 database tests passed (277 total), plus server/database typechecks, targeted lint, formatting and documentation validation. Direct checks cover unscoped denial, exact item/parent reads, foreign-item mutation denial, unapproved dispatch rejection, staff receipt forgery denial, read-only staff approval denial and MFA. Existing retention, write settlement, future approval and provider retry tests also passed with synthetic providers.
+
+Source RLS coverage is thirteen of 47 tables; hosted evidence covers the preceding eleven-table rehearsal. This migration has not been applied to hosted Neon. Next: remaining worker/data policies and hosted verification of the new delta before staging rollout. Full mobile production acceptance remains incomplete.
+
 ## Eleven-table hosted RLS rehearsal — September 13
 
 Applied the committed migration delta through 0054 to the existing isolated synthetic Neon rehearsal branch. Live catalog verification returned 55 migrations, 47 tables, and eleven tables with both RLS enabled and forced. The branch remains non-primary/non-default and expires September 14. No production or provider-staging migration was performed.

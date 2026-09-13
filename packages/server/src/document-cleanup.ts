@@ -329,10 +329,7 @@ export class DocumentCleanup {
   async removeVersion(itemId: string) {
     z.uuid().parse(itemId);
     const target = await transaction(this.pool, async (c) => {
-      await c.query(
-        "SELECT set_config('rove.actor_id','',true),set_config('rove.actor_role','',true),set_config('rove.actor_mfa','false',true),set_config('rove.identity_request','',true),set_config('rove.notification_message','',true),set_config('rove.notification_offer','',true),set_config('rove.closure_guard_owner','',true),set_config('rove.retention_owner','',true),set_config('rove.cleanup_item',$1,true)",
-        [itemId],
-      );
+      await bindCleanupItem(c, itemId);
       const initial = (
         await c.query(
           'SELECT p.owner_id,i.removed_at FROM document_cleanup_items i JOIN document_cleanup_plans p ON p.id=i.plan_id WHERE i.id=$1',
@@ -344,7 +341,7 @@ export class DocumentCleanup {
       await this.ready(c, initial.owner_id);
       const row = (
         await c.query(
-          `SELECT i.*,p.document_id,p.approved_at,p.not_before<=clock_timestamp() AS due FROM document_cleanup_items i JOIN document_cleanup_plans p ON p.id=i.plan_id WHERE i.id=$1 FOR UPDATE OF i FOR SHARE OF p`,
+          `SELECT i.*,p.document_id,p.approved_at,p.not_before<=clock_timestamp() AS due FROM document_cleanup_items i JOIN document_cleanup_plans p ON p.id=i.plan_id WHERE i.id=$1 FOR UPDATE OF i`,
           [itemId],
         )
       ).rows[0];
@@ -366,6 +363,7 @@ export class DocumentCleanup {
     if (result?.status !== 'absent')
       throw new DomainError('DOCUMENT_ERASURE_UNAVAILABLE', 'Document version removal is not verified.', 503);
     await transaction(this.pool, async (c) => {
+      await bindCleanupItem(c, itemId);
       const row = (await c.query('SELECT * FROM document_cleanup_items WHERE id=$1 FOR UPDATE', [itemId]))
         .rows[0];
       if (!row || row.object_key !== target.key || row.object_version !== target.version)
@@ -379,4 +377,11 @@ export class DocumentCleanup {
       );
     });
   }
+}
+
+async function bindCleanupItem(c: import('pg').PoolClient, itemId: string) {
+  await c.query(
+    "SELECT set_config('rove.actor_id','',true),set_config('rove.actor_role','',true),set_config('rove.actor_mfa','false',true),set_config('rove.identity_request','',true),set_config('rove.notification_message','',true),set_config('rove.notification_offer','',true),set_config('rove.closure_guard_owner','',true),set_config('rove.retention_owner','',true),set_config('rove.cleanup_item',$1,true)",
+    [itemId],
+  );
 }

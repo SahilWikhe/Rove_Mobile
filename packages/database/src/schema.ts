@@ -1211,6 +1211,23 @@ export const documentCleanupPlans = pgTable(
     quiescenceReference: text(),
   },
   (t) => [
+    pgPolicy('cleanup_plan_staff_read', {
+      for: 'select',
+      using: sql`${rlsStaff('privacy.read')} OR ${rlsStaff('privacy.cleanup')}`,
+    }),
+    pgPolicy('cleanup_plan_staff_insert', {
+      for: 'insert',
+      withCheck: sql`${rlsStaff('privacy.cleanup')} AND ${t.createdBy}=${rlsActor} AND ${t.approvedAt} IS NULL`,
+    }),
+    pgPolicy('cleanup_plan_staff_approve', {
+      for: 'update',
+      using: rlsStaff('privacy.cleanup'),
+      withCheck: sql`${rlsStaff('privacy.cleanup')} AND ${t.approvedBy}=${rlsActor} AND ${t.approvedAt} IS NOT NULL`,
+    }),
+    pgPolicy('cleanup_plan_worker_read', {
+      for: 'select',
+      using: sql`NULLIF(current_setting('rove.actor_id',true),'') IS NULL AND EXISTS(SELECT 1 FROM public.document_cleanup_items i WHERE i.plan_id=${t.id} AND i.id=NULLIF(current_setting('rove.cleanup_item',true),'')::uuid)`,
+    }),
     check('document_cleanup_hash', sql`${t.manifestHash} ~ '^[a-f0-9]{64}$'`),
     check('document_cleanup_markers', sql`${t.deleteMarkers} >= 0`),
     check(
@@ -1232,6 +1249,23 @@ export const documentCleanupItems = pgTable(
     removedAt: timestamp({ withTimezone: true }),
   },
   (t) => [
+    pgPolicy('cleanup_item_staff_read', {
+      for: 'select',
+      using: sql`${rlsStaff('privacy.read')} OR ${rlsStaff('privacy.cleanup')}`,
+    }),
+    pgPolicy('cleanup_item_staff_insert', {
+      for: 'insert',
+      withCheck: sql`${rlsStaff('privacy.cleanup')} AND ${t.attemptedAt} IS NULL AND ${t.removedAt} IS NULL`,
+    }),
+    pgPolicy('cleanup_item_worker_read', {
+      for: 'select',
+      using: sql`NULLIF(current_setting('rove.actor_id',true),'') IS NULL AND ${t.id}=NULLIF(current_setting('rove.cleanup_item',true),'')::uuid`,
+    }),
+    pgPolicy('cleanup_item_worker_update', {
+      for: 'update',
+      using: sql`NULLIF(current_setting('rove.actor_id',true),'') IS NULL AND ${t.id}=NULLIF(current_setting('rove.cleanup_item',true),'')::uuid`,
+      withCheck: sql`NULLIF(current_setting('rove.actor_id',true),'') IS NULL AND ${t.id}=NULLIF(current_setting('rove.cleanup_item',true),'')::uuid`,
+    }),
     uniqueIndex('document_cleanup_version').on(t.planId, t.objectKey, t.objectVersion),
     check(
       'document_cleanup_version_id',

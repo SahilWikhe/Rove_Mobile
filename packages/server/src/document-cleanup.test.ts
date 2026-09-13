@@ -1,3 +1,5 @@
+import { actorTransaction } from './actor-transaction';
+import { transaction } from './transactions';
 import { Pool } from 'pg';
 import { randomUUID } from 'node:crypto';
 import { beforeAll, afterAll, beforeEach, test, expect, vi } from 'vitest';
@@ -410,4 +412,61 @@ test('storage inspection refuses unaudited evidence when the audit transaction f
   } finally {
     await db.pool.query('DROP TRIGGER reject_storage_audit ON audit; DROP FUNCTION reject_storage_audit()');
   }
+});
+
+test('RLS keeps cleanup worker scope to one item and denies staff receipt forgery', async () => {
+  const p = await plan();
+  const ids = (await db.pool.query('SELECT id FROM document_cleanup_items ORDER BY id')).rows.map(
+    (r) => r.id,
+  );
+  for (const table of ['document_cleanup_plans', 'document_cleanup_items'])
+    expect((await runtimePool.query(`SELECT * FROM ${table}`)).rowCount).toBe(0);
+  await actorTransaction(runtimePool, staff, async (c) => {
+    expect((await c.query('SELECT id FROM document_cleanup_items')).rowCount).toBe(2);
+    expect((await c.query('UPDATE document_cleanup_items SET attempted_at=clock_timestamp()')).rowCount).toBe(
+      0,
+    );
+    expect((await c.query('DELETE FROM document_cleanup_plans')).rowCount).toBe(0);
+  });
+  await expect(
+    transaction(runtimePool, async (c) => {
+      await c.query("SELECT set_config('rove.cleanup_item',$1,true)", [ids[0]]);
+      expect((await c.query('SELECT id FROM document_cleanup_items')).rows).toEqual([{ id: ids[0] }]);
+      expect((await c.query('SELECT id FROM document_cleanup_plans')).rowCount).toBe(1);
+      expect(
+        (
+          await c.query('UPDATE document_cleanup_items SET attempted_at=clock_timestamp() WHERE id=$1', [
+            ids[1],
+          ])
+        ).rowCount,
+      ).toBe(0);
+      await c.query('UPDATE document_cleanup_items SET attempted_at=clock_timestamp() WHERE id=$1', [ids[0]]);
+    }),
+  ).rejects.toThrow('Cleanup is not authorized');
+  expect(provider.erase).not.toHaveBeenCalled();
+  await service.approve(staff, p.id, approval(p.manifestHash), randomUUID());
+  await service.removeVersion(ids[0]);
+  expect(provider.erase).toHaveBeenCalledTimes(1);
+  expect((await runtimePool.query('SELECT * FROM document_cleanup_items')).rowCount).toBe(0);
+});
+
+test('privacy read permission cannot approve plans and missing MFA cannot inspect them', async () => {
+  await plan();
+  await db.pool.query("DELETE FROM staff_permissions WHERE staff_id=$1 AND permission='privacy.cleanup'", [
+    staff.id,
+  ]);
+  await actorTransaction(runtimePool, staff, async (c) => {
+    expect((await c.query('SELECT * FROM document_cleanup_plans')).rowCount).toBe(1);
+    expect(
+      (
+        await c.query('UPDATE document_cleanup_plans SET approved_at=clock_timestamp(),approved_by=$1', [
+          staff.id,
+        ])
+      ).rowCount,
+    ).toBe(0);
+  });
+  await actorTransaction(runtimePool, { ...staff, mfa: false }, async (c) => {
+    expect((await c.query('SELECT * FROM document_cleanup_plans')).rowCount).toBe(0);
+    expect((await c.query('SELECT * FROM document_cleanup_items')).rowCount).toBe(0);
+  });
 });

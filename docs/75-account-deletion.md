@@ -166,3 +166,9 @@ Restricted-role tests verify hidden-hold enforcement, scope restoration, consume
 ## Hosted rehearsal update — September 13
 
 The implemented RLS policies through migration 0054 passed the isolated synthetic Neon rehearsal using the restricted pooled application role. This supersedes earlier statements in this document that hosted rehearsal was pending. Provider staging remains unchanged with no enabled RLS tables; production rollout is not authorized or verified. See [current hosted RLS evidence](60-neon-staging.md#latest-rls-verification) for scope and remaining work.
+
+## Cleanup plan and receipt row isolation
+
+Migration 0055 enables/forces RLS on document_cleanup_plans and document_cleanup_items. MFA privacy.read or privacy.cleanup permits reads; privacy.cleanup permits draft/item creation and immutable approval. Workers scope both dispatch and receipt transactions to one item, with read access to its parent plan. They cannot modify other items or approve plans. Staff cannot forge dispatch/removal receipts, and there is no runtime delete policy.
+
+Existing database triggers retain same-transaction target creation, exact key/version scope, immutable approval, due-time checks, retention enforcement and monotonic receipts. Worker plan reads no longer require UPDATE permission through FOR SHARE; immutable approved facts and existing owner locks preserve serialization. Restricted-role tests cover approved execution/retry and denied foreign/unapproved/staff mutations with synthetic providers. Hosted rollout of migration 0055 remains pending.
