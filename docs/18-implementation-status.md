@@ -1,5 +1,11 @@
 # Implementation status
 
+## Driver payout and tracking account scope preparation — September 13
+
+Driver payout authorization now runs on a transaction client with exact user lookup scope, including rechecks around provider operations. Transfer eligibility and payout reconciliation bind their persisted driver IDs before account reads. Background tracking first resolves the driver from the scoped server-issued grant, then binds that exact account; the existing hash, expiry, offline, disabled, rotation and sample checks remain in place. Location payloads cannot select the driver.
+
+All 758 server and 208 API tests passed, with server typechecking, changed-source lint and diff checks. The 15 tracking tests additionally passed after enabling a users RLS prototype limited to the exact account scope in their disposable database. They cover rotation, expiry, disabled/offline accounts, duplicate/concurrent samples, shared budgets and revocation races. No application users migration or hosted rollout is enabled by this preparation. Source/isolated hosted remains 44/47. Next: notification/matching account dependencies and core users/drivers/rides policies, followed by provider-staging rollout and physical-device/provider acceptance. This checkpoint is prepared for the authorized main push; remote confirmation follows.
+
 ## Closure and recovery account scope preparation — September 13
 
 Reviewed closure, retention locks, document-write cleanup barriers and payment-customer provisioning/result recovery now bind exact user reads. Closure snapshots the persisted row with only disabled=true before its existing update, preserving identity fields for the forthcoming policy. Actor and worker resets clear user read/profile/closure and verified-subject/signup scopes. User lookup and verified-subject replacement also revoke closure authority. Existing permission, MFA, retention, financial and provider-result checks remain in place.

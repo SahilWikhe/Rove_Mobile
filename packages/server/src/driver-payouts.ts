@@ -1,3 +1,4 @@
+import { bindUserRead } from './user-scope';
 import { enqueueOutbox } from './outbox-enqueue';
 import { actorTransaction, bindActorIdentity } from './actor-transaction';
 import { bindPayoutScope } from './payout-scope';
@@ -19,8 +20,9 @@ export class DriverPayouts {
   ) {
     if (!/^acct_[a-zA-Z0-9]{1,96}:(test|live)$/.test(source)) throw new Error('Invalid payout source.');
   }
-  private async authorize(client: Pool | PoolClient, actor: Actor, lock = false) {
+  private async authorize(client: PoolClient, actor: Actor, lock = false) {
     if (actor.role !== 'driver') throw new DomainError('FORBIDDEN', 'Payout setup is for drivers.', 403);
+    await bindUserRead(client, actor.id);
     const row = (
       await client.query(
         `SELECT u.disabled FROM users u JOIN drivers d ON d.id=u.id
@@ -31,7 +33,7 @@ export class DriverPayouts {
     if (!row || row.disabled) throw new DomainError('FORBIDDEN', 'Payout setup is unavailable.', 403);
   }
   async status(actor: Actor): Promise<DriverPayoutStatus> {
-    await this.authorize(this.pool, actor);
+    await transaction(this.pool, (client) => this.authorize(client, actor));
     if (!this.provider) return { status: 'unavailable' };
     const binding = await actorTransaction(this.pool, actor, async (client) => {
       await bindPayoutScope(client, this.source, {});
@@ -49,11 +51,11 @@ export class DriverPayouts {
       bindingId: binding.id,
       accountId: binding.account_id,
     });
-    await this.authorize(this.pool, actor);
+    await transaction(this.pool, (client) => this.authorize(client, actor));
     return { status };
   }
   async start(actor: Actor): Promise<DriverPayoutLink> {
-    await this.authorize(this.pool, actor);
+    await transaction(this.pool, (client) => this.authorize(client, actor));
     if (!this.provider) throw unavailable();
     const binding = await transaction(this.pool, async (client) => {
       await bindActorIdentity(client, actor, 'update');
@@ -103,13 +105,13 @@ export class DriverPayouts {
         });
       });
     }
-    await this.authorize(this.pool, actor);
+    await transaction(this.pool, (client) => this.authorize(client, actor));
     // Verify mode/metadata of an existing mapping before minting a sensitive one-use URL.
     await this.provider.status({ driverId: actor.id, bindingId: binding.id, accountId });
     const link = DriverPayoutLink.parse(await this.provider.onboardingLink(accountId));
     const remaining = Date.parse(link.expiresAt) - this.now().getTime();
     if (remaining <= 0 || remaining > 30 * 60 * 1000) throw unavailable();
-    await this.authorize(this.pool, actor);
+    await transaction(this.pool, (client) => this.authorize(client, actor));
     return link;
   }
 }

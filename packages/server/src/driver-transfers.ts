@@ -1,3 +1,4 @@
+import { bindUserRead } from './user-scope';
 import { enqueueOutbox } from './outbox-enqueue';
 import { bindLedgerAttempt } from './ledger-scope';
 import { appendLedgerJournal } from './ledger-append';
@@ -154,6 +155,7 @@ export class DriverTransfers {
   }
   private async eligible(c: PoolClient, p: Context, exclude?: string) {
     if (p.state !== 'completed') throw review();
+    await bindUserRead(c, p.driverId);
     const d = (
       await c.query(
         `SELECT u.disabled,u.role,d.approved,d.eligibility_expires_at FROM drivers d JOIN users u ON u.id=d.id WHERE d.id=$1 FOR SHARE OF d,u`,

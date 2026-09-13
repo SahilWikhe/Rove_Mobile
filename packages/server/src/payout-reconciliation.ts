@@ -1,3 +1,4 @@
+import { bindUserRead } from './user-scope';
 import { enqueueOutbox } from './outbox-enqueue';
 import { appendAudit } from './audit';
 import { bindPayoutScope } from './payout-scope';
@@ -59,6 +60,7 @@ export class PayoutReconciler {
         [binding.id, status, this.now(), binding.sync_revision, accountId, this.source],
       );
       if (!saved.rowCount) return; // A newer request superseded this response, including its failure.
+      await bindUserRead(client, binding.driver_id);
       const validUntil = new Date(started.getTime() + validityMs);
       const ready = status === 'ready' && validUntil > this.now();
       await client.query(

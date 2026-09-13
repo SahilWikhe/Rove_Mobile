@@ -1,7 +1,8 @@
+import { bindUserRead } from './user-scope';
 import { actorTransaction } from './actor-transaction';
 import { bindTrackingScope } from './tracking-scope';
 import { createHash, randomBytes } from 'node:crypto';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import { BackgroundLocation } from '@rove/contracts';
 import { DomainError } from './errors';
 import { driverOnly } from './drivers';
@@ -25,6 +26,19 @@ export class TrackingService {
     private pool: Pool,
     private now: () => Date = () => new Date(),
   ) {}
+
+  private async bindTrackingAccount(client: PoolClient, hash: string) {
+    await bindTrackingScope(client, 'read', hash);
+    // Resolve the account from the scoped server-issued grant, never the location payload.
+    const grant = (
+      await client.query<{ driver_id: string }>(
+        'SELECT driver_id FROM driver_tracking_sessions WHERE token_hash=$1',
+        [hash],
+      )
+    ).rows[0];
+    if (!grant) throw unauthorized();
+    await bindUserRead(client, grant.driver_id);
+  }
 
   async issue(actor: Actor) {
     driverOnly(actor);
@@ -64,7 +78,7 @@ export class TrackingService {
     // rotating grant, so renewal cannot reset the upload budget. The counter commits
     // separately: invalid samples and rejected duplicates still consume the budget.
     const authenticated = await transaction(this.pool, async (client) => {
-      await bindTrackingScope(client, 'read', hash);
+      await this.bindTrackingAccount(client, hash);
       return (
         await client.query<{ id: string }>(
           `SELECT d.id FROM drivers d JOIN users u ON u.id=d.id
@@ -84,7 +98,7 @@ export class TrackingService {
     if (age < -5000 || age > 30_000)
       throw new DomainError('INVALID_LOCATION_SAMPLE', 'A fresh, accurate location is required.', 422);
     return transaction(this.pool, async (client) => {
-      await bindTrackingScope(client, 'read', hash);
+      await this.bindTrackingAccount(client, hash);
       // Recheck authorization after limiting: rotation/offline/revocation may race.
       // Lock order matches issue/availability: driver first, then tracking grant.
       const result = await client.query(
