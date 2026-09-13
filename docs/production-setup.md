@@ -2,6 +2,23 @@
 
 This is the setup sequence for the existing Rove code. It does not provision resources or authorize a production launch. Keep staging operational throughout setup. Use the same reviewed source commit with separate environment configuration; do not copy staging accounts, rides, messages, payment references or uploaded documents into production.
 
+## Minimum paid pilot scope — September 13
+
+The owner prioritized a small invitation-only paid pilot over optional features and polish. A single fully verified mobile platform may launch first; the other platform stays unreleased until verified. This changes delivery order, not authorization to activate production or a claim that a platform has been selected.
+
+Required before real rides:
+
+- Real-device booking, matching, pickup and completion, including authorized live driver location and background notification behavior.
+- Correct authorization, capture, cancellation/refund handling and a verified supported way to pay drivers. Manual payout scheduling is acceptable only after its supported process and reconciliation have been tested.
+- Isolated production configuration, restricted database access, secure authentication and signed builds for the launch platform.
+- Driver approval and reachable support, with controlled, audited staff procedures for payment problems. A polished separate staff dashboard may follow later.
+- Basic monitoring, usable backups and a verified recovery procedure. Advanced recovery automation may follow; recovery itself cannot be assumed from a configured backup.
+- Passing release checks for the exact shipped candidate and no known critical security, financial or core-trip failures.
+
+Defer visual polish, medium maintainability findings, optional features, automated document deletion (keep disabled), advanced recovery automation and the second platform's launch when necessary. These deferrals do not remove safeguards from implemented features. An unpaid internal staging test can precede live payment activation.
+
+Immediate blocker observed September 13: the existing sandbox backend key receives HTTP 403/StripePermissionError on Accounts v2 listing. Account creation, onboarding, transfers and bank payouts remain unverified; no new account or money movement occurred in this check. Review the sandbox key's precise Accounts/Connect permissions before payout acceptance. Do not substitute an unrestricted or different-account key silently.
+
 ## 1. Establish isolated resources
 
 | Service         | Production setup                                                                                                                           | Existing implementation                                                                          |

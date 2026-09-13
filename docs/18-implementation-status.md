@@ -1,5 +1,11 @@
 # Implementation status
 
+## Minimum paid pilot prioritized — September 13
+
+Recorded the owner's accepted minimum pilot scope in production-setup.md: core real-device ride/payment/payout behavior, secure isolated production, controlled staff operations, basic monitoring/recovery and exact-candidate release evidence. Polish, medium maintainability, optional automation and potentially the second platform's launch are deferred. No platform decision, paid setup or production activation is inferred.
+
+Fresh sandbox Accounts v2 listing still returns 403/StripePermissionError using the existing expected staging account/key; no accounts were created or money moved. Requested the dashboard permission option names from the owner to unblock payout acceptance. CI run 34788335787 completed successfully, including rider/driver iOS and Android, on earlier commit 6641e0c. This is not current-main evidence. Native payment code inspection confirms bank-return status reads and no automatic confirmation retry, but does not prove actual PaymentSheet/3DS acceptance. Documentation checks run before the authorized push. Next: resolve sandbox Connect permissions while continuing minimum-pilot verification; production remains incomplete. Remote confirmation follows separately.
+
 ## Financial and review records survive local restore — September 13
 
 Expanded the isolated PostgreSQL 18 logical restore rehearsal with synthetic payment capture/allocation, an owned receipt and a durable payment-review case. Restricted services verify the restored receipt and ownership denial, balanced immutable journals, reconciliation retry without duplicate journals, review intake/acknowledgment retries, and absence of an acknowledgment made after the backup. Full schema/data comparisons and enabled/forced RLS checks remain intact. Corrected missing driver-profile and invalid synthetic provider identifier fixtures without changing application validation.
