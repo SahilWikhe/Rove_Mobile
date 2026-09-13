@@ -9,10 +9,40 @@ if (![listen, upstream].every((p) => /^\d+$/.test(p) && +p >= 1024 && +p <= 6553
   throw new Error('Provide distinct local proxy and API ports.');
 const record = (event) => console.log(JSON.stringify({ at: new Date().toISOString(), ...event }));
 const server = createServer((req, res) => {
+  // Accept origin-form paths only. Neither incoming Host nor an absolute URL selects the upstream.
+  if (!req.url?.startsWith('/') || req.url.startsWith('//') || /[\\\s#]/.test(req.url)) {
+    res.writeHead(400);
+    res.end();
+    return;
+  }
+  const headers = Object.create(null);
+  for (const name of ['authorization', 'content-type', 'content-length', 'idempotency-key', 'origin']) {
+    if (typeof req.headers[name] === 'string') headers[name] = req.headers[name];
+  }
   const target = request(
-    { hostname: '127.0.0.1', port: +upstream, path: req.url, method: req.method, headers: req.headers },
+    { hostname: '127.0.0.1', port: +upstream, path: req.url, method: req.method, headers },
     (response) => {
-      res.writeHead(response.statusCode, response.headers);
+      // The synthetic API has no redirect flow. Do not forward arbitrary upstream header names.
+      if (!response.statusCode || (response.statusCode >= 300 && response.statusCode < 400)) {
+        response.resume();
+        res.writeHead(502);
+        res.end();
+        return;
+      }
+      for (const name of [
+        'content-type',
+        'content-length',
+        'cache-control',
+        'retry-after',
+        'x-request-id',
+        'access-control-allow-origin',
+        'access-control-allow-headers',
+        'access-control-allow-methods',
+      ]) {
+        const value = response.headers[name];
+        if (typeof value === 'string') res.setHeader(name, value);
+      }
+      res.writeHead(response.statusCode);
       response.pipe(res);
     },
   );

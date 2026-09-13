@@ -34,7 +34,7 @@ Authenticated CLI review found 24 open security-impacting findings on main. The 
 | Area | Findings | Review state |
 | --- | ---: | --- |
 | Test PostgreSQL credentials | 3 | Fixed constants replaced with generated per-run credentials in the disposable database helper and build verifier; scanner confirmation pending. |
-| Local realtime proxy | 3 | SSRF, response-header prototype pollution and redirect findings require data-flow review and regression checks. Proxy binds loopback; this limits exposure but does not dismiss the findings. |
+| Local realtime proxy | 3 | Forwarding now uses fixed loopback Host, origin-form paths and header allowlists; unexpected redirects are rejected. A local HTTP/WebSocket regression passed for malicious headers/paths and normal forwarding. Scanner confirmation remains pending; no manual dismissal. |
 | CLI evidence paths | 5 | File-path inputs in production/staging/payment/transfer checks need traversal and output-boundary review. |
 | GitHub workflows | 5 | Job permission scope, lifecycle script policy and HTTPS download enforcement need review against build requirements. |
 | Development executable lookup | 6 | PATH resolution in six local tooling scripts needs trust-boundary review. |

@@ -1,5 +1,13 @@
 # Implementation status
 
+## Local realtime proxy forwarding hardening — September 13
+
+Reviewed the three SonarQube proxy findings. The destination was already fixed to loopback, but request Host and all response headers were forwarded. The proxy now accepts only origin-form request paths, forwards a bounded set of API request/response headers, generates the upstream Host itself, and rejects unexpected 3xx responses instead of relaying redirects. WebSocket framing and the loopback-only listener remain intact.
+
+A subprocess regression passed against a disposable local HTTP/WebSocket upstream: authentication/idempotency headers, JSON and retry responses, Host replacement, rejection of absolute/protocol-relative/backslash paths without upstream contact, blocking redirect/refresh/cookie/prototype-key headers and realtime text-frame forwarding. Changed-source lint, formatting and documentation checks passed. No cloud provider or production behavior changed. SonarQube classification is pending a new scan; no finding was manually dismissed.
+
+Next: CLI evidence-path findings, workflow/tooling review and scanner confirmation; then resume core-table RLS and provider/device acceptance. Overall production readiness remains incomplete.
+
 ## Existing SonarQube security backlog and test credentials — September 13
 
 Local SonarQube CLI authentication was verified using the OS Keychain. The main-branch issue list contains 24 open security-impacting findings; the passing new-code gate does not imply these older findings are cleared. docs/75-sonarqube.md records all groups and pending review. No finding was accepted or dismissed.
