@@ -148,6 +148,7 @@ export class AccountClosures {
     z.uuid().parse(requestId);
     return transaction(this.pool, async (c) => {
       await requireStaffPermission(c, actor, 'privacy.read');
+      await bindActorIdentity(c, actor);
       const row = (await c.query('SELECT * FROM account_closures WHERE request_id=$1', [requestId])).rows[0];
       if (!row) throw new DomainError('NOT_FOUND', 'Account closure not found.', 404);
       await c.query(
@@ -162,10 +163,9 @@ export class AccountClosures {
     await transaction(this.pool, (c) => this.permitted(c, actor));
     return command(this.pool, actor.id, key, { action: 'account.identity-retry', requestId }, async (c) => {
       await this.permitted(c, actor);
+      await bindActorIdentity(c, actor);
       const row = (
-        await c.query('SELECT identity_removed_at FROM account_closures WHERE request_id=$1 FOR SHARE', [
-          requestId,
-        ])
+        await c.query('SELECT identity_removed_at FROM account_closures WHERE request_id=$1', [requestId])
       ).rows[0];
       if (!row) throw new DomainError('NOT_FOUND', 'Account closure not found.', 404);
       if (row.identity_removed_at) return { requeued: false };
@@ -189,7 +189,7 @@ export class AccountClosures {
     z.uuid().parse(requestId);
     const subject = await transaction(this.pool, async (c) => {
       await c.query(
-        "SELECT set_config('rove.actor_id','',true),set_config('rove.actor_role','',true),set_config('rove.actor_mfa','false',true),set_config('rove.notification_message','',true),set_config('rove.notification_offer','',true),set_config('rove.identity_request',$1,true)",
+        "SELECT set_config('rove.actor_id','',true),set_config('rove.actor_role','',true),set_config('rove.actor_mfa','false',true),set_config('rove.notification_message','',true),set_config('rove.notification_offer','',true),set_config('rove.identity_request',$1,true),set_config('rove.cleanup_item','',true),set_config('rove.closure_guard_owner','',true)",
         [requestId],
       );
       const initial = (
@@ -231,7 +231,7 @@ export class AccountClosures {
       throw new DomainError('IDENTITY_DELETION_UNAVAILABLE', 'Identity removal is not verified.', 503);
     await transaction(this.pool, async (c) => {
       await c.query(
-        "SELECT set_config('rove.actor_id','',true),set_config('rove.actor_role','',true),set_config('rove.actor_mfa','false',true),set_config('rove.notification_message','',true),set_config('rove.notification_offer','',true),set_config('rove.identity_request',$1,true)",
+        "SELECT set_config('rove.actor_id','',true),set_config('rove.actor_role','',true),set_config('rove.actor_mfa','false',true),set_config('rove.notification_message','',true),set_config('rove.notification_offer','',true),set_config('rove.identity_request',$1,true),set_config('rove.cleanup_item','',true),set_config('rove.closure_guard_owner','',true)",
         [requestId],
       );
       const initial = (

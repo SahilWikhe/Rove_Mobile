@@ -1,3 +1,4 @@
+import { bindActorIdentity } from './actor-transaction';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import type { Pool, PoolClient } from 'pg';
@@ -73,6 +74,7 @@ export class DocumentCleanup {
       throw new DomainError('INVALID_DOCUMENT', 'Invalid upload inspection cursor.', 422);
     return transaction(this.pool, async (c) => {
       await requireStaffPermission(c, actor, 'privacy.read');
+      await bindActorIdentity(c, actor);
       // One statement keeps reservation/access state and pending evidence in the same snapshot.
       const row = (
         await c.query(
@@ -140,6 +142,7 @@ export class DocumentCleanup {
     z.uuid().parse(documentId);
     const authorize = async (c: PoolClient) => {
       await requireStaffPermission(c, actor, 'privacy.read');
+      await bindActorIdentity(c, actor);
       if (!(await c.query('SELECT id FROM driver_documents WHERE id=$1', [documentId])).rowCount)
         throw new DomainError('NOT_FOUND', 'Document not found.', 404);
     };
@@ -169,6 +172,7 @@ export class DocumentCleanup {
     z.uuid().parse(documentId);
     const ownerId = await transaction(this.pool, async (c) => {
       await requireStaffPermission(c, actor, 'privacy.cleanup');
+      await bindActorIdentity(c, actor);
       const row = (await c.query('SELECT driver_id FROM driver_documents WHERE id=$1', [documentId])).rows[0];
       if (!row) throw new DomainError('NOT_FOUND', 'Document not found.', 404);
       await this.ready(c, row.driver_id);
@@ -182,6 +186,7 @@ export class DocumentCleanup {
       { action: 'document.cleanup-prepare', documentId },
       async (c) => {
         await requireStaffPermission(c, actor, 'privacy.cleanup');
+        await bindActorIdentity(c, actor);
         await this.ready(c, ownerId);
         const document = (
           await c.query('SELECT driver_id FROM driver_documents WHERE id=$1 FOR SHARE', [documentId])
@@ -221,6 +226,7 @@ export class DocumentCleanup {
     z.uuid().parse(planId);
     return transaction(this.pool, async (c) => {
       await requireStaffPermission(c, actor, 'privacy.read');
+      await bindActorIdentity(c, actor);
       const row = (await c.query(select, [planId])).rows[0];
       if (!row) throw new DomainError('NOT_FOUND', 'Cleanup plan not found.', 404);
       await c.query(
@@ -243,6 +249,7 @@ export class DocumentCleanup {
       { action: 'document.cleanup-approve', planId, ...input },
       async (c) => {
         await requireStaffPermission(c, actor, 'privacy.cleanup');
+        await bindActorIdentity(c, actor);
         const initial = (await c.query('SELECT owner_id FROM document_cleanup_plans WHERE id=$1', [planId]))
           .rows[0];
         if (!initial) throw new DomainError('NOT_FOUND', 'Cleanup plan not found.', 404);
@@ -298,6 +305,7 @@ export class DocumentCleanup {
     await transaction(this.pool, (c) => requireStaffPermission(c, actor, 'privacy.cleanup'));
     return command(this.pool, actor.id, key, { action: 'document.cleanup-retry', planId }, async (c) => {
       await requireStaffPermission(c, actor, 'privacy.cleanup');
+      await bindActorIdentity(c, actor);
       const plan = (await c.query('SELECT * FROM document_cleanup_plans WHERE id=$1', [planId])).rows[0];
       if (!plan?.approved_at)
         throw new DomainError('CLEANUP_NOT_AUTHORIZED', 'Approve cleanup before retrying.', 409);
@@ -321,6 +329,10 @@ export class DocumentCleanup {
   async removeVersion(itemId: string) {
     z.uuid().parse(itemId);
     const target = await transaction(this.pool, async (c) => {
+      await c.query(
+        "SELECT set_config('rove.actor_id','',true),set_config('rove.actor_role','',true),set_config('rove.actor_mfa','false',true),set_config('rove.identity_request','',true),set_config('rove.notification_message','',true),set_config('rove.notification_offer','',true),set_config('rove.closure_guard_owner','',true),set_config('rove.cleanup_item',$1,true)",
+        [itemId],
+      );
       const initial = (
         await c.query(
           'SELECT p.owner_id,i.removed_at FROM document_cleanup_items i JOIN document_cleanup_plans p ON p.id=i.plan_id WHERE i.id=$1',

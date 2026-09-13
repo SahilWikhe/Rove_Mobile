@@ -1,3 +1,4 @@
+import { Pool } from 'pg';
 import { randomUUID } from 'node:crypto';
 import { beforeAll, afterAll, beforeEach, test, expect, vi } from 'vitest';
 import { testDatabase } from '@rove/database/testing';
@@ -7,6 +8,7 @@ import { RetentionHolds } from './retention-holds';
 import { AccountClosures } from './account-closures';
 import { AccountDeletions } from './account-deletions';
 import { SupportService } from './support';
+let runtimePool: Pool;
 let db: Awaited<ReturnType<typeof testDatabase>>, holds: RetentionHolds, closures: AccountClosures;
 let rider: Actor, other: Actor, staff: Actor;
 const input = { kind: 'legal', reasonReference: 'synthetic-case-1', reviewAt: '2020-01-01T00:00:00.000Z' };
@@ -14,15 +16,30 @@ const policy = { policyReference: 'synthetic-policy', reviewReference: 'syntheti
 const erase = vi.fn(async (_subject: string) => ({ status: 'absent' as const }));
 beforeAll(async () => {
   db = await testDatabase();
-  holds = new RetentionHolds(db.pool);
+  await db.pool.query(
+    "CREATE ROLE rls_cleanup LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'synthetic-local-only'",
+  );
+  await db.pool.query('GRANT USAGE ON SCHEMA public TO rls_cleanup');
+  await db.pool.query('GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_cleanup');
+  await db.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_cleanup');
+  runtimePool = new Pool({
+    host: '127.0.0.1',
+    port: (await db.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
+    database: 'postgres',
+    user: 'rls_cleanup',
+    password: 'synthetic-local-only',
+    max: 5,
+  });
+  holds = new RetentionHolds(runtimePool);
 }, 60000);
 afterAll(async () => {
+  await runtimePool?.end();
   await db?.close();
 });
 beforeEach(async () => {
   await db.pool.query('TRUNCATE users,outbox CASCADE');
   erase.mockReset().mockResolvedValue({ status: 'absent' });
-  closures = new AccountClosures(db.pool, { erase }, policy.policyReference);
+  closures = new AccountClosures(runtimePool, { erase }, policy.policyReference);
   rider = { id: randomUUID(), role: 'rider' };
   other = { id: randomUUID(), role: 'driver' };
   staff = { id: randomUUID(), role: 'staff', mfa: true };
@@ -36,7 +53,7 @@ beforeEach(async () => {
     ]);
 });
 async function request() {
-  await new SupportService(db.pool).create(
+  await new SupportService(runtimePool).create(
     rider,
     {
       category: 'account',
@@ -45,7 +62,7 @@ async function request() {
     },
     randomUUID(),
   );
-  return (await new AccountDeletions(db.pool).status(rider)).request!.id;
+  return (await new AccountDeletions(runtimePool).status(rider)).request!.id;
 }
 
 test('holds apply before consent, survive past review dates, and block closure until explicitly released', async () => {

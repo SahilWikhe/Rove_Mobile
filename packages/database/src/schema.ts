@@ -302,6 +302,8 @@ const rlsPermissions = {
   'privacy.read': sql`p.permission='privacy.read'`,
   'privacy.close': sql`p.permission='privacy.close'`,
   'privacy.cleanup': sql`p.permission='privacy.cleanup'`,
+  'privacy.hold': sql`p.permission='privacy.hold'`,
+  'privacy.release-hold': sql`p.permission='privacy.release-hold'`,
   'driver.vehicle.review': sql`p.permission='driver.vehicle.review'`,
   'driver.eligibility.review': sql`p.permission='driver.eligibility.review'`,
   'support.read': sql`p.permission='support.read'`,
@@ -1075,6 +1077,35 @@ export const accountClosures = pgTable(
     identityAttemptedAt: timestamp({ withTimezone: true }),
   },
   (t) => [
+    pgPolicy('closure_owner_read', {
+      for: 'select',
+      using: sql`${t.ownerId}=${rlsActor} AND current_setting('rove.actor_role',true) IN ('rider','driver')`,
+    }),
+    pgPolicy('closure_staff_read', {
+      for: 'select',
+      using: sql`${rlsStaff('privacy.read')} OR ${rlsStaff('privacy.close')} OR ${rlsStaff('privacy.cleanup')} OR ${rlsStaff('privacy.hold')} OR ${rlsStaff('privacy.release-hold')}`,
+    }),
+    pgPolicy('closure_staff_insert', {
+      for: 'insert',
+      withCheck: sql`${rlsStaff('privacy.close')} AND ${t.authorizedBy}=${rlsActor} AND ${t.identityAttemptedAt} IS NULL AND ${t.identityRemovedAt} IS NULL`,
+    }),
+    pgPolicy('closure_identity_read', {
+      for: 'select',
+      using: sql`NULLIF(current_setting('rove.actor_id',true),'') IS NULL AND ${t.requestId}=NULLIF(current_setting('rove.identity_request',true),'')::uuid AND EXISTS(SELECT 1 FROM public.users u WHERE u.id=${t.ownerId} AND u.disabled=true)`,
+    }),
+    pgPolicy('closure_identity_update', {
+      for: 'update',
+      using: sql`NULLIF(current_setting('rove.actor_id',true),'') IS NULL AND ${t.requestId}=NULLIF(current_setting('rove.identity_request',true),'')::uuid AND EXISTS(SELECT 1 FROM public.users u WHERE u.id=${t.ownerId} AND u.disabled=true)`,
+      withCheck: sql`NULLIF(current_setting('rove.actor_id',true),'') IS NULL AND ${t.requestId}=NULLIF(current_setting('rove.identity_request',true),'')::uuid`,
+    }),
+    pgPolicy('closure_cleanup_read', {
+      for: 'select',
+      using: sql`NULLIF(current_setting('rove.actor_id',true),'') IS NULL AND EXISTS(SELECT 1 FROM public.document_cleanup_items i JOIN public.document_cleanup_plans p ON p.id=i.plan_id WHERE i.id=NULLIF(current_setting('rove.cleanup_item',true),'')::uuid AND p.owner_id=${t.ownerId})`,
+    }),
+    pgPolicy('closure_access_guard', {
+      for: 'select',
+      using: sql`${t.ownerId}=NULLIF(current_setting('rove.closure_guard_owner',true),'')::uuid`,
+    }),
     check('account_closure_policy', sql`length(${t.policyReference}) between 1 and 128`),
     check('account_closure_review', sql`length(${t.reviewReference}) between 1 and 128`),
     check(

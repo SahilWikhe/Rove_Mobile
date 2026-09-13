@@ -1,3 +1,4 @@
+import { bindActorIdentity } from './actor-transaction';
 import { z } from 'zod';
 import type { Pool, PoolClient } from 'pg';
 import {
@@ -50,6 +51,7 @@ export class RetentionHolds {
     await transaction(this.pool, (c) => requireStaffPermission(c, actor, 'privacy.hold'));
     return command(this.pool, actor.id, key, { action: 'retention.hold', ownerId, ...input }, async (c) => {
       await requireStaffPermission(c, actor, 'privacy.hold');
+      await bindActorIdentity(c, actor);
       const owner = await c.query(
         "SELECT id FROM users WHERE id=$1 AND role IN ('rider','driver') FOR UPDATE",
         [ownerId],
@@ -98,6 +100,7 @@ export class RetentionHolds {
     await transaction(this.pool, (c) => requireStaffPermission(c, actor, 'privacy.release-hold'));
     return command(this.pool, actor.id, key, { action: 'retention.release', holdId, ...input }, async (c) => {
       await requireStaffPermission(c, actor, 'privacy.release-hold');
+      await bindActorIdentity(c, actor);
       const initial = (await c.query('SELECT owner_id FROM retention_holds WHERE id=$1', [holdId])).rows[0];
       if (!initial) throw new DomainError('NOT_FOUND', 'Retention hold not found.', 404);
       await c.query('SELECT id FROM users WHERE id=$1 FOR UPDATE', [initial.owner_id]);
@@ -128,6 +131,7 @@ export class RetentionHolds {
     const q = parsed.data;
     return transaction(this.pool, async (c) => {
       await requireStaffPermission(c, actor, 'privacy.read');
+      await bindActorIdentity(c, actor);
       const result = await c.query(
         select +
           ` WHERE (h.released_at IS NULL)=($1='active')

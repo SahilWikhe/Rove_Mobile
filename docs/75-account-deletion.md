@@ -146,3 +146,11 @@ Migration 0052 enables/forces account_deletion_requests RLS. Active consumer own
 The identity removal worker sets an exact transaction-local request scope before checking/removing identity. Its consent policy requires that same request, an existing closure and a disabled account; it has no general consent-read or consent-mutation bypass. Actor transactions clear the worker setting. This is trusted backend execution context, not authentication for arbitrary database credential holders. The identity provider is still independently configured and guarded.
 
 Restricted-role local tests with a synthetic provider verify ownership, staff permissions, consent immutability, withdrawal/closure races, scoped worker reads, replay and cleanup compatibility. No real identity was removed by these checks. Account-closure records themselves remain without RLS, and hosted rollout of this migration is pending.
+
+## Closure row isolation
+
+Migration 0053 enables/forces account_closures RLS. MFA staff reads use explicit privacy permissions; closure insertion requires privacy.close and the current authorizer. Staff cannot forge identity-removal results. Identity workers use one request scope, and document cleanup uses one cleanup-item scope to read the relevant closure. Consumer policy only exposes an owned record; disabled accounts still fail normal service authentication/actor validation.
+
+The closed-account access trigger temporarily scopes its read to OLD.id and restores the prior setting before returning. This preserves the ban on reactivation and subject/role changes even when the calling runtime role cannot ordinarily see closure records. These settings are trusted backend context, not credentials or authorization for arbitrary SQL clients. Existing immutability, retention, settlement and dispatch guards continue to enforce domain invariants.
+
+Local restricted-role tests verify those paths with synthetic providers. The migration is not yet deployed to hosted Neon, and does not establish full retained-data erasure or production acceptance.

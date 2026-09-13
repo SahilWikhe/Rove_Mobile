@@ -1,3 +1,4 @@
+import { Pool } from 'pg';
 import { randomUUID } from 'node:crypto';
 import { beforeAll, afterAll, beforeEach, test, expect, vi } from 'vitest';
 import { testDatabase } from '@rove/database/testing';
@@ -10,6 +11,7 @@ import { DocumentCleanup, type DocumentCleanupProvider } from './document-cleanu
 import { RetentionHolds } from './retention-holds';
 import { OutboxWorker } from './outbox';
 import type { Actor } from './rides';
+let runtimePool: Pool;
 let db: Awaited<ReturnType<typeof testDatabase>>,
   driver: Actor,
   staff: Actor,
@@ -21,8 +23,23 @@ const provider = {
 };
 beforeAll(async () => {
   db = await testDatabase();
+  await db.pool.query(
+    "CREATE ROLE rls_cleanup LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'synthetic-local-only'",
+  );
+  await db.pool.query('GRANT USAGE ON SCHEMA public TO rls_cleanup');
+  await db.pool.query('GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_cleanup');
+  await db.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_cleanup');
+  runtimePool = new Pool({
+    host: '127.0.0.1',
+    port: (await db.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
+    database: 'postgres',
+    user: 'rls_cleanup',
+    password: 'synthetic-local-only',
+    max: 5,
+  });
 }, 60000);
 afterAll(async () => {
+  await runtimePool?.end();
   await db?.close();
 });
 beforeEach(async () => {
@@ -45,14 +62,14 @@ beforeEach(async () => {
     sha256: 'a'.repeat(64),
     bytes: 100,
   });
-  await new SupportService(db.pool).create(
+  await new SupportService(runtimePool).create(
     driver,
     { category: 'account', message: 'Delete synthetic account', deletionConsent: 'account-deletion-v1' },
     randomUUID(),
   );
-  const request = (await new AccountDeletions(db.pool).status(driver)).request!;
+  const request = (await new AccountDeletions(runtimePool).status(driver)).request!;
   await new AccountClosures(
-    db.pool,
+    runtimePool,
     { erase: async () => ({ status: 'absent' }) },
     'synthetic-policy',
   ).authorize(
@@ -84,7 +101,7 @@ beforeEach(async () => {
     },
   ]);
   provider.erase.mockReset().mockResolvedValue({ status: 'absent' });
-  service = new DocumentCleanup(db.pool, provider, 'synthetic-policy');
+  service = new DocumentCleanup(runtimePool, provider, 'synthetic-policy');
 });
 async function plan() {
   return service.prepare(staff, documentId, randomUUID());
@@ -103,7 +120,7 @@ async function item() {
     .id as string;
 }
 async function hold() {
-  return new RetentionHolds(db.pool).place(
+  return new RetentionHolds(runtimePool).place(
     staff,
     driver.id,
     { kind: 'privacy', reasonReference: 'synthetic-case', reviewAt: new Date().toISOString() },
@@ -170,13 +187,13 @@ test('holds block preparation, approval and every dispatch retry', async () => {
   const h = await hold();
   await expect(plan()).rejects.toMatchObject({ code: 'RETENTION_HOLD' });
   expect(provider.discover).not.toHaveBeenCalled();
-  await new RetentionHolds(db.pool).release(staff, h.id, { releaseReference: 'release' }, randomUUID());
+  await new RetentionHolds(runtimePool).release(staff, h.id, { releaseReference: 'release' }, randomUUID());
   const p = await plan();
   const h2 = await hold();
   await expect(service.approve(staff, p.id, approval(p.manifestHash), randomUUID())).rejects.toMatchObject({
     code: 'RETENTION_HOLD',
   });
-  await new RetentionHolds(db.pool).release(staff, h2.id, { releaseReference: 'release' }, randomUUID());
+  await new RetentionHolds(runtimePool).release(staff, h2.id, { releaseReference: 'release' }, randomUUID());
   await service.approve(staff, p.id, approval(p.manifestHash), randomUUID());
   provider.erase.mockRejectedValueOnce(new Error('provider failure'));
   const id = await item();

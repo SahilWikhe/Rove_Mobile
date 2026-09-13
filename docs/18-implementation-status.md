@@ -1,5 +1,15 @@
 # Implementation status
 
+## Account-closure RLS and invariant preservation — September 13
+
+Migration 0053 enables/forces account_closures RLS. Current MFA privacy staff have permission-scoped reads; privacy.close authorizes initial closure insertion, with no staff identity-result mutation. Identity workers use exact request scope; document cleanup uses exact cleanup-item scope for closure reads. Staff retention/cleanup services now bind actor identity. Actor transactions clear every worker/guard setting.
+
+Preserved the closed-account database invariant by giving its existing trigger a temporary owner-specific read scope and restoring it before return. An unscoped application connection cannot reactivate or change the subject/role of a closed account merely because RLS hides its closure. Retry reads no longer request unnecessary closure UPDATE permission. Immutable closure, consent, hold and dispatch triggers remain active.
+
+Verification: 70 domain tests, 208 API tests and 13 database tests passed (291 total), plus server/database typechecks, targeted lint, formatting and documentation validation. Document-cleanup and retention suites now exercise restricted non-owner connections with synthetic providers. Checks include staff/MFA denial, exact identity scope, unscoped reactivation rejection, scope restoration, closure/withdrawal concurrency, legal holds, write settlement, version cleanup and provider retry. No live identity or storage provider was invoked.
+
+Source policy coverage is ten of 47 tables; hosted evidence still covers the original four. Provider staging remains unchanged. Next: remaining worker/data policies and hosted rehearsal of the new delta before compatible staging rollout. Full mobile production acceptance remains incomplete.
+
 ## Deletion-consent RLS — September 13
 
 Migration 0052 enables/forces RLS on account_deletion_requests. Active consumers can read, create and withdraw their own consent; immutable-consent triggers still protect owner/ticket/history fields. Staff with current MFA privacy.read, privacy.close or privacy.cleanup can read without consumer withdrawal permission. Identity removal transactions use an exact request scope that permits consent reads only when a corresponding account closure and disabled owner exist. Actor transactions clear that worker scope.
