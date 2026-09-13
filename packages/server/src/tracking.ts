@@ -1,3 +1,4 @@
+import { bindDriverMutation } from './driver-scope';
 import { bindUserRead } from './user-scope';
 import { actorTransaction } from './actor-transaction';
 import { bindTrackingScope } from './tracking-scope';
@@ -127,6 +128,7 @@ export class TrackingService {
         driver.id,
         sampledAt,
       ]);
+      await bindDriverMutation(client, driver.id, 'location');
       await client.query(
         'UPDATE drivers SET location=$2,location_at=$3,location_sampled_at=$4,location_sequence=location_sequence+1 WHERE id=$1',
         [driver.id, JSON.stringify(sample.coordinate), now, sampledAt],

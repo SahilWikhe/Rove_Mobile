@@ -1,3 +1,4 @@
+import { bindDriverMutation } from './driver-scope';
 import { bindUserRead } from './user-scope';
 import { enqueueOutbox } from './outbox-enqueue';
 import { appendAudit } from './audit';
@@ -53,6 +54,7 @@ export class PayoutReconciler {
     }
     await transaction(this.pool, async (client) => {
       await bindPayoutScope(client, this.source, { accountId });
+      await bindUserRead(client, binding.driver_id);
       await client.query('SELECT id FROM drivers WHERE id=$1 FOR UPDATE', [binding.driver_id]);
       const saved = await client.query(
         `UPDATE driver_payout_accounts SET status=$2,checked_at=$3
@@ -60,9 +62,9 @@ export class PayoutReconciler {
         [binding.id, status, this.now(), binding.sync_revision, accountId, this.source],
       );
       if (!saved.rowCount) return; // A newer request superseded this response, including its failure.
-      await bindUserRead(client, binding.driver_id);
       const validUntil = new Date(started.getTime() + validityMs);
       const ready = status === 'ready' && validUntil > this.now();
+      await bindDriverMutation(client, binding.driver_id, 'payout');
       await client.query(
         `UPDATE drivers SET payout_ready=$2 AND NOT u.disabled AND u.role='driver',
         payout_valid_until=CASE WHEN $2 AND NOT u.disabled AND u.role='driver' THEN $3::timestamptz ELSE NULL END

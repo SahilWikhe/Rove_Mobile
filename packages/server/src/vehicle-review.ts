@@ -1,3 +1,5 @@
+import { bindUserRead } from './user-scope';
+import { bindDriverMutation } from './driver-scope';
 import { appendAudit } from './audit';
 import { actorTransaction, bindActorIdentity } from './actor-transaction';
 import type { Pool, PoolClient } from 'pg';
@@ -47,6 +49,7 @@ export class VehicleReviewService {
       async (client) => {
         await authorize(client, actor);
         await bindActorIdentity(client, actor);
+        await bindUserRead(client, driverId);
         const driver = (
           await client.query('SELECT id,online FROM drivers WHERE id=$1 FOR UPDATE', [driverId])
         ).rows[0];
@@ -89,7 +92,8 @@ export class VehicleReviewService {
           driverId,
           input.decision,
         ]);
-        if (input.decision === 'approved')
+        if (input.decision === 'approved') {
+          await bindDriverMutation(client, driverId, 'vehicle');
           await client.query(
             'UPDATE drivers SET vehicle=$2,service=$3,approved=false,eligibility_expires_at=NULL WHERE id=$1',
             [
@@ -103,6 +107,7 @@ export class VehicleReviewService {
               input.verifiedService,
             ],
           );
+        }
         await appendAudit(
           client,
           actor.id,

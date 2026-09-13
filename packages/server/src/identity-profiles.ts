@@ -9,7 +9,7 @@ import type { Actor } from './rides';
 async function bindVerifiedSubject(client: PoolClient, subject: string) {
   z.string().min(1).max(2048).parse(subject);
   await client.query(
-    "SELECT set_config('rove.identity_subject',$1,true),set_config('rove.identity_signup','',true),set_config('rove.user_read','',true),set_config('rove.user_audience','',true),set_config('rove.user_profile_write','',true),set_config('rove.user_close_write','',true),set_config('rove.closure_lookup_request','',true)",
+    "SELECT set_config('rove.identity_subject',$1,true),set_config('rove.identity_signup','',true),set_config('rove.user_read','',true),set_config('rove.user_audience','',true),set_config('rove.user_profile_write','',true),set_config('rove.driver_write','',true),set_config('rove.user_close_write','',true),set_config('rove.closure_lookup_request','',true)",
     [subject],
   );
 }

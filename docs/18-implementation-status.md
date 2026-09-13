@@ -1,5 +1,14 @@
 # Implementation status
 
+## Driver RLS implemented and verified locally — September 13
+
+Migration 0085 enables and forces driver RLS. Backend mutation scopes capture a locked persisted driver row and constrain updates to the operation's fields: coverage, availability, location, eligibility, invalidation, vehicle review, payout readiness or closure. Read scope permits locking but cannot independently update or delete records. Identity/account rebinding clears driver mutation authority. Compatible callers retain existing authorization, lifecycle, freshness and provider checks; vehicle changes remain approval-only. Backend-controlled scopes provide defense in depth, not protection against arbitrary SQL using a compromised runtime credential.
+
+All 764 server, 208 API and 13 database tests passed, plus server/database typechecking, changed-source lint and diff checks. New restricted-role tests verify unscoped denial, lock-only access, coverage behavior, cross-driver isolation, protected approval/payout fields, invalidation restrictions and scope reset. A migration JSON precedence error and vehicle-review conditional regression were caught and corrected before this checkpoint. API tests alone do not prove every route is compatible with the restricted runtime.
+
+Source coverage reaches 46/47; isolated hosted remains 45/47 through 0084. Next: verify driver migration and full synthetic workflow on the isolated hosted branch, implement rides RLS, audit API restricted-role reads and coordinate provider-staging rollout. Provider staging and production are unchanged. Physical-device/provider acceptance and production readiness remain incomplete. This checkpoint is prepared for the authorized main push; remote confirmation follows.
+
+
 ## Hosted users RLS verified — September 13
 
 Applied migrations 0082–0084 only to reverified disposable br-shy-bar-axjulxqh / neondb, with direct/pooled endpoint and database assertions. Catalog confirms 85 migrations, 47 tables and 45 enabled/forced RLS tables. The full hosted rehearsal exited successfully through rove_staging_app with NOSUPERUSER/NOBYPASSRLS. New signup retry, original-role preservation, name-only profile change, unscoped denial and disabled-account rejection checks passed. Existing synthetic payment, refund/dispute, payout/transfer, tracking, messaging, notification, vehicle, closure/retention, document and outbox workflows passed. All external adapters remained fake; no real provider operation occurred.

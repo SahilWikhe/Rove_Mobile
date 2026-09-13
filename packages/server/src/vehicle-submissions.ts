@@ -1,3 +1,4 @@
+import { bindDriverMutation } from './driver-scope';
 import { appendAudit } from './audit';
 import { randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
@@ -91,6 +92,7 @@ export class VehicleSubmissionService {
         'INSERT INTO driver_vehicle_history(revision,driver_id,vehicle,submitted_at) VALUES($1,$2,$3,$4)',
         [revision, actor.id, JSON.stringify(input.vehicle), row.submitted_at],
       );
+      await bindDriverMutation(client, actor.id, 'invalidate');
       await client.query(
         'UPDATE drivers SET approved=false,eligibility_expires_at=NULL,location=NULL,location_at=NULL WHERE id=$1',
         [actor.id],

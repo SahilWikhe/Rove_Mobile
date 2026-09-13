@@ -1,3 +1,4 @@
+import { bindDriverMutation } from './driver-scope';
 import { bindUserRead } from './user-scope';
 import { appendAudit } from './audit';
 import { actorTransaction, bindActorIdentity } from './actor-transaction';
@@ -274,6 +275,7 @@ export class DriverDocumentService {
       ).rows[0];
       await client.query('INSERT INTO driver_document_scans(document_id) VALUES($1)', [receipt.documentId]);
       // Replacement evidence needs a fresh eligibility decision; accepted rides retain their lifecycle.
+      await bindDriverMutation(client, actor.id, 'invalidate');
       await client.query('UPDATE drivers SET approved=false,eligibility_expires_at=NULL WHERE id=$1', [
         actor.id,
       ]);

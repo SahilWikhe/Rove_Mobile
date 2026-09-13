@@ -87,7 +87,41 @@ export const drivers = pgTable(
     locationSampledAt: timestamp({ withTimezone: true }),
     vehicle: jsonb(),
   },
-  (t) => [check('driver_coverage_radius_range', sql`${t.coverageRadiusMiles} BETWEEN 1 AND 100`)],
+  (t) => {
+    const scope = sql`NULLIF(current_setting('rove.driver_write',true),'')::jsonb`;
+    const kind = sql`${scope}->>'kind'`;
+    const before = sql`(${scope}->'before')`;
+    const fields = sql`CASE ${kind}
+      WHEN 'coverage' THEN ARRAY['coverage_radius_miles']
+      WHEN 'availability' THEN ARRAY['online','location','location_at','location_sampled_at','location_sequence']
+      WHEN 'location' THEN ARRAY['location','location_at','location_sampled_at','location_sequence']
+      WHEN 'eligibility' THEN ARRAY['approved','eligibility_expires_at']
+      WHEN 'invalidate' THEN ARRAY['approved','eligibility_expires_at','location','location_at']
+      WHEN 'vehicle' THEN ARRAY['vehicle','service','approved','eligibility_expires_at']
+      WHEN 'payout' THEN ARRAY['payout_ready','payout_valid_until']
+      WHEN 'closure' THEN ARRAY['online','location','location_at','location_sampled_at','location_sequence'] ELSE ARRAY[]::text[] END`;
+    const self = sql`${t.id}=NULLIF(current_setting('rove.actor_id',true),'')::uuid OR ${t.id}=NULLIF(current_setting('rove.user_read',true),'')::uuid`;
+    const visible = sql`(${self}) OR (current_setting('rove.offer_matching',true)='true' AND NULLIF(current_setting('rove.offer_ride',true),'') IS NOT NULL) OR EXISTS(SELECT 1 FROM public.users u WHERE u.id=${t.id} AND u.subject=NULLIF(current_setting('rove.identity_subject',true),'')) OR EXISTS(SELECT 1 FROM public.rides r WHERE r.driver_id=${t.id} AND r.rider_id=NULLIF(current_setting('rove.actor_id',true),'')::uuid AND current_setting('rove.actor_role',true)='rider') OR EXISTS(SELECT 1 FROM public.offers o WHERE o.driver_id=${t.id} AND o.id=NULLIF(current_setting('rove.notification_offer',true),'')::uuid)`;
+    const permitted = sql`${kind} IN ('coverage','availability','location','eligibility','invalidate','vehicle','payout','closure')`;
+    return [
+      pgPolicy('driver_scoped_read', { for: 'select', using: visible }),
+      pgPolicy('driver_scoped_lock', {
+        for: 'update',
+        using: sql`(${visible}) AND ${scope} IS NULL`,
+        withCheck: sql`false`,
+      }),
+      pgPolicy('driver_signup', {
+        for: 'insert',
+        withCheck: sql`EXISTS(SELECT 1 FROM public.users u WHERE u.id=${t.id} AND u.subject=NULLIF(current_setting('rove.identity_subject',true),'') AND u.role='driver' AND u.disabled=false) AND ${t.approved}=false AND ${t.online}=false AND ${t.payoutReady}=false AND ${t.payoutValidUntil} IS NULL AND ${t.eligibilityExpiresAt} IS NULL AND ${t.vehicle} IS NULL AND ${t.location} IS NULL AND ${t.locationAt} IS NULL AND ${t.locationSampledAt} IS NULL AND ${t.locationSequence}=0 AND ${t.service}='standard' AND ${t.coverageRadiusMiles}=25`,
+      }),
+      pgPolicy('driver_scoped_mutation', {
+        for: 'update',
+        using: sql`${permitted} AND to_jsonb(drivers)=${before}`,
+        withCheck: sql`${permitted} AND (to_jsonb(drivers)-(${fields}))=(${before}-(${fields})) AND (${kind}<>'invalidate' OR (${t.approved}=false AND ${t.eligibilityExpiresAt} IS NULL)) AND (${kind}<>'closure' OR (${t.online}=false AND ${t.location} IS NULL AND ${t.locationAt} IS NULL AND ${t.locationSampledAt} IS NULL))`,
+      }),
+      check('driver_coverage_radius_range', sql`${t.coverageRadiusMiles} BETWEEN 1 AND 100`),
+    ];
+  },
 );
 const quoteOwner = (t: { riderId: unknown }) =>
   sql`${t.riderId}=NULLIF(current_setting('rove.quote_owner',true),'')::uuid AND EXISTS(SELECT 1 FROM public.users u WHERE u.id=${t.riderId} AND u.role='rider' AND u.disabled=false)`;

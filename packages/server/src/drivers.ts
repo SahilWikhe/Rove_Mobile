@@ -1,9 +1,11 @@
+import { bindDriverMutation } from './driver-scope';
+import { bindUserRead } from './user-scope';
 import { enqueueOutbox } from './outbox-enqueue';
 import { actorTransaction, bindActorIdentity } from './actor-transaction';
 import type { Pool } from 'pg';
 import { Coordinate, DriverOffer, DriverCoverage, DriverActivity } from '@rove/contracts';
 import { DomainError } from './errors';
-import { command } from './transactions';
+import { command, transaction } from './transactions';
 import type { Actor } from './rides';
 
 export function driverOnly(actor: Actor) {
@@ -42,10 +44,13 @@ export class DriverService {
   async profile(actor: Actor) {
     driverOnly(actor);
     const row = (
-      await this.pool.query(
-        'SELECT coverage_radius_miles,approved,online,payout_ready,payout_valid_until,eligibility_expires_at,location_at,location_sequence,vehicle,service FROM drivers WHERE id=$1',
-        [actor.id],
-      )
+      await transaction(this.pool, async (client) => {
+        await bindUserRead(client, actor.id);
+        return client.query(
+          'SELECT coverage_radius_miles,approved,online,payout_ready,payout_valid_until,eligibility_expires_at,location_at,location_sequence,vehicle,service FROM drivers WHERE id=$1',
+          [actor.id],
+        );
+      })
     ).rows[0];
     if (!row) throw new DomainError('NOT_FOUND', 'Driver profile not found.', 404);
     const now = this.now();
@@ -75,6 +80,8 @@ export class DriverService {
     driverOnly(actor);
     DriverCoverage.parse({ radiusMiles });
     return command(this.pool, actor.id, key, { action: 'coverage', radiusMiles }, async (client) => {
+      await bindUserRead(client, actor.id);
+      await bindDriverMutation(client, actor.id, 'coverage');
       const result = await client.query(
         'UPDATE drivers SET coverage_radius_miles=$2 WHERE id=$1 RETURNING id',
         [actor.id, radiusMiles],
@@ -125,6 +132,7 @@ export class DriverService {
         );
         if (!online && active.rowCount)
           throw new DomainError('ACTIVE_TRIP', 'Finish or resolve your active trip before going offline.');
+        await bindDriverMutation(client, actor.id, 'availability');
         await client.query(
           'UPDATE drivers SET online=$2,location=CASE WHEN $2 THEN $3::jsonb ELSE NULL END,location_at=CASE WHEN $2 THEN $4::timestamptz ELSE NULL END,location_sampled_at=NULL,location_sequence=location_sequence+1 WHERE id=$1',
           [actor.id, online, JSON.stringify(coordinate ?? null), this.now()],
@@ -157,10 +165,14 @@ export class DriverService {
     ) {
       throw new DomainError('INVALID_LOCATION_SAMPLE', 'A fresh, accurate location is required.', 422);
     }
-    const updated = await this.pool.query(
-      'UPDATE drivers SET location=$2,location_at=$3,location_sequence=$4,location_sampled_at=$5 WHERE id=$1 AND online=true AND location_sequence<$4 AND (location_sampled_at IS NULL OR location_sampled_at<$5) RETURNING id',
-      [actor.id, JSON.stringify(input.coordinate), this.now(), input.sequence, new Date(input.sampledAt)],
-    );
+    const updated = await transaction(this.pool, async (client) => {
+      await bindUserRead(client, actor.id);
+      await bindDriverMutation(client, actor.id, 'location');
+      return client.query(
+        'UPDATE drivers SET location=$2,location_at=$3,location_sequence=$4,location_sampled_at=$5 WHERE id=$1 AND online=true AND location_sequence<$4 AND (location_sampled_at IS NULL OR location_sampled_at<$5) RETURNING id',
+        [actor.id, JSON.stringify(input.coordinate), this.now(), input.sequence, new Date(input.sampledAt)],
+      );
+    });
     if (!updated.rowCount)
       throw new DomainError('STALE_LOCATION_SAMPLE', 'Refresh your driver session before sending location.');
     return { accepted: true };

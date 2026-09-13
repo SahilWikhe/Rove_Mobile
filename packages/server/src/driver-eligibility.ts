@@ -1,3 +1,4 @@
+import { bindDriverMutation } from './driver-scope';
 import { bindUserRead } from './user-scope';
 import { appendAudit } from './audit';
 import { bindActorIdentity } from './actor-transaction';
@@ -52,6 +53,7 @@ export class DriverEligibilityService {
         ).rows[0];
         if (!driver || driver.disabled) throw new DomainError('NOT_FOUND', 'Driver unavailable.', 404);
         if (input.decision === 'revoked') {
+          await bindDriverMutation(client, driverId, 'eligibility');
           await client.query('UPDATE drivers SET approved=false,eligibility_expires_at=NULL WHERE id=$1', [
             driverId,
           ]);
@@ -115,6 +117,7 @@ export class DriverEligibilityService {
         );
         if (expiry <= now)
           throw new DomainError('CLEARANCE_EXPIRED', 'Operating clearance must still be valid.', 422);
+        await bindDriverMutation(client, driverId, 'eligibility');
         await client.query('UPDATE drivers SET approved=true,eligibility_expires_at=$2 WHERE id=$1', [
           driverId,
           expiry,
