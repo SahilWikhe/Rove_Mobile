@@ -12,14 +12,20 @@ const metroPort = process.env.ACCOUNT_METRO_PORT || '8191';
 const apiPort = process.env.ACCOUNT_API_PORT || '8190';
 const companionApk = process.env.TRIP_RIDER_APK;
 const trip = Boolean(companionApk);
+const booking = process.env.NATIVE_BOOKING_PREVIEW === '1';
 const messaging = process.env.NATIVE_TRIP_MESSAGES === '1';
 const riderMetroPort = process.env.TRIP_RIDER_METRO_PORT || '8192';
-const output = trip ? 'reports/native-trip-android' : 'reports/native-account-android';
+const output = booking
+  ? 'reports/native-booking-android'
+  : trip
+    ? 'reports/native-trip-android'
+    : 'reports/native-account-android';
 if (
   !['rider', 'driver'].includes(role) ||
   !artifact ||
   rest.length ||
   !sdk ||
+  (booking && (role !== 'rider' || trip)) ||
   (trip &&
     (role !== 'driver' ||
       !/^\d+$/.test(riderMetroPort) ||
@@ -202,15 +208,21 @@ try {
       `${output}/android-${role}-details`,
       '--debug-output',
       `${output}/android-${role}-debug`,
-      trip ? 'native-tests/complete-trip.yaml' : 'native-tests/account-deletion.yaml',
+      booking
+        ? 'native-tests/booking-preview.yaml'
+        : trip
+          ? 'native-tests/complete-trip.yaml'
+          : 'native-tests/account-deletion.yaml',
     ],
     `${output}/android-${role}-maestro.log`,
     trip ? 600000 : 360000,
   );
   console.log(
-    trip
-      ? 'Android complete trip verified across both apps.'
-      : `${role}: Android account deletion and withdrawal verified on a fresh emulator.`,
+    booking
+      ? 'Android saved-place booking preview verified on a fresh emulator.'
+      : trip
+        ? 'Android complete trip verified across both apps.'
+        : `${role}: Android account deletion and withdrawal verified on a fresh emulator.`,
   );
 } catch (error) {
   console.error(`Android ${trip ? 'trip' : 'account'} journey failed:`, error.message);

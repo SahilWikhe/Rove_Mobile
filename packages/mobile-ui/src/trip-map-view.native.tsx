@@ -8,6 +8,7 @@ export function TripMap({
   pickup,
   route,
   height = 210,
+  interactive = true,
   destination,
   androidEnabled,
   iosEnabled,
@@ -59,6 +60,9 @@ export function TripMap({
       <View style={[styles.viewport, { height }, fill && styles.fillViewport]}>
         <MapView
           ref={map}
+          pointerEvents={interactive ? 'auto' : 'none'}
+          scrollEnabled={interactive}
+          zoomEnabled={interactive}
           onMapReady={() => {
             setReady(true);
             if (!followDriver || !driver) showFullTrip();

@@ -1,6 +1,8 @@
 export interface TripMapProps {
   route?: { latitude: number; longitude: number }[];
   height?: number;
+  /** Static booking previews let the containing page own touch scrolling. */
+  interactive?: boolean;
   pickup: { latitude: number; longitude: number };
   destination: { latitude: number; longitude: number };
   androidEnabled?: boolean;

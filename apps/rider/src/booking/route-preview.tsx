@@ -36,6 +36,7 @@ export function RoutePreview({ quote }: { quote: Quote }) {
         destination={quote.destination.coordinate}
         route={route}
         height={300}
+        interactive={false}
         synthetic={synthetic}
         androidEnabled={!!process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY}
         iosEnabled={!!process.env.EXPO_PUBLIC_GOOGLE_MAPS_IOS_KEY}

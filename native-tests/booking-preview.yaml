@@ -1,0 +1,47 @@
+# Synthetic saved Work slot must be prepared in the dedicated local API.
+appId: ${APP_ID}
+---
+- extendedWaitUntil:
+    visible: Get started
+    timeout: 60000
+- swipe:
+    start: 50%, 85%
+    end: 50%, 30%
+    duration: 500
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn: Get started
+- extendedWaitUntil:
+    visible: Go to Work
+    timeout: 30000
+- tapOn: Go to Work
+- extendedWaitUntil:
+    visible: Confirm your ride
+    timeout: 30000
+- extendedWaitUntil:
+    visible: Show full trip
+    timeout: 30000
+- tapOn: Show full trip
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: booking-route-map
+- scrollUntilVisible:
+    element: Request ride
+    direction: DOWN
+    timeout: 15000
+- assertVisible: Request ride
+- takeScreenshot: booking-request-action
+- scrollUntilVisible:
+    element: Change route or service
+    direction: DOWN
+    timeout: 15000
+- tapOn: Change route or service
+- scrollUntilVisible:
+    element: Book a ride
+    direction: UP
+    timeout: 15000
+- scrollUntilVisible:
+    element: See your fare
+    direction: DOWN
+    timeout: 15000
+- assertVisible: See your fare

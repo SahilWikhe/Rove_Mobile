@@ -2,6 +2,14 @@
 
 Updated: September 12, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Rider native location rebuild and booking verification — September 12
+
+The installed iOS rider binary predated expo-location, producing Cannot find native module ExpoLocation when the new booking code loaded. Regenerated native dependencies, installed pods and rebuilt the simulator app with ExpoLocation 57.0.17. The initial unsigned-build/manual-entitlement installation exposed keychain and launch problems; rebuilding with Xcode simulator signing enabled resolved launch and permitted the complete synthetic booking flow. The existing simulator and app data were preserved.
+
+The confirmation overview now lets its containing page own scrolling, preventing the map from consuming gestures needed to reach Request ride. Other trip maps remain interactive. Added four current-pickup regression tests covering denied permission, cancellation, stale/inaccurate/future GPS fixes and successful address resolution, plus an opt-in native booking journey. iOS passed saved Work → confirmation/full-route map → Request ride visible → change route → booking/fare controls. The native map screenshot was reviewed with both endpoints and synthetic fixture geometry. Android debug build and the final complete booking journey passed on a fresh emulator. Earlier attempts exposed map gesture consumption, test viewport assumptions, a Maestro disconnect and an emulator preference-setup failure; the corrected flow scrolls to offscreen controls and the final run passed. Four pickup tests, rider typecheck, targeted ESLint and formatting passed.
+
+No live GPS, Google route/geocoding request, physical device or production readiness is implied. Remaining: provider/physical acceptance and broader release gaps. Next: continue release priorities with native booking now verified locally.
+
 ## Saved-destination and confirmation route previews — September 12
 
 Home/Work with a saved address now resolves one foreground pickup address and obtains a standard fare before opening confirmation; empty shortcuts still open saved-place setup. Permission, GPS, geocoding or quote failure preserves the destination and manual route entry. The rider still explicitly presses Request ride. A check-pickup reminder acknowledges that reverse geocoding estimates an address rather than guaranteeing a physical meeting point.
