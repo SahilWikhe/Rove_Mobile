@@ -1,5 +1,13 @@
 # Implementation status
 
+## Twenty-four-table hosted RLS verification — September 13
+
+Applied migrations through 0066 only to the confirmed non-primary/non-default synthetic Neon rehearsal branch br-shy-bar-axjulxqh. Fresh catalog inspection confirms 67 migrations, 47 tables and twenty-four tables with RLS enabled and forced. Provider staging was separately checked read-only and remains at 31 migrations, 32 tables and zero enabled/forced RLS tables. Production was not changed.
+
+The full hosted workflow passed through pooled rove_staging_app with NOSUPERUSER/NOBYPASSRLS. New evidence covers customer provisioning retry, payment reconciliation/capture retry, readiness mutation denial, source-specific customer reads and denied worker mapping writes. Existing staff permission, request budget, notification, vehicle, messaging, retention, closure and document lifecycle checks passed again. All provider adapters were fake. The first expanded run correctly blocked document-driver closure because that same fixture had outstanding payment earnings; the final run isolated the financial driver and retained the closure safeguard.
+
+Hosted evidence now matches all twenty-four implemented policy tables. Twenty-three tables remain unprotected, including core identity/trip and remaining financial/worker records. Next: complete those policies, extend restricted-role and hosted workflows, and prepare compatible provider-staging deployment/migrations. Full physical-device and production acceptance remain incomplete. The isolated branch expires September 14; this evidence is not a production deployment.
+
 ## Payment-customer RLS and financial worker access — September 13
 
 Migration 0066 enables and forces payment_customers row security. Verified active riders reserve/read only their own configured-source bindings; runtime consumers cannot forge mappings or delete them. Payment reconciliation, refunds, disputes, capture and transfers resolve a persisted payment to an exact source-specific customer read scope. Confirmed provisioning results use an exact binding/result scope so recovery mappings survive account closure races. Payment-session preparation locks the actor before the ride, matching account-first ordering. Provider I/O remains outside transactions.
