@@ -1,3 +1,4 @@
+import { bindUserRead } from './user-scope';
 import { appendAudit } from './audit';
 import { bindActorIdentity } from './actor-transaction';
 import type { Pool } from 'pg';
@@ -42,6 +43,7 @@ export class DriverEligibilityService {
       async (client) => {
         await authorize(client);
         await bindActorIdentity(client, actor);
+        await bindUserRead(client, driverId);
         const driver = (
           await client.query(
             'SELECT d.*,u.disabled FROM drivers d JOIN users u ON u.id=d.id WHERE d.id=$1 FOR UPDATE OF d,u',

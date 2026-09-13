@@ -1,0 +1,1 @@
+CREATE POLICY "closure_identity_lookup" ON "account_closures" AS PERMISSIVE FOR SELECT TO public USING (NULLIF(current_setting('rove.actor_id',true),'') IS NULL AND "account_closures"."request_id"=NULLIF(current_setting('rove.closure_lookup_request',true),'')::uuid);

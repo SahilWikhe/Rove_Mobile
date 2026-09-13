@@ -18,10 +18,6 @@ beforeAll(async () => {
   await db.pool.query('GRANT USAGE ON SCHEMA public TO rls_audience');
   await db.pool.query('GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_audience');
   await db.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_audience');
-  await db.pool
-    .query(`ALTER TABLE users ENABLE ROW LEVEL SECURITY; ALTER TABLE users FORCE ROW LEVEL SECURITY;
-    CREATE POLICY push_user_probe ON users FOR SELECT USING(id=NULLIF(current_setting('rove.user_read',true),'')::uuid OR COALESCE(NULLIF(current_setting('rove.user_audience',true),'')::jsonb,'[]'::jsonb) ? id::text);
-    CREATE POLICY push_user_lock_probe ON users FOR UPDATE USING(id=NULLIF(current_setting('rove.user_read',true),'')::uuid) WITH CHECK(false)`);
   runtimePool = new Pool({
     host: '127.0.0.1',
     port: (await db.pool.query('SELECT inet_server_port() AS port')).rows[0].port,

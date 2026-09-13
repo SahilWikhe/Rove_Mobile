@@ -106,6 +106,10 @@ test('disabled accounts cannot replay committed commands or create new results',
 test('failed work rolls back mutations and can retry without a stale result', async () => {
   await expect(
     command(runtime, actor.id, key, {}, async (c) => {
+      await c.query(
+        "SELECT set_config('rove.user_profile_write',(to_jsonb(u)||jsonb_build_object('name','rollback fixture'))::text,true) FROM users u WHERE id=$1",
+        [actor.id],
+      );
       await c.query("UPDATE users SET name='rollback fixture' WHERE id=$1", [actor.id]);
       throw Error('synthetic failure');
     }),

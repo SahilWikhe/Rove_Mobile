@@ -1,3 +1,4 @@
+import { bindUserRead } from './user-scope';
 import { appendAudit } from './audit';
 import { actorTransaction, bindActorIdentity } from './actor-transaction';
 import { trackedDocumentStore } from './document-storage-writes';
@@ -35,6 +36,7 @@ export class DriverDocumentService {
     driverOnly(actor);
     const input = Reservation.parse(raw);
     return transaction(this.pool, async (client) => {
+      await bindUserRead(client, actor.id);
       // Serialize quotas and account state with other driver mutations.
       const driver = (
         await client.query(
@@ -224,6 +226,7 @@ export class DriverDocumentService {
     if (!receipt.key.startsWith(prefix) || !z.uuid().safeParse(receipt.key.slice(prefix.length)).success)
       throw new DomainError('INVALID_DOCUMENT', 'The stored document could not be verified.', 422);
     return transaction(this.pool, async (client) => {
+      await bindUserRead(client, actor.id);
       const account = (
         await client.query(
           'SELECT d.id,u.disabled FROM drivers d JOIN users u ON u.id=d.id WHERE d.id=$1 FOR UPDATE OF d,u',

@@ -1,3 +1,4 @@
+import { bindUserRead } from './user-scope';
 import { bindActorIdentity } from './actor-transaction';
 import { bindOfferRide } from './offer-scope';
 import { bindQuoteOwner, bindQuoteRide } from './quote-scope';
@@ -145,6 +146,7 @@ export class RideService {
       );
       if (quote.service === 'accessible' && driver.service !== 'accessible')
         throw new DomainError('DRIVER_UNAVAILABLE', 'This ride requires an eligible accessible vehicle.');
+      await bindUserRead(client, ride.rider_id);
       const updated = (
         await client.query<RideRow>(
           "UPDATE rides SET driver_id=$2,state='matched',version=version+1,updated_at=now() WHERE id=$1 RETURNING *",

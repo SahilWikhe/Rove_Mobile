@@ -1,3 +1,4 @@
+import { bindUserRead } from './user-scope';
 import { appendAudit } from './audit';
 import { bindActorIdentity } from './actor-transaction';
 import type { Pool, PoolClient } from 'pg';
@@ -60,6 +61,13 @@ export class DocumentReviewService {
       { action: 'document.review', documentId, ...input },
       async (client) => {
         await authorize(client, actor);
+        const target = (
+          await client.query<{ driver_id: string }>('SELECT driver_id FROM driver_documents WHERE id=$1', [
+            documentId,
+          ])
+        ).rows[0];
+        if (!target) throw new DomainError('NOT_FOUND', 'This document is unavailable for review.', 404);
+        await bindUserRead(client, target.driver_id);
         // Same driver lock as intake completion, so a replacement cannot race this decision.
         const owner = (
           await client.query(

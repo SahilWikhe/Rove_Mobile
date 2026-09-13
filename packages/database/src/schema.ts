@@ -38,7 +38,35 @@ export const users = pgTable(
     disabled: boolean().notNull().default(false),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [check('valid_user_role', sql`${t.role} in ('rider', 'driver', 'staff')`)],
+  (t) => {
+    const profile = sql`NULLIF(current_setting('rove.user_profile_write',true),'')::jsonb`;
+    const closure = sql`NULLIF(current_setting('rove.user_close_write',true),'')::jsonb`;
+    const signup = sql`NULLIF(current_setting('rove.identity_signup',true),'')::jsonb`;
+    const visible = sql`${t.id}=NULLIF(current_setting('rove.actor_id',true),'')::uuid OR ${t.id}=NULLIF(current_setting('rove.user_read',true),'')::uuid OR ${t.id}=NULLIF(current_setting('rove.quote_owner',true),'')::uuid OR EXISTS(SELECT 1 FROM public.rides r WHERE (r.rider_id=${t.id} AND r.id=NULLIF(current_setting('rove.offer_ride',true),'')::uuid) OR (((r.rider_id=NULLIF(current_setting('rove.actor_id',true),'')::uuid AND current_setting('rove.actor_role',true)='rider' AND r.driver_id=${t.id}) OR (r.driver_id=NULLIF(current_setting('rove.actor_id',true),'')::uuid AND current_setting('rove.actor_role',true)='driver' AND r.rider_id=${t.id})) AND (r.state IN ('matched','en_route','arrived','in_progress','interrupted') OR r.updated_at>now()-interval '30 days'))) OR COALESCE(NULLIF(current_setting('rove.user_audience',true),'')::jsonb,'[]'::jsonb) ? ${t.id}::text OR ${t.subject}=NULLIF(current_setting('rove.identity_subject',true),'') OR (${t.role}='driver' AND current_setting('rove.offer_matching',true)='true' AND NULLIF(current_setting('rove.offer_ride',true),'') IS NOT NULL)`;
+    return [
+      pgPolicy('user_scoped_read', { for: 'select', using: visible }),
+      pgPolicy('user_scoped_lock', {
+        for: 'update',
+        using: sql`(${visible}) AND ${profile} IS NULL AND ${closure} IS NULL`,
+        withCheck: sql`false`,
+      }),
+      pgPolicy('user_signup', {
+        for: 'insert',
+        withCheck: sql`${t.subject}=NULLIF(current_setting('rove.identity_subject',true),'') AND ${t.name}=${signup}->>'name' AND ${t.role}=${signup}->>'role' AND ${t.role} IN ('rider','driver') AND ${t.disabled}=false`,
+      }),
+      pgPolicy('user_profile_name', {
+        for: 'update',
+        using: sql`(to_jsonb(users)-'name')=(${profile}-'name') AND ${t.disabled}=false`,
+        withCheck: sql`to_jsonb(users)=${profile}`,
+      }),
+      pgPolicy('user_account_close', {
+        for: 'update',
+        using: sql`(to_jsonb(users)-'disabled')=(${closure}-'disabled') AND current_setting('rove.actor_role',true)='staff' AND current_setting('rove.actor_mfa',true)='true'`,
+        withCheck: sql`to_jsonb(users)=${closure} AND ${t.disabled}=true`,
+      }),
+      check('valid_user_role', sql`${t.role} in ('rider', 'driver', 'staff')`),
+    ];
+  },
 );
 export const drivers = pgTable(
   'drivers',
@@ -1657,6 +1685,10 @@ export const accountClosures = pgTable(
     pgPolicy('closure_staff_insert', {
       for: 'insert',
       withCheck: sql`${rlsStaff('privacy.close')} AND ${t.authorizedBy}=${rlsActor} AND ${t.identityAttemptedAt} IS NULL AND ${t.identityRemovedAt} IS NULL`,
+    }),
+    pgPolicy('closure_identity_lookup', {
+      for: 'select',
+      using: sql`NULLIF(current_setting('rove.actor_id',true),'') IS NULL AND ${t.requestId}=NULLIF(current_setting('rove.closure_lookup_request',true),'')::uuid`,
     }),
     pgPolicy('closure_identity_read', {
       for: 'select',

@@ -1,3 +1,4 @@
+import { bindUserRead } from './user-scope';
 import { actorTransaction } from './actor-transaction';
 import { transaction } from './transactions';
 import type { Pool } from 'pg';
@@ -272,6 +273,7 @@ test('identity dispatch trigger detects a hold even when ordinary RLS reads hide
   await holds.place(staff, rider.id, input, randomUUID());
   await expect(
     transaction(runtimePool, async (c) => {
+      await bindUserRead(c, rider.id);
       await c.query("SELECT set_config('rove.identity_request',$1,true)", [id]);
       expect((await c.query('SELECT * FROM retention_holds')).rowCount).toBe(0);
       await c.query(

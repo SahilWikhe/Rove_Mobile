@@ -1,3 +1,4 @@
+import { bindUserRead } from './user-scope';
 import { actorTransaction } from './actor-transaction';
 import { Pool } from 'pg';
 import { recordCapturedFunds } from './ledger';
@@ -346,6 +347,7 @@ test('identity worker consent scope is limited to one closed request and resets 
     second = await request(driver);
   await service.authorize(staff, first, policy, randomUUID());
   await transaction(runtimePool, async (c) => {
+    await bindUserRead(c, rider.id);
     await c.query("SELECT set_config('rove.identity_request',$1,true)", [first]);
     expect((await c.query('SELECT id FROM account_deletion_requests')).rows).toEqual([{ id: first }]);
     expect((await c.query('DELETE FROM account_deletion_requests')).rowCount).toBe(0);
@@ -374,11 +376,16 @@ test('closure RLS hides records without weakening the closed-account access trig
     ).toBe(0);
   });
   for (const patch of ['disabled=false', "subject='synthetic-replacement'", "role='driver'"]) {
-    await expect(runtimePool.query(`UPDATE users SET ${patch} WHERE id=$1`, [rider.id])).rejects.toThrow(
+    expect((await runtimePool.query(`UPDATE users SET ${patch} WHERE id=$1`, [rider.id])).rowCount).toBe(0);
+    await expect(db.pool.query(`UPDATE users SET ${patch} WHERE id=$1`, [rider.id])).rejects.toThrow(
       'Closed account access cannot be restored',
     );
   }
-  await runtimePool.query("UPDATE users SET name='Synthetic retained name' WHERE id=$1", [rider.id]);
+  expect(
+    (await runtimePool.query("UPDATE users SET name='Synthetic retained name' WHERE id=$1", [rider.id]))
+      .rowCount,
+  ).toBe(0);
+  await db.pool.query("UPDATE users SET name='Synthetic retained name' WHERE id=$1", [rider.id]);
   expect((await runtimePool.query('SELECT * FROM account_closures')).rowCount).toBe(0);
   await actorTransaction(runtimePool, { ...staff, mfa: false }, async (c) => {
     expect((await c.query('SELECT * FROM account_closures')).rowCount).toBe(0);

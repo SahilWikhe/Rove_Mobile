@@ -27,12 +27,6 @@ beforeAll(async () => {
     'GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_tracking',
   );
   await database.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_tracking');
-  // Exercise the tracking service with account visibility restricted as it will be under users RLS.
-  await database.pool
-    .query(`ALTER TABLE users ENABLE ROW LEVEL SECURITY; ALTER TABLE users FORCE ROW LEVEL SECURITY;
-    CREATE POLICY tracking_user_probe ON users FOR SELECT USING(id=NULLIF(current_setting('rove.user_read',true),'')::uuid);
-    CREATE POLICY tracking_user_lock_probe ON users FOR UPDATE USING(id=NULLIF(current_setting('rove.user_read',true),'')::uuid) WITH CHECK(false)`);
-
   runtimePool = new Pool({
     host: '127.0.0.1',
     port: (await database.pool.query('SELECT inet_server_port() AS port')).rows[0].port,

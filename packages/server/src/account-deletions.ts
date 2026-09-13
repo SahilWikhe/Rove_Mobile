@@ -1,3 +1,4 @@
+import { bindUserRead } from './user-scope';
 import { appendAudit } from './audit';
 import { actorTransaction, bindActorIdentity } from './actor-transaction';
 import { z } from 'zod';
@@ -15,6 +16,7 @@ export class AccountDeletions {
     return actorTransaction(this.pool, actor, async (client) => {
       if (!['rider', 'driver'].includes(actor.role))
         throw new DomainError('FORBIDDEN', 'A consumer account is required.', 403);
+      await bindUserRead(client, actor.id);
       const owner = await client.query(
         'SELECT id FROM users WHERE id=$1 AND role=$2 AND disabled=false FOR SHARE',
         [actor.id, actor.role],
@@ -50,6 +52,7 @@ export class AccountDeletions {
     const activeOwner = async (client: PoolClient) => {
       if (!['rider', 'driver'].includes(actor.role))
         throw new DomainError('FORBIDDEN', 'A consumer account is required.', 403);
+      await bindUserRead(client, actor.id);
       const owner = await client.query(
         'SELECT id FROM users WHERE id=$1 AND role=$2 AND disabled=false FOR UPDATE',
         [actor.id, actor.role],

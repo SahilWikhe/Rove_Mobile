@@ -575,6 +575,27 @@
       "when": 1789325663097,
       "tag": "0081_payment_attempt_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1789327683483,
+      "tag": "0082_user_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "7",
+      "when": 1789328009926,
+      "tag": "0083_user_related_reads",
+      "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1789328125855,
+      "tag": "0084_closure_account_lookup",
+      "breakpoints": true
     }
   ]
 }

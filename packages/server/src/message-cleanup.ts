@@ -1,3 +1,4 @@
+import { bindUserRead } from './user-scope';
 import { appendAudit } from './audit';
 import { bindActorIdentity } from './actor-transaction';
 import { z } from 'zod';
@@ -25,6 +26,13 @@ export class MessageCleanup {
     return command(this.pool, actor.id, key, { action: 'messages.erase', requestId, ...input }, async (c) => {
       await requireStaffPermission(c, actor, 'privacy.cleanup');
       await bindActorIdentity(c, actor);
+      const target = (
+        await c.query<{ owner_id: string }>('SELECT owner_id FROM account_deletion_requests WHERE id=$1', [
+          requestId,
+        ])
+      ).rows[0];
+      if (!target) throw new DomainError('NOT_FOUND', 'Deletion request not found.', 404);
+      await bindUserRead(c, target.owner_id);
       const request = (
         await c.query(
           `SELECT a.owner_id, (x.closed_at IS NOT NULL AND a.withdrawn_at IS NULL AND u.disabled=true) AS closed
@@ -57,6 +65,7 @@ export class MessageCleanup {
         if (row.current_driver) participants.add(row.current_driver);
       }
       for (const id of [...participants].sort()) await assertNoRetentionHolds(c, id);
+      await bindUserRead(c, request.owner_id);
       const closure = await c.query(
         `SELECT a.owner_id FROM account_deletion_requests a JOIN account_closures x ON x.request_id=a.id
         JOIN users u ON u.id=a.owner_id WHERE a.id=$1 AND a.withdrawn_at IS NULL AND u.disabled=true

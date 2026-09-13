@@ -1,3 +1,4 @@
+import { bindUserRead } from './user-scope';
 import { bindPaymentAttemptWrite } from './payment-attempt-scope';
 import { enqueueOutbox } from './outbox-enqueue';
 import { bindActorIdentity } from './actor-transaction';
@@ -35,6 +36,7 @@ export class PaymentSessions {
     if (actor.role !== 'rider') throw new DomainError('NOT_FOUND', 'Ride not found.', 404);
     const prepare = () =>
       transaction(this.pool, async (client) => {
+        await bindUserRead(client, actor.id);
         const owner = (
           await client.query<{ disabled: boolean }>('SELECT disabled FROM users WHERE id=$1 FOR SHARE', [
             actor.id,
@@ -114,6 +116,7 @@ export class PaymentSessions {
     )
       throw new DomainError('PAYMENT_REFERENCE_MISMATCH', 'Payment could not be verified.', 503);
     const allowed = await transaction(this.pool, async (client) => {
+      await bindUserRead(client, actor.id);
       const ride = (
         await client.query<{ state: string; search_deadline: Date; disabled: boolean }>(
           `SELECT r.state,r.search_deadline,u.disabled FROM rides r JOIN users u ON u.id=r.rider_id
@@ -152,10 +155,13 @@ export class PaymentSessions {
     if (customer.customerId !== customerId || !customer.clientSecret)
       throw new DomainError('PAYMENT_REFERENCE_MISMATCH', 'Payment could not be verified.', 503);
     const current = (
-      await this.pool.query<{ disabled: boolean; state: string; search_deadline: Date }>(
-        'SELECT u.disabled,r.state,r.search_deadline FROM rides r JOIN users u ON u.id=r.rider_id WHERE r.id=$1 AND r.rider_id=$2',
-        [rideId, actor.id],
-      )
+      await transaction(this.pool, async (client) => {
+        await bindUserRead(client, actor.id);
+        return client.query<{ disabled: boolean; state: string; search_deadline: Date }>(
+          'SELECT u.disabled,r.state,r.search_deadline FROM rides r JOIN users u ON u.id=r.rider_id WHERE r.id=$1 AND r.rider_id=$2',
+          [rideId, actor.id],
+        );
+      })
     ).rows[0];
     if (
       !current ||

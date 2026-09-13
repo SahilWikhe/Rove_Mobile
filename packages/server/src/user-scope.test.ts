@@ -19,11 +19,6 @@ beforeAll(async () => {
   await database.pool.query(
     'GRANT USAGE ON SCHEMA public TO user_scope_probe; GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO user_scope_probe',
   );
-  await database.pool
-    .query(`ALTER TABLE users ENABLE ROW LEVEL SECURITY; ALTER TABLE users FORCE ROW LEVEL SECURITY;
-    CREATE POLICY probe_read ON users FOR SELECT USING(id=NULLIF(current_setting('rove.user_read',true),'')::uuid);
-    CREATE POLICY probe_lock ON users FOR UPDATE USING(id=NULLIF(current_setting('rove.user_read',true),'')::uuid AND NULLIF(current_setting('rove.user_profile_write',true),'') IS NULL) WITH CHECK(false);
-    CREATE POLICY probe_write ON users FOR UPDATE USING((to_jsonb(users)-'name')=(NULLIF(current_setting('rove.user_profile_write',true),'')::jsonb-'name')) WITH CHECK(to_jsonb(users)=NULLIF(current_setting('rove.user_profile_write',true),'')::jsonb)`);
   for (const id of [actor.id, other])
     await database.pool.query("INSERT INTO users(id,subject,name,role) VALUES($1,$2,'Original','rider')", [
       id,
