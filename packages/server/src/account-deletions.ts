@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { Pool, PoolClient } from 'pg';
-import { AccountDeletionStatus } from '@rove/contracts';
+import { AccountDeletionInventory, AccountDeletionStatus } from '@rove/contracts';
 import type { Actor } from './rides';
 import { DomainError } from './errors';
 import { transaction, command } from './transactions';
@@ -96,6 +96,60 @@ export class AccountDeletions {
         });
       },
     );
+  }
+  async inventory(actor: Actor, requestId: string) {
+    z.uuid().parse(requestId);
+    return transaction(this.pool, async (client) => {
+      await requireStaffPermission(client, actor, 'privacy.read');
+      // One SQL statement observes all counts at the same database snapshot. Counts do not imply eligibility.
+      const row = (
+        await client.query(
+          `
+        SELECT r.id, r.withdrawn_at, o.closed_at, o.identity_removed_at,
+          statement_timestamp() AS observed_at,
+          (SELECT count(*) FROM retention_holds h WHERE h.owner_id=r.owner_id AND h.released_at IS NULL) AS holds,
+          (SELECT count(*) FROM trip_messages m WHERE m.sender_id=r.owner_id) AS messages,
+          (SELECT count(*) FROM saved_places p WHERE p.rider_id=r.owner_id) AS places,
+          (SELECT count(*) FROM push_installations p WHERE p.owner_id=r.owner_id) AS pushes,
+          (SELECT count(*) FROM support_requests s WHERE s.owner_id=r.owner_id) AS support,
+          (SELECT count(*) FROM driver_documents d WHERE d.driver_id=r.owner_id) AS documents
+        FROM account_deletion_requests r
+        LEFT JOIN account_closures o ON o.request_id=r.id
+        WHERE r.id=$1`,
+          [requestId],
+        )
+      ).rows[0];
+      if (!row) throw new DomainError('NOT_FOUND', 'Deletion request not found.', 404);
+      const result = AccountDeletionInventory.parse({
+        requestId: row.id,
+        observedAt: row.observed_at.toISOString(),
+        withdrawn: !!row.withdrawn_at,
+        accessClosed: !!row.closed_at,
+        identityRemoved: !!row.identity_removed_at,
+        activeHoldCount: Number(row.holds),
+        counts: {
+          authoredMessages: Number(row.messages),
+          savedPlaces: Number(row.places),
+          pushInstallations: Number(row.pushes),
+          supportRequests: Number(row.support),
+          documentReservations: Number(row.documents),
+        },
+        completeErasureVerified: false,
+      });
+      await client.query(
+        "INSERT INTO audit(actor_id,action,aggregate_id,metadata) VALUES($1,'account_deletion.inventory_viewed',$2,$3)",
+        [
+          actor.id,
+          requestId,
+          JSON.stringify({
+            observedAt: result.observedAt,
+            counts: result.counts,
+            activeHoldCount: result.activeHoldCount,
+          }),
+        ],
+      );
+      return result;
+    });
   }
   async inspect(actor: Actor, requestId: string) {
     return transaction(this.pool, async (client) => {

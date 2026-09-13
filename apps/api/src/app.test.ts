@@ -885,3 +885,33 @@ test('route previews are owned, expire, and never accept client route endpoints'
   await database.pool.query('UPDATE quotes SET snapshot=$2 WHERE id=$1', [quote.id, JSON.stringify(quote)]);
   expect((await request(`/v1/quotes/${quote.id}/route`)).status).toBe(409);
 });
+
+test('deletion inventory is a protected audited read without message contents', async () => {
+  await request('/v1/support-requests', {
+    category: 'account',
+    message: 'Delete this synthetic account.',
+    deletionConsent: 'account-deletion-v1',
+  });
+  const status = await (await request('/v1/account-deletion')).json();
+  const path = `/v1/staff/account-deletions/${status.request.id}/inventory`;
+  expect((await app.request(path)).status).toBe(401);
+  expect((await request(path)).status).toBe(403);
+  const staffId = randomUUID();
+  await database.db
+    .insert(users)
+    .values({ id: staffId, subject: 'staff', name: 'Synthetic staff', role: 'staff' });
+  expect((await request(path, undefined, 'staff')).status).toBe(403);
+  await database.pool.query("INSERT INTO staff_permissions(staff_id,permission) VALUES($1,'privacy.read')", [
+    staffId,
+  ]);
+  expect((await request(path, undefined, 'staff-no-mfa')).status).toBe(403);
+  const response = await request(path, undefined, 'staff');
+  expect(response.status).toBe(200);
+  const result = await response.json();
+  expect(result).toMatchObject({
+    requestId: status.request.id,
+    completeErasureVerified: false,
+    counts: { supportRequests: 1 },
+  });
+  expect(JSON.stringify(result)).not.toContain('Delete this synthetic account');
+});

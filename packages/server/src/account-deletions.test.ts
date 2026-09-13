@@ -200,3 +200,81 @@ test('withdrawal is owner-only, rejects disabled replays, and rolls back if audi
   await db.pool.query('UPDATE users SET disabled=true WHERE id=$1', [rider.id]);
   await expect(service.withdraw(rider, id, key)).rejects.toMatchObject({ code: 'FORBIDDEN' });
 });
+
+test('inventory is owner-scoped, content-free and never claims erasure', async () => {
+  await support.create(rider, input, randomUUID());
+  await support.create(driver, input, randomUUID());
+  const id = (await service.status(rider)).request!.id;
+  await db.pool.query("INSERT INTO staff_permissions(staff_id,permission) VALUES($1,'privacy.read')", [
+    staff.id,
+  ]);
+  await db.pool.query(
+    "INSERT INTO saved_places(rider_id,kind,place_id) VALUES($1,'home','sensitive-place-reference')",
+    [rider.id],
+  );
+  await db.pool.query(
+    "INSERT INTO retention_holds(owner_id,kind,reason_reference,review_at,placed_by) VALUES($1,'privacy','private-case',now()+interval '1 day',$2)",
+    [rider.id, staff.id],
+  );
+  const result = await service.inventory(staff, id);
+  expect(result).toMatchObject({
+    requestId: id,
+    withdrawn: false,
+    accessClosed: false,
+    identityRemoved: false,
+    activeHoldCount: 1,
+    completeErasureVerified: false,
+    counts: {
+      authoredMessages: 0,
+      savedPlaces: 1,
+      pushInstallations: 0,
+      supportRequests: 1,
+      documentReservations: 0,
+    },
+  });
+  expect(JSON.stringify(result)).not.toMatch(/sensitive-place-reference|private-case|synthetic account/);
+  expect(
+    (
+      await db.pool.query(
+        "SELECT id FROM audit WHERE action='account_deletion.inventory_viewed' AND aggregate_id=$1",
+        [id],
+      )
+    ).rowCount,
+  ).toBe(1);
+  expect((await db.pool.query('SELECT id FROM saved_places WHERE rider_id=$1', [rider.id])).rowCount).toBe(1);
+});
+test('inventory requires current permission and MFA and distinguishes missing requests', async () => {
+  await support.create(rider, input, randomUUID());
+  const id = (await service.status(rider)).request!.id;
+  for (const actor of [rider, driver, staff])
+    await expect(service.inventory(actor, id)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  await db.pool.query("INSERT INTO staff_permissions(staff_id,permission) VALUES($1,'privacy.read')", [
+    staff.id,
+  ]);
+  await expect(service.inventory({ ...staff, mfa: false }, id)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  await expect(service.inventory(staff, randomUUID())).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  await service.withdraw(rider, id, randomUUID());
+  expect(await service.inventory(staff, id)).toMatchObject({
+    withdrawn: true,
+    completeErasureVerified: false,
+  });
+  await db.pool.query('DELETE FROM staff_permissions WHERE staff_id=$1', [staff.id]);
+  await expect(service.inventory(staff, id)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+});
+test('inventory cannot return unaudited evidence', async () => {
+  await support.create(rider, input, randomUUID());
+  const id = (await service.status(rider)).request!.id;
+  await db.pool.query("INSERT INTO staff_permissions(staff_id,permission) VALUES($1,'privacy.read')", [
+    staff.id,
+  ]);
+  await db.pool.query(
+    "CREATE FUNCTION reject_inventory_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.action='account_deletion.inventory_viewed' THEN RAISE EXCEPTION 'synthetic audit outage'; END IF; RETURN NEW; END $$; CREATE TRIGGER reject_inventory_audit BEFORE INSERT ON audit FOR EACH ROW EXECUTE FUNCTION reject_inventory_audit();",
+  );
+  try {
+    await expect(service.inventory(staff, id)).rejects.toThrow('synthetic audit outage');
+  } finally {
+    await db.pool.query(
+      'DROP TRIGGER reject_inventory_audit ON audit; DROP FUNCTION reject_inventory_audit()',
+    );
+  }
+});

@@ -574,6 +574,9 @@ export function createApp(deps: Dependencies) {
     );
   });
   app.get('/v1/account-deletion', async (c) => c.json(await accountDeletions.status(c.var.actor)));
+  app.get('/v1/staff/account-deletions/:id/inventory', async (c) =>
+    c.json(await accountDeletions.inventory(c.var.actor, id(c.req.param('id')))),
+  );
   app.get('/v1/staff/account-deletions/:id', async (c) =>
     c.json(await accountDeletions.inspect(c.var.actor, id(c.req.param('id')))),
   );

@@ -864,6 +864,27 @@ export const AccountDeletionRequest = z
   })
   .strict();
 export const AccountDeletionStatus = z.object({ request: AccountDeletionRequest.nullable() }).strict();
+/** A bounded application-data inventory, never a fulfillment or storage-absence certificate. */
+export const AccountDeletionInventory = z
+  .object({
+    requestId: z.uuid(),
+    observedAt: z.iso.datetime(),
+    withdrawn: z.boolean(),
+    accessClosed: z.boolean(),
+    identityRemoved: z.boolean(),
+    activeHoldCount: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+    counts: z
+      .object({
+        authoredMessages: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+        savedPlaces: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+        pushInstallations: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+        supportRequests: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+        documentReservations: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+      })
+      .strict(),
+    completeErasureVerified: z.literal(false),
+  })
+  .strict();
 
 export const AccountClosureAuthorization = z
   .object({

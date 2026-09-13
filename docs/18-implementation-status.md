@@ -2,6 +2,12 @@
 
 Updated: September 13, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Account-deletion application-data inventory — September 13
+
+Added an audited staff inventory endpoint for a deletion request. Verified MFA/current privacy.read gates one-snapshot counts for authored messages, saved places, push installations, support requests and document reservations, plus active holds and closure/request state. It exposes counts rather than content and commits an audit before returning. The strict shared response always says completeErasureVerified=false; this is review evidence, not authorization, eligibility or full inventory of every copy.
+
+All 11 account-deletion domain tests and all 39 API tests passed; server/API typechecks passed. Tests cover owner scope, content suppression, permission/MFA, missing/withdrawn requests and failed audit persistence. No migration, provider call or destructive action occurred. Remaining: approved policy-driven cleanup of eligible application records and their command/outbox copies, storage reconciliation, backup replay and final fulfillment. Next: build those execution safeguards around approved retention decisions and keep provider/physical release acceptance separate.
+
 ## Stripe sandbox transfer observation command — September 13
 
 Added an explicit read-only sandbox acceptance command around the application's transfer adapter. It reads an explicit ignored environment file and approved operation fixture, rejects live/non-staging configuration before provider construction, and compares direct transfer retrieval with operation-scoped recovery. Expected reversal amount, identity, creation time and balance movements must agree; provider errors are sanitized. It introduces no alternate payout authorization path, provider mutation, rollout flag or automatic CI calls.
