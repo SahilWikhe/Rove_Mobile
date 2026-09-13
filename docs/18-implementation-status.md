@@ -1,5 +1,13 @@
 # Implementation status
 
+## Outbox RLS implemented and verified locally — September 13
+
+Migration 0080 enables and forces RLS on outbox, bringing source coverage to 43 of 47 tables. Exact append and deduplication scopes protect single-job creation. Workers use short claim/acknowledgement transactions with a shared claim timestamp and exact lease token. Queue scheduling and notification event reads are separate read-only scopes. Authorized identity retries require privacy.close; bulk document jobs and cleanup retries require privacy.cleanup, MFA and the selected approved plan. The bulk INSERT SELECT remains intact. Common identity resets clear the new scopes. Domain authorization and fenced SQL predicates remain required; these backend-controlled scopes are defense in depth, not protection from arbitrary SQL using a compromised runtime credential.
+
+All 744 server, 208 API and 13 database tests passed, with server/database typechecking, changed-source lint and diff checks. Seven focused tests cover actual migrated policies: concurrent claims, retries/wakeup, expired leases/dead letters, foreign lease denial, notification/queue read-only access, append scheduling/deduplication, rollback and forged writes. Existing restricted-role account/document suites verify approval, permission checks and retry flows. Initial validation caught parameter placeholders in generated permission predicates; these were replaced with fixed SQL literals and the uncommitted migration regenerated. Test grants and explicit UUID casts were corrected before the passing run.
+
+Hosted rehearsal remains at 42 tables pending migration 0080 and the full isolated workflow check. Next: hosted outbox verification, then users, drivers, rides and payment_attempts policies, compatible provider-staging rollout and device/provider acceptance. Provider staging and production remain unchanged. This checkpoint is prepared for the authorized main push; remote confirmation follows.
+
 ## Outbox enqueue callers integrated — September 13
 
 Migrated 21 single-job inserts across 18 backend files to the tested transaction-bound enqueueOutbox helper. Each reviewed mapping preserves the caller's topic, aggregate ID, JSON payload, deduplication key, explicit/default schedule and strict versus duplicate-ignored behavior. Existing authorization and transaction boundaries remain in the domain services; financial and notification work remains atomic with its originating mutation.

@@ -202,21 +202,66 @@ export const commands = pgTable(
     }),
   ],
 );
-export const outbox = pgTable('outbox', {
-  id: uuid().primaryKey().defaultRandom(),
-  topic: text().notNull(),
-  aggregateId: uuid().notNull(),
-  payload: jsonb().notNull(),
-  dedupeKey: text().notNull().unique(),
-  attempts: integer().notNull().default(0),
-  availableAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
-  lockedUntil: timestamp({ withTimezone: true }),
-  completedAt: timestamp({ withTimezone: true }),
-  leaseToken: uuid(),
-  deadLetterAt: timestamp({ withTimezone: true }),
-  lastErrorCode: text(),
-  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
-});
+const outboxAppend = sql`NULLIF(current_setting('rove.outbox_append',true),'')::jsonb`;
+const outboxWork = sql`NULLIF(current_setting('rove.outbox_work',true),'')::jsonb`;
+const outboxStaff = (permission: 'privacy.close' | 'privacy.cleanup') =>
+  sql`current_setting('rove.actor_role',true)='staff' AND current_setting('rove.actor_mfa',true)='true' AND EXISTS(SELECT 1 FROM public.users u JOIN public.staff_permissions p ON p.staff_id=u.id WHERE u.id=NULLIF(current_setting('rove.actor_id',true),'')::uuid AND u.role='staff' AND u.disabled=false AND ${permission === 'privacy.close' ? sql`p.permission='privacy.close'` : sql`p.permission='privacy.cleanup'`})`;
+const outboxCleanup = (aggregate: SQLWrapper) =>
+  sql`EXISTS(SELECT 1 FROM public.document_cleanup_items i JOIN public.document_cleanup_plans p ON p.id=i.plan_id WHERE i.id=${aggregate} AND p.id=NULLIF(current_setting('rove.outbox_cleanup_plan',true),'')::uuid AND p.approved_at IS NOT NULL)`;
+export const outbox = pgTable(
+  'outbox',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    topic: text().notNull(),
+    aggregateId: uuid().notNull(),
+    payload: jsonb().notNull(),
+    dedupeKey: text().notNull().unique(),
+    attempts: integer().notNull().default(0),
+    availableAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    lockedUntil: timestamp({ withTimezone: true }),
+    completedAt: timestamp({ withTimezone: true }),
+    leaseToken: uuid(),
+    deadLetterAt: timestamp({ withTimezone: true }),
+    lastErrorCode: text(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => {
+    const pending = sql`${t.completedAt} IS NULL AND ${t.deadLetterAt} IS NULL`;
+    const fresh = sql`${t.attempts}=0 AND ${t.lockedUntil} IS NULL AND ${t.completedAt} IS NULL AND ${t.leaseToken} IS NULL AND ${t.deadLetterAt} IS NULL AND ${t.lastErrorCode} IS NULL AND ${t.createdAt}=now()`;
+    const ack = sql`${outboxWork}->>'kind'='ack' AND ${t.id}=(${outboxWork}->>'id')::uuid`;
+    const retry = sql`(${outboxStaff('privacy.close')} AND ${t.topic}='account.identity-delete' AND ${t.aggregateId}=NULLIF(current_setting('rove.outbox_identity_request',true),'')::uuid AND ${t.dedupeKey}='account.identity-delete:'||${t.aggregateId}::text) OR (${outboxStaff('privacy.cleanup')} AND ${t.topic}='document.version-delete' AND ${t.dedupeKey}='document.version-delete:'||${t.aggregateId}::text AND ${outboxCleanup(t.aggregateId)})`;
+    return [
+      pgPolicy('outbox_append', {
+        for: 'insert',
+        withCheck: sql`jsonb_build_object('id',${t.id},'topic',${t.topic},'aggregate',${t.aggregateId},'payload',${t.payload},'key',${t.dedupeKey})=(${outboxAppend}-'available') AND ${t.availableAt}=COALESCE((${outboxAppend}->>'available')::timestamptz,now()) AND ${fresh}`,
+      }),
+      pgPolicy('outbox_read', {
+        for: 'select',
+        using: sql`${t.dedupeKey}=${outboxAppend}->>'key' OR (${outboxWork}->>'kind' IN ('queue','claim') AND ${pending}) OR (${ack}) OR (${outboxWork}->>'kind'='notification' AND ${t.id}=(${outboxWork}->>'id')::uuid) OR (${retry})`,
+      }),
+      pgPolicy('outbox_claim', {
+        for: 'update',
+        using: sql`${outboxWork}->>'kind'='claim' AND ${pending} AND ${t.availableAt}<=(${outboxWork}->>'at')::timestamptz AND (${t.lockedUntil} IS NULL OR ${t.lockedUntil}<=(${outboxWork}->>'at')::timestamptz)`,
+        withCheck: sql`${outboxWork}->>'kind'='claim' AND ${pending} AND ${t.leaseToken}=(${outboxWork}->>'token')::uuid AND ${t.lockedUntil}=(${outboxWork}->>'at')::timestamptz+interval '60 seconds'`,
+      }),
+      pgPolicy('outbox_ack', {
+        for: 'update',
+        using: sql`${ack} AND ${t.leaseToken}=(${outboxWork}->>'token')::uuid`,
+        withCheck: sql`${ack} AND ${t.leaseToken} IS NULL AND ${t.lockedUntil} IS NULL`,
+      }),
+      pgPolicy('outbox_retry', {
+        for: 'update',
+        using: sql`(${retry}) AND ${t.completedAt} IS NULL AND ${t.deadLetterAt} IS NOT NULL AND (${t.lockedUntil} IS NULL OR ${t.lockedUntil}<=clock_timestamp())`,
+        withCheck: sql`(${retry}) AND ${pending} AND ${t.attempts}=0 AND ${t.lastErrorCode} IS NULL`,
+      }),
+      pgPolicy('outbox_cleanup_append', {
+        for: 'insert',
+        withCheck: sql`${outboxStaff('privacy.cleanup')} AND ${fresh} AND ${t.topic}='document.version-delete' AND ${t.payload}='{}'::jsonb AND ${t.dedupeKey}='document.version-delete:'||${t.aggregateId}::text AND EXISTS(SELECT 1 FROM public.document_cleanup_items i JOIN public.document_cleanup_plans p ON p.id=i.plan_id WHERE i.id=${t.aggregateId} AND p.id=NULLIF(current_setting('rove.outbox_cleanup_plan',true),'')::uuid AND p.approved_at IS NOT NULL AND p.not_before=${t.availableAt})`,
+      }),
+    ];
+  },
+);
+
 export const audit = pgTable(
   'audit',
   {

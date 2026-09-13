@@ -1,3 +1,4 @@
+import { outboxTransaction } from './outbox-scope';
 import { transaction } from './transactions';
 import type { Pool } from 'pg';
 import { z } from 'zod';
@@ -47,15 +48,17 @@ export class PushAudience {
   private async event(id: string, now: Date): Promise<Audience | null> {
     z.uuid().parse(id);
     const event = (
-      await this.pool.query<{
-        topic: string;
-        aggregate_id: string;
-        payload: unknown;
-        expires_at: Date;
-      }>(
-        `SELECT topic,aggregate_id,payload,created_at+interval '5 minutes' AS expires_at
+      await outboxTransaction(this.pool, { kind: 'notification', id }, (client) =>
+        client.query<{
+          topic: string;
+          aggregate_id: string;
+          payload: unknown;
+          expires_at: Date;
+        }>(
+          `SELECT topic,aggregate_id,payload,created_at+interval '5 minutes' AS expires_at
       FROM outbox WHERE id=$1 AND created_at<=$2 AND created_at>$2::timestamptz-interval '5 minutes'`,
-        [id, now],
+          [id, now],
+        ),
       )
     ).rows[0];
     if (!event) return null;

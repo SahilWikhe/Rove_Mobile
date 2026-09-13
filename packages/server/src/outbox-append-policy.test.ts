@@ -11,18 +11,9 @@ beforeAll(async () => {
   const password = randomBytes(32).toString('hex');
   await db.pool.query(`CREATE ROLE outbox_append_probe LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`);
   await db.pool.query('GRANT USAGE ON SCHEMA public TO outbox_append_probe');
-  await db.pool.query('GRANT SELECT,INSERT,UPDATE,DELETE ON outbox TO outbox_append_probe');
-  // Prototype only in this disposable database; no production migration is enabled here.
-  await db.pool.query(`ALTER TABLE outbox ENABLE ROW LEVEL SECURITY;
-    ALTER TABLE outbox FORCE ROW LEVEL SECURITY;
-    CREATE POLICY outbox_append_probe ON outbox FOR INSERT WITH CHECK (
-      jsonb_build_object('id',id,'topic',topic,'aggregate',aggregate_id,'payload',payload,'key',dedupe_key)
-        = (NULLIF(current_setting('rove.outbox_append',true),'')::jsonb - 'available')
-      AND available_at=COALESCE((NULLIF(current_setting('rove.outbox_append',true),'')::jsonb->>'available')::timestamptz,now())
-      AND attempts=0 AND locked_until IS NULL AND completed_at IS NULL AND lease_token IS NULL
-      AND dead_letter_at IS NULL AND last_error_code IS NULL AND created_at=now());
-    CREATE POLICY outbox_append_conflict_read ON outbox FOR SELECT USING (
-      dedupe_key=NULLIF(current_setting('rove.outbox_append',true),'')::jsonb->>'key');`);
+  await db.pool.query(
+    'GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO outbox_append_probe',
+  );
   const connection = new URL(db.connectionString);
   connection.username = 'outbox_append_probe';
   connection.password = password;

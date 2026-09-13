@@ -1,3 +1,4 @@
+import { outboxTransaction } from './outbox-scope';
 import type { Pool } from 'pg';
 import type { OutboxWorker } from './outbox';
 
@@ -20,9 +21,11 @@ export class OutboxDrain {
       if (result.processed + result.failed === 0) break;
     }
     const next = (
-      await this.pool.query<{ due: Date | null }>(
-        `SELECT min(GREATEST(available_at,COALESCE(locked_until,available_at))) AS due
+      await outboxTransaction(this.pool, { kind: 'queue' }, (client) =>
+        client.query<{ due: Date | null }>(
+          `SELECT min(GREATEST(available_at,COALESCE(locked_until,available_at))) AS due
        FROM outbox WHERE completed_at IS NULL AND dead_letter_at IS NULL`,
+        ),
       )
     ).rows[0]?.due;
     return {
