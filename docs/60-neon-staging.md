@@ -199,3 +199,7 @@ Migration 0054 adds enabled/forced RLS to retention_holds, bringing source cover
 ## Cleanup plan policy extension in source
 
 Migration 0055 adds enabled/forced RLS to document_cleanup_plans and document_cleanup_items, bringing source coverage to thirteen of 47 tables. Staff approval and exact-item worker execution have separate policies, and both dispatch/receipt transactions bind worker scope. Local restricted-role/API/database verification passed. Hosted evidence remains the preceding eleven-table rehearsal; this migration has not been applied to Neon. Deploy compatible backend code before staging migration.
+
+## Document-review policy extension in source
+
+Migration 0056 adds enabled/forced RLS to driver_document_reviews, bringing source coverage to fourteen of 47 tables. Driver ownership and current MFA review/eligibility permissions govern reads; document-review permission governs inserts. Document services now prepare verified actor context for the remaining lifecycle policies. The full server suite passed 684 tests alongside API/database checks. Hosted verification remains the earlier eleven-table rehearsal, and provider staging is unchanged.

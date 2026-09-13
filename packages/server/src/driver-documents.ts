@@ -1,3 +1,4 @@
+import { actorTransaction, bindActorIdentity } from './actor-transaction';
 import { trackedDocumentStore } from './document-storage-writes';
 import { z } from 'zod';
 import { createHash } from 'node:crypto';
@@ -42,6 +43,7 @@ export class DriverDocumentService {
       ).rows[0];
       if (!driver || driver.disabled)
         throw new DomainError('FORBIDDEN', 'This account cannot submit documents.', 403);
+      await bindActorIdentity(client, actor, 'update');
       const prior = (await client.query('SELECT * FROM driver_documents WHERE id=$1', [input.id])).rows[0];
       if (prior) {
         if (prior.driver_id !== actor.id)
@@ -86,9 +88,11 @@ export class DriverDocumentService {
     driverOnly(actor);
     const id = z.uuid().parse(documentId);
     const row = (
-      await this.pool.query(
-        'SELECT x.*,u.disabled,x.expires_at > now() AS valid FROM driver_documents x JOIN users u ON u.id=x.driver_id WHERE x.id=$1 AND x.driver_id=$2',
-        [id, actor.id],
+      await actorTransaction(this.pool, actor, (client) =>
+        client.query(
+          'SELECT x.*,u.disabled,x.expires_at > now() AS valid FROM driver_documents x JOIN users u ON u.id=x.driver_id WHERE x.id=$1 AND x.driver_id=$2',
+          [id, actor.id],
+        ),
       )
     ).rows[0];
     if (!row) throw new DomainError('DOCUMENT_NOT_FOUND', 'This document upload was not found.', 404);
@@ -143,11 +147,13 @@ export class DriverDocumentService {
     driverOnly(actor);
     const id = z.uuid().parse(documentId);
     const row = (
-      await this.pool.query(
-        `SELECT x.*,u.disabled,x.expires_at > now() AS valid
+      await actorTransaction(this.pool, actor, (client) =>
+        client.query(
+          `SELECT x.*,u.disabled,x.expires_at > now() AS valid
          FROM driver_documents x JOIN users u ON u.id=x.driver_id
          WHERE x.id=$1 AND x.driver_id=$2`,
-        [id, actor.id],
+          [id, actor.id],
+        ),
       )
     ).rows[0];
     if (!row)
@@ -216,6 +222,7 @@ export class DriverDocumentService {
       ).rows[0];
       if (!account || account.disabled)
         throw new DomainError('FORBIDDEN', 'This account cannot submit documents.', 403);
+      await bindActorIdentity(client, actor, 'update');
       const row = (
         await client.query(
           'SELECT *,expires_at > now() AS valid FROM driver_documents WHERE id=$1 AND driver_id=$2 FOR UPDATE',
@@ -266,8 +273,9 @@ export class DriverDocumentService {
   }
   async list(actor: Actor) {
     driverOnly(actor);
-    const result = await this.pool.query(
-      `SELECT x.*,r.decision AS review_decision,r.expires_at AS review_expires_at,
+    const result = await actorTransaction(this.pool, actor, (client) =>
+      client.query(
+        `SELECT x.*,r.decision AS review_decision,r.expires_at AS review_expires_at,
         r.reason AS review_reason,r.reviewed_at,r.object_key AS review_object_key,
         r.object_version AS review_object_version,r.sha256 AS review_sha256,
         CASE
@@ -281,7 +289,8 @@ export class DriverDocumentService {
        LEFT JOIN driver_document_scans s ON s.document_id=x.id
        LEFT JOIN driver_document_reviews r ON r.document_id=x.id
        WHERE x.driver_id=$1 AND NOT u.disabled ORDER BY x.created_at DESC,x.id DESC LIMIT 30`,
-      [actor.id],
+        [actor.id],
+      ),
     );
     return { documents: result.rows.map((row) => this.summary(row)) };
   }

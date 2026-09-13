@@ -255,6 +255,8 @@ test.each([
     'verification',
   ]);
   const other = { id: randomUUID(), role: 'driver' as const };
+  await db.db.insert(users).values({ ...other, subject: other.id, name: 'Synthetic other' });
+  await db.db.insert(drivers).values({ id: other.id });
   expect((await service.list(other)).documents).toEqual([]);
   // Evidence for an old object must never display as verified or rejected for the replacement.
   await db.pool.query("UPDATE driver_documents SET object_version='replaced' WHERE id=$1", [documentId]);

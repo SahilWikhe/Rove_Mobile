@@ -31,3 +31,11 @@ This is a write-capable staging check using the selected AWS identity. It retain
 ## Evidence and remaining work
 
 Source tests cover ownership, intake, storage, scanning, review and eligibility. CI lints the infrastructure without cloud credentials. Full native upload/retry, real scan-event completion, staff review/download, expiry and operational recovery must be demonstrated for the configured environment before launch. Define retention/deletion, access monitoring and support handling separately. Do not infer those outcomes from a successful upload alone.
+
+## Document review row isolation
+
+Migration 0056 enables/forces RLS on driver_document_reviews. Active drivers may read reviews belonging to their own documents. Current MFA staff with driver.document.review or driver.eligibility.review can read; inserting a decision requires driver.document.review and the current reviewer ID. There are no runtime UPDATE/DELETE policies. Existing safe driver DTOs still exclude private keys, versions, hashes and reviewer identity.
+
+Document-service paths now bind verified actor identity, preserving driver/user mutation lock order and rechecking account state after provider I/O. Unknown or disabled actors receive FORBIDDEN; valid foreign owners continue to see no owned documents. Review rows are immutable, so eligibility reads no longer request their UPDATE privilege via FOR SHARE.
+
+Local restricted-role, full server, API and migration tests passed. Document reservation, scanning and storage-write tables still lack RLS; their complete lifecycle policies remain in progress. Hosted rollout of migration 0056 is pending.

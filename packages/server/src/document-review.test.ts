@@ -1,3 +1,5 @@
+import { actorTransaction } from './actor-transaction';
+import { Pool } from 'pg';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
 import { testDatabase } from '@rove/database/testing';
@@ -6,6 +8,7 @@ import { DocumentReviewService } from './document-review';
 import { DriverDocumentService } from './driver-documents';
 import { DocumentScanWorker } from './document-scanning';
 
+let runtimePool: Pool;
 let db: Awaited<ReturnType<typeof testDatabase>>;
 let review: DocumentReviewService;
 let documents: DriverDocumentService;
@@ -15,10 +18,25 @@ let id: string;
 const approve = () => ({ decision: 'approved', expiresAt: new Date(Date.now() + 86_400_000).toISOString() });
 beforeAll(async () => {
   db = await testDatabase();
-  review = new DocumentReviewService(db.pool);
-  documents = new DriverDocumentService(db.pool);
+  await db.pool.query(
+    "CREATE ROLE rls_document LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'synthetic-local-only'",
+  );
+  await db.pool.query('GRANT USAGE ON SCHEMA public TO rls_document');
+  await db.pool.query('GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_document');
+  await db.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_document');
+  runtimePool = new Pool({
+    host: '127.0.0.1',
+    port: (await db.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
+    database: 'postgres',
+    user: 'rls_document',
+    password: 'synthetic-local-only',
+    max: 5,
+  });
+  review = new DocumentReviewService(runtimePool);
+  documents = new DriverDocumentService(runtimePool);
 }, 60_000);
 afterAll(async () => {
+  await runtimePool?.end();
   await db?.close();
 });
 beforeEach(async () => {
@@ -104,7 +122,13 @@ test('approval is idempotent, private metadata stays private, and driving stays 
   expect((await db.pool.query("SELECT 1 FROM audit WHERE action='staff.document_reviewed'")).rowCount).toBe(
     1,
   );
-  expect((await documents.list({ id: randomUUID(), role: 'driver' })).documents).toEqual([]);
+  const other = { id: randomUUID(), role: 'driver' as const };
+  await db.db.insert(users).values({ ...other, subject: other.id, name: 'Synthetic other' });
+  await db.db.insert(drivers).values({ id: other.id });
+  expect((await documents.list(other)).documents).toEqual([]);
+  await expect(documents.list({ id: randomUUID(), role: 'driver' })).rejects.toMatchObject({
+    code: 'FORBIDDEN',
+  });
 });
 
 test('pending and infected files cannot be reviewed', async () => {
@@ -245,4 +269,27 @@ test('document downloads reject stale scan evidence and sanitize storage errors'
   ).toBe(0);
   await db.pool.query("UPDATE driver_documents SET object_version='changed' WHERE id=$1", [id]);
   await expect(access.download(staff, id)).rejects.toMatchObject({ code: 'DOCUMENT_NOT_REVIEWABLE' });
+});
+
+test('RLS limits review reads to the owner or current staff permissions and denies mutation', async () => {
+  await scan();
+  await review.decide(staff, id, approve(), randomUUID());
+  expect((await runtimePool.query('SELECT * FROM driver_document_reviews')).rowCount).toBe(0);
+  await actorTransaction(runtimePool, driver, async (c) => {
+    expect((await c.query('SELECT * FROM driver_document_reviews')).rowCount).toBe(1);
+    expect((await c.query('DELETE FROM driver_document_reviews')).rowCount).toBe(0);
+    expect((await c.query("UPDATE driver_document_reviews SET reason='unreadable'")).rowCount).toBe(0);
+  });
+  const other = { id: randomUUID(), role: 'driver' as const };
+  await db.db.insert(users).values({ ...other, subject: other.id, name: 'Synthetic other' });
+  await actorTransaction(runtimePool, other, async (c) => {
+    expect((await c.query('SELECT * FROM driver_document_reviews')).rowCount).toBe(0);
+  });
+  await actorTransaction(runtimePool, { ...staff, mfa: false }, async (c) => {
+    expect((await c.query('SELECT * FROM driver_document_reviews')).rowCount).toBe(0);
+  });
+  await db.pool.query('DELETE FROM staff_permissions WHERE staff_id=$1', [staff.id]);
+  await actorTransaction(runtimePool, staff, async (c) => {
+    expect((await c.query('SELECT * FROM driver_document_reviews')).rowCount).toBe(0);
+  });
 });

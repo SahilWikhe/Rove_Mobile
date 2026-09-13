@@ -1,9 +1,11 @@
+import { Pool } from 'pg';
 import { createHash, randomUUID } from 'node:crypto';
 import { quarantineDriverDocument } from './document-intake';
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
 import { testDatabase } from '@rove/database/testing';
 import { users, drivers } from '@rove/database';
 import { DriverDocumentService } from './driver-documents';
+let runtimePool: Pool;
 let db: Awaited<ReturnType<typeof testDatabase>>;
 let service: DriverDocumentService;
 let actor: { id: string; role: 'driver' };
@@ -16,9 +18,24 @@ const input = () => ({
 });
 beforeAll(async () => {
   db = await testDatabase();
-  service = new DriverDocumentService(db.pool);
+  await db.pool.query(
+    "CREATE ROLE rls_document LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'synthetic-local-only'",
+  );
+  await db.pool.query('GRANT USAGE ON SCHEMA public TO rls_document');
+  await db.pool.query('GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_document');
+  await db.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_document');
+  runtimePool = new Pool({
+    host: '127.0.0.1',
+    port: (await db.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
+    database: 'postgres',
+    user: 'rls_document',
+    password: 'synthetic-local-only',
+    max: 5,
+  });
+  service = new DriverDocumentService(runtimePool);
 }, 60000);
 afterAll(async () => {
+  await runtimePool?.end();
   await db?.close();
 });
 beforeEach(async () => {
@@ -214,7 +231,7 @@ test('unauthorized, changed and expired uploads never reach storage', async () =
   };
   await expect(
     service.upload({ ...actor, id: randomUUID() }, reservation.id, body, store),
-  ).rejects.toMatchObject({ code: 'DOCUMENT_NOT_FOUND' });
+  ).rejects.toMatchObject({ code: 'FORBIDDEN' });
   await expect(
     service.upload({ ...actor, role: 'rider' }, reservation.id, body, store),
   ).rejects.toMatchObject({ code: 'FORBIDDEN' });

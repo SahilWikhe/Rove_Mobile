@@ -86,7 +86,7 @@ export class DriverEligibilityService {
            AND s.state='clean' AND s.scanned_key=d.object_key AND s.scanned_version=d.object_version AND s.scanned_sha256=d.expected_sha256
            AND r.object_key=d.object_key AND r.object_version=d.object_version AND r.sha256=d.expected_sha256
            AND NOT EXISTS(SELECT 1 FROM driver_documents newer WHERE newer.driver_id=d.driver_id AND newer.kind=d.kind AND newer.state='quarantined' AND (newer.created_at,newer.id)>(d.created_at,d.id))
-         FOR SHARE OF d,r,s`,
+         FOR SHARE OF d,s`,
             [driverId, now],
           )
         ).rows;

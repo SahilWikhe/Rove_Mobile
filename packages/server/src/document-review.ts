@@ -1,3 +1,4 @@
+import { bindActorIdentity } from './actor-transaction';
 import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
 import { DriverDocumentReviewDecision, DriverDocumentReviewResult } from '@rove/contracts';
@@ -6,8 +7,10 @@ import { requireStaffPermission } from './staff-access';
 import { command, transaction } from './transactions';
 import { DomainError } from './errors';
 
-const authorize = (client: PoolClient, actor: Actor) =>
-  requireStaffPermission(client, actor, 'driver.document.review');
+const authorize = async (client: PoolClient, actor: Actor) => {
+  await requireStaffPermission(client, actor, 'driver.document.review');
+  await bindActorIdentity(client, actor);
+};
 
 /** Records a staff document decision, never overall driver eligibility or payout readiness. */
 export class DocumentReviewService {

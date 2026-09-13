@@ -1,3 +1,4 @@
+import { bindActorIdentity } from './actor-transaction';
 import type { Pool } from 'pg';
 import { z } from 'zod';
 import type { Actor } from './rides';
@@ -24,6 +25,7 @@ export class DocumentAccessService {
     const documentId = z.uuid().parse(rawId);
     return transaction(this.pool, async (client) => {
       await requireStaffPermission(client, actor, 'driver.document.review');
+      await bindActorIdentity(client, actor);
       const row = (
         await client.query(
           `SELECT d.* FROM driver_documents d JOIN users u ON u.id=d.driver_id

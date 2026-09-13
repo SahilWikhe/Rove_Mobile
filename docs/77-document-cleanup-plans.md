@@ -88,3 +88,7 @@ Use this after approved version jobs finish to identify residual or later-create
 The route shares the default-off cleanup runtime and existing discovery permission. No migration, cloud permission change or live storage request is introduced by this checkpoint. Synthetic database/domain and HTTP tests cover residual detection, empty observations, permission/MFA rejection and revocation during I/O, audit failure, invalid discovery and disabled runtime behavior. Hosted acceptance remains outstanding.
 
 Confirmed upload outcomes now have bounded, idempotent persistence recovery for transient database failures (see docs/75-account-deletion.md). This reduces avoidable pending writes without weakening the readiness barrier. It does not reconcile a provider request that returned no verified receipt or a historical unresolved row.
+
+## RLS rollout status
+
+Migration 0055 enables/forces row isolation on cleanup plans and items. Current MFA staff permissions separate approval from exact-item worker dispatch/receipts. Existing immutable-plan, due-time, hold and settlement guards remain active. Local restricted-role and full server regression tests pass; hosted migration remains pending. See [current RLS rollout evidence](60-neon-staging.md#latest-rls-verification).

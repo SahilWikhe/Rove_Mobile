@@ -1,5 +1,15 @@
 # Implementation status
 
+## Driver document-review RLS — September 13
+
+Migration 0056 enables/forces driver_document_reviews RLS. Active drivers read only reviews attached to their documents; current MFA document/eligibility reviewers have scoped staff reads, and only document reviewers can insert decisions under their own actor identity. No runtime update/delete policy exists. Eligibility no longer requires UPDATE permission merely to lock an immutable review row.
+
+Document reservation/quarantine, reads/uploads/listing, staff review/download and write-dispatch paths now bind verified actor context at the appropriate transaction boundary. Existing driver/user lock order is preserved for mutations. Nonexistent/disabled accounts now fail document reads before querying private data. Separate fixtures verify valid foreign drivers see no documents/reviews, while nonexistent actors receive FORBIDDEN.
+
+Verification: all 684 server tests, 208 API tests and 13 database tests passed (905 total), plus server/database typechecks, targeted lint, formatting and documentation validation. Driver-document/review suites use restricted non-owner roles; direct tests cover owner/foreign/no-context reads, MFA/revoked permission and immutable decisions. Existing upload, scanning, review, cleanup and eligibility flows passed. No live storage or scanning provider was invoked.
+
+Source RLS coverage is fourteen of 47 tables; hosted evidence remains the earlier eleven-table rehearsal. Document reservations, scan queues and storage-write receipts still need their policies; transaction preparation does not imply those tables are protected. Next: complete those lifecycle policies and hosted verification before staging rollout. Full mobile production acceptance remains incomplete.
+
 ## Document-cleanup plan and receipt RLS — September 13
 
 Migration 0055 enables/forces RLS on document_cleanup_plans and document_cleanup_items. Current MFA privacy staff can read; privacy.cleanup controls draft creation and approval. Workers read/update only their assigned cleanup item and can read its parent plan. Staff cannot forge attempted/removed receipts, and runtime deletion has no policy. Both provider dispatch and completion transactions bind exact item scope.

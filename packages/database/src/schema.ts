@@ -305,6 +305,7 @@ const rlsPermissions = {
   'privacy.hold': sql`p.permission='privacy.hold'`,
   'privacy.release-hold': sql`p.permission='privacy.release-hold'`,
   'driver.vehicle.review': sql`p.permission='driver.vehicle.review'`,
+  'driver.document.review': sql`p.permission='driver.document.review'`,
   'driver.eligibility.review': sql`p.permission='driver.eligibility.review'`,
   'support.read': sql`p.permission='support.read'`,
   'support.resolve': sql`p.permission='support.resolve'`,
@@ -677,6 +678,18 @@ export const driverDocumentReviews = pgTable(
     sha256: text().notNull(),
   },
   (t) => [
+    pgPolicy('document_review_owner_read', {
+      for: 'select',
+      using: sql`current_setting('rove.actor_role',true)='driver' AND EXISTS(SELECT 1 FROM public.driver_documents d JOIN public.users u ON u.id=d.driver_id WHERE d.id=${t.documentId} AND d.driver_id=${rlsActor} AND u.role='driver' AND u.disabled=false)`,
+    }),
+    pgPolicy('document_review_staff_read', {
+      for: 'select',
+      using: sql`${rlsStaff('driver.document.review')} OR ${rlsStaff('driver.eligibility.review')}`,
+    }),
+    pgPolicy('document_review_staff_insert', {
+      for: 'insert',
+      withCheck: sql`${rlsStaff('driver.document.review')} AND ${t.reviewerId}=${rlsActor}`,
+    }),
     check('driver_document_reviews_hash', sql`${t.sha256} ~ '^[a-f0-9]{64}$'`),
     check(
       'driver_document_reviews_decision',

@@ -1,3 +1,4 @@
+import { bindActorIdentity } from './actor-transaction';
 import { DocumentWriteNotDispatched } from './document-write-not-dispatched';
 import { z } from 'zod';
 import type { Pool, PoolClient } from 'pg';
@@ -30,6 +31,7 @@ export function trackedDocumentStore(
           ])
         ).rows[0];
         if (!account) throw new DomainError('FORBIDDEN', 'This account cannot submit documents.', 403);
+        await bindActorIdentity(c, actor, 'update');
         const row = (
           await c.query(
             "SELECT * FROM driver_documents WHERE id=$1 AND driver_id=$2 AND state='reserved' AND expires_at>clock_timestamp() FOR UPDATE",
