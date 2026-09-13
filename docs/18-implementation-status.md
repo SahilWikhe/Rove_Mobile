@@ -1,5 +1,13 @@
 # Implementation status
 
+## Payment customer and wallet actor boundaries — September 13
+
+Customer reservation now binds verified active-rider context after its existing account lock. Reusing a rider/source binding uses conflict-do-nothing followed by a read, removing the unnecessary unchanged-row update. Wallet mapping reads now verify and lock the active actor in the same transaction, including post-provider revalidation. Provider calls remain outside transactions; confirmed customer mappings are still retained when account disablement races the response, while further setup and secret return are rejected.
+
+Verification: all 698 server tests and 208 API tests passed (906 total), plus server typecheck, targeted lint, formatting and documentation validation. Customer/wallet suites now use restricted non-owner roles. Tests cover concurrent setup/idempotency, disablement during provisioning/session issuance, mapping changes, forged database role and no actor context during provider work. No real Stripe operation or schema migration occurred.
+
+Payment customer RLS remains pending: reconciliation, refunds, disputes, capture, transfers and confirmed provider-result persistence need compatible scopes. Source coverage remains twenty-two of 47 tables and hosted evidence twenty-one. Next: prepare those financial worker accesses before adding payment-table policies, then hosted verification and compatible staging rollout. Full mobile production acceptance remains incomplete.
+
 ## Staff permission RLS — September 13
 
 Migration 0064 enables and forces staff_permissions RLS. Current active staff with verified MFA can read and lock only their own permissions. Runtime insertion/deletion is denied; the lock-only update policy rejects actual modifications. requireStaffPermission binds verified actor context before its existing current-permission query and share locks, preserving permission revocation checks and all resource-specific authorization.

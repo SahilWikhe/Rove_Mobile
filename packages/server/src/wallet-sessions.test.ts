@@ -1,8 +1,10 @@
+import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { testDatabase } from '@rove/database/testing';
 import { PaymentCustomers } from './payment-customers';
 import { WalletSessions, type WalletProvider } from './wallet-sessions';
+let runtimePool: Pool;
 let database: Awaited<ReturnType<typeof testDatabase>>;
 let actor: { id: string; role: 'rider' };
 let service: WalletSessions;
@@ -11,8 +13,25 @@ const setupSession = vi.fn<WalletProvider['setupSession']>();
 const source = 'acct_wallet:test';
 beforeAll(async () => {
   database = await testDatabase();
+  await database.pool.query(
+    "CREATE ROLE rls_payment_owner LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'synthetic-local-only'",
+  );
+  await database.pool.query('GRANT USAGE ON SCHEMA public TO rls_payment_owner');
+  await database.pool.query(
+    'GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_payment_owner',
+  );
+  await database.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_payment_owner');
+  runtimePool = new Pool({
+    host: '127.0.0.1',
+    port: (await database.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
+    database: 'postgres',
+    user: 'rls_payment_owner',
+    password: 'synthetic-local-only',
+    max: 5,
+  });
 }, 60000);
 afterAll(async () => {
+  await runtimePool?.end();
   await database?.close();
 });
 beforeEach(async () => {
@@ -26,8 +45,8 @@ beforeEach(async () => {
     .mockReset()
     .mockImplementation(async (customerId) => ({ customerId, clientSecret: 'synthetic-session-secret' }));
   setupSession.mockReset().mockResolvedValue({ clientSecret: 'synthetic-setup-secret' });
-  const customers = new PaymentCustomers(database.pool, { createCustomer: async () => 'cus_wallet' }, source);
-  service = new WalletSessions(database.pool, { customerSession, setupSession }, customers, source);
+  const customers = new PaymentCustomers(runtimePool, { createCustomer: async () => 'cus_wallet' }, source);
+  service = new WalletSessions(runtimePool, { customerSession, setupSession }, customers, source);
 });
 test('settings access uses the current source mapping and never stores client secrets', async () => {
   await database.pool.query('INSERT INTO payment_customers(rider_id,source,customer_id) VALUES($1,$2,$3)', [
@@ -85,4 +104,18 @@ test('a changed mapping while setup is pending prevents returning its secret', a
   await expect(service.setupSession(actor, randomUUID())).rejects.toMatchObject({
     code: 'PAYMENT_REFERENCE_MISMATCH',
   });
+});
+
+test('wallet provider work runs after actor transactions and rejects a forged database role', async () => {
+  customerSession.mockImplementation(async (customerId) => {
+    const identity = (
+      await runtimePool.query("SELECT NULLIF(current_setting('rove.actor_id',true),'') AS actor")
+    ).rows[0].actor;
+    expect(identity).toBeNull();
+    return { customerId, clientSecret: 'synthetic-session-secret' };
+  });
+  await service.customerSession(actor);
+  await database.pool.query("UPDATE users SET role='driver' WHERE id=$1", [actor.id]);
+  await expect(service.customerSession(actor)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  expect(customerSession).toHaveBeenCalledTimes(1);
 });

@@ -14,7 +14,7 @@ If account disablement races the provider response, the service retains the mapp
 
 ## Session composition
 
-Pass `PaymentCustomers` into the final optional constructor argument of `PaymentSessions`. The session service first verifies the requesting rider owns the ride. If an active, unexpired ride lacks a mapped customer, it invokes provisioning and then rechecks ownership, disablement, deadline and the binding before creating the intent. An unowned ride cannot trigger provider customer creation. The native client never supplies a provider customer id.
+Pass `PaymentCustomers` as the `customers` constructor dependency of `PaymentSessions`. The session service first verifies the requesting rider owns the ride. If an active, unexpired ride lacks a mapped customer, it invokes provisioning and then rechecks ownership, disablement, deadline and the binding before creating the intent. An unowned ride cannot trigger provider customer creation. The native client never supplies a provider customer id.
 
 When provisioning is intentionally absent, the existing `PAYMENT_PROFILE_REQUIRED` behavior remains. The implemented runtime composition wires the configured Stripe adapter, matching account/mode source, customer service and payment-session service together. The synthetic local entrypoint is unchanged.
 
@@ -23,3 +23,9 @@ When provisioning is intentionally absent, the existing `PAYMENT_PROFILE_REQUIRE
 Six PostgreSQL tests cover persistence before provider calls, mapping reuse, concurrent setup, uncertain retries, the retention cutoff, actual database role/disablement checks, disablement during a provider call and automatic provisioning through session creation. One adapter test covers minimal request metadata and rejection of mismatched customer responses. These tests use synthetic provider responses and do not create real Stripe customers.
 
 Customer provisioning, durable payment sessions, native PaymentSheet/CustomerSheet, saved methods, capture/allocation ledger, receipts, earnings and runtime/worker composition are implemented; see [native payments](31-native-rider-payments.md), [ledger](32-captured-funds-ledger.md), [earnings](37-driver-earnings.md) and [runtime](34-backend-runtime.md). Remaining: complete physical-device PaymentSheet/3DS and sandbox journey acceptance, refund/dispute authorization and journals, actual driver transfers/settlement, periodic reconciliation/review operations, retention and approved production policies. Staging evidence is not production activation.
+
+## Actor transaction preparation
+
+Customer reservation now binds the verified active rider after its existing user lock. An existing rider/source binding is read after conflict-do-nothing rather than requiring an unchanged-row update. This preserves the stable creation ID and concurrent retry behavior while reducing the permissions needed for reservation. Wallet binding reads now verify and lock the active actor in the same transaction as reading the source-specific mapping, both before and after provider I/O. Provider calls remain outside these transactions.
+
+Payment-customer and wallet suites now use a restricted non-owner database role. They verify current database role, disablement during provider calls, stable retries, changed mappings and withholding session secrets. This prepares actor paths for payment RLS; payment_customers is not yet protected. Provider-result persistence after disablement, reconciliation, refunds, disputes, capture and transfers need compatible worker scopes before its migration.

@@ -1,3 +1,4 @@
+import { bindActorIdentity } from './actor-transaction';
 import type { Pool } from 'pg';
 import type { Actor } from './rides';
 import type { PaymentCustomerProvider } from './payment-provider';
@@ -26,13 +27,24 @@ export class PaymentCustomers {
       ).rows[0];
       if (!user || user.role !== 'rider' || user.disabled)
         throw new DomainError('FORBIDDEN', 'Payment profile is unavailable.', 403);
-      const row = (
+      await bindActorIdentity(client, actor, 'update');
+      const inserted = (
         await client.query<{ id: string; customer_id: string | null; created_at: Date }>(
           `INSERT INTO payment_customers(rider_id,source,created_at) VALUES ($1,$2,$3)
-         ON CONFLICT(rider_id,source) DO UPDATE SET rider_id=EXCLUDED.rider_id RETURNING *`,
+         ON CONFLICT(rider_id,source) DO NOTHING RETURNING *`,
           [actor.id, this.source, this.now()],
         )
-      ).rows[0]!;
+      ).rows[0];
+      const row =
+        inserted ??
+        (
+          await client.query<{ id: string; customer_id: string | null; created_at: Date }>(
+            'SELECT id,customer_id,created_at FROM payment_customers WHERE rider_id=$1 AND source=$2',
+            [actor.id, this.source],
+          )
+        ).rows[0];
+      if (!row)
+        throw new DomainError('PAYMENT_REFERENCE_MISMATCH', 'Payment profile could not be verified.', 503);
       if (!row.customer_id && this.now().getTime() - row.created_at.getTime() >= 23 * 60 * 60 * 1000)
         throw new DomainError(
           'PAYMENT_CUSTOMER_REVIEW',

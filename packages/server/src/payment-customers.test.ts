@@ -1,9 +1,11 @@
+import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { testDatabase } from '@rove/database/testing';
 import { PaymentCustomers } from './payment-customers';
 import { PaymentSessions } from './payment-sessions';
 import type { PaymentCustomerProvider, PaymentProvider } from './payment-provider';
+let runtimePool: Pool;
 let database: Awaited<ReturnType<typeof testDatabase>>;
 let actor: { id: string; role: 'rider' };
 let now: Date;
@@ -12,8 +14,25 @@ const source = 'acct_fixture:test';
 const createCustomer = vi.fn<PaymentCustomerProvider['createCustomer']>();
 beforeAll(async () => {
   database = await testDatabase();
+  await database.pool.query(
+    "CREATE ROLE rls_payment_owner LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'synthetic-local-only'",
+  );
+  await database.pool.query('GRANT USAGE ON SCHEMA public TO rls_payment_owner');
+  await database.pool.query(
+    'GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_payment_owner',
+  );
+  await database.pool.query('GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO rls_payment_owner');
+  runtimePool = new Pool({
+    host: '127.0.0.1',
+    port: (await database.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
+    database: 'postgres',
+    user: 'rls_payment_owner',
+    password: 'synthetic-local-only',
+    max: 5,
+  });
 }, 60000);
 afterAll(async () => {
+  await runtimePool?.end();
   await database?.close();
 });
 beforeEach(async () => {
@@ -27,7 +46,7 @@ beforeEach(async () => {
   );
   createCustomer.mockReset();
   createCustomer.mockResolvedValue('cus_fixture');
-  service = new PaymentCustomers(database.pool, { createCustomer }, source, () => now);
+  service = new PaymentCustomers(runtimePool, { createCustomer }, source, () => now);
 });
 test('customer creation journals immutable reference IDs before any network call and reuses the mapping', async () => {
   createCustomer.mockImplementation(async (reference) => {
@@ -49,7 +68,7 @@ test('parallel instances and uncertain outcomes share the same customer creation
   await expect(service.ensure(actor)).rejects.toThrow('Unknown provider outcome');
   await Promise.all(
     Array.from({ length: 8 }, () =>
-      new PaymentCustomers(database.pool, { createCustomer }, source, () => now).ensure(actor),
+      new PaymentCustomers(runtimePool, { createCustomer }, source, () => now).ensure(actor),
     ),
   );
   expect(new Set(createCustomer.mock.calls.map((call) => call[1])).size).toBe(1);
@@ -103,7 +122,7 @@ test('a valid rider payment session provisions its customer automatically withou
     clientSecret: 'pi_fixture_secret_private',
   }));
   const sessions = new PaymentSessions(
-    database.pool,
+    runtimePool,
     { create } as unknown as PaymentProvider,
     source,
     () => now,
@@ -157,7 +176,7 @@ test.each(['valid', 'wrong_customer', 'disabled', 'cancelled', 'expired'])(
       };
     });
     const sessions = new PaymentSessions(
-      database.pool,
+      runtimePool,
       { create } as unknown as PaymentProvider,
       source,
       () => now,

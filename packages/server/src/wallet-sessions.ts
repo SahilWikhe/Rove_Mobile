@@ -1,3 +1,4 @@
+import { actorTransaction } from './actor-transaction';
 import type { Pool } from 'pg';
 import { z } from 'zod';
 import type { Actor } from './rides';
@@ -25,21 +26,17 @@ export class WalletSessions {
 
   private async binding(actor: Actor) {
     if (actor.role !== 'rider') throw new DomainError('FORBIDDEN', 'Payment settings are unavailable.', 403);
-    const user = (
-      await this.pool.query<{ disabled: boolean; role: string }>(
-        'SELECT disabled,role FROM users WHERE id=$1',
-        [actor.id],
-      )
-    ).rows[0];
-    if (!user || user.disabled || user.role !== 'rider')
-      throw new DomainError('FORBIDDEN', 'Payment settings are unavailable.', 403);
-    const row = (
-      await this.pool.query<{ id: string; customer_id: string | null }>(
-        'SELECT id,customer_id FROM payment_customers WHERE rider_id=$1 AND source=$2',
-        [actor.id, this.source],
-      )
-    ).rows[0];
-    return row;
+    return actorTransaction(
+      this.pool,
+      actor,
+      async (client) =>
+        (
+          await client.query<{ id: string; customer_id: string | null }>(
+            'SELECT id,customer_id FROM payment_customers WHERE rider_id=$1 AND source=$2',
+            [actor.id, this.source],
+          )
+        ).rows[0],
+    );
   }
 
   private async prepare(actor: Actor) {
