@@ -1,5 +1,13 @@
 # Implementation status
 
+## RLS transaction identity foundation — September 13
+
+Started the requested RLS implementation with an explicit backend actor transaction helper and migrated saved-place service operations to it. The helper validates the current active database role and installs identity/MFA settings only within the transaction. Read/write owner locks preserve revocation and avoid concurrent write lock upgrades. No implicit service bypass or hosted RLS enablement was added.
+
+Verification: ten transaction-identity/saved-place PostgreSQL tests passed plus all 40 API tests, server typecheck, targeted lint and formatting. The isolation tests use an actual non-owner NOSUPERUSER/NOBYPASSRLS connection and temporary forced RLS on saved_places, proving owner access, cross-owner denial, write policy rejection, pooled commit/rollback/interleaving isolation and legitimate service writes. An initial test-pool port error was corrected to use the disposable database's actual port. The API suite initially could not bind its local database socket in the sandbox; the rerun with local socket access passed all 40 tests.
+
+This is an intermediate foundation, not completion of the RLS priority. Next: versioned policies and remaining identity/bootstrap, direct-read, staff/worker and cleanup/financial access paths, followed by isolated Neon and staging enablement verification. No cloud database settings changed; broader production acceptance remains open.
+
 ## Protected message-cleanup operational integration — September 13
 
 Completed the current cleanup integration: shared strict batch authorization contract, authenticated staff POST endpoint, independently default-off runtime flag and reviewed policy configuration. The endpoint uses the tested transactional engine and returns an audited idempotent receipt without claiming complete erasure. Hosted policy/batch review and broader retention/backup fulfillment remain release work; no hosted messages or configuration were changed.

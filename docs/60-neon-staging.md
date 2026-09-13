@@ -129,3 +129,15 @@ The checked-in migrations do not enable PostgreSQL row-level security or create 
 `pnpm db:staging:check /path/to/ignored-staging.env` now reads the PostgreSQL catalog in its existing read-only transaction and reports enabled/forced table counts plus RLS-disabled table names. It reads no application row content. Passing its role/grant checks does not mean RLS or cross-account row isolation is verified. A policy can exist while RLS is disabled; even enabled policies require behavior tests using the actual runtime role.
 
 Local PostgreSQL tests cover disabled RLS despite NOBYPASSRLS, enabled tables without policies, forced RLS with a policy, and disabling RLS while retaining policy metadata. The new report has not yet been run against hosted Neon. Introducing RLS requires a separately tested transaction-scoped identity and worker/staff access design; this report does not change authorization or enable policies.
+
+## RLS implementation in progress
+
+The backend now has an explicit `actorTransaction` helper: validate the backend-supplied actor, begin a transaction, clear each RLS identity setting locally, confirm and lock the active database-owned account/role, set `rove.actor_id`, `rove.actor_role` and `rove.actor_mfa` transaction-locally, then execute the scoped work. Write operations request an exclusive owner lock initially to avoid concurrent lock-upgrade deadlocks. Saved-place reads, resolution, updates and removal now use this helper.
+
+The actor must originate from verified backend authentication; these settings are not an independent authentication mechanism and must never be filled from arbitrary request headers or body fields. A compromised database credential capable of issuing arbitrary SQL is outside this identity-setting boundary. No implicit worker or staff bypass is provided. Existing backend resource authorization remains required.
+
+Local tests temporarily enable and force RLS on the actual saved_places table in a disposable PostgreSQL database and connect with a separate non-owner, NOSUPERUSER/NOBYPASSRLS login. They exercise cross-account read/update/delete denial, foreign inserts, legitimate saved-place service behavior, concurrent first writes, pooled identity isolation after commit/rollback/interleaving, and forged/disabled/missing actors. These test-only policies are not deployed migrations or hosted evidence.
+
+Remaining before staging enablement: versioned production policies, authentication lookup/bootstrap policy, all direct pool reads and domain transaction coverage, explicit staff/worker privileges, cleanup and financial workflow compatibility, isolated Neon branch verification and rollout against the confirmed staging branch. Current application-table migrations still do not enable RLS.
+
+PostgreSQL documents [row security policy behavior](https://www.postgresql.org/docs/current/ddl-rowsecurity.html), including default denial and owner/superuser bypass, and [transaction-local configuration](https://www.postgresql.org/docs/current/functions-admin.html).

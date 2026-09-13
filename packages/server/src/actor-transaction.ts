@@ -1,0 +1,38 @@
+import type { Pool, PoolClient } from 'pg';
+import { z } from 'zod';
+import type { Actor } from './rides';
+import { DomainError } from './errors';
+import { transaction } from './transactions';
+
+const identity = z.object({
+  id: z.uuid(),
+  role: z.enum(['rider', 'driver', 'staff']),
+  mfa: z.boolean().optional(),
+});
+
+/** Backend-only identity; never construct from unverified request headers or client payloads. */
+export async function actorTransaction<T>(
+  pool: Pool,
+  actor: Actor,
+  work: (client: PoolClient) => Promise<T>,
+  ownerLock: 'share' | 'update' = 'share',
+): Promise<T> {
+  const parsed = identity.safeParse(actor);
+  if (!parsed.success) throw new DomainError('FORBIDDEN', 'A verified account is required.', 403);
+  return transaction(pool, async (client) => {
+    // Every field is reset first, even when a connection had unexpected session settings.
+    await client.query(`SELECT set_config('rove.actor_id','',true),
+      set_config('rove.actor_role','',true),set_config('rove.actor_mfa','false',true)`);
+    const owner = await client.query(
+      `SELECT id FROM users WHERE id=$1 AND role=$2 AND disabled=false ${ownerLock === 'update' ? 'FOR UPDATE' : 'FOR SHARE'}`,
+      [parsed.data.id, parsed.data.role],
+    );
+    if (!owner.rowCount) throw new DomainError('FORBIDDEN', 'Account is unavailable.', 403);
+    await client.query(
+      `SELECT set_config('rove.actor_id',$1,true),
+      set_config('rove.actor_role',$2,true),set_config('rove.actor_mfa',$3,true)`,
+      [parsed.data.id, parsed.data.role, parsed.data.mfa === true ? 'true' : 'false'],
+    );
+    return work(client);
+  });
+}
