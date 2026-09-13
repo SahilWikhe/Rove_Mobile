@@ -22,7 +22,11 @@ export class PaymentLosses {
     private pool: Pool,
     private source: string,
     private now: () => Date = () => new Date(),
-  ) {}
+  ) {
+    z.string()
+      .regex(/^acct_[a-zA-Z0-9]{1,96}:(test|live)$/)
+      .parse(source);
+  }
   private async payment(c: PoolClient, rideId: string): Promise<Payment> {
     const p = (
       await c.query<Payment>(
@@ -32,6 +36,10 @@ export class PaymentLosses {
       )
     ).rows[0];
     if (!p) throw new DomainError('NOT_FOUND', 'Payment not found.', 404);
+    await c.query(
+      "SELECT set_config('rove.loss_source',$1,true),set_config('rove.loss_attempt',$2,true),set_config('rove.loss_journal','',true)",
+      [this.source, p.id],
+    );
     return p;
   }
   private async balances(c: PoolClient, p: Payment) {
@@ -182,6 +190,7 @@ export class PaymentLosses {
             `INSERT INTO ledger_postings(journal_id,account,owner_id,amount_cents) VALUES($1,$2,$3,$4)`,
             [journalId, entry.account, entry.owner, entry.amount],
           );
+        await c.query("SELECT set_config('rove.loss_journal',$1,true)", [journalId]);
         await c.query(
           `INSERT INTO payment_loss_allocations(id,journal_id,authorized_by,policy_reference) VALUES($1,$2,$3,$4)`,
           [id, journalId, actor.id, input.policyReference],

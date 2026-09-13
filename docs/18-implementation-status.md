@@ -1,5 +1,13 @@
 # Implementation status
 
+## Loss-allocation decision RLS — September 13
+
+Migration 0070 enables and forces RLS on payment_loss_allocations. Reads require current active staff identity, MFA, payments.loss.allocate permission and exact configured-source/payment scope. Inserts additionally bind the exact newly approved allocation journal and current staff authorizer. Runtime updates/deletions are denied; immutable authorization triggers remain. Actor and other worker helpers clear allocation scope.
+
+Verification: all 706 server, 208 API and 13 database tests passed (927 total), plus server/database typechecks, targeted lint, formatting and diff checks. Restricted-role tests cover allocation/retry/reversal, foreign-source/payment denial, missing MFA, revoked permission, unbound insert denial, immutable records and pooled reset. No real provider operation occurred.
+
+Source coverage is thirty of 47 tables; seventeen remain. Hosted evidence remains twenty-eight through 0068. Provider staging and production were not changed. Next: remaining transfer/ledger, identity/trip and worker policies, hosted verification of the new delta, then compatible provider-staging rollout. Full mobile physical-device and production acceptance remain incomplete.
+
 ## Refund authorization and execution RLS — September 13
 
 Migration 0069 enables and forces RLS on refund_operations. Source-specific attempt reads preserve cumulative limits and transfer holds. Only current MFA staff with payments.refund can insert queued authorizations attributed to themselves; workers cannot create authorizations. Execution/recovery updates bind the exact existing operation. Original authorization immutability triggers remain, and runtime deletion is denied. Account closure uses an owner-scoped read policy gated by current MFA privacy.close permission, preserving pending-refund holds. Actor and other worker contexts clear these scopes.

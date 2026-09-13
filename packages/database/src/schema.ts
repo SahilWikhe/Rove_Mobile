@@ -342,6 +342,7 @@ export const ledgerPostings = pgTable(
 // Identity is installed only by trusted backend transactions; no anonymous/default access.
 const rlsActor = sql`NULLIF(current_setting('rove.actor_id', true), '')::uuid`;
 const rlsPermissions = {
+  'payments.loss.allocate': sql`p.permission='payments.loss.allocate'`,
   'payments.refund': sql`p.permission='payments.refund'`,
   'payments.dispute.review': sql`p.permission='payments.dispute.review'`,
   'privacy.read': sql`p.permission='privacy.read'`,
@@ -1150,6 +1151,8 @@ export const paymentDisputeObservations = pgTable(
   ],
 );
 
+const lossJournal = (journal: SQLWrapper) =>
+  sql`EXISTS(SELECT 1 FROM public.ledger_journals j JOIN public.payment_attempts p ON p.id=j.attempt_id WHERE j.id=${journal} AND j.kind IN ('refund_loss_allocation','dispute_loss_allocation') AND p.source=current_setting('rove.loss_source',true) AND p.id=NULLIF(current_setting('rove.loss_attempt',true),'')::uuid)`;
 export const paymentLossAllocations = pgTable(
   'payment_loss_allocations',
   {
@@ -1164,7 +1167,17 @@ export const paymentLossAllocations = pgTable(
     policyReference: text().notNull(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [check('loss_policy_reference', sql`length(${t.policyReference}) between 1 and 128`)],
+  (t) => [
+    pgPolicy('loss_allocation_read', {
+      for: 'select',
+      using: sql`${rlsStaff('payments.loss.allocate')} AND ${lossJournal(t.journalId)}`,
+    }),
+    pgPolicy('loss_allocation_authorize', {
+      for: 'insert',
+      withCheck: sql`${rlsStaff('payments.loss.allocate')} AND ${t.authorizedBy}=${rlsActor} AND ${lossJournal(t.journalId)} AND ${t.journalId}=NULLIF(current_setting('rove.loss_journal',true),'')::uuid`,
+    }),
+    check('loss_policy_reference', sql`length(${t.policyReference}) between 1 and 128`),
+  ],
 );
 
 export const driverTransferOperations = pgTable(

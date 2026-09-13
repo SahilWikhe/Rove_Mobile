@@ -1,3 +1,4 @@
+import { actorTransaction } from './actor-transaction';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
 import { randomUUID } from 'node:crypto';
@@ -327,4 +328,49 @@ test('an audit persistence failure rolls back the decision, command result and f
   }
   await service.allocate(staff, input.rideId, allocation(), 'audit-retry-key');
   expect((await database.pool.query('SELECT * FROM payment_loss_allocations')).rowCount).toBe(1);
+});
+
+test('allocation evidence requires current permission and exact payment scope and cannot be rewritten', async () => {
+  await capture();
+  await movement();
+  const result = await service.allocate(staff, input.rideId, allocation(), 'rls-allocation');
+  expect((await runtimePool.query('SELECT * FROM payment_loss_allocations')).rowCount).toBe(0);
+  const scope = async (c: import('pg').PoolClient) =>
+    c.query(
+      "SELECT set_config('rove.loss_source','acct_fixture:test',true),set_config('rove.loss_attempt',$1,true)",
+      [input.attemptId],
+    );
+  await actorTransaction(runtimePool, staff, async (c) => {
+    await scope(c);
+    expect((await c.query('SELECT id FROM payment_loss_allocations')).rows).toEqual([{ id: result.id }]);
+    expect((await c.query("UPDATE payment_loss_allocations SET policy_reference='forged'")).rowCount).toBe(0);
+    expect((await c.query('DELETE FROM payment_loss_allocations')).rowCount).toBe(0);
+    await c.query("SELECT set_config('rove.loss_attempt',$1,true)", [randomUUID()]);
+    expect((await c.query('SELECT * FROM payment_loss_allocations')).rowCount).toBe(0);
+    await scope(c);
+    await c.query("SELECT set_config('rove.loss_source','acct_foreign:test',true)");
+    expect((await c.query('SELECT * FROM payment_loss_allocations')).rowCount).toBe(0);
+  });
+  await actorTransaction(runtimePool, { ...staff, mfa: false }, async (c) => {
+    await scope(c);
+    expect((await c.query('SELECT * FROM payment_loss_allocations')).rowCount).toBe(0);
+  });
+  await expect(
+    actorTransaction(runtimePool, staff, async (c) => {
+      await scope(c);
+      await c.query(
+        "INSERT INTO payment_loss_allocations(journal_id,authorized_by,policy_reference) VALUES($1,$2,'forged')",
+        [randomUUID(), staff.id],
+      );
+    }),
+  ).rejects.toMatchObject({ code: '42501' });
+  await database.pool.query(
+    "DELETE FROM staff_permissions WHERE staff_id=$1 AND permission='payments.loss.allocate'",
+    [staff.id],
+  );
+  await actorTransaction(runtimePool, staff, async (c) => {
+    await scope(c);
+    expect((await c.query('SELECT * FROM payment_loss_allocations')).rowCount).toBe(0);
+  });
+  expect((await runtimePool.query('SELECT * FROM payment_loss_allocations')).rowCount).toBe(0);
 });

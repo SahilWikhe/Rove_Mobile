@@ -36,3 +36,9 @@ New clients opt into `details=adjustments` on the existing owned earnings list a
 The earnings activity includes original allocations, refund adjustments, dispute adjustments and positive reversals. It retains bounded, owner-scoped pagination. Date filtering uses each journal's recorded UTC date, including adjustments to older trips; a refund-only period can therefore have negative net earnings. Gross daily charts keep their original basis and are labeled before adjustments. Transfers and processor suspense are excluded from earned totals. The dashboard uses net totals when supplied, and completed trip summaries show the original estimate, gross recorded amount, separate refund/dispute adjustments and net earnings.
 
 Bank transfers, payout eligibility and withdrawal availability remain separate. This UI does not prove funds are transferable or received by a bank.
+
+## Allocation row security
+
+Migration 0070 enables and forces RLS on payment_loss_allocations. Reads require current active staff identity, MFA, payments.loss.allocate permission and the configured source/exact payment scope. Insertion additionally requires the exact newly approved allocation journal and the current staff actor as authorizer. The journal must belong to that payment and be a refund or dispute loss-allocation journal. There are no runtime update/delete policies, and existing immutable authorization triggers remain. Actor and other worker helpers clear allocation scopes.
+
+Restricted-role tests cover normal allocation/retry/reversal, exact payment/source isolation, missing MFA, revoked permission, denied unbound insertion, immutable decisions and pooled scope reset. Hosted verification of 0070 remains pending. Deploy compatible code before applying the migration; provider staging and production were not changed.
