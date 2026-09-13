@@ -2,6 +2,12 @@
 
 Updated: September 12, 2026. Current source baseline: `1cd316e536846a45354ff7040b5cf82320a8361d` plus the approved cleanup connection checkpoint below. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Hosted iOS smoke deadline investigation — September 12
+
+Inspected job 103638208050 in hosted run 34725187223 (`a6991735`). Both driver iOS builds and the embedded JavaScript check passed. Retained Maestro output and JUnit report show the unchanged welcome/relaunch flow passed in 48 seconds with zero failures; the enclosing command then hit its three-minute deadline. Cold runner startup consumed roughly two minutes before the flow. Increased only the iOS whole-command deadline to six minutes, preserving 60-second screen waits, nonzero-exit failure handling, diagnostics and disposable-simulator cleanup. A passing report does not override a command failure.
+
+All 63 local tooling tests, changed-source lint/format, documentation, boundaries and diff checks passed. The adjusted wrapper also passed the unchanged driver welcome/relaunch flow on a fresh local iOS simulator and exited cleanly; the disposable simulator was removed. This reused an existing synthetic release artifact, not a new build of current main. The linked hosted run finished with rider iOS and all other substantive jobs passing; driver iOS and its dependent CI gate failed. This is a bounded timeout adjustment based on hosted evidence, not proof that hosted runner shutdown or current-main CI is fixed. Next: confirm a fresh hosted run. The separately in-progress cleanup role/provider changes are not part of this CI patch; cleanup remains off. Remaining release priorities are retained-data cleanup, Figma/native/provider acceptance and production setup.
+
 ## Approved default-off cleanup connection — September 12
 
 The user explicitly approved the previously blocked staff/runtime connection for approved document versions in the existing private bucket using a separate limited AWS cleanup role, with activation off. Implemented strict enable/policy/storage/role configuration, staff prepare/inspect/approve/retry routes, durable outbox registration and dedicated Vercel OIDC credentials for the existing inventory/erasure adapters. The role must belong to the storage owner and differ from configured upload/scanner roles. Cleanup never falls back to upload/ambient credentials. No real files, cloud permissions, environment settings or hosted migrations changed.
