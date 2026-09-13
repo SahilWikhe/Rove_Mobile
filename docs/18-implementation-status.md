@@ -1,5 +1,11 @@
 # Implementation status
 
+## Authenticated staging access and remaining coverage deadlines — September 13
+
+After provider-staging RLS rollout, both dedicated test accounts completed fresh Auth0 Universal Login/PKCE with verified subjects. Rider and driver profile/conversation GETs returned 200; both hosted WebSockets returned authenticated ready frames. The old conversation belongs to a cancelled ride with canSend=false, so sending correctly returned 409. This is successful closed-trip protection, not a new delivery/reconnect pass. Next: prepare a fresh active dedicated-account conversation without invoking real ride/payment providers, then verify bidirectional delivery and location authorization. Existing historical delivery evidence predates RLS.
+
+Sonar run 34781278085 completed with 767/769 server tests passing and two five-second timeouts before analysis: 101 concurrent push sends and 52 service-created retention holds across a pagination boundary. Those two tests now have explicit 15-second deadlines; all data volumes, concurrency and assertions remain unchanged. CI-mode targeted coverage passed both files (26 tests), plus formatting/lint/diff checks. Full hosted coverage/gate confirmation remains pending; targeted coverage percentages are not whole-project coverage. Prepared for the authorized main push; remote confirmation follows.
+
 ## Provider-staging RLS rollout verified — September 13
 
 Reverified logical staging alias against READY deployment dpl_FnDP7zDqgJB53ag2Wy6WiNcgbjzL at e5c988818a745685ac526ecfe60f92a4fb2183f9. Current project configuration confirms staging mode, Stripe test mode and pooled rove_staging_app on provider branch br-super-leaf-axpo6edu. Applied versioned migrations 0031–0087 and refreshed existing runtime grants without rotating credentials. Live catalog now confirms 88 migrations and all 47 public tables enabled/forced. Production was not changed.

@@ -57,3 +57,5 @@ Coverage fix confirmed: [run 34772127493](https://github.com/SahilWikhe/Rove_Mob
 ## Coverage runner recovery — September 13
 
 SonarQube run 34780774422 stopped before analysis because several instrumented database integration cases exceeded their test deadlines. The preceding run failed on the 105-payment recovery case's old five-second allowance. Local non-coverage suites passed, so the workflow now serializes package coverage tasks and limits CI Vitest coverage to one worker. A local run with `CI=true` passed all 769 server tests in 167.55 seconds using the same coverage configuration (92.63% line and 85.03% branch coverage). Workflow/config formatting and config lint passed. Hosted CI confirmation is still required before reporting the scan or quality gate green.
+
+Run 34781278085 still failed before analysis on two high-volume database tests (767/769 passed). The 101-concurrent-send and 52-hold-pagination cases now have explicit 15-second deadlines without reducing volume or assertions. CI-mode targeted coverage passed all 26 tests in those two files. Full hosted coverage and quality-gate success remain unverified.

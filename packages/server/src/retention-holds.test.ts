@@ -187,6 +187,7 @@ test('concurrent duplicate cases and idempotency retries record one hold/audit a
   ).toBe(2);
 });
 
+// Create 52 holds through the service to cross the real page boundary, including under CI coverage.
 test('review queue pagination preserves microseconds and filters account/status without skipping rows', async () => {
   for (let i = 0; i < 52; i++)
     await holds.place(
@@ -211,7 +212,7 @@ test('review queue pagination preserves microseconds and filters account/status 
   expect(second.nextCursor).toBeNull();
   expect(new Set([...first.holds, ...second.holds].map((h) => h.id)).size).toBe(52);
   expect((await holds.list(staff, { ownerId: other.id })).holds).toHaveLength(0);
-});
+}, 15000);
 
 test('failed hold audit rolls back creation and command result', async () => {
   await db.pool.query(

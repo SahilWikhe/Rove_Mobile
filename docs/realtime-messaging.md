@@ -38,3 +38,7 @@ Dedicated Auth0 staging accounts also passed hosted messaging delivery, retry, r
 
 - [Vercel WebSockets](https://vercel.com/docs/functions/websockets)
 - [Neon pooling and direct-session requirements](https://neon.com/docs/connect/connection-pooling)
+
+## Post-RLS staging checkpoint — September 13
+
+Fresh Universal Login/PKCE, profile/conversation reads and authenticated WSS ready frames passed for both dedicated accounts after the provider database enabled/forced all 47 tables. The previous fixture ride is cancelled, and its message send correctly returns 409 with canSend=false. A fresh active fixture is still required for post-RLS bidirectional delivery/reconnect and hosted location checks; the earlier delivery success above predates this rollout.

@@ -251,6 +251,7 @@ test('receipt provider outages schedule retry work instead of resending the noti
   expect(provider.send).toHaveBeenCalledOnce();
 });
 
+// 101 concurrent database-backed sends need headroom under CI coverage instrumentation.
 test('concurrent hosts share the same one-hundred-send project limit', async () => {
   const rows = (
     await db.pool.query<{ id: string }>(
@@ -270,7 +271,7 @@ test('concurrent hosts share the same one-hundred-send project limit', async () 
   expect(provider.send).toHaveBeenCalledTimes(100);
   expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
   expect((await db.pool.query('SELECT count FROM push_rate_windows')).rows[0].count).toBe(100);
-});
+}, 15000);
 test('receipt persistence and scheduling commit together; a failed commit remains recoverable', async () => {
   const send = await prepared();
   await db.pool.query(
