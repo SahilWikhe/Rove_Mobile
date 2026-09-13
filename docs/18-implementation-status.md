@@ -1,5 +1,11 @@
 # Implementation status
 
+## SonarQube hosted quality gate passed — September 13
+
+GitHub Actions run 34769028925 completed successfully for aaa9adbc529a5cb04abbaf2e555f4c257594121e. All six local coverage suites had passed (1,158 tests), and the hosted workflow also passed its coverage-test step and scanner. SonarQube reports all six gate conditions OK: new-code coverage 98% (minimum 80%), duplication 0% (maximum 3%), hotspot review 100%, and reliability/security/maintainability ratings A. No gate was weakened. This is new-code coverage, not whole-app or physical-device coverage. The PostgreSQL parser warnings and outstanding production acceptance work remain documented.
+
+Next: continue the ten remaining core-table RLS policies, then compatible staging rollout and device/provider acceptance. No additional SonarQube setup is required from the user for this workflow. This documentation checkpoint records the tested code commit; its own later push is not claimed as already verified.
+
 ## Hosted command RLS and SonarQube coverage integration — September 13
 
 Migration 0075 was applied only to the isolated synthetic Neon rehearsal branch. Live catalog inspection confirms 76 migrations and 37 of 47 tables with RLS enabled and forced. Hosted command retry, actor/key isolation, immutable results, denied foreign insertion, callback rollback, disabled replay and pooled-context reset checks passed, followed by the complete financial, messaging, tracking and document/closure regression workflow. Provider adapters were synthetic. Provider staging and production were not changed.
