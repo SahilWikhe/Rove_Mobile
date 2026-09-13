@@ -12,6 +12,7 @@ const metroPort = process.env.ACCOUNT_METRO_PORT || '8191';
 const apiPort = process.env.ACCOUNT_API_PORT || '8190';
 const companionApk = process.env.TRIP_RIDER_APK;
 const trip = Boolean(companionApk);
+const messaging = process.env.NATIVE_TRIP_MESSAGES === '1';
 const riderMetroPort = process.env.TRIP_RIDER_METRO_PORT || '8192';
 const output = trip ? 'reports/native-trip-android' : 'reports/native-account-android';
 if (
@@ -187,6 +188,8 @@ try {
       'test',
       '-e',
       `APP_ID=${bundle}`,
+      '-e',
+      `ENABLE_MESSAGES=${messaging ? '1' : '0'}`,
       '--format',
       'junit',
       '--output',

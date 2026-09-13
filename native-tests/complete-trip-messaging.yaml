@@ -1,0 +1,23 @@
+appId: co.roveride.driver
+---
+- swipe:
+    start: 50%, 65%
+    end: 50%, 25%
+    duration: 500
+- scrollUntilVisible:
+    element:
+      text: Message rider
+    direction: DOWN
+    centerElement: true
+- tapOn: Message rider
+- extendedWaitUntil:
+    visible: Message
+    timeout: 15000
+- tapOn: Message
+- inputText: Native pickup check.
+- tapOn: Send message
+- extendedWaitUntil:
+    visible: Native live reply received.
+    timeout: 15000
+- takeScreenshot: driver-live-message
+- tapOn: View this trip

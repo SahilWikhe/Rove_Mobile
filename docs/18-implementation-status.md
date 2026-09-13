@@ -2,6 +2,16 @@
 
 Updated: September 12, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Android foreground WebSocket messaging acceptance — September 12
+
+The optional messaging segment passed inside the complete Android trip scenario in 125.4 seconds. The native driver opened Message rider, typed/sent the test message, stayed in the conversation while a dedicated synthetic rider peer replied after a five-second delay, saw the reply, returned through View this trip and completed the ride through the rider's paid receipt. The final conversation screenshot was inspected.
+
+A loopback-only transparent proxy recorded a ready native WebSocket (connection 14), the remote reply's messages.changed event at 03:41:55.609 UTC, and Maestro confirmed the reply visible at 20:41:55.690 PDT before leaving the conversation. The synthetic peer timestamp matches the event. This is observed local foreground delivery, not a production latency promise. JUnit, event/peer logs and screenshots are retained in reports/native-trip-android/android-driver-details/2026-09-12_204016. The earlier attempt received the reply but failed when hideKeyboard navigated back after the keyboard was already closed; that redundant test action was removed.
+
+Added reusable local proxy/peer tooling and an optional subflow instead of duplicating the base ride scenario. Proxy regressions passed for HTTP/WebSocket forwarding, omission of tokens/content from its log and invalid/equal ports. Targeted tooling lint, formatting and documentation checks passed. No app messaging implementation or provider configuration changed.
+
+This proves native Android driver send/foreground receive with a synthetic counterpart plus a complete ride. Native rider foreground receiving, iOS messaging/trips, reconnect/background/locked-phone behavior, live Auth0/provider acceptance, location coverage, remaining Figma/data-erasure work and production setup remain open. No hosted migration, cleanup activation or production activation occurred. Next: iOS native trip/messaging acceptance and rider location/realtime coverage; owner decisions remain final-handoff items except the separately pending Google coordinate-use approval.
+
 ## Complete Android rider–driver trip acceptance — September 12
 
 The two-app native scenario passed on one fresh API 36 emulator in 122.2 seconds. It signed in both synthetic identities, made the driver available, searched Home/Work places, reviewed/requested the rider fare, opened and accepted the driver's offer, confirmed heading to pickup/arrival/start/completion, then opened the rider receipt and asserted Payment: paid. The runner exited zero and removed its owned emulator/AVD. JUnit and both screen captures are retained under reports/native-trip-android/android-driver-details/2026-09-12_202514.

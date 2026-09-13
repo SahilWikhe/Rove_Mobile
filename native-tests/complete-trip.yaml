@@ -105,6 +105,10 @@ appId: co.roveride.driver
 - extendedWaitUntil:
     visible: Head to pickup
     timeout: 30000
+- runFlow:
+    when:
+      true: ${ENABLE_MESSAGES === "1"}
+    file: complete-trip-messaging.yaml
 - tapOn: Head to pickup
 - tapOn: 'Confirm: Head to pickup'
 - extendedWaitUntil:

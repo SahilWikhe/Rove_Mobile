@@ -86,3 +86,7 @@ the conversation. Ordinary CI runs this synthetic test without external provider
 Native simulator and physical-device checks should cover keyboard open/close, long text,
 large fonts, foreground recovery, back navigation and account switching. These are separate
 from proving cloud deployment and real push delivery.
+
+### Native Android foreground evidence
+
+On September 12 the driver sent through the native composer and received a delayed synthetic rider reply while the conversation stayed open. A transparent local proxy captured the authenticated connection's ready/message-change events, and Maestro verified the remote text before navigating back to the trip. The same scenario then completed the ride and rider paid receipt (125.4 seconds, zero failures). This proves local foreground WebSocket delivery to the Android driver; it does not establish native rider receiving, iOS, push, background/locked-phone delivery or live Auth0 acceptance. Run instructions and evidence requirements are in [native messaging acceptance](08-cicd-and-environments.md#native-foreground-messaging-evidence).
