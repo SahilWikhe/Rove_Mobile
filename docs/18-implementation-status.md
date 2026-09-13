@@ -2,6 +2,16 @@
 
 Updated: September 12, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Native rider deletion journey and full browser regression — September 12
+
+Added a reusable Maestro account-deletion flow and local setup instructions. On a dedicated iOS 26.5 simulator, the rider Debug app signed in through the synthetic session, opened Account, submitted deletion consent and withdrew it. JUnit reports one passing flow in 12.4 seconds; the final screenshot was inspected and shows the persistent withdrawn confirmation, fresh-request action and preserved support history.
+
+The initial unsigned Debug build exposed a simulator Keychain failure that the Release welcome smoke could not detect. Rebuilding through Xcode with temporary simulator-only signing entitlements allowed SecureStore authentication without changing application security or production signing. An initial Account tap raced the home transition; the reusable flow now waits for animation completion before tapping. No application source was changed for these test setup corrections.
+
+Verification on application source `fa9b959`: all 56 browser journeys passed in 6.6 minutes; rider Debug builds succeeded, and the final native account flow passed. Native projects and caches were reused. This is synthetic local verification, not live Auth0, Android/driver account coverage, store signing or physical-device acceptance. Current main hosted run 34729879073 was still in progress when checked. No hosted migration, cleanup activation or production change occurred.
+
+Next: run the native account/trip journeys on the other app/platform combinations, complete provider/physical-device acceptance and remaining data-erasure fulfillment. The separately requested Google coordinate-use approval remains pending. Overall application completion is not established.
+
 ## Definitive document upload preflight failures — September 12
 
 Migration 0047 records immutable `not_dispatched_at` evidence when the S3 adapter fails its read-only privacy/versioning preflight before invoking PutObject. The tracked store commits that outcome with its audit; matching error text cannot create proof, audit failure leaves the intent unresolved, and database constraints forbid clearing the outcome or replacing it with a successful version. Pending-upload inspection and cleanup barriers exclude only these proven non-dispatched intents. Reservation expiry, account closure, retention holds and inventory requirements remain in force.

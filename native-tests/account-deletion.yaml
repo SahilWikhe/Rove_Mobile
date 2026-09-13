@@ -1,0 +1,51 @@
+# Debug-only synthetic session; launch the app with a dedicated local Metro/API first.
+appId: ${APP_ID}
+---
+- extendedWaitUntil:
+    visible: Get started
+    timeout: 60000
+- tapOn: Get started
+- extendedWaitUntil:
+    visible: Account
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 5000
+- tapOn:
+    text: Account
+    index: 0
+- scrollUntilVisible:
+    element:
+      text: Request account deletion
+    direction: DOWN
+    timeout: 20000
+- tapOn: Request account deletion
+- scrollUntilVisible:
+    element:
+      text: Send deletion request
+    direction: DOWN
+    timeout: 20000
+- tapOn: Send deletion request
+- scrollUntilVisible:
+    element:
+      text: Deletion request received
+    direction: UP
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      text: Withdraw deletion request
+    direction: DOWN
+    timeout: 20000
+- tapOn: Withdraw deletion request
+- scrollUntilVisible:
+    element:
+      text: Confirm withdrawal
+    direction: DOWN
+    timeout: 20000
+- tapOn: Confirm withdrawal
+- scrollUntilVisible:
+    element:
+      text: Deletion request withdrawn. Your account remains active.
+    direction: UP
+    timeout: 20000
+- assertVisible: Deletion request withdrawn. Your account remains active.
+- takeScreenshot: native-account-withdrawn

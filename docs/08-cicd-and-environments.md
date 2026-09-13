@@ -110,3 +110,35 @@ The smoke test still requires the standalone JavaScript bundle, matching app ide
 Local reproduction may reuse an existing release artifact, but that proves only that artifact's welcome/relaunch behavior. Rebuild and record the exact release SHA for candidate acceptance. Fresh simulators avoid existing app login state; never run diagnostic collection against a user's signed-in simulator.
 
 For local iOS builds, inspect the generated `.xcode.env.local` Node path when the shell/runtime version changes. It can override the shell's Node selection. Use the repository's Node 24 runtime; do not commit machine-specific paths. Record whether verification rebuilt application code or reused an old artifact, and whether native projects were regenerated or reused.
+
+## Local authenticated native account journey
+
+`native-tests/account-deletion.yaml` exercises synthetic sign-in, Account navigation, deletion consent, confirmation and withdrawal. It verifies the persistent withdrawn confirmation and saves a screenshot. This is an additional Debug journey, not part of the standalone Release welcome jobs. Synthetic authentication is intentionally disabled when `__DEV__` is false; do not weaken that guard to run this test.
+
+Use Node 24, Java 21, Maestro 2.10.0, a fresh disposable iOS simulator and an isolated synthetic API/Metro pair. Run the API with `ROVE_E2E=1 ROVE_LOCAL_PORT=8190 pnpm --filter @rove/api exec tsx src/local.ts`. In another terminal run `CI=1 EXPO_NO_DOTENV=1 EXPO_PUBLIC_SYNTHETIC=true EXPO_PUBLIC_API_URL=http://127.0.0.1:8190 pnpm --filter @rove/rider exec expo start --dev-client --port 8191`. Confirm these ports are unused first; do not stop another developer's servers.
+
+The Debug simulator artifact needs valid simulator signing entitlements for SecureStore/Keychain. An unsigned build can reach Welcome while authentication fails. Use Xcode's signing step, not a manual re-sign of the completed bundle. For isolated local testing, create a temporary plist outside the repository with `application-identifier` and `keychain-access-groups` containing `ROVESIM001.co.roveride.rider`, `com.apple.developer.team-identifier` set to `ROVESIM001`, and `get-task-allow` set to true. The keychain groups value is an array; the application identifier is a string. `ROVESIM001` is a simulator-only marker, not a production Apple team or provisioning identity.
+
+From `apps/rider/ios`, build with the following command, substituting the temporary plist's absolute path:
+
+```sh
+EXPO_NO_DOTENV=1 EXPO_PUBLIC_SYNTHETIC=true xcodebuild -quiet \
+  -workspace Rove.xcworkspace -scheme Rove -configuration Debug \
+  -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+  -derivedDataPath /tmp/rove-rider-native-account -jobs 4 \
+  CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual \
+  DEVELOPMENT_TEAM=ROVESIM001 CODE_SIGN_ENTITLEMENTS=/absolute/path/to/simulator.plist build
+```
+
+Install `Build/Products/Debug-iphonesimulator/Rove.app` from that derived-data directory onto the dedicated simulator. Launch with `xcrun simctl launch <device-id> co.roveride.rider -RCT_jsLocation 127.0.0.1:8191`. Once Welcome loads, run:
+
+```sh
+maestro --device <device-id> test -e APP_ID=co.roveride.rider \
+  --format junit --output reports/native-account-rider.xml \
+  --test-output-dir reports/native-account-rider-details \
+  native-tests/account-deletion.yaml
+```
+
+Start from a signed-out app and fresh synthetic API state. Keychain sessions can survive app reinstalls; prefer a new simulator. The flow waits for the home transition before tapping Account and scrolls to controls that may be outside the viewport. It does not bypass session persistence. Retain JUnit and the relative `native-account-withdrawn` screenshot under ignored reports. Shut down/delete only the simulator created for this test and stop only the isolated API/Metro processes afterward.
+
+Verified locally on rider/iOS 26.5 using application source `fa9b959`, existing generated native projects and build caches: one flow passed in 12.4 seconds. Driver, Android, live Auth0 and physical-device account journeys require separate execution; this result does not prove them.
