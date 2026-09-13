@@ -1,8 +1,10 @@
+import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { testDatabase } from '@rove/database/testing';
 import { transaction } from '@rove/server';
 import { getEarnings, getTripEarnings } from './earnings-queries';
+let runtime: Pool;
 let db: Awaited<ReturnType<typeof testDatabase>>;
 let driver: string;
 let other: string;
@@ -10,8 +12,18 @@ let rider: string;
 let binding: string;
 beforeAll(async () => {
   db = await testDatabase();
+  const password = randomBytes(32).toString('hex');
+  await db.pool.query(`CREATE ROLE earnings_reader LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`);
+  await db.pool.query(
+    'GRANT USAGE ON SCHEMA public TO earnings_reader; GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO earnings_reader',
+  );
+  const connection = new URL(db.connectionString);
+  connection.username = 'earnings_reader';
+  connection.password = password;
+  runtime = new Pool({ connectionString: connection.toString(), max: 2 });
 }, 60000);
 afterAll(async () => {
+  await runtime?.end();
   await db?.close();
 });
 beforeEach(async () => {
@@ -71,7 +83,7 @@ async function entry(
     });
   return ride;
 }
-const read = () => getEarnings(db.pool, { id: driver, role: 'driver' });
+const read = () => getEarnings(runtime, { id: driver, role: 'driver' });
 test('completed trip estimates without allocations do not count as earnings', async () => {
   await entry(driver, 790, null);
   expect(await read()).toEqual({
@@ -95,7 +107,7 @@ test('only the driver owner sees allocations and private payment fields are abse
 });
 test('rider and staff roles cannot use the driver earnings query', async () => {
   for (const role of ['rider', 'staff'] as const)
-    await expect(getEarnings(db.pool, { id: driver, role })).rejects.toMatchObject({
+    await expect(getEarnings(runtime, { id: driver, role })).rejects.toMatchObject({
       code: 'NOT_FOUND',
       status: 404,
     });
@@ -106,7 +118,7 @@ test('the recent list is bounded while the total includes older allocations', as
   expect(result.entries).toHaveLength(50);
   expect(result.recordedTotal.amount).toBe(520);
   expect(result.hasMore).toBe(true);
-  const older = await getEarnings(db.pool, { id: driver, role: 'driver' }, result.nextCursor!);
+  const older = await getEarnings(runtime, { id: driver, role: 'driver' }, result.nextCursor!);
   expect(older.entries).toHaveLength(2);
   expect(older.recordedTotal.amount).toBe(520);
   expect(older.nextCursor).toBeNull();
@@ -119,9 +131,9 @@ test('non-allocation journal kinds are excluded', async () => {
 
 test('malformed, unknown and foreign-owner cursors are rejected', async () => {
   await entry(other);
-  const foreign = await getEarnings(db.pool, { id: other, role: 'driver' });
+  const foreign = await getEarnings(runtime, { id: other, role: 'driver' });
   for (const before of ['not-a-cursor', randomUUID(), foreign.entries[0]!.id]) {
-    await expect(getEarnings(db.pool, { id: driver, role: 'driver' }, before)).rejects.toMatchObject({
+    await expect(getEarnings(runtime, { id: driver, role: 'driver' }, before)).rejects.toMatchObject({
       code: 'INVALID_CURSOR',
       status: 400,
     });
@@ -130,7 +142,7 @@ test('malformed, unknown and foreign-owner cursors are rejected', async () => {
 
 test('trip earnings distinguish a completed estimate from an allocated payment', async () => {
   const pending = await entry(driver, 790, null);
-  expect(await getTripEarnings(db.pool, { id: driver, role: 'driver' }, pending)).toEqual({
+  expect(await getTripEarnings(runtime, { id: driver, role: 'driver' }, pending)).toEqual({
     rideId: pending,
     estimatedAmount: { amount: 790, currency: 'USD' },
     recordedAmount: null,
@@ -138,7 +150,7 @@ test('trip earnings distinguish a completed estimate from an allocated payment',
     payoutStatus: 'not_configured',
   });
   const recorded = await entry(driver, 700);
-  const result = await getTripEarnings(db.pool, { id: driver, role: 'driver' }, recorded);
+  const result = await getTripEarnings(runtime, { id: driver, role: 'driver' }, recorded);
   expect(result.recordedAmount).toEqual({ amount: 700, currency: 'USD' });
   expect(result.estimatedAmount.amount).toBe(790);
   expect(result.recordedAt).toBe('2026-09-07T12:00:00.000Z');
@@ -151,10 +163,10 @@ test('trip earnings require the assigned driver and a completed trip', async () 
     { id: rider, role: 'rider' as const },
     { id: driver, role: 'staff' as const },
   ]) {
-    await expect(getTripEarnings(db.pool, actor, ride)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await expect(getTripEarnings(runtime, actor, ride)).rejects.toMatchObject({ code: 'NOT_FOUND' });
   }
   await db.pool.query("UPDATE rides SET state='in_progress' WHERE id=$1", [ride]);
-  await expect(getTripEarnings(db.pool, { id: driver, role: 'driver' }, ride)).rejects.toMatchObject({
+  await expect(getTripEarnings(runtime, { id: driver, role: 'driver' }, ride)).rejects.toMatchObject({
     code: 'NOT_FOUND',
   });
 });
@@ -175,7 +187,7 @@ test('duplicate allocation journals require review instead of displaying doubled
       [duplicate, rider, driver],
     );
   });
-  await expect(getTripEarnings(db.pool, { id: driver, role: 'driver' }, ride)).rejects.toMatchObject({
+  await expect(getTripEarnings(runtime, { id: driver, role: 'driver' }, ride)).rejects.toMatchObject({
     code: 'EARNINGS_REVIEW_REQUIRED',
     status: 409,
   });
@@ -194,7 +206,7 @@ test('UTC date filtering includes both full dates and keeps lifetime totals sepa
     rides.push(ride);
   }
   await entry(other, 900);
-  const result = await getEarnings(db.pool, { id: driver, role: 'driver' }, undefined, {
+  const result = await getEarnings(runtime, { id: driver, role: 'driver' }, undefined, {
     from: '2026-09-07',
     through: '2026-09-08',
   });
@@ -205,7 +217,7 @@ test('UTC date filtering includes both full dates and keeps lifetime totals sepa
     { date: '2026-09-08', amount: 100 },
   ]);
   expect(result.entries.map((row) => row.rideId)).toEqual([rides[2], rides[1]]);
-  const empty = await getEarnings(db.pool, { id: driver, role: 'driver' }, undefined, {
+  const empty = await getEarnings(runtime, { id: driver, role: 'driver' }, undefined, {
     from: '2026-10-01',
     through: '2026-10-01',
   });
@@ -218,7 +230,7 @@ test.each([
   { from: '2026-02-30', through: '2026-03-01' },
   { from: '2026-09-09', through: '2026-09-07' },
 ])('rejects invalid date ranges %j', async (range) => {
-  await expect(getEarnings(db.pool, { id: driver, role: 'driver' }, undefined, range)).rejects.toMatchObject({
+  await expect(getEarnings(runtime, { id: driver, role: 'driver' }, undefined, range)).rejects.toMatchObject({
     code: 'INVALID_DATE_RANGE',
   });
 });
@@ -226,7 +238,7 @@ test('a cursor outside the selected period cannot be reused', async () => {
   await entry();
   const latest = await read();
   await expect(
-    getEarnings(db.pool, { id: driver, role: 'driver' }, latest.entries[0]!.id, {
+    getEarnings(runtime, { id: driver, role: 'driver' }, latest.entries[0]!.id, {
       from: '2026-10-01',
       through: '2026-10-31',
     }),
@@ -238,8 +250,8 @@ test('filtered pagination keeps the complete period total across pages with tied
   await entry(driver, 100, 'allocation', '2026-08-31T23:59:59Z');
   const actor = { id: driver, role: 'driver' as const };
   const range = { from: '2026-09-01', through: '2026-09-30' };
-  const first = await getEarnings(db.pool, actor, undefined, range);
-  const second = await getEarnings(db.pool, actor, first.nextCursor!, range);
+  const first = await getEarnings(runtime, actor, undefined, range);
+  const second = await getEarnings(runtime, actor, first.nextCursor!, range);
   expect(first.entries).toHaveLength(50);
   expect(second.entries).toHaveLength(2);
   expect(second.nextCursor).toBeNull();
@@ -255,11 +267,11 @@ test('filtered pagination keeps the complete period total across pages with tied
 test('daily totals include leap day and stop at the 31-day chart limit', async () => {
   await entry(driver, 250, 'allocation', '2024-02-29T23:59:59Z');
   const actor = { id: driver, role: 'driver' as const };
-  const bounded = await getEarnings(db.pool, actor, undefined, { from: '2024-02-01', through: '2024-03-02' });
+  const bounded = await getEarnings(runtime, actor, undefined, { from: '2024-02-01', through: '2024-03-02' });
   expect(bounded.dailyTotals).toHaveLength(31);
   expect(bounded.dailyTotals?.find((day) => day.date === '2024-02-29')?.amount).toBe(250);
   expect(bounded.dailyTotals?.at(-1)).toEqual({ date: '2024-03-02', amount: 0 });
-  const longer = await getEarnings(db.pool, actor, undefined, { from: '2024-02-01', through: '2024-03-03' });
+  const longer = await getEarnings(runtime, actor, undefined, { from: '2024-02-01', through: '2024-03-03' });
   expect(longer).not.toHaveProperty('dailyTotals');
   expect(longer.periodTotal?.amount).toBe(250);
   expect(await read()).not.toHaveProperty('dailyTotals');
@@ -299,7 +311,7 @@ test('adjusted history preserves gross, reports signed deductions/reversals and 
   await adjustment(theirs, -500);
   await adjustment(mine, -40, 'driver_transfer');
   const actor = { id: driver, role: 'driver' as const };
-  const latest = await getEarnings(db.pool, actor, undefined, undefined, true);
+  const latest = await getEarnings(runtime, actor, undefined, undefined, true);
   expect(latest.recordedTotal.amount).toBe(790);
   expect(latest.adjustmentTotal?.amount).toBe(-250);
   expect(latest.netTotal?.amount).toBe(540);
@@ -307,7 +319,7 @@ test('adjusted history preserves gross, reports signed deductions/reversals and 
   expect(latest.entries.map((e) => e.amount.amount).sort((a, b) => a - b)).toEqual([-200, -100, 50, 790]);
   expect(JSON.stringify(latest)).not.toMatch(/cus_private|acct_private|Private name/);
   expect(JSON.stringify(latest)).not.toContain(theirs);
-  const trip = await getTripEarnings(db.pool, actor, mine, true);
+  const trip = await getTripEarnings(runtime, actor, mine, true);
   expect(trip).toMatchObject({
     recordedAmount: { amount: 790 },
     adjustmentAmount: { amount: -250 },
@@ -315,17 +327,17 @@ test('adjusted history preserves gross, reports signed deductions/reversals and 
     disputeAdjustmentAmount: { amount: -100 },
     netRecordedAmount: { amount: 540 },
   });
-  const legacy = await getEarnings(db.pool, actor);
+  const legacy = await getEarnings(runtime, actor);
   expect(legacy.entries).toHaveLength(1);
   expect(legacy).not.toHaveProperty('netTotal');
   expect(legacy.entries[0]).not.toHaveProperty('kind');
-  expect(await getTripEarnings(db.pool, actor, mine)).not.toHaveProperty('adjustmentAmount');
+  expect(await getTripEarnings(runtime, actor, mine)).not.toHaveProperty('adjustmentAmount');
 });
 test('adjustments post on their own date and a refund-only period can show negative net earnings', async () => {
   const ride = await entry();
   await adjustment(ride, -300);
   const range = { from: '2026-09-12', through: '2026-09-12' };
-  const value = await getEarnings(db.pool, { id: driver, role: 'driver' }, undefined, range, true);
+  const value = await getEarnings(runtime, { id: driver, role: 'driver' }, undefined, range, true);
   expect(value.periodTotal?.amount).toBe(0);
   expect(value.periodAdjustmentTotal?.amount).toBe(-300);
   expect(value.periodNetTotal?.amount).toBe(-300);
@@ -340,14 +352,25 @@ test('mixed activity pagination keeps complete totals and rejects another driver
   for (let i = 0; i < 52; i++) await adjustment(ride, i % 2 === 0 ? -1 : 1);
   const foreign = await adjustment(theirs, -1),
     actor = { id: driver, role: 'driver' as const };
-  const first = await getEarnings(db.pool, actor, undefined, undefined, true);
-  const second = await getEarnings(db.pool, actor, first.nextCursor!, undefined, true);
+  const first = await getEarnings(runtime, actor, undefined, undefined, true);
+  const second = await getEarnings(runtime, actor, first.nextCursor!, undefined, true);
   expect(first.entries).toHaveLength(50);
   expect(second.entries).toHaveLength(3);
   expect(new Set([...first.entries, ...second.entries].map((e) => e.id)).size).toBe(53);
   for (const page of [first, second])
     expect(page).toMatchObject({ netTotal: { amount: 790 }, adjustmentTotal: { amount: 0 } });
-  await expect(getEarnings(db.pool, actor, foreign, undefined, true)).rejects.toMatchObject({
+  await expect(getEarnings(runtime, actor, foreign, undefined, true)).rejects.toMatchObject({
     code: 'INVALID_CURSOR',
+  });
+});
+
+test('earnings access requires an active driver and does not retain ledger scope', async () => {
+  await entry();
+  await getEarnings(runtime, { id: driver, role: 'driver' });
+  expect((await runtime.query('SELECT id FROM ledger_journals')).rowCount).toBe(0);
+  expect((await runtime.query('SELECT journal_id FROM ledger_postings')).rowCount).toBe(0);
+  await db.pool.query('UPDATE users SET disabled=true WHERE id=$1', [driver]);
+  await expect(getEarnings(runtime, { id: driver, role: 'driver' })).rejects.toMatchObject({
+    code: 'FORBIDDEN',
   });
 });

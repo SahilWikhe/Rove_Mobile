@@ -1,21 +1,40 @@
 import type { Pool } from 'pg';
 import { RideReceipt } from '@rove/contracts';
-import { DomainError, type Actor } from '@rove/server';
+import {
+  actorTransaction,
+  bindLedgerAttempt,
+  bindPaymentCustomerRead,
+  bindRefundScope,
+  DomainError,
+  type Actor,
+} from '@rove/server';
 /** One database snapshot: a receipt proves recorded capture, not UI success or an authorization hold. */
 export async function getReceipt(pool: Pool, actor: Actor, rideId: string, refundsEnabled = false) {
   if (actor.role !== 'rider') throw new DomainError('NOT_FOUND', 'Receipt not found.', 404);
   const rows = (
-    await pool.query<{
-      fare_cents: number;
-      state: string;
-      payment_state: string;
-      capture_id: string | null;
-      created_at: Date | null;
-      amount: string | null;
-      refunds?: Array<{ id: string; amountCents: number; status: string; created: number }>;
-      refunds_verified_at?: Date | null;
-    }>(
-      `SELECT r.fare_cents,r.state,r.payment_state,receipt.id AS capture_id,receipt.created_at,receipt.amount
+    await actorTransaction(pool, actor, async (client) => {
+      const payment = (
+        await client.query<{ id: string; source: string }>(
+          'SELECT p.id,p.source FROM payment_attempts p JOIN rides r ON r.id=p.ride_id WHERE r.id=$1 AND r.rider_id=$2',
+          [rideId, actor.id],
+        )
+      ).rows[0];
+      if (payment) {
+        await bindLedgerAttempt(client, payment.id);
+        await bindPaymentCustomerRead(client, payment.source, { attemptId: payment.id });
+        if (refundsEnabled) await bindRefundScope(client, payment.source, 'read', payment.id);
+      }
+      return client.query<{
+        fare_cents: number;
+        state: string;
+        payment_state: string;
+        capture_id: string | null;
+        created_at: Date | null;
+        amount: string | null;
+        refunds?: Array<{ id: string; amountCents: number; status: string; created: number }>;
+        refunds_verified_at?: Date | null;
+      }>(
+        `SELECT r.fare_cents,r.state,r.payment_state,receipt.id AS capture_id,receipt.created_at,receipt.amount
      ${refundsEnabled ? ",COALESCE(refund_check.refunds,'[]'::jsonb) AS refunds,refund_check.verified_at AS refunds_verified_at" : ''}
      FROM rides r LEFT JOIN LATERAL (
        SELECT j.id,j.created_at,j.attempt_id,SUM(l.amount_cents)::text AS amount FROM ledger_journals j
@@ -25,8 +44,9 @@ export async function getReceipt(pool: Pool, actor: Actor, rideId: string, refun
        WHERE j.ride_id=r.id AND j.kind='capture' AND l.account='stripe_clearing'
        GROUP BY j.id,j.created_at,j.attempt_id
      ) receipt ON true ${refundsEnabled ? 'LEFT JOIN payment_refund_checks refund_check ON refund_check.attempt_id=receipt.attempt_id' : ''} WHERE r.id=$1 AND r.rider_id=$2`,
-      [rideId, actor.id],
-    )
+        [rideId, actor.id],
+      );
+    })
   ).rows;
   if (!rows.length) throw new DomainError('NOT_FOUND', 'Receipt not found.', 404);
   if (rows.length !== 1) throw new DomainError('RECEIPT_REVIEW', 'This payment record needs review.', 409);

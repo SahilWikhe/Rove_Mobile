@@ -1,6 +1,7 @@
+import { Pool } from 'pg';
 import { CaptureFees } from '@rove/server';
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
-import { createHmac, randomUUID } from 'node:crypto';
+import { randomBytes, createHmac, randomUUID } from 'node:crypto';
 import { testDatabase } from '@rove/database/testing';
 import {
   QuoteService,
@@ -19,6 +20,7 @@ import {
   OutboxWorker,
 } from '@rove/server';
 import { createApp } from './app';
+let runtime: Pool;
 let database: Awaited<ReturnType<typeof testDatabase>>;
 let app: ReturnType<typeof createApp>;
 let rider: string;
@@ -35,8 +37,20 @@ const maps: MapsProvider = {
 };
 beforeAll(async () => {
   database = await testDatabase();
+  const password = randomBytes(32).toString('hex');
+  await database.pool.query(
+    `CREATE ROLE receipt_reader LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`,
+  );
+  await database.pool.query(
+    'GRANT USAGE ON SCHEMA public TO receipt_reader; GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO receipt_reader',
+  );
+  const connection = new URL(database.connectionString);
+  connection.username = 'receipt_reader';
+  connection.password = password;
+  runtime = new Pool({ connectionString: connection.toString(), max: 2 });
 }, 60000);
 afterAll(async () => {
+  await runtime?.end();
   await database?.close();
 });
 beforeEach(async () => {
@@ -105,7 +119,7 @@ function buildApp(
           ),
         }
       : {}),
-    pool: database.pool,
+    pool: runtime,
     rides: new RideService(database.pool),
     quotes: new QuoteService(database.pool, maps, developmentRates, {
       south: 35,
@@ -637,4 +651,23 @@ test('staff transfer HTTP flow authenticates, reserves, settles through the work
       })
     ).status,
   ).toBe(403);
+});
+
+test('restricted profile reads return only the active account and receipt scopes are cleared', async () => {
+  const profile = await app.request('/v1/me', { headers: { Authorization: 'Bearer rider' } });
+  expect(profile.status).toBe(200);
+  expect(await profile.json()).toMatchObject({ id: rider, role: 'rider' });
+  await capture();
+  expect((await request()).status).toBe(200);
+  for (const table of [
+    'users',
+    'payment_customers',
+    'payment_attempts',
+    'ledger_journals',
+    'ledger_postings',
+  ])
+    expect((await runtime.query(`SELECT * FROM ${table}`)).rowCount).toBe(0);
+  await database.pool.query('UPDATE users SET disabled=true WHERE id=$1', [rider]);
+  expect((await app.request('/v1/me', { headers: { Authorization: 'Bearer rider' } })).status).toBe(403);
+  expect((await request()).status).toBe(403);
 });

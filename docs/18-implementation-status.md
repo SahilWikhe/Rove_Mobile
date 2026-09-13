@@ -1,5 +1,14 @@
 # Implementation status
 
+## Financial and profile API RLS compatibility verified — September 13
+
+Profile, rider receipt and driver earnings queries now run inside verified active actor transactions. Receipts resolve the payment for the owned ride before binding exact ledger, customer and optional refund evidence scopes. Earnings bind the verified driver's ledger owner scope. Migration 0086 adds SELECT-only access to allocation/refund/dispute allocation journal headers for the assigned driver with matching actor/ledger-owner scope; it grants no financial writes. This fixes missing header access that could otherwise silently produce empty earnings under RLS.
+
+All 213 API, 764 server and 13 database tests passed, plus API/database typechecking, changed-source lint and diff checks. The complete earnings suite and receipt API dependencies now use restricted database roles. Added tests verify active profile reads, disabled-account denial and no pooled ledger/customer/payment/user scope leakage. Existing cross-account cursor, receipt, adjustment, pagination and recorded-capture checks remain. Injected fake financial mutation services in receipt tests still use fixture connections; this checkpoint proves the changed read paths, not all hosted provider behavior.
+
+Migration 0086 is local only; isolated hosted remains through 0085. Source and hosted table coverage remains 46/47. Next: ride service/worker scope preparation and rides RLS, then hosted rehearsal including 0086 and compatible provider-staging rollout. Provider staging and production are unchanged; physical-device/provider acceptance and production readiness remain incomplete. This checkpoint is prepared for the authorized main push; remote confirmation follows.
+
+
 ## Ride detail and history RLS compatibility verified — September 13
 
 Ride detail/history queries now establish a verified active actor transaction. Detail reads verify persisted ownership/assignment before binding the exact associated quote scope, then repeat ownership filtering in the returned query. Counterpart profile joins are optional so completed driver history survives profile-access expiry without restoring exact endpoints or identity fields. Existing consumer/staff separation and pagination semantics remain.

@@ -106,3 +106,6 @@ export * from './identity-profiles';
 
 export { actorTransaction } from './actor-transaction';
 export { bindQuoteRide } from './quote-scope';
+export { bindLedgerOwner, bindLedgerAttempt } from './ledger-scope';
+export { bindPaymentCustomerRead } from './payment-customer-scope';
+export { bindRefundScope } from './refund-scope';

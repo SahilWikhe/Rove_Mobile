@@ -1,7 +1,7 @@
 import type { Pool } from 'pg';
 import { z } from 'zod';
 import { DriverEarnings, DriverTripEarnings, EarningsDateRange } from '@rove/contracts';
-import { DomainError, type Actor } from '@rove/server';
+import { actorTransaction, bindLedgerOwner, DomainError, type Actor } from '@rove/server';
 export async function getEarnings(
   pool: Pool,
   actor: Actor,
@@ -15,20 +15,22 @@ export async function getEarnings(
   if (range !== undefined && !EarningsDateRange.safeParse(range).success)
     throw new DomainError('INVALID_DATE_RANGE', 'Use valid dates with the start on or before the end.', 400);
   const rows = (
-    await pool.query<{
-      id: string | null;
-      ride_id: string;
-      created_at: Date;
-      amount: string;
-      total: string;
-      net_total: string;
-      period_net_total: string;
-      kind: string;
-      cursor_valid: boolean;
-      period_total: string;
-      daily_totals: { date: string; amount: number }[] | null;
-    }>(
-      `WITH owned AS MATERIALIZED (
+    await actorTransaction(pool, actor, async (client) => {
+      await bindLedgerOwner(client, actor.id);
+      return client.query<{
+        id: string | null;
+        ride_id: string;
+        created_at: Date;
+        amount: string;
+        total: string;
+        net_total: string;
+        period_net_total: string;
+        kind: string;
+        cursor_valid: boolean;
+        period_total: string;
+        daily_totals: { date: string; amount: number }[] | null;
+      }>(
+        `WITH owned AS MATERIALIZED (
        SELECT j.id,j.ride_id,j.created_at,j.kind,(-SUM(l.amount_cents))::text AS amount
        FROM ledger_postings l JOIN ledger_journals j ON j.id=l.journal_id
        WHERE l.owner_id=$1 AND l.account='driver_payable' AND (j.kind='allocation' OR ($5::boolean AND j.kind IN ('refund_loss_allocation','dispute_loss_allocation')))
@@ -48,8 +50,9 @@ export async function getEarnings(
           LEFT JOIN (SELECT (created_at AT TIME ZONE 'UTC')::date AS date,SUM(amount::bigint) AS amount FROM filtered WHERE kind='allocation' GROUP BY 1) d ON d.date=day::date)
        ELSE NULL END AS daily_totals,(SELECT COALESCE(SUM(amount::bigint),0)::text FROM filtered WHERE kind='allocation') AS period_total,($2::uuid IS NULL OR EXISTS(SELECT 1 FROM boundary)) AS cursor_valid
      FROM totals t LEFT JOIN page p ON true ORDER BY p.created_at DESC,p.id DESC`,
-      [actor.id, before ?? null, range?.from ?? null, range?.through ?? null, includeAdjustments],
-    )
+        [actor.id, before ?? null, range?.from ?? null, range?.through ?? null, includeAdjustments],
+      );
+    })
   ).rows;
   if (!rows[0]?.cursor_valid) throw new DomainError('INVALID_CURSOR', 'Refresh your earnings history.', 400);
   const records = rows.filter((row) => row.id !== null);
@@ -89,15 +92,17 @@ export async function getEarnings(
 
 export async function getTripEarnings(pool: Pool, actor: Actor, rideId: string, includeAdjustments = false) {
   if (actor.role !== 'driver') throw new DomainError('NOT_FOUND', 'Trip earnings not found.', 404);
-  const { rows } = await pool.query<{
-    earnings_cents: number;
-    amount: string | null;
-    recorded_at: Date | null;
-    journals: string;
-    refund_adjustment: string;
-    dispute_adjustment: string;
-  }>(
-    `SELECT r.earnings_cents, a.amount, a.recorded_at, a.journals, a.refund_adjustment, a.dispute_adjustment
+  const { rows } = await actorTransaction(pool, actor, async (client) => {
+    await bindLedgerOwner(client, actor.id);
+    return client.query<{
+      earnings_cents: number;
+      amount: string | null;
+      recorded_at: Date | null;
+      journals: string;
+      refund_adjustment: string;
+      dispute_adjustment: string;
+    }>(
+      `SELECT r.earnings_cents, a.amount, a.recorded_at, a.journals, a.refund_adjustment, a.dispute_adjustment
       FROM rides r LEFT JOIN LATERAL (
         SELECT (-SUM(l.amount_cents) FILTER (WHERE j.kind='allocation'))::text AS amount,
                MAX(j.created_at) FILTER (WHERE j.kind='allocation') AS recorded_at,
@@ -109,8 +114,9 @@ export async function getTripEarnings(pool: Pool, actor: Actor, rideId: string, 
           AND l.account='driver_payable' AND l.owner_id=$1
       ) a ON true
       WHERE r.id=$2 AND r.driver_id=$1 AND r.state='completed'`,
-    [actor.id, rideId],
-  );
+      [actor.id, rideId],
+    );
+  });
   const row = rows[0];
   if (!row) throw new DomainError('NOT_FOUND', 'Trip earnings not found.', 404);
   if (Number(row.journals) > 1)

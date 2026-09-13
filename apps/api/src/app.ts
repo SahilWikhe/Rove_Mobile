@@ -1,4 +1,4 @@
-import { findVerifiedProfile, registerVerifiedProfile } from '@rove/server';
+import { actorTransaction, findVerifiedProfile, registerVerifiedProfile } from '@rove/server';
 import { MessageCleanupAuthorization } from '@rove/contracts';
 import { createReadinessCheck } from './readiness';
 import { MessageCleanup, DocumentCleanup } from '@rove/server';
@@ -302,8 +302,11 @@ export function createApp(deps: Dependencies) {
     c.json(await updateProfileName(deps.pool, c.var.actor, await body(c, ProfileNameUpdate))),
   );
   app.get('/v1/me', async (c) => {
-    const user = (await deps.pool.query('SELECT id,name,role FROM users WHERE id=$1', [c.var.actor.id]))
-      .rows[0];
+    const user = (
+      await actorTransaction(deps.pool, c.var.actor, (client) =>
+        client.query('SELECT id,name,role FROM users WHERE id=$1', [c.var.actor.id]),
+      )
+    ).rows[0];
     return c.json(user);
   });
   app.get('/v1/me/capabilities', async (c) => {

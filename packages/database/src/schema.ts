@@ -557,6 +557,10 @@ export const ledgerJournals = pgTable(
       for: 'select',
       using: sql`${t.attemptId}=NULLIF(current_setting('rove.ledger_attempt',true),'')::uuid OR ${t.createdTransaction}=pg_current_xact_id()::text`,
     }),
+    pgPolicy('ledger_driver_history', {
+      for: 'select',
+      using: sql`current_setting('rove.actor_role',true)='driver' AND NULLIF(current_setting('rove.ledger_owner',true),'')=NULLIF(current_setting('rove.actor_id',true),'') AND ${t.kind} IN ('allocation','refund_loss_allocation','dispute_loss_allocation') AND EXISTS(SELECT 1 FROM public.rides r WHERE r.id=${t.rideId} AND r.driver_id=NULLIF(current_setting('rove.actor_id',true),'')::uuid)`,
+    }),
     pgPolicy('ledger_capture_sweep', {
       for: 'select',
       using: sql`current_setting('rove.capture_sweep',true)='true' AND ${t.kind}='capture' AND EXISTS(SELECT 1 FROM public.payment_attempts p WHERE p.id=${t.attemptId} AND p.source=current_setting('rove.capture_source',true))`,
