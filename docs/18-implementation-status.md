@@ -1,5 +1,11 @@
 # Implementation status
 
+## User-directed priority order — September 13
+
+Finish the current reviewed message-cleanup operational integration, then prioritize implementing and enabling PostgreSQL RLS in Neon staging. This is an explicit user request for enabled RLS, not only catalog reporting. Implement versioned policies and transaction-scoped identity, cover consumer ownership plus staff/background-worker access, verify cross-account denial and legitimate workflows using the runtime roles on an isolated test branch, then enable and verify staging coverage. Production rollout remains part of the separate production handoff; no production activation is authorized by this priority change.
+
+This checkpoint changes the work order only. No RLS policy or database setting was changed. Documentation validation passed; app tests are unchanged and were not rerun for this priority update. The full mobile release goal, provider/physical-device acceptance and remaining cleanup requirements remain open.
+
 ## Reviewed message cleanup transaction — September 13
 
 Implemented the disabled-by-default MessageCleanup domain service for exact reviewed batches of expired messages authored by a closed-account requester. It requires staff MFA/current cleanup permission, matching configured policy, unwithdrawn closure and participant retention checks. Reported conversations and counterpart messages are preserved. User/ride locks serialize cleanup with messaging and hold placement. Deletion, audit and retry receipt are atomic; the receipt does not claim complete erasure.
