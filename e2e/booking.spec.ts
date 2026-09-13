@@ -447,6 +447,7 @@ test('rider request reaches the driver and both apps follow a completed syntheti
       driver.getByText('Synthetic earnings · no money will be paid out.', { exact: true }),
     ).toHaveCount(0);
     await driver.getByRole('button', { name: 'View earnings', exact: true }).click();
+    await driver.getByRole('button', { name: 'Earnings settings', exact: true }).click();
     await expect(driver.getByRole('tab', { name: 'Last 7 days', exact: true })).toHaveAttribute(
       'aria-selected',
       'true',

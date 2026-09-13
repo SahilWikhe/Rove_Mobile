@@ -435,3 +435,7 @@ Browser verification at 390×844 passed Account → Documents and both screensho
 ### Founder-requested booking map preview — September 12
 
 The user requested a zoomed-out road route on confirmation and direct saved Home/Work → current pickup → fare/map preview. This extends Figma 5:89 while retaining explicit Request ride confirmation and editable route/service. Use the existing dark/gold native map and fit all road geometry plus endpoint markers. Empty saved slots open setup; unavailable location falls back to manual pickup. Do not draw a straight line as a substitute for a failed live road route. Browser tests verify flow; native camera acceptance remains pending.
+
+## Driver earnings settings — September 13 approved adjustment
+
+The earnings summary owns a 44-point circular, translucent black settings control in its top-right header. Last 7 days, This month and custom recorded-date controls are collapsed by default and revealed together inside the card. Selecting a preset or applying valid dates closes the controls; validation errors remain visible. This replaces the separate filter rows above the card without changing earnings calculations or date semantics.

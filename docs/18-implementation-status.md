@@ -2,6 +2,12 @@
 
 Updated: September 12, 2026. The newest checkpoints below identify the source revision and verification scope for each result. Historical checkpoints retain their original limitations. This records implementation and evidence, not production readiness or a percentage-complete estimate.
 
+## Compact driver earnings settings — September 13
+
+Moved Last 7 days, This month and custom recorded-date controls behind a 44-point circular translucent black settings button in the summary card's top-right corner, per the user's screenshot request. The panel starts collapsed, exposes its expanded state to accessibility APIs and closes on valid range selection. Existing custom-date validation and all-recorded-dates behavior remain available. No earnings calculations or backend changes.
+
+Verification: the existing driver account/earnings browser journey passed in 1.9 seconds (7.3 seconds total), including collapsed controls, selection, invalid dates, applied dates and lifetime reset. Reviewed the 390px collapsed layout screenshot. Initial verification found a missing web expansion attribute and a stray whitespace node causing a development warning; both were fixed before the passing run. Driver typecheck, targeted lint and formatting passed. The full booking journey's earnings selector was updated for the new entry point but that broader journey was not rerun. Native visual review of this specific adjustment remains pending; no native dependency or rebuild is required. Next: continue remaining release priorities and native UI acceptance.
+
 ## Rider native location rebuild and booking verification — September 12
 
 The installed iOS rider binary predated expo-location, producing Cannot find native module ExpoLocation when the new booking code loaded. Regenerated native dependencies, installed pods and rebuilt the simulator app with ExpoLocation 57.0.17. The initial unsigned-build/manual-entitlement installation exposed keychain and launch problems; rebuilding with Xcode simulator signing enabled resolved launch and permitted the complete synthetic booking flow. The existing simulator and app data were preserved.

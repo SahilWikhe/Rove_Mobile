@@ -52,6 +52,7 @@ function EarningsContent({
   const [from, setFrom] = useState(range?.from ?? '');
   const [through, setThrough] = useState(range?.through ?? '');
   const [customDates, setCustomDates] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [rangeError, setRangeError] = useState<string | null>(null);
   const [data, setData] = useState<DriverEarnings | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +73,12 @@ function EarningsContent({
       });
     }, [api, profile, before, range]),
   );
+  const chooseRange = (value: EarningsDateRange | undefined) => {
+    setFiltersOpen(false);
+    setCustomDates(false);
+    setRangeError(null);
+    applyRange(value);
+  };
   const today = new Date();
   const date = (value: Date) => value.toISOString().slice(0, 10);
   const weekStart = new Date(today);
@@ -94,86 +101,121 @@ function EarningsContent({
       <Copy kind="title" style={styles.title}>
         Earnings
       </Copy>
-      {profile && (
-        <View accessibilityRole="tablist" style={styles.filters}>
-          {presets.map((preset) => {
-            const selected = range?.from === preset.from && range.through === preset.through;
-            return (
-              <Pressable
-                key={preset.label}
-                accessibilityRole="tab"
-                accessibilityState={{ selected }}
-                aria-selected={selected}
-                onPress={() => applyRange({ from: preset.from, through: preset.through })}
-                style={[styles.filter, selected && styles.selectedFilter]}
-              >
-                <Copy style={[styles.filterText, selected && { color: '#120D02' }]}>{preset.label}</Copy>
-              </Pressable>
-            );
-          })}
-        </View>
-      )}
-      {profile && (
-        <Button
-          title={customDates ? 'Hide custom dates' : 'Filter recorded dates'}
-          variant="secondary"
-          onPress={() => setCustomDates(!customDates)}
-        />
-      )}
-      {profile && customDates && (
-        <Card>
-          <Copy kind="heading">Filter recorded dates</Copy>
-          <Copy kind="muted">Use YYYY-MM-DD. Dates include the full day in UTC.</Copy>
-          <Field
-            label="From date (UTC)"
-            testID="earnings-from-date"
-            returnKeyType="done"
-            onSubmitEditing={Keyboard.dismiss}
-            autoCorrect={false}
-            maxLength={10}
-            value={from}
-            onChangeText={setFrom}
-            placeholder="YYYY-MM-DD"
-            autoCapitalize="none"
-          />
-          <Field
-            label="Through date (UTC)"
-            testID="earnings-through-date"
-            returnKeyType="done"
-            onSubmitEditing={Keyboard.dismiss}
-            autoCorrect={false}
-            maxLength={10}
-            value={through}
-            onChangeText={setThrough}
-            placeholder="YYYY-MM-DD"
-            autoCapitalize="none"
-          />
-          {rangeError && <Banner error message={rangeError} />}
-          <Button
-            title="Apply dates"
-            variant="secondary"
-            onPress={() => {
-              Keyboard.dismiss();
-              const parsed = EarningsDateRange.safeParse({ from, through });
-              if (!parsed.success) {
-                setRangeError('Enter valid dates with the start on or before the end.');
-                return;
-              }
-              setRangeError(null);
-              applyRange(parsed.data);
-            }}
-          />
-          {range && (
-            <Button title="All recorded dates" variant="secondary" onPress={() => applyRange(undefined)} />
-          )}
-        </Card>
-      )}
       {newer && <Button title="Newer earnings" variant="secondary" onPress={newer} />}
       {error && <Banner error message={error} />}
       {data ? (
         <>
           <Card style={styles.summary}>
-            <Copy kind="label">{data.netTotal ? 'NET EARNINGS' : 'GROSS TRIP EARNINGS'}</Copy>
+            <View style={styles.summaryHeader}>
+              <Copy kind="label" style={{ flex: 1 }}>
+                {data.netTotal ? 'NET EARNINGS' : 'GROSS TRIP EARNINGS'}
+              </Copy>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Earnings settings"
+                accessibilityHint="Choose an earnings date range"
+                accessibilityState={{ expanded: filtersOpen }}
+                aria-expanded={filtersOpen}
+                onPress={() => setFiltersOpen((open) => !open)}
+                style={({ pressed }) => [styles.settingsButton, pressed && { opacity: 0.7 }]}
+              >
+                <View
+                  accessible={false}
+                  importantForAccessibility="no-hide-descendants"
+                  style={styles.settingsIcon}
+                >
+                  {[4, 12, 7].map((offset, index) => (
+                    <View key={index} style={styles.sliderLine}>
+                      <View style={[styles.sliderKnob, { left: offset }]} />
+                    </View>
+                  ))}
+                </View>
+              </Pressable>
+            </View>
+            {filtersOpen && (
+              <View style={styles.settingsPanel}>
+                {profile && (
+                  <View accessibilityRole="tablist" style={styles.filters}>
+                    {presets.map((preset) => {
+                      const selected = range?.from === preset.from && range.through === preset.through;
+                      return (
+                        <Pressable
+                          key={preset.label}
+                          accessibilityRole="tab"
+                          accessibilityState={{ selected }}
+                          aria-selected={selected}
+                          onPress={() => chooseRange({ from: preset.from, through: preset.through })}
+                          style={[styles.filter, selected && styles.selectedFilter]}
+                        >
+                          <Copy style={[styles.filterText, selected && { color: '#120D02' }]}>
+                            {preset.label}
+                          </Copy>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
+                {profile && (
+                  <Button
+                    title={customDates ? 'Hide custom dates' : 'Filter recorded dates'}
+                    variant="secondary"
+                    onPress={() => setCustomDates(!customDates)}
+                  />
+                )}
+                {profile && customDates && (
+                  <Card>
+                    <Copy kind="heading">Filter recorded dates</Copy>
+                    <Copy kind="muted">Use YYYY-MM-DD. Dates include the full day in UTC.</Copy>
+                    <Field
+                      label="From date (UTC)"
+                      testID="earnings-from-date"
+                      returnKeyType="done"
+                      onSubmitEditing={Keyboard.dismiss}
+                      autoCorrect={false}
+                      maxLength={10}
+                      value={from}
+                      onChangeText={setFrom}
+                      placeholder="YYYY-MM-DD"
+                      autoCapitalize="none"
+                    />
+                    <Field
+                      label="Through date (UTC)"
+                      testID="earnings-through-date"
+                      returnKeyType="done"
+                      onSubmitEditing={Keyboard.dismiss}
+                      autoCorrect={false}
+                      maxLength={10}
+                      value={through}
+                      onChangeText={setThrough}
+                      placeholder="YYYY-MM-DD"
+                      autoCapitalize="none"
+                    />
+                    {rangeError && <Banner error message={rangeError} />}
+                    <Button
+                      title="Apply dates"
+                      variant="secondary"
+                      onPress={() => {
+                        Keyboard.dismiss();
+                        const parsed = EarningsDateRange.safeParse({ from, through });
+                        if (!parsed.success) {
+                          setRangeError('Enter valid dates with the start on or before the end.');
+                          return;
+                        }
+                        setRangeError(null);
+                        chooseRange(parsed.data);
+                      }}
+                    />
+                    {range && (
+                      <Button
+                        title="All recorded dates"
+                        variant="secondary"
+                        onPress={() => chooseRange(undefined)}
+                      />
+                    )}
+                  </Card>
+                )}
+              </View>
+            )}
             <Copy style={styles.amount}>
               {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
                 (range && data.periodTotal
@@ -271,6 +313,26 @@ function EarningsContent({
 
 const styles = StyleSheet.create({
   title: { fontSize: 26, letterSpacing: -0.52, fontFamily: 'Manrope_800ExtraBold' },
+  summaryHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 },
+  settingsButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(10,10,10,0.72)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
+  },
+  settingsIcon: { width: 20, gap: 6 },
+  sliderLine: { height: 1.5, backgroundColor: theme.text, justifyContent: 'center' },
+  sliderKnob: { position: 'absolute', width: 5, height: 5, borderRadius: 3, backgroundColor: theme.text },
+  settingsPanel: { gap: 12, paddingVertical: 12 },
   filters: {
     flexDirection: 'row',
     padding: 4,

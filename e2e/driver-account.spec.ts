@@ -19,7 +19,15 @@ test('Driver Account navigation opens trips and earnings with a route back', asy
   await page.getByRole('button', { name: 'Account', exact: true }).click();
   await page.getByRole('button', { name: 'Earnings', exact: true }).click();
   await expect(page).toHaveURL(/\/earnings$/);
+  await expect(page.getByRole('tab', { name: 'Last 7 days', exact: true })).toHaveCount(0);
+  await page.screenshot({ path: '/tmp/rove-driver-earnings-settings-closed.png', fullPage: true });
+  await page.getByRole('button', { name: 'Earnings settings', exact: true }).click();
   await page.getByRole('tab', { name: 'Last 7 days', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Earnings settings', exact: true })).toHaveAttribute(
+    'aria-expanded',
+    'false',
+  );
+  await page.getByRole('button', { name: 'Earnings settings', exact: true }).click();
   await expect(page.getByRole('tab', { name: 'Last 7 days', exact: true })).toHaveAttribute(
     'aria-selected',
     'true',
@@ -42,8 +50,10 @@ test('Driver Account navigation opens trips and earnings with a route back', asy
   await expect(
     page.getByText('No earnings or adjustments in this date range.', { exact: true }),
   ).toBeVisible();
+  await page.getByRole('button', { name: 'Earnings settings', exact: true }).click();
   await page.getByRole('button', { name: 'Filter recorded dates', exact: true }).click();
   await page.getByRole('button', { name: 'All recorded dates', exact: true }).click();
+  await page.getByRole('button', { name: 'Earnings settings', exact: true }).click();
   await page.getByRole('button', { name: 'Filter recorded dates', exact: true }).click();
   await expect(page.getByRole('textbox', { name: 'From date (UTC)', exact: true })).toHaveValue('');
   await expect(page.getByText('2000-01-01 – 2000-01-31 · UTC', { exact: true })).toHaveCount(0);
