@@ -1,5 +1,11 @@
 # Implementation status
 
+## Hosted payment-attempt RLS verified — September 13
+
+Applied migration 0081 only to disposable br-shy-bar-axjulxqh / neondb after fresh branch and endpoint verification and explicit direct/pooled hostname/database assertions. Catalog reports 82 migrations, 47 tables and 44 enabled/forced RLS tables. The complete hosted rehearsal exited successfully using rove_staging_app with NOSUPERUSER/NOBYPASSRLS. New checks passed exact payment lookup/lock, wrong-source denial, unscoped invisibility and mutation denial. Existing synthetic reconciliation, capture, refund, dispute, transfer/reversal, payout, messaging, notifications, tracking, closure and reviewed document cleanup paths passed. External providers were fake adapters throughout.
+
+Source and isolated hosted coverage now match at 44/47. Users, drivers and rides remain; compatible provider-staging rollout and device/provider acceptance are still required. Read-only tracing found identity lookups before actor authorization in API login/signup, command setup and actor locking; these must gain compatible scopes before users RLS. Existing policies reference users, so avoid recursive parent/child policy dependencies. Provider staging and production remain unchanged. Next: implement core identity access scopes and policies. This checkpoint is prepared for the authorized main push; remote confirmation follows.
+
 ## Payment-attempt RLS implemented and verified locally — September 13
 
 Migration 0081 enables and forces payment_attempts RLS. Rider creation requires an active owner, a searching ride, matching fare and a bound provider customer. Verified result writes preserve attempt, ride, binding, source, amount and an already-bound intent. Exact payment lookups and accounting locks, provider-scoped read-only recovery scans, ride-event source-mismatch detection and staff-authorized closure access are integrated. Lock-only UPDATE authority is disabled during result-write scope so permissive policies cannot combine to retarget an intent. Backend-controlled scopes supplement domain authorization; they do not protect against arbitrary SQL with a compromised runtime credential.
