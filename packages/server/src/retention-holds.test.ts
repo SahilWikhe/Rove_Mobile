@@ -1,3 +1,5 @@
+import { actorTransaction } from './actor-transaction';
+import { transaction } from './transactions';
 import { Pool } from 'pg';
 import { randomUUID } from 'node:crypto';
 import { beforeAll, afterAll, beforeEach, test, expect, vi } from 'vitest';
@@ -225,4 +227,60 @@ test('failed hold audit rolls back creation and command result', async () => {
   } finally {
     await db.pool.query('DROP TRIGGER fail_hold_audit ON audit; DROP FUNCTION fail_hold_audit()');
   }
+});
+
+test('RLS hides hold evidence while the scoped guard still detects holds and restores visibility', async () => {
+  const hold = await holds.place(staff, rider.id, input, randomUUID());
+  expect((await runtimePool.query('SELECT * FROM retention_holds')).rowCount).toBe(0);
+  await transaction(runtimePool, async (c) => {
+    expect(
+      (await c.query('SELECT public.has_active_retention_hold($1) AS held', [rider.id])).rows[0].held,
+    ).toBe(true);
+    expect((await c.query('SELECT * FROM retention_holds')).rowCount).toBe(0);
+    expect(
+      (await c.query('SELECT public.has_active_retention_hold($1) AS held', [other.id])).rows[0].held,
+    ).toBe(false);
+  });
+  await actorTransaction(runtimePool, rider, async (c) => {
+    expect((await c.query('SELECT * FROM retention_holds')).rowCount).toBe(0);
+    expect((await c.query('DELETE FROM retention_holds')).rowCount).toBe(0);
+  });
+  await db.pool.query(
+    "DELETE FROM staff_permissions WHERE staff_id=$1 AND permission='privacy.release-hold'",
+    [staff.id],
+  );
+  await actorTransaction(runtimePool, staff, async (c) => {
+    expect((await c.query('SELECT * FROM retention_holds')).rowCount).toBe(1);
+    expect(
+      (
+        await c.query(
+          "UPDATE retention_holds SET released_at=now(),released_by=$1,release_reference='forged'",
+          [staff.id],
+        )
+      ).rowCount,
+    ).toBe(0);
+  });
+  await expect(
+    holds.release(staff, hold.id, { releaseReference: 'synthetic' }, randomUUID()),
+  ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  await actorTransaction(runtimePool, { ...staff, mfa: false }, async (c) => {
+    expect((await c.query('SELECT * FROM retention_holds')).rowCount).toBe(0);
+  });
+});
+
+test('identity dispatch trigger detects a hold even when ordinary RLS reads hide it', async () => {
+  const id = await request();
+  await closures.authorize(staff, id, policy, randomUUID());
+  await holds.place(staff, rider.id, input, randomUUID());
+  await expect(
+    transaction(runtimePool, async (c) => {
+      await c.query("SELECT set_config('rove.identity_request',$1,true)", [id]);
+      expect((await c.query('SELECT * FROM retention_holds')).rowCount).toBe(0);
+      await c.query(
+        'UPDATE account_closures SET identity_attempted_at=clock_timestamp() WHERE request_id=$1',
+        [id],
+      );
+    }),
+  ).rejects.toThrow('Active retention hold blocks account closure or identity dispatch');
+  expect(erase).not.toHaveBeenCalled();
 });

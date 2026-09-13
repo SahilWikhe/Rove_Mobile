@@ -1134,6 +1134,23 @@ export const retentionHolds = pgTable(
     releaseReference: text(),
   },
   (t) => [
+    pgPolicy('retention_staff_read', {
+      for: 'select',
+      using: sql`${rlsStaff('privacy.read')} OR ${rlsStaff('privacy.hold')} OR ${rlsStaff('privacy.release-hold')}`,
+    }),
+    pgPolicy('retention_staff_place', {
+      for: 'insert',
+      withCheck: sql`${rlsStaff('privacy.hold')} AND ${t.placedBy}=${rlsActor} AND ${t.releasedAt} IS NULL`,
+    }),
+    pgPolicy('retention_staff_release', {
+      for: 'update',
+      using: rlsStaff('privacy.release-hold'),
+      withCheck: sql`${rlsStaff('privacy.release-hold')} AND ${t.releasedBy}=${rlsActor} AND ${t.releasedAt} IS NOT NULL`,
+    }),
+    pgPolicy('retention_guard_read', {
+      for: 'select',
+      using: sql`${t.ownerId}=NULLIF(current_setting('rove.retention_owner',true),'')::uuid`,
+    }),
     uniqueIndex('retention_active_case')
       .on(t.ownerId, t.kind, t.reasonReference)
       .where(sql`${t.releasedAt} is null`),

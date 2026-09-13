@@ -19,13 +19,7 @@ export async function assertNoRetentionHolds(c: PoolClient, ownerId: string) {
     ownerId,
   ]);
   if (!owner.rowCount) throw new DomainError('NOT_FOUND', 'Consumer account not found.', 404);
-  if (
-    (
-      await c.query('SELECT id FROM retention_holds WHERE owner_id=$1 AND released_at IS NULL LIMIT 1', [
-        ownerId,
-      ])
-    ).rowCount
-  )
+  if ((await c.query('SELECT public.has_active_retention_hold($1) AS held', [ownerId])).rows[0].held)
     throw new DomainError('RETENTION_HOLD', 'An active retention hold blocks this operation.', 409);
 }
 function dto(row: Record<string, unknown>) {

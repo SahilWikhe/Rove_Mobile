@@ -1,5 +1,13 @@
 # Implementation status
 
+## Retention-hold RLS — September 13
+
+Migration 0054 enables/forces retention_holds RLS with separate current MFA permissions for reading, placement and release. Placement/release must name the current staff actor; runtime deletion has no policy. The immutable evidence trigger remains active. A narrowly scoped database helper locks the owner, returns only whether an active hold exists, and restores its temporary read scope. Closure dispatch and document cleanup triggers use this helper so RLS-hidden holds cannot permit deletion.
+
+Verification: 55 domain tests, 208 API tests and 13 database tests passed (276 total), plus server/database typechecks, targeted lint, formatting and documentation validation. Direct restricted-role tests show invisible holds still block identity dispatch, scoped checks restore visibility, consumers cannot access/delete hold evidence, and hold-placement permission does not grant release authority. Existing closure/document/message cleanup retention, concurrency and retry tests passed with synthetic providers.
+
+Source policy coverage is eleven of 47 tables. Hosted evidence still covers only the original four-table rehearsal; staging and production settings were not changed. Next: remaining worker/data policies and hosted rehearsal of the current migration delta before staging rollout. Full mobile production acceptance remains incomplete.
+
 ## Account-closure RLS and invariant preservation — September 13
 
 Migration 0053 enables/forces account_closures RLS. Current MFA privacy staff have permission-scoped reads; privacy.close authorizes initial closure insertion, with no staff identity-result mutation. Identity workers use exact request scope; document cleanup uses exact cleanup-item scope for closure reads. Staff retention/cleanup services now bind actor identity. Actor transactions clear every worker/guard setting.

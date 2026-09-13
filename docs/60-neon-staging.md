@@ -185,3 +185,7 @@ Migration 0052 adds enabled/forced RLS to account_deletion_requests, bringing so
 ## Closure policy extension in source
 
 Migration 0053 adds enabled/forced RLS to account_closures, bringing source coverage to ten of 47 tables. Staff reads/inserts and identity/document workers use distinct scoped policies. The closed-account trigger retains owner-specific visibility so hidden rows cannot permit reactivation. Compatible actor/worker code must precede migration. Local domain/API/database checks passed; hosted verification remains the earlier four-table rehearsal and provider staging is unchanged.
+
+## Retention policy extension in source
+
+Migration 0054 adds enabled/forced RLS to retention_holds, bringing source coverage to eleven of 47 tables. Distinct current MFA staff permissions govern placement, reads and release. A scoped boolean database helper preserves hold visibility for closure/document deletion guards without exposing hold records to ordinary consumers. Local restricted-role and API/database suites passed; hosted verification remains the earlier four-table rehearsal. Deploy compatible backend code before the migration delta.

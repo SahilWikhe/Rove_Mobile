@@ -154,3 +154,11 @@ Migration 0053 enables/forces account_closures RLS. MFA staff reads use explicit
 The closed-account access trigger temporarily scopes its read to OLD.id and restores the prior setting before returning. This preserves the ban on reactivation and subject/role changes even when the calling runtime role cannot ordinarily see closure records. These settings are trusted backend context, not credentials or authorization for arbitrary SQL clients. Existing immutability, retention, settlement and dispatch guards continue to enforce domain invariants.
 
 Local restricted-role tests verify those paths with synthetic providers. The migration is not yet deployed to hosted Neon, and does not establish full retained-data erasure or production acceptance.
+
+## Retention row isolation
+
+Migration 0054 enables/forces retention_holds RLS. Current MFA privacy.read, privacy.hold or privacy.release-hold grant reads; only privacy.hold grants placement, and only privacy.release-hold grants release. The actor must match the recorded placer/releaser. There is no runtime delete policy, and immutable hold evidence remains protected by its trigger.
+
+The has_active_retention_hold database helper locks one owner, temporarily scopes hold reads to that owner, returns a boolean and restores the prior scope. Closure and document cleanup triggers call it, preserving retention enforcement even when ordinary reads cannot see the hold. It neither expires holds by review date nor authorizes erasure. Actor/worker transactions clear the temporary guard setting. This is trusted backend context; the helper does not expose hold reasons or provide a consumer API.
+
+Restricted-role tests verify hidden-hold enforcement, scope restoration, consumer denial, separate placement/release permissions, concurrency and synthetic provider retry. Hosted migration and production acceptance remain pending.
