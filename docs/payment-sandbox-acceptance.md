@@ -18,6 +18,8 @@ A private operator harness created a dedicated $2 ride/payment fixture. Fixture 
 | Original processor balance | $2 gross, $0.36 fee, $1.64 net; original charge balance still pending, zero unrefunded cents |
 | Hosted ingress | One receipt each for PaymentIntent creation, capturable update and success; all three corresponding payment reconciliation jobs completed |
 | Hosted capture job | One completed capture job; no matching job for the fixture |
+| Hosted rider receipt | After enabling read-only staging refund tracking, authenticated rider sees original $2 capture and one succeeded $2 refund with verification timestamp |
+| Receipt authorization | Driver receives 404; anonymous request receives 401 |
 
 The private fixture and provider references are retained outside Git for inspection and safe retries; no client secret, credential, account email or raw provider payload is in this document. The synthetic trip is terminal and fully refunded. Financial history remains retained rather than deleted or rewritten. Original capture fees are separate from refund movements; a pending balance is not transfer-ready funding, and refund accounting does not by itself reverse a driver's earnings or transfer money out of a connected account.
 

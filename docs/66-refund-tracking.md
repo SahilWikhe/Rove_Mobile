@@ -2,7 +2,7 @@
 
 ## Scope
 
-Refund tracking is implemented locally behind `PAYMENT_REFUNDS_ENABLED=true`. It reads provider facts; it does not authorize or create refunds, alter capture journals, reverse driver earnings, resolve disputes or perform transfers. Those financial operations and business policies remain separate launch work.
+Refund tracking is implemented behind `PAYMENT_REFUNDS_ENABLED=true`. It reads provider facts; it does not authorize or create refunds, alter capture journals, reverse driver earnings, resolve disputes or perform transfers. Those financial operations and business policies remain separate launch work.
 
 ## Durable flow
 
@@ -28,7 +28,7 @@ Rollback disables the flag on API and worker. Preserve observation tables and hi
 
 ## Verification and remaining work
 
-Disposable PostgreSQL tests cover atomicity, immutable history, conflicting reads, references, contradictory results and bounded fair recovery. Signed SDK webhook/API tests verify deduplication, runtime gating and owned receipt serialization through the outbox worker. Browser tests exercise all refund statuses and support navigation at 320 and 390 pixels. Stripe transport is mocked; these are local tests, not hosted sandbox or physical-device acceptance.
+Disposable PostgreSQL tests cover atomicity, immutable history, conflicting reads, references, contradictory results and bounded fair recovery. Signed SDK webhook/API tests verify deduplication, runtime gating and owned receipt serialization through the outbox worker. Browser tests exercise all refund statuses and support navigation at 320 and 390 pixels. These automated suites use mocked Stripe transport. Separate hosted sandbox evidence is recorded below; physical-device acceptance remains outstanding.
 
 The next checkpoint adds [staff-authorized refund operations](67-refund-operations.md) with cumulative limits and bounded retry recovery. Remaining work includes controlled ambiguous-outcome resolution, commercial loss allocation, dispute handling, and approved driver transfer/settlement workflows. Metadata correlation recovery and processor balance journals are documented in [refund accounting](68-refund-accounting.md). See [current status](18-implementation-status.md).
 
@@ -36,4 +36,10 @@ The next checkpoint adds [staff-authorized refund operations](67-refund-operatio
 
 Migration 0067 enables and forces RLS on payment_refund_checks and payment_refund_observations. Reconciliation binds the configured provider source and one persisted attempt; sweep discovery reads only that source and binds each selected attempt before writing. Refund authorization, recovery, loss allocation and transfer freshness checks use read/lock access without mutation permission. Observation history has scoped insert/read policies and no runtime update/delete policy; check deletion is also denied. Actor and other worker helpers clear refund contexts.
 
-Restricted-role tests verify reconciliation/retries, source isolation, read locks with denied mutations, append-only observations, and context reset alongside refund, loss-allocation and transfer workflows. Deploy compatible API/worker code before the migration. Hosted verification of 0067 passed on the isolated synthetic Neon branch through the restricted pooled application role, including reconciliation retries and denied evidence mutation/deletion. Provider-staging and production were not changed.
+Restricted-role tests verify reconciliation/retries, source isolation, read locks with denied mutations, append-only observations, and context reset alongside refund, loss-allocation and transfer workflows. Deploy compatible API/worker code before the migration. Hosted verification of 0067 passed on the isolated synthetic Neon branch through the restricted pooled application role, including reconciliation retries and denied evidence mutation/deletion. Provider-staging now also has these policies applied and the hosted receipt verification below uses its restricted runtime. Production remains unchanged.
+
+## Provider-staging receipt verification — September 13, 2026
+
+Read-only refund tracking is enabled on rove-api-staging for API and worker. READY deployment dpl_G4f1sWGZy2ZE9UdfD9oVQmd8mJrc serves the staging alias. Against the existing fully refunded synthetic $2 fixture, an Auth0-authenticated rider received the original $2 captured amount and one succeeded $2 refund with a non-null verification timestamp. The driver received 404 and an unauthenticated reader received 401. No new payment or refund operation was issued by this receipt check.
+
+Refund creation/accounting flags, Connect/transfers, push delivery and document cleanup remain disabled, verified before and after deployment. This is API receipt evidence; it does not prove native rendering or staff MFA refund operations. See [sandbox acceptance](payment-sandbox-acceptance.md). Production rollout and the remaining pending/failure/missed-event provider scenarios are still release work.
