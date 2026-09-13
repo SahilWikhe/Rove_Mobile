@@ -1,5 +1,11 @@
 # Implementation status
 
+## Hosted post-RLS messaging passed — September 13
+
+Verified dedicated rider/driver messaging against READY staging deployment dpl_46Mu6DzKiqNqgnGZh4gjSWT7Vitt, source 484909dc8fdb3b3851b02439515f15d13693efe4. A fresh zero-fare conversation fixture was seeded only for the two previously authorized test accounts, with exact staging endpoint/subject checks and an active-driver-ride exclusion. Fixture setup used migration credentials; all exercised HTTPS/WSS operations used Auth0 access tokens and the deployed restricted runtime. No booking, Maps or payment provider calls were made. This proves messaging behavior, not end-to-end booking.
+
+Both authenticated WSS sessions became ready. Bidirectional messages and authorized history, lost-response retry deduplication, read-state notifications and reconnect catch-up passed. Invalid socket authentication and unauthenticated conversation reads were rejected. The exact temporary zero-fare ride was then cancelled with version increment; history was retained. Production untouched. CI/Sonar runs for 484909d were pending at inspection. Next: live-location lifecycle authorization/physical GPS acceptance and remaining provider/device release checks. Documentation is prepared for the authorized main push; remote confirmation follows.
+
 ## Authenticated staging access and remaining coverage deadlines — September 13
 
 After provider-staging RLS rollout, both dedicated test accounts completed fresh Auth0 Universal Login/PKCE with verified subjects. Rider and driver profile/conversation GETs returned 200; both hosted WebSockets returned authenticated ready frames. The old conversation belongs to a cancelled ride with canSend=false, so sending correctly returned 409. This is successful closed-trip protection, not a new delivery/reconnect pass. Next: prepare a fresh active dedicated-account conversation without invoking real ride/payment providers, then verify bidirectional delivery and location authorization. Existing historical delivery evidence predates RLS.

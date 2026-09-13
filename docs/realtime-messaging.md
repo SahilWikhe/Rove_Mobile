@@ -42,3 +42,7 @@ Dedicated Auth0 staging accounts also passed hosted messaging delivery, retry, r
 ## Post-RLS staging checkpoint — September 13
 
 Fresh Universal Login/PKCE, profile/conversation reads and authenticated WSS ready frames passed for both dedicated accounts after the provider database enabled/forced all 47 tables. The previous fixture ride is cancelled, and its message send correctly returns 409 with canSend=false. A fresh active fixture is still required for post-RLS bidirectional delivery/reconnect and hosted location checks; the earlier delivery success above predates this rollout.
+
+### Post-RLS delivery verification completed
+
+A subsequent fresh zero-fare fixture for those same dedicated accounts passed hosted bidirectional WSS invalidations, authorized persisted history, request retry deduplication, read-state notifications and reconnect catch-up on deployment `dpl_46Mu6DzKiqNqgnGZh4gjSWT7Vitt` (`484909d`). Invalid authentication and anonymous history reads were rejected. The fixture was seeded with migration credentials, while all tested messaging used Auth0 and the deployed restricted runtime. It was cancelled after verification, retaining history. No booking/Maps/payment provider calls were made; this does not prove booking, real push delivery or physical background GPS.
