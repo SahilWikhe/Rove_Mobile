@@ -1,5 +1,13 @@
 # Implementation status
 
+## Installation actor boundaries — September 13
+
+Notification installation status/device reads now bind and lock a verified active actor inside the same transaction as the read. Register/remove/remote revoke bind actor context after the existing owner lock. Secret verification, revision fencing, advisory registration/token locks and account-transfer behavior remain unchanged. Invalid, disabled and role-mismatched actors now fail device reads before querying registration data.
+
+Verification: all 693 server tests and 208 API tests passed (901 total), plus server typecheck, targeted lint, formatting and documentation validation. Eleven installation tests run through a restricted non-owner role and cover secret handling, same-device account switching, stale revision rejection, remote revocation, invalid/disabled actor reads and pooled identity reset. No schema change or real push-provider operation occurred.
+
+This is preparation for installation RLS, not enabled installation protection. Coverage remains twenty of 47 tables in source and seventeen in hosted verification. Next: scope proof lookup/transfer, duplicate-token checks, audience reads and receipt/privacy mutations, then add the installation migration and verify it with restricted roles. Staging rollout and full mobile production acceptance remain incomplete.
+
 ## Notification delivery RLS — September 13
 
 Migration 0062 enables and forces push_deliveries RLS. Fanout receives exact event/installation/revision read and initial-pending insert scope; retry no longer requires update rights. Send/receipt handlers bind a single durable delivery ID. Recovery can read and lock only stalled work at its bound scan time, without changing receipt state. Runtime deletion is denied. Existing leases, recipient revalidation, shared project capacity and idempotent outbox scheduling remain active; actor and other worker contexts clear delivery scope.

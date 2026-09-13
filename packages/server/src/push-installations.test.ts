@@ -1,8 +1,10 @@
+import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { testDatabase } from '@rove/database/testing';
 import { users } from '@rove/database';
 import { PushInstallations } from './push-installations';
+let runtimePool: Pool;
 let database: Awaited<ReturnType<typeof testDatabase>>;
 const projects = { rider: randomUUID(), driver: randomUUID() };
 let service: PushInstallations;
@@ -17,9 +19,25 @@ const input = () => ({
 });
 beforeAll(async () => {
   database = await testDatabase();
-  service = new PushInstallations(database.pool, projects);
+  await database.pool.query(
+    "CREATE ROLE rls_installations LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'synthetic-local-only'",
+  );
+  await database.pool.query('GRANT USAGE ON SCHEMA public TO rls_installations');
+  await database.pool.query(
+    'GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO rls_installations',
+  );
+  runtimePool = new Pool({
+    host: '127.0.0.1',
+    port: (await database.pool.query('SELECT inet_server_port() AS port')).rows[0].port,
+    database: 'postgres',
+    user: 'rls_installations',
+    password: 'synthetic-local-only',
+    max: 5,
+  });
+  service = new PushInstallations(runtimePool, projects);
 }, 60000);
 afterAll(async () => {
+  await runtimePool?.end();
   await database?.close();
 });
 beforeEach(async () => {
@@ -200,4 +218,26 @@ test('account revocation frees a lost-proof token for new identity without letti
   expect(
     await service.status(a, { installationId: fresh.installationId, secret: fresh.secret }),
   ).toMatchObject({ enabled: true, revision: 1 });
+});
+
+test('installation reads require an active verified actor and transaction identity does not leak', async () => {
+  const update = input();
+  await service.register(a, update);
+  await expect(service.devices({ ...a, role: 'driver' })).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  await expect(service.devices({ id: randomUUID(), role: 'rider' })).rejects.toMatchObject({
+    code: 'FORBIDDEN',
+  });
+  await database.pool.query('UPDATE users SET disabled=true WHERE id=$1', [a.id]);
+  await expect(service.devices(a)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  await expect(
+    service.status(a, { installationId: update.installationId, secret: update.secret }),
+  ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  const c = await runtimePool.connect();
+  try {
+    expect(
+      (await c.query("SELECT NULLIF(current_setting('rove.actor_id',true),'') AS actor")).rows[0].actor,
+    ).toBeNull();
+  } finally {
+    c.release();
+  }
 });

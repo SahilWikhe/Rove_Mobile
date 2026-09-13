@@ -182,3 +182,9 @@ The delivery suite runs through a restricted non-owner role and verifies retries
 Migration 0062 enables and forces RLS on push_deliveries. Fanout binds the exact event, installation and revision selected by the audience service, can read that recipient's delivery, and can insert only an initial pending delivery without receipt or lease fields. Retry uses conflict-do-nothing followed by a read, avoiding fanout update rights. Send and receipt handlers bind one durable delivery ID; existing lease fencing still governs state transitions. Recovery binds its scan time and can read/lock only stale pending, sending or receipt rows; it cannot alter receipts. No runtime delete policy exists.
 
 Local restricted-role tests cover these boundaries alongside delivery retries, concurrent fanout, receipt handling and recovery. Delivery RLS does not imply installation protection or physical-phone delivery. Deploy compatible worker code before migration 0062; hosted verification remains pending.
+
+## Installation actor transaction preparation
+
+Status and device-list reads now execute in a verified active-actor transaction. Registration, removal and remote revocation bind the same actor identity after their existing account locks. Installation-secret verification, revision checks, advisory locks and same-device account transfer remain unchanged. Disabled, nonexistent or role-mismatched actors receive FORBIDDEN on device reads. Restricted non-owner tests exercise these services.
+
+This prepares consumer paths for installation RLS but does not enable it. Remaining work includes proof-scoped registration lookup/transfer, duplicate-token detection, exact-recipient audience reads, invalid-token receipt mutation and privacy closure/inventory policies before the migration can be applied.

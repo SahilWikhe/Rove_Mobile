@@ -1,3 +1,4 @@
+import { actorTransaction, bindActorIdentity } from './actor-transaction';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import {
@@ -55,32 +56,32 @@ export class PushInstallations {
   async status(actor: Actor, raw: Proof) {
     const input = PushInstallationProof.parse(raw);
     const project = this.project(actor);
-    const owner = await this.pool.query('SELECT id FROM users WHERE id=$1 AND role=$2 AND disabled=false', [
-      actor.id,
-      actor.role,
-    ]);
-    if (!owner.rowCount) throw new DomainError('FORBIDDEN', 'Account is unavailable.', 403);
-    const row = (
-      await this.pool.query<Row>(
-        'SELECT * FROM push_installations WHERE project_id=$1 AND installation_id=$2',
-        [project, input.installationId],
-      )
-    ).rows[0];
-    if (row) verify(row, input.secret);
-    return {
-      installationId: input.installationId,
-      revision: row?.revision ?? null,
-      enabled: !!row && row.owner_id === actor.id && row.enabled,
-    };
+    return actorTransaction(this.pool, actor, async (client) => {
+      const row = (
+        await client.query<Row>(
+          'SELECT * FROM push_installations WHERE project_id=$1 AND installation_id=$2',
+          [project, input.installationId],
+        )
+      ).rows[0];
+      if (row) verify(row, input.secret);
+      return {
+        installationId: input.installationId,
+        revision: row?.revision ?? null,
+        enabled: !!row && row.owner_id === actor.id && row.enabled,
+      };
+    });
   }
+
   async devices(actor: Actor) {
     const project = this.project(actor);
     const rows = (
-      await this.pool.query<{ id: string; revision: number; platform: 'ios' | 'android'; updated_at: Date }>(
-        `SELECT p.id,p.revision,p.platform,p.updated_at FROM push_installations p JOIN users u ON u.id=p.owner_id
+      await actorTransaction(this.pool, actor, (client) =>
+        client.query<{ id: string; revision: number; platform: 'ios' | 'android'; updated_at: Date }>(
+          `SELECT p.id,p.revision,p.platform,p.updated_at FROM push_installations p JOIN users u ON u.id=p.owner_id
        WHERE p.owner_id=$1 AND p.project_id=$2 AND p.enabled=true AND u.disabled=false AND u.role=$3
        ORDER BY p.updated_at DESC,p.id LIMIT 10`,
-        [actor.id, project, actor.role],
+          [actor.id, project, actor.role],
+        ),
       )
     ).rows;
     return {
@@ -103,6 +104,7 @@ export class PushInstallations {
         [actor.id, actor.role],
       );
       if (!owner.rowCount) throw new DomainError('FORBIDDEN', 'Account is unavailable.', 403);
+      await bindActorIdentity(client, actor, 'update');
       const row = (
         await client.query<Row>(
           'SELECT * FROM push_installations WHERE id=$1 AND owner_id=$2 AND project_id=$3 FOR UPDATE',
@@ -139,6 +141,7 @@ export class PushInstallations {
           [actor.id, actor.role],
         );
         if (!owner.rowCount) throw new DomainError('FORBIDDEN', 'Account is unavailable.', 403);
+        await bindActorIdentity(client, actor, 'update');
         // Includes non-existent installations: first writes and account transfers serialize.
         await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
           `push:${project}:${input.installationId}`,
