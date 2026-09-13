@@ -1,5 +1,13 @@
 # Implementation status
 
+## Isolated Neon RLS rehearsal — September 13
+
+Applied all 50 versioned migrations through 0049 to an isolated Neon branch cloned from the older staging branch after verifying that every existing user had a synthetic subject. The rehearsal branch expires September 14. Live catalog inspection confirmed 47 tables, with four enabled/forced RLS tables. Production and provider-staging settings were not changed.
+
+Synthetic hosted checks passed through the pooled rove_staging_app login (non-owner, NOSUPERUSER/NOBYPASSRLS): saved-place ownership and foreign insert denial, message assignment and idempotent retry, notification audience suppression after reading, empty identity after pooled reuse, staff inventory, account closure and reviewed expired-message deletion/replay. No message delivery, Auth0 erasure or payment provider was invoked. The earlier process handle was unavailable and no matching live process remained; a bounded rerun produced an explicit passing result.
+
+Read-only provider-staging inspection still shows 31 migrations, 32 tables and zero RLS-enabled tables. This is a material deployment gap: rehearse and review the complete migration delta and verify compatible API/worker code before staging rollout. Documentation validation passed across 87 files. Next: extend policies to remaining data and worker paths; 43 current-schema tables remain uncovered. Full app and production acceptance remain incomplete.
+
 ## Messaging RLS and scoped notification access — September 13
 
 Added migration 0049 enabling/forcing RLS on message bodies, read markers and reports. Consumer transactions now bind actor identity; policies enforce participant/owner access and prevent forged senders, foreign reads/writes, participant message-body mutation and report deletion. Notification audience reads use event-specific transaction scope rather than a global bypass. Privacy cleanup binds staff identity and retains its reviewed batch/hold protections.
