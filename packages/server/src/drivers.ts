@@ -1,4 +1,4 @@
-import { bindActorIdentity } from './actor-transaction';
+import { actorTransaction, bindActorIdentity } from './actor-transaction';
 import type { Pool } from 'pg';
 import { Coordinate, DriverOffer, DriverCoverage, DriverActivity } from '@rove/contracts';
 import { DomainError } from './errors';
@@ -15,16 +15,22 @@ export class DriverService {
   ) {}
   async activity(actor: Actor) {
     driverOnly(actor);
-    const row = (
-      await this.pool.query(
-        `SELECT u.created_at,
+    const row = await actorTransaction(this.pool, actor, async (client) => {
+      return (
+        await client.query(
+          `SELECT u.created_at,
          (SELECT count(*) FROM rides WHERE driver_id=d.id AND state='completed') AS completed,
          (SELECT count(*) FROM offers WHERE driver_id=d.id AND status='accepted') AS accepted
        FROM drivers d JOIN users u ON u.id=d.id
        WHERE d.id=$1 AND NOT u.disabled`,
-        [actor.id],
-      )
-    ).rows[0];
+          [actor.id],
+        )
+      ).rows[0];
+    }).catch((error: unknown) => {
+      if (error instanceof DomainError && error.code === 'FORBIDDEN')
+        throw new DomainError('NOT_FOUND', 'Driver profile not found.', 404);
+      throw error;
+    });
     if (!row) throw new DomainError('NOT_FOUND', 'Driver profile not found.', 404);
     return DriverActivity.parse({
       completedTrips: Number(row.completed),
@@ -160,19 +166,22 @@ export class DriverService {
   }
   async offers(actor: Actor) {
     driverOnly(actor);
-    const rows = (
-      await this.pool.query(
-        `SELECT o.snapshot FROM offers o JOIN rides r ON r.id=o.ride_id JOIN drivers d ON d.id=o.driver_id
+    const rows = await actorTransaction(this.pool, actor, async (client) => {
+      return (
+        await client.query(
+          `SELECT o.snapshot FROM offers o JOIN rides r ON r.id=o.ride_id JOIN drivers d ON d.id=o.driver_id
       WHERE o.driver_id=$1 AND o.status='pending' AND o.expires_at>$2 AND r.state='searching' AND r.payment_state='authorized'
       AND r.search_deadline>$2 AND d.online=true AND d.approved=true AND d.payout_ready=true AND d.payout_valid_until>$2 AND d.eligibility_expires_at>$2 AND d.location_at>$2::timestamptz-interval '60 seconds'`,
-        [actor.id, this.now()],
-      )
-    ).rows;
+          [actor.id, this.now()],
+        )
+      ).rows;
+    });
     return { offers: rows.map((row) => DriverOffer.parse(row.snapshot)) };
   }
   async decline(actor: Actor, offerId: string, key: string) {
     driverOnly(actor);
     return command(this.pool, actor.id, key, { action: 'decline', offerId }, async (client) => {
+      await bindActorIdentity(client, actor);
       const reference = (
         await client.query('SELECT ride_id FROM offers WHERE id=$1 AND driver_id=$2', [offerId, actor.id])
       ).rows[0];

@@ -1,5 +1,13 @@
 # Implementation status
 
+## Offer RLS implemented locally — September 13
+
+Migration 0079 enables/forces RLS on offers. Drivers access their own offers; riders read accepted offers attached to their assigned trip. Matching has scoped ride writes plus pending-offer visibility for contention checks. Lifecycle workers expire/revoke only the selected ride’s offers. Notifications use an exact offer ID; cleanup reads require current staff MFA and privacy.cleanup permission. Driver activity/offers, matching candidates and offer notifications now run inside scoped transactions. Service authorization and transition rules remain required.
+
+All 736 server, 208 API and 13 database tests passed, alongside typechecking/lint. Restricted-role tests cover driver/rider isolation, accepted assignments, worker ride scope, exact read-only notification scope, insert denial, and matching insertion. The initial run found driver activity returning FORBIDDEN for missing/disabled users after earlier identity validation; it now preserves the existing NOT_FOUND response and the complete rerun passed.
+
+Source RLS is 42 of 47 tables; hosted rehearsal remains verified at 41 pending offer migration/checks. Next: hosted offer/matching/messaging/notification verification, then users, drivers, rides, payment_attempts and outbox policies, compatible staging rollout and device/provider acceptance. Provider staging and production remain unchanged.
+
 ## Hosted ledger RLS verified — September 13
 
 Applied 0078 only to the reverified disposable br-shy-bar-axjulxqh / neondb branch. The live catalog confirms 79 migrations and 41 enabled/forced RLS tables. The complete pooled rove_staging_app rehearsal exited successfully with NOSUPERUSER/NOBYPASSRLS. Ledger payment/owner isolation, mutation denial and deferred rejection of an empty journal passed alongside capture, refunds, disputes, reviewed loss allocation, transfers/reversals, payout reconciliation, messaging, tracking, push, retention, closure and document cleanup. All external provider adapters were synthetic.

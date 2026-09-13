@@ -115,17 +115,20 @@ export class PushAudience {
     if (event.topic !== 'offer.created') return null;
     const payload = z.object({ offerId: z.uuid(), driverId: z.uuid() }).strict().safeParse(event.payload);
     if (!payload.success) return null;
-    const offer = (
-      await this.pool.query<{ id: string; driver_id: string; expires_at: Date }>(
-        `SELECT o.id,o.driver_id,LEAST(o.expires_at,r.search_deadline,$4::timestamptz) AS expires_at
+    const offer = await transaction(this.pool, async (client) => {
+      await client.query("SELECT set_config('rove.notification_offer',$1,true)", [payload.data.offerId]);
+      return (
+        await client.query<{ id: string; driver_id: string; expires_at: Date }>(
+          `SELECT o.id,o.driver_id,LEAST(o.expires_at,r.search_deadline,$4::timestamptz) AS expires_at
        FROM offers o JOIN rides r ON r.id=o.ride_id JOIN drivers d ON d.id=o.driver_id
        WHERE o.id=$1 AND o.ride_id=$2 AND o.driver_id=$5 AND o.status='pending' AND o.expires_at>$3
        AND r.state='searching' AND r.payment_state='authorized' AND r.search_deadline>$3
        AND d.online=true AND d.approved=true AND d.payout_ready=true AND d.payout_valid_until>$3
        AND d.eligibility_expires_at>$3 AND d.location_at>$3::timestamptz-interval '60 seconds'`,
-        [payload.data.offerId, event.aggregate_id, now, event.expires_at, payload.data.driverId],
-      )
-    ).rows[0];
+          [payload.data.offerId, event.aggregate_id, now, event.expires_at, payload.data.driverId],
+        )
+      ).rows[0];
+    });
     return offer
       ? {
           kind: 'offer_available',

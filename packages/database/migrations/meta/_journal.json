@@ -554,6 +554,13 @@
       "when": 1789322057099,
       "tag": "0078_ledger_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1789322717205,
+      "tag": "0079_offer_rls",
+      "breakpoints": true
     }
   ]
 }

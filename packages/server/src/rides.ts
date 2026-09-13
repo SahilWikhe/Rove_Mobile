@@ -1,3 +1,5 @@
+import { bindActorIdentity } from './actor-transaction';
+import { bindOfferRide } from './offer-scope';
 import { bindQuoteOwner, bindQuoteRide } from './quote-scope';
 import { scheduleSearchExpiry } from './search-expiry';
 import type { Pool, PoolClient } from 'pg';
@@ -85,6 +87,7 @@ export class RideService {
   async accept(actor: Actor, offerId: string, key: string) {
     requireRole(actor, 'driver');
     return command(this.pool, actor.id, key, { action: 'accept', offerId }, async (client) => {
+      await bindActorIdentity(client, actor);
       // Find owner first without disclosing existence to other drivers. Lock order is always ride then offer.
       const first = await client.query<{ ride_id: string }>(
         'SELECT ride_id FROM offers WHERE id=$1 AND driver_id=$2',
@@ -184,10 +187,12 @@ export class RideService {
             [rideId, to],
           )
         ).rows[0]!;
-        if (to === 'cancelled')
+        if (to === 'cancelled') {
+          await bindOfferRide(client, ride.id);
           await client.query("UPDATE offers SET status='revoked' WHERE ride_id=$1 AND status='pending'", [
             rideId,
           ]);
+        }
         await event(client, rideId, `ride.${to}`, actor.id, updated.version);
         return rideSummary(updated);
       },

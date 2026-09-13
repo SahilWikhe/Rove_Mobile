@@ -119,6 +119,10 @@ export const rides = pgTable(
       .where(sql`${t.state} in ('matched','en_route','arrived','in_progress','interrupted')`),
   ],
 );
+const offerActor = sql`NULLIF(current_setting('rove.actor_id',true),'')::uuid`;
+const offerDriver = (driver: SQLWrapper) =>
+  sql`${driver}=${offerActor} AND current_setting('rove.actor_role',true)='driver' AND EXISTS(SELECT 1 FROM public.users u WHERE u.id=${driver} AND u.role='driver' AND u.disabled=false)`;
+const offerRide = (ride: SQLWrapper) => sql`${ride}=NULLIF(current_setting('rove.offer_ride',true),'')::uuid`;
 export const offers = pgTable(
   'offers',
   {
@@ -134,6 +138,33 @@ export const offers = pgTable(
     snapshot: jsonb().notNull(),
   },
   (t) => [
+    pgPolicy('offer_driver_read', { for: 'select', using: offerDriver(t.driverId) }),
+    pgPolicy('offer_driver_update', {
+      for: 'update',
+      using: offerDriver(t.driverId),
+      withCheck: sql`${offerDriver(t.driverId)} AND ${t.status} IN ('accepted','declined')`,
+    }),
+    pgPolicy('offer_participant_read', {
+      for: 'select',
+      using: sql`${t.status}='accepted' AND EXISTS(SELECT 1 FROM public.rides r JOIN public.users u ON u.id=r.rider_id WHERE r.id=${t.rideId} AND r.rider_id=${offerActor} AND r.driver_id=${t.driverId} AND u.disabled=false AND current_setting('rove.actor_role',true)='rider')`,
+    }),
+    pgPolicy('offer_worker_read', {
+      for: 'select',
+      using: sql`${offerRide(t.rideId)} OR (current_setting('rove.offer_matching',true)='true' AND ${t.status}='pending') OR ${t.id}=NULLIF(current_setting('rove.notification_offer',true),'')::uuid`,
+    }),
+    pgPolicy('offer_worker_update', {
+      for: 'update',
+      using: offerRide(t.rideId),
+      withCheck: sql`${offerRide(t.rideId)} AND ${t.status} IN ('expired','revoked')`,
+    }),
+    pgPolicy('offer_matching_insert', {
+      for: 'insert',
+      withCheck: sql`${offerRide(t.rideId)} AND current_setting('rove.offer_matching',true)='true' AND ${t.status}='pending'`,
+    }),
+    pgPolicy('offer_cleanup_read', {
+      for: 'select',
+      using: sql`current_setting('rove.actor_role',true)='staff' AND current_setting('rove.actor_mfa',true)='true' AND EXISTS(SELECT 1 FROM public.users u JOIN public.staff_permissions p ON p.staff_id=u.id WHERE u.id=${offerActor} AND u.disabled=false AND u.role='staff' AND p.permission='privacy.cleanup')`,
+    }),
     index('accepted_offers_by_driver')
       .on(t.driverId)
       .where(sql`${t.status} = 'accepted'`),

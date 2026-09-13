@@ -1,3 +1,4 @@
+import { bindOfferRide } from './offer-scope';
 import { bindQuoteRide } from './quote-scope';
 import { randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
@@ -35,6 +36,7 @@ export class MatchingService {
     private now: () => Date = () => new Date(),
   ) {}
   private async inspect(client: PoolClient, rideId: string): Promise<SearchRow | null> {
+    await bindOfferRide(client, rideId, true);
     await bindQuoteRide(client, rideId);
     const ride = (
       await client.query<SearchRow>(
@@ -77,9 +79,11 @@ export class MatchingService {
     const ride = await transaction(this.pool, (client) => this.inspect(client, rideId));
     if (!ride) return;
     const quote = Quote.parse(ride.snapshot);
-    const candidates = (
-      await this.pool.query<{ id: string; location: unknown; coverage_radius_miles: number }>(
-        `SELECT d.id,d.location,d.coverage_radius_miles FROM drivers d JOIN users u ON u.id=d.id
+    const candidates = await transaction(this.pool, async (client) => {
+      await bindOfferRide(client, rideId, true);
+      return (
+        await client.query<{ id: string; location: unknown; coverage_radius_miles: number }>(
+          `SELECT d.id,d.location,d.coverage_radius_miles FROM drivers d JOIN users u ON u.id=d.id
       WHERE d.online=true AND d.approved=true AND d.payout_ready=true AND d.payout_valid_until>$1 AND d.eligibility_expires_at>$1 AND u.disabled=false
       AND d.location_at>$1::timestamptz-interval '60 seconds' AND d.location IS NOT NULL
       AND ($2='standard' OR d.service='accessible')
@@ -87,15 +91,16 @@ export class MatchingService {
       AND NOT EXISTS (SELECT 1 FROM rides WHERE driver_id=d.id AND state IN ('matched','en_route','arrived','in_progress','interrupted'))
       ORDER BY power((d.location->>'latitude')::double precision-$4::double precision,2)
         +power(((d.location->>'longitude')::double precision-$5::double precision)*cos(radians($4::double precision)),2) LIMIT 100`,
-        [
-          this.now(),
-          quote.service,
-          rideId,
-          quote.pickup.coordinate.latitude,
-          quote.pickup.coordinate.longitude,
-        ],
-      )
-    ).rows;
+          [
+            this.now(),
+            quote.service,
+            rideId,
+            quote.pickup.coordinate.latitude,
+            quote.pickup.coordinate.longitude,
+          ],
+        )
+      ).rows;
+    });
     const nearby = candidates
       .flatMap((candidate) => {
         const point = Coordinate.safeParse(candidate.location);

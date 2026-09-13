@@ -1,3 +1,4 @@
+import { bindOfferRide } from './offer-scope';
 import { bindPaymentCustomerRead } from './payment-customer-scope';
 import type { Pool } from 'pg';
 import { z } from 'zod';
@@ -266,10 +267,12 @@ export class PaymentReconciler {
         );
       }
       if (next === ride.payment_state) return;
-      if (next !== 'authorized')
+      if (next !== 'authorized') {
+        await bindOfferRide(client, before.ride_id);
         await client.query("UPDATE offers SET status='revoked' WHERE ride_id=$1 AND status='pending'", [
           before.ride_id,
         ]);
+      }
       await client.query('UPDATE rides SET payment_state=$2,version=version+1,updated_at=$3 WHERE id=$1', [
         before.ride_id,
         next,

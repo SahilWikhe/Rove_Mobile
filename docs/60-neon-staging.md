@@ -225,3 +225,9 @@ Ledger preparation: journal/posting inserts now use a shared transaction-bound a
 Source RLS reaches 41 of 47 tables. Exact payment and closure-owner read scopes, current-transaction journal visibility and exact append payloads protect ledger headers/postings. Capture sweep permits source-specific capture headers. Existing deferred balance, immutable history and same-transaction posting constraints remain active. Backend authorization and compatible scope binding must deploy before migration.
 
 Local verification passed 734 server, 208 API and 13 database tests plus typechecks and lint. The initial direct loss-policy test was updated to include the ledger scope already bound by the production service. Hosted verification now includes 0078: 79 migrations and 41 enabled/forced tables. The complete synthetic workflow rehearsal passed, including ledger payment/owner isolation, mutation denial, empty-journal rejection, financial retries, and closure/document checks. Provider staging and production are unchanged.
+
+## Offer policies — migration 0079
+
+Source RLS reaches 42 of 47 tables. Own-driver, accepted-rider, exact-ride matching/lifecycle, exact-notification and authorized-cleanup scopes protect offers. Matching retains pending-offer visibility for contention checks, while writes remain scoped to its ride. Compatible service transactions and scope resets must precede migration.
+
+Local verification passed 736 server, 208 API and 13 database tests plus types/lint. Driver activity keeps its previous NOT_FOUND response for missing/disabled accounts. Hosted verification remains 41 tables through 0078 until the next isolated offer workflow check; provider staging and production remain unchanged.

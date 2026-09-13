@@ -1,3 +1,4 @@
+import { bindOfferRide } from './offer-scope';
 import type { Pool, PoolClient } from 'pg';
 import { transaction, event } from './transactions';
 
@@ -23,6 +24,7 @@ export class SearchExpiry {
       ).rows[0];
       if (!ride || ride.state !== 'searching' || ride.search_deadline > this.now()) return false;
       const state = ride.payment_state === 'authorized' ? 'no_driver_found' : 'cancelled';
+      await bindOfferRide(client, rideId);
       await client.query("UPDATE offers SET status='expired' WHERE ride_id=$1 AND status='pending'", [
         rideId,
       ]);
