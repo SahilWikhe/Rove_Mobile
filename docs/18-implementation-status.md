@@ -1,5 +1,13 @@
 # Implementation status
 
+## Driver transfer operation and movement RLS — September 13
+
+Migration 0071 enables and forces RLS on driver_transfer_operations and driver_transfer_movements. Current MFA staff with payments.transfer can create only initial queued authorizations attributed to themselves. Execution/recovery binds one existing operation; source-specific attempt reads preserve competing-transfer and refund holds. Sweep discovery has read/lock access and scopes each selected write. Current MFA privacy.close permits target-driver reads so pending transfers remain closure holds. Movement receipts are append-only through the runtime role, with exact source/balance lookup for collision checks. Existing authorization invariants remain; actor/worker helpers clear transfer scope.
+
+Verification: all 708 server, 208 API and 13 database tests passed (929 total), plus server/database typechecks, targeted lint, formatting and diff checks. Restricted-role tests cover authorization, retries/reversals, rejected worker inserts/read-scope changes, immutable movements, source isolation and pooled reset. The new closure regression proves a hidden pending transfer blocks closure and cancellation clears that hold when no other obligations remain. Provider adapters were fake; no real transfer or identity operation occurred.
+
+Source coverage is thirty-two of 47 tables; fifteen remain. Hosted evidence remains twenty-eight through 0068. Provider staging and production were not changed. Next: hosted verification of refund-operation/loss/transfer policies, remaining payout/ledger, identity/trip and worker policies, then compatible provider-staging rollout. Full mobile physical-device and production acceptance remain incomplete.
+
 ## Loss-allocation decision RLS — September 13
 
 Migration 0070 enables and forces RLS on payment_loss_allocations. Reads require current active staff identity, MFA, payments.loss.allocate permission and exact configured-source/payment scope. Inserts additionally bind the exact newly approved allocation journal and current staff authorizer. Runtime updates/deletions are denied; immutable authorization triggers remain. Actor and other worker helpers clear allocation scope.

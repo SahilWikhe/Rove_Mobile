@@ -342,6 +342,7 @@ export const ledgerPostings = pgTable(
 // Identity is installed only by trusted backend transactions; no anonymous/default access.
 const rlsActor = sql`NULLIF(current_setting('rove.actor_id', true), '')::uuid`;
 const rlsPermissions = {
+  'payments.transfer': sql`p.permission='payments.transfer'`,
   'payments.loss.allocate': sql`p.permission='payments.loss.allocate'`,
   'payments.refund': sql`p.permission='payments.refund'`,
   'payments.dispute.review': sql`p.permission='payments.dispute.review'`,
@@ -1180,6 +1181,8 @@ export const paymentLossAllocations = pgTable(
   ],
 );
 
+const transferSource = (attempt: SQLWrapper) =>
+  sql`EXISTS(SELECT 1 FROM public.payment_attempts p WHERE p.id=${attempt} AND p.source=current_setting('rove.transfer_source',true))`;
 export const driverTransferOperations = pgTable(
   'driver_transfer_operations',
   {
@@ -1210,6 +1213,28 @@ export const driverTransferOperations = pgTable(
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
+    pgPolicy('transfer_operation_read', {
+      for: 'select',
+      using: sql`${transferSource(t.attemptId)} AND (${t.attemptId}=NULLIF(current_setting('rove.transfer_attempt',true),'')::uuid OR ${t.id}=NULLIF(current_setting('rove.transfer_read',true),'')::uuid OR ${t.id}=NULLIF(current_setting('rove.transfer_write',true),'')::uuid OR current_setting('rove.transfer_sweep',true)='true')`,
+    }),
+    pgPolicy('transfer_operation_authorize', {
+      for: 'insert',
+      withCheck: sql`${transferSource(t.attemptId)} AND ${t.attemptId}=NULLIF(current_setting('rove.transfer_attempt',true),'')::uuid AND ${rlsStaff('payments.transfer')} AND ${t.authorizedBy}=${rlsActor} AND ${t.state}='queued' AND ${t.firstAttemptAt} IS NULL AND ${t.chargeId} IS NULL AND ${t.providerTransferId} IS NULL AND ${t.revision}=0 AND ${t.reversedCents}=0 AND ${t.checkedAt} IS NULL AND ${t.requestedAt} IS NULL`,
+    }),
+    pgPolicy('transfer_operation_update', {
+      for: 'update',
+      using: sql`${transferSource(t.attemptId)} AND ${t.id}=NULLIF(current_setting('rove.transfer_write',true),'')::uuid`,
+      withCheck: sql`${transferSource(t.attemptId)} AND ${t.id}=NULLIF(current_setting('rove.transfer_write',true),'')::uuid`,
+    }),
+    pgPolicy('transfer_sweep_lock', {
+      for: 'update',
+      using: sql`${transferSource(t.attemptId)} AND current_setting('rove.transfer_sweep',true)='true'`,
+      withCheck: sql`false`,
+    }),
+    pgPolicy('transfer_closure_read', {
+      for: 'select',
+      using: sql`${rlsStaff('privacy.close')} AND ${t.driverId}=NULLIF(current_setting('rove.transfer_closure_owner',true),'')::uuid`,
+    }),
     index('driver_transfer_attempt').on(t.attemptId),
     index('driver_transfer_recovery').on(t.requestedAt, t.createdAt),
     check('driver_transfer_amount', sql`${t.amountCents} between 1 and 99999999`),
@@ -1245,6 +1270,14 @@ export const driverTransferMovements = pgTable(
       .references(() => ledgerJournals.id),
   },
   (t) => [
+    pgPolicy('transfer_movement_read', {
+      for: 'select',
+      using: sql`${t.source}=current_setting('rove.transfer_source',true) AND (${t.operationId}=NULLIF(current_setting('rove.transfer_read',true),'')::uuid OR ${t.operationId}=NULLIF(current_setting('rove.transfer_write',true),'')::uuid OR ${t.balanceId}=NULLIF(current_setting('rove.transfer_balance',true),''))`,
+    }),
+    pgPolicy('transfer_movement_insert', {
+      for: 'insert',
+      withCheck: sql`${t.source}=current_setting('rove.transfer_source',true) AND ${t.operationId}=NULLIF(current_setting('rove.transfer_write',true),'')::uuid`,
+    }),
     uniqueIndex('driver_transfer_movement_source').on(t.source, t.balanceId),
     index('driver_transfer_movement_operation').on(t.operationId),
   ],

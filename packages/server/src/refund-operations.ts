@@ -1,3 +1,4 @@
+import { bindTransferScope } from './transfer-scope';
 import { bindRefundOperationScope } from './refund-operation-scope';
 import { bindRefundScope } from './refund-scope';
 import { bindPaymentCustomerRead } from './payment-customer-scope';
@@ -57,6 +58,7 @@ export class RefundOperations {
     };
   }
   private async available(client: PoolClient, reference: PaymentReference, exclude?: string) {
+    await bindTransferScope(client, this.source, { attemptId: reference.attemptId });
     await bindRefundScope(client, this.source, 'read', reference.attemptId);
     await this.disputes?.assertRefundable(client, reference.attemptId);
     if (

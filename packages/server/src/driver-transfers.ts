@@ -1,3 +1,4 @@
+import { bindTransferScope } from './transfer-scope';
 import { bindRefundOperationScope } from './refund-operation-scope';
 import { bindRefundScope } from './refund-scope';
 import { bindPaymentCustomerRead } from './payment-customer-scope';
@@ -95,6 +96,7 @@ export class DriverTransfers {
       )
     ).rows[0];
     if (!p?.driver_id) throw review();
+    await bindTransferScope(c, this.source, { attemptId: p.id });
     return {
       intentId: p.intent_id,
       rideId,
@@ -106,6 +108,7 @@ export class DriverTransfers {
     };
   }
   private async operation(c: PoolClient, operationId: string, p: Context) {
+    await bindTransferScope(c, this.source, { attemptId: p.attemptId, operationId, writable: true });
     const op = (
       await c.query<Operation>(
         'SELECT * FROM driver_transfer_operations WHERE id=$1 AND attempt_id=$2 FOR UPDATE',
@@ -380,12 +383,15 @@ export class DriverTransfers {
     );
   }
   private async location(operationId: string) {
-    const row = (
-      await this.pool.query(
-        `SELECT p.ride_id FROM driver_transfer_operations o JOIN payment_attempts p ON p.id=o.attempt_id WHERE o.id=$1 AND p.source=$2`,
-        [operationId, this.source],
-      )
-    ).rows[0];
+    const row = await transaction(this.pool, async (c) => {
+      await bindTransferScope(c, this.source, { operationId });
+      return (
+        await c.query(
+          `SELECT p.ride_id FROM driver_transfer_operations o JOIN payment_attempts p ON p.id=o.attempt_id WHERE o.id=$1 AND p.source=$2`,
+          [operationId, this.source],
+        )
+      ).rows[0];
+    });
     if (!row) throw review();
     return row.ride_id as string;
   }
@@ -448,6 +454,7 @@ export class DriverTransfers {
             { account: 'processor_fees', owner: null, amount: m.feeCents },
           ],
         );
+        await c.query("SELECT set_config('rove.transfer_balance',$1,true)", [m.id]);
         await c.query(
           'INSERT INTO driver_transfer_movements(source,balance_id,operation_id,journal_id) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING',
           [this.source, m.id, op.id, journalId],
@@ -573,6 +580,7 @@ export class DriverTransfers {
   /** Fair bounded recovery, including confirmed transfers whose funds can later be reversed. */
   async sweep() {
     return transaction(this.pool, async (c) => {
+      await bindTransferScope(c, this.source, { sweep: true });
       const rows = (
         await c.query(
           `SELECT o.id FROM driver_transfer_operations o JOIN payment_attempts p ON p.id=o.attempt_id
@@ -582,6 +590,7 @@ export class DriverTransfers {
         )
       ).rows;
       for (const o of rows) {
+        await bindTransferScope(c, this.source, { operationId: o.id, writable: true });
         await c.query('UPDATE driver_transfer_operations SET requested_at=$2 WHERE id=$1', [
           o.id,
           this.now(),

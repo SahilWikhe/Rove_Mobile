@@ -1,3 +1,4 @@
+import { bindTransferScope } from './transfer-scope';
 import { Pool } from 'pg';
 import { CaptureFees } from './capture-fees';
 import { randomUUID } from 'node:crypto';
@@ -565,4 +566,33 @@ test('missing, stale or review-held capture fees block authorization and new tra
   await expect(run(a.id)).rejects.toMatchObject({ code: 'CAPTURE_ACCOUNTING_REVIEW' });
   expect(create).not.toHaveBeenCalled();
   expect(await balances()).toMatchObject({ driver_transfer_pending: -600 });
+});
+
+test('transfer read scopes cannot authorize or change transfers and movement receipts remain immutable', async () => {
+  const op = await authorize();
+  await run(op.id);
+  expect((await runtimePool.query('SELECT * FROM driver_transfer_operations')).rowCount).toBe(0);
+  expect((await runtimePool.query('SELECT * FROM driver_transfer_movements')).rowCount).toBe(0);
+  await transaction(runtimePool, async (c) => {
+    await bindTransferScope(c, source, { operationId: op.id });
+    expect((await c.query('SELECT id FROM driver_transfer_operations')).rows).toEqual([{ id: op.id }]);
+    expect((await c.query('SELECT * FROM driver_transfer_movements')).rowCount).toBe(1);
+    expect((await c.query("UPDATE driver_transfer_operations SET state='review_required'")).rowCount).toBe(0);
+    expect((await c.query('DELETE FROM driver_transfer_operations')).rowCount).toBe(0);
+    await bindTransferScope(c, source, { operationId: op.id, writable: true });
+    expect((await c.query("UPDATE driver_transfer_movements SET balance_id='txn_forged'")).rowCount).toBe(0);
+    expect((await c.query('DELETE FROM driver_transfer_movements')).rowCount).toBe(0);
+    await bindTransferScope(c, 'acct_foreign:test', { operationId: op.id, writable: true });
+    expect((await c.query('SELECT * FROM driver_transfer_operations')).rowCount).toBe(0);
+    expect((await c.query('SELECT * FROM driver_transfer_movements')).rowCount).toBe(0);
+  });
+  await expect(
+    transaction(runtimePool, async (c) => {
+      await bindTransferScope(c, source, { attemptId });
+      await c.query(
+        "INSERT INTO driver_transfer_operations(attempt_id,driver_id,payout_binding_id,account_id,authorized_by,amount_cents,policy_reference) SELECT attempt_id,driver_id,payout_binding_id,account_id,authorized_by,1,'forged' FROM driver_transfer_operations",
+      );
+    }),
+  ).rejects.toMatchObject({ code: '42501' });
+  expect((await runtimePool.query('SELECT * FROM driver_transfer_operations')).rowCount).toBe(0);
 });

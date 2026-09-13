@@ -53,3 +53,11 @@ Database tests exercise concurrent authorizations/workers, idempotency, owned re
 ## Capture balance provider boundary
 
 `StripeCaptureBalances` now reads and validates the original charge balance transaction, including actual gross amount, processing fee, net amount and pending/available status. Transfer funding uses this same reader and additionally holds disputed or unavailable funds. Provider errors, missing expansions and mismatched ownership/account/mode/currency/arithmetic fail closed. Refund and dispute movements do not rewrite the original capture fee. The reader now supplies durable capture-fee journals, recovery and transfer eligibility through the default-off [capture-fee workflow](73-capture-fee-accounting.md). It does not estimate fees or deduct them from driver earnings.
+
+## Transfer row security
+
+Migration 0071 enables and forces RLS on driver_transfer_operations and driver_transfer_movements. Only current MFA staff with payments.transfer can insert an initial queued authorization attributed to themselves. Source-specific attempt reads preserve refund and competing-transfer holds; execution/recovery updates bind one existing operation. Bounded recovery has read/lock access and binds each selected operation before writing. Closure reads require current MFA privacy.close and the target driver.
+
+Movement receipts are readable for the exact operation; collision checks may additionally read the exact observed source/balance reference. Inserts require the operation write scope. No movement update/delete or operation delete policy exists, and original authorization/movement invariants remain. Actor and other worker helpers clear transfer contexts.
+
+Restricted-role tests cover authorization, retry/reversal, denied worker authorizations, read-only scope, immutable receipts, source isolation, refund holds and hidden pending-transfer closure denial. Hosted verification of 0071 remains pending. Deploy compatible API/worker code before applying it; provider staging and production were not changed.

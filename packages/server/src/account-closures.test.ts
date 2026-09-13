@@ -418,3 +418,41 @@ test('pending refund remains a closure hold when runtime refund rows are otherwi
   expect((await service.authorize(staff, requestId, policy, randomUUID())).state).toBe('closed');
   expect(erase).not.toHaveBeenCalled();
 });
+
+test('pending driver transfer is visible to closure safeguards despite default row denial', async () => {
+  const requestId = await request(driver),
+    ride = randomUUID(),
+    binding = randomUUID(),
+    attempt = randomUUID();
+  await db.pool.query(
+    "INSERT INTO rides(id,quote_id,rider_id,driver_id,state,fare_cents,earnings_cents,search_deadline) VALUES($1,$2,$3,$4,'completed',1050,790,now())",
+    [ride, await quote(), rider.id, driver.id],
+  );
+  await db.pool.query(
+    "INSERT INTO payment_customers(id,rider_id,source,customer_id) VALUES($1,$2,'acct_closure:test','cus_transfer')",
+    [binding, rider.id],
+  );
+  await db.pool.query(
+    "INSERT INTO payment_attempts(id,ride_id,customer_binding_id,source,intent_id,amount_cents,provider_status) VALUES($1,$2,$3,'acct_closure:test','pi_transfer',1050,'succeeded')",
+    [attempt, ride, binding],
+  );
+  const payout = (
+    await db.pool.query(
+      "INSERT INTO driver_payout_accounts(driver_id,source,account_id) VALUES($1,'acct_closure:test','acct_driver') RETURNING id",
+      [driver.id],
+    )
+  ).rows[0].id;
+  const operation = (
+    await db.pool.query(
+      "INSERT INTO driver_transfer_operations(attempt_id,driver_id,payout_binding_id,account_id,authorized_by,amount_cents,policy_reference) VALUES($1,$2,$3,'acct_driver',$4,100,'fixture') RETURNING id",
+      [attempt, driver.id, payout, staff.id],
+    )
+  ).rows[0].id;
+  expect((await runtimePool.query('SELECT * FROM driver_transfer_operations')).rowCount).toBe(0);
+  await expect(service.authorize(staff, requestId, policy, randomUUID())).rejects.toMatchObject({
+    code: 'ACCOUNT_CLOSURE_HOLD',
+  });
+  await db.pool.query("UPDATE driver_transfer_operations SET state='canceled' WHERE id=$1", [operation]);
+  expect((await service.authorize(staff, requestId, policy, randomUUID())).state).toBe('closed');
+  expect(erase).not.toHaveBeenCalled();
+});
