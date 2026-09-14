@@ -66,12 +66,13 @@ export class StripeDriverPayouts implements DriverPayoutProvider {
       throw failure();
     return result.data;
   }
-  async createAccount(reference: DriverPayoutReference, key: string) {
-    Reference.parse(reference);
+  async createAccount(reference: DriverPayoutReference & { contactEmail: string }, key: string) {
+    Reference.extend({ contactEmail: z.string().max(254).pipe(z.email()) }).parse(reference);
     if (!/^[a-zA-Z0-9:-]{8,255}$/.test(key)) throw failure();
     const result = await this.call(() =>
       this.client.accounts.create(
         {
+          contact_email: reference.contactEmail,
           identity: { country: 'us' },
           dashboard: 'express',
           defaults: { responsibilities: { fees_collector: 'application', losses_collector: 'application' } },

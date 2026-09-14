@@ -17,7 +17,7 @@ Required before real rides:
 
 Defer visual polish, medium maintainability findings, optional features, automated document deletion (keep disabled), advanced recovery automation and the second platform's launch when necessary. These deferrals do not remove safeguards from implemented features. An unpaid internal staging test can precede live payment activation.
 
-Immediate blocker observed September 13: the existing sandbox backend key receives HTTP 403/StripePermissionError on Accounts v2 listing. Account creation, onboarding, transfers and bank payouts remain unverified; no new account or money movement occurred in this check. Review the sandbox key's precise Accounts/Connect permissions before payout acceptance. Do not substitute an unrestricted or different-account key silently.
+Payout acceptance status September 13: Accounts v2 listing now passes after the owner updated the sandbox key. Actual recipient creation revealed a missing required contact email; the driver form, durable retry binding and adapter have been updated, with migration 0089 required before rollout. Corrected account creation, hosted onboarding, transfers and bank payouts remain unverified. No live money movement or production activation has occurred.
 
 ## 1. Establish isolated resources
 

@@ -1,5 +1,11 @@
 # Implementation status
 
+## Payout contact-email creation fix — September 13
+
+The owner's sandbox permission update cleared Accounts v2 listing (HTTP 200). Actual restricted-service recipient creation then failed HTTP 400/invalid_fields: recipient configuration requires a contact email. Implemented a validated driver contact-email field, shared request contract, API/service binding and Stripe contact_email request. Migration 0089 adds temporary contact storage to the existing RLS-protected payout binding. Uncertain retries preserve the original email and reject a conflicting input; saving the provider account clears local contact. Old mapped accounts work without new input; unresolved old bindings without a contact require explicit support review. No email is placed in audit/outbox metadata or returned links.
+
+Verification passed 15 focused payout tests, all 215 API tests, all 172 mobile-core tests and 13 database tests. Final added assertions reran 15 payout, 41 API-route and 23 client tests successfully. Driver/API/server/mobile-core typechecks, changed-source lint, import boundaries and both driver iOS/Android exports passed. Documentation and diff checks run before push. Exports do not prove native interaction. No hosted migration or corrected provider creation is claimed yet; the failed synthetic reservation and its original idempotency identity are preserved privately. Next: migrate staging and verify corrected sandbox recipient/link behavior, followed by minimum-pilot payment/device acceptance. Production remains incomplete. Remote push confirmation follows separately.
+
 ## Minimum paid pilot prioritized — September 13
 
 Recorded the owner's accepted minimum pilot scope in production-setup.md: core real-device ride/payment/payout behavior, secure isolated production, controlled staff operations, basic monitoring/recovery and exact-candidate release evidence. Polish, medium maintainability, optional automation and potentially the second platform's launch are deferred. No platform decision, paid setup or production activation is inferred.

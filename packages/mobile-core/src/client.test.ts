@@ -221,7 +221,7 @@ test('support requests validate input and keep the caller retry key', async () =
   expect(transport).toHaveBeenCalledTimes(1);
 });
 
-test('payout link requests send an empty JSON object and reject untrusted redirect responses', async () => {
+test('payout link requests validate optional contact email and reject untrusted redirects', async () => {
   const fetcher = vi.fn<Transport>(
     async () =>
       new Response(
@@ -231,6 +231,12 @@ test('payout link requests send an empty JSON object and reject untrusted redire
   const api = new ApiClient('https://api.example', async () => 'fixture-token', fetcher);
   await api.driverPayoutLink();
   expect(fetcher.mock.calls[0]?.[1]).toMatchObject({ method: 'POST', body: '{}' });
+  await api.driverPayoutLink({ contactEmail: ' driver@example.test ' });
+  expect(fetcher.mock.calls[1]?.[1]).toMatchObject({
+    method: 'POST',
+    body: JSON.stringify({ contactEmail: 'driver@example.test' }),
+  });
+  expect(() => api.driverPayoutLink({ contactEmail: 'invalid' })).toThrow();
   fetcher.mockResolvedValueOnce(
     new Response(JSON.stringify({ url: 'https://attacker.example', expiresAt: '2026-09-08T12:10:00Z' })),
   );

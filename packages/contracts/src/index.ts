@@ -492,6 +492,11 @@ export const SupportQueue = z
   })
   .strict();
 
+export const DriverPayoutSetup = z
+  .object({ contactEmail: z.string().trim().max(254).pipe(z.email()).optional() })
+  .strict();
+export type DriverPayoutSetup = z.infer<typeof DriverPayoutSetup>;
+
 export const DriverPayoutStatus = z
   .object({
     status: z.enum(['unavailable', 'not_started', 'pending', 'needs_information', 'ready']),

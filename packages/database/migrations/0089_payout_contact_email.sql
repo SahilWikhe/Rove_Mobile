@@ -1,0 +1,1 @@
+ALTER TABLE "driver_payout_accounts" ADD COLUMN "contact_email" text;

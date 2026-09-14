@@ -467,6 +467,8 @@ test('payout setup requires driver authentication, rejects caller-supplied accou
       .status,
   ).toBe(400);
   expect((await request(path, {}, 'driver')).status).toBe(503);
+  expect((await request(path, { contactEmail: 'invalid' }, 'driver')).status).toBe(400);
+  expect((await request(path, { contactEmail: 'driver@example.test' }, 'driver')).status).toBe(503);
 });
 test('Connect return and refresh pages never mark setup complete or reflect query inputs', async () => {
   for (const path of ['/connect/return', '/connect/refresh']) {

@@ -4,7 +4,7 @@ export interface DriverPayoutReference {
   bindingId: string;
 }
 export interface DriverPayoutProvider {
-  createAccount(reference: DriverPayoutReference, key: string): Promise<string>;
+  createAccount(reference: DriverPayoutReference & { contactEmail: string }, key: string): Promise<string>;
   status(
     reference: DriverPayoutReference & { accountId: string },
   ): Promise<'pending' | 'needs_information' | 'ready'>;

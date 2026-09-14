@@ -1,4 +1,4 @@
-import { AccountDeletionStatus } from '@rove/contracts';
+import { DriverPayoutSetup, AccountDeletionStatus } from '@rove/contracts';
 import { BankPayoutHistory } from '@rove/contracts';
 import { MessageRealtime } from './message-realtime';
 import {
@@ -431,8 +431,11 @@ export class ApiClient {
   driverPayoutStatus(signal?: AbortSignal) {
     return this.request('/v1/drivers/me/payout-setup', DriverPayoutStatus, { ...(signal ? { signal } : {}) });
   }
-  driverPayoutLink() {
-    return this.request('/v1/drivers/me/payout-setup', DriverPayoutLink, { method: 'POST', body: {} });
+  driverPayoutLink(input: DriverPayoutSetup = {}) {
+    return this.request('/v1/drivers/me/payout-setup', DriverPayoutLink, {
+      method: 'POST',
+      body: DriverPayoutSetup.parse(input),
+    });
   }
   driverActivity(signal?: AbortSignal) {
     return this.request('/v1/drivers/me/activity', DriverActivity, signal ? { signal } : {});

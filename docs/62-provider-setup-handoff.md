@@ -77,7 +77,7 @@ This endpoint rejects connected-account events. Keep Connect onboarding disabled
 
 ## Latest sandbox payment acceptance
 
-A dedicated $2 test payment passed authorization, capture, repeated capture handling, full refund, repeated refund handling and restricted-runtime ledger reconciliation on September 13. Hosted PaymentIntent webhooks and a capture job completed. This is provider/database evidence with a directly prepared synthetic trip, not native booking or staff refund authorization. See [scope and remaining checks](payment-sandbox-acceptance.md). The same key's Accounts v2 list check returned 403; review that access before Connect recipient acceptance. Connect/transfers/push remain disabled, and the original charge balance was still pending.
+A dedicated $2 test payment passed authorization, capture, repeated capture handling, full refund, repeated refund handling and restricted-runtime ledger reconciliation on September 13. Hosted PaymentIntent webhooks and a capture job completed. This is provider/database evidence with a directly prepared synthetic trip, not native booking or staff refund authorization. See [scope and remaining checks](payment-sandbox-acceptance.md). The key's Accounts v2 list check initially returned 403; the owner's permission update now permits listing. Recipient creation subsequently exposed the missing required contact email, addressed in migration 0089 and the driver form; corrected provider acceptance remains pending. Connect/transfers/push remain disabled, and the original charge balance was still pending.
 
 ## Configuration assembly and remaining decisions
 

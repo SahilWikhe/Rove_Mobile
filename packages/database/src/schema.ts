@@ -846,6 +846,7 @@ export const supportRequests = pgTable(
 export const driverPayoutAccounts = pgTable(
   'driver_payout_accounts',
   {
+    contactEmail: text(),
     id: uuid().primaryKey().defaultRandom(),
     driverId: uuid()
       .notNull()

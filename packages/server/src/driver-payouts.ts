@@ -3,12 +3,12 @@ import { enqueueOutbox } from './outbox-enqueue';
 import { actorTransaction, bindActorIdentity } from './actor-transaction';
 import { bindPayoutScope } from './payout-scope';
 import type { Pool, PoolClient } from 'pg';
-import { DriverPayoutLink, type DriverPayoutStatus } from '@rove/contracts';
+import { DriverPayoutSetup, DriverPayoutLink, type DriverPayoutStatus } from '@rove/contracts';
 import type { Actor } from './rides';
 import type { DriverPayoutProvider } from './driver-payout-provider';
 import { DomainError } from './errors';
 import { transaction } from './transactions';
-type Binding = { id: string; account_id: string | null; created_at: Date };
+type Binding = { contact_email: string | null; id: string; account_id: string | null; created_at: Date };
 const unavailable = () =>
   new DomainError('PAYOUT_SETUP_UNAVAILABLE', 'Payout setup is not available yet.', 503);
 export class DriverPayouts {
@@ -54,18 +54,31 @@ export class DriverPayouts {
     await transaction(this.pool, (client) => this.authorize(client, actor));
     return { status };
   }
-  async start(actor: Actor): Promise<DriverPayoutLink> {
+  async start(actor: Actor, input: DriverPayoutSetup = {}): Promise<DriverPayoutLink> {
     await transaction(this.pool, (client) => this.authorize(client, actor));
     if (!this.provider) throw unavailable();
+    const { contactEmail } = DriverPayoutSetup.parse(input);
     const binding = await transaction(this.pool, async (client) => {
       await bindActorIdentity(client, actor, 'update');
       await this.authorize(client, actor, true);
       await bindPayoutScope(client, this.source, {});
+      const existing = (
+        await client.query<Binding>('SELECT * FROM driver_payout_accounts WHERE driver_id=$1 AND source=$2', [
+          actor.id,
+          this.source,
+        ])
+      ).rows[0];
+      if (!existing && !contactEmail)
+        throw new DomainError(
+          'PAYOUT_CONTACT_REQUIRED',
+          'Enter a contact email for Stripe payout setup.',
+          422,
+        );
       const inserted = (
         await client.query<Binding>(
-          `INSERT INTO driver_payout_accounts(driver_id,source,created_at) VALUES($1,$2,$3)
+          `INSERT INTO driver_payout_accounts(driver_id,source,created_at,contact_email) VALUES($1,$2,$3,$4)
         ON CONFLICT(driver_id,source) DO NOTHING RETURNING *`,
-          [actor.id, this.source, this.now()],
+          [actor.id, this.source, this.now(), contactEmail ?? null],
         )
       ).rows[0];
       const row =
@@ -77,6 +90,14 @@ export class DriverPayouts {
           )
         ).rows[0];
       if (!row) throw unavailable();
+      if (!row.account_id && !row.contact_email)
+        throw new DomainError('PAYOUT_SETUP_REVIEW', 'An earlier payout setup needs support review.', 409);
+      if (!row.account_id && contactEmail && row.contact_email !== contactEmail)
+        throw new DomainError(
+          'PAYOUT_CONTACT_CONFLICT',
+          'Continue with the email used for your earlier payout setup.',
+          409,
+        );
       if (!row.account_id && this.now().getTime() - row.created_at.getTime() >= 23 * 60 * 60 * 1000)
         throw new DomainError('PAYOUT_SETUP_REVIEW', 'An earlier payout setup needs support review.', 409);
       return row;
@@ -84,7 +105,7 @@ export class DriverPayouts {
     let accountId = binding.account_id;
     if (!accountId) {
       accountId = await this.provider.createAccount(
-        { driverId: actor.id, bindingId: binding.id },
+        { driverId: actor.id, bindingId: binding.id, contactEmail: binding.contact_email! },
         `rove:${binding.id}:payout-account`,
       );
       if (!/^acct_[a-zA-Z0-9]{1,96}$/.test(accountId)) throw unavailable();
@@ -92,7 +113,7 @@ export class DriverPayouts {
       await transaction(this.pool, async (client) => {
         await bindPayoutScope(client, this.source, { bindingId: binding.id, result: accountId! });
         const result = await client.query(
-          'UPDATE driver_payout_accounts SET account_id=$2 WHERE id=$1 AND (account_id IS NULL OR account_id=$2)',
+          'UPDATE driver_payout_accounts SET account_id=$2,contact_email=NULL WHERE id=$1 AND (account_id IS NULL OR account_id=$2)',
           [binding.id, accountId],
         );
         if (result.rowCount !== 1) throw unavailable();

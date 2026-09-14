@@ -38,8 +38,11 @@ function setup() {
 }
 test('creates v2 recipient account with stable metadata and explicit platform responsibilities', async () => {
   const { provider, create } = setup();
-  expect(await provider.createAccount(reference, 'rove:fixture:key')).toBe('acct_fixture');
+  expect(
+    await provider.createAccount({ ...reference, contactEmail: 'driver@example.test' }, 'rove:fixture:key'),
+  ).toBe('acct_fixture');
   expect(create.mock.calls[0]?.[0]).toMatchObject({
+    contact_email: 'driver@example.test',
     dashboard: 'express',
     identity: { country: 'us' },
     defaults: { responsibilities: { fees_collector: 'application', losses_collector: 'application' } },

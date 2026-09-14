@@ -1,4 +1,4 @@
-import { PaymentReviewAcknowledgment } from '@rove/contracts';
+import { DriverPayoutSetup, PaymentReviewAcknowledgment } from '@rove/contracts';
 import type { PaymentReviews } from '@rove/server';
 import { actorTransaction, findVerifiedProfile, registerVerifiedProfile } from '@rove/server';
 import { MessageCleanupAuthorization } from '@rove/contracts';
@@ -381,12 +381,12 @@ export function createApp(deps: Dependencies) {
     return c.json(await deps.bankPayouts.list(c.var.actor, c.req.query('after')));
   });
   app.post('/v1/drivers/me/payout-setup', async (c) => {
-    await body(c, z.object({}).strict());
+    const input = await body(c, DriverPayoutSetup);
     if (c.var.actor.role !== 'driver')
       throw new DomainError('FORBIDDEN', 'Payout setup is for drivers.', 403);
     if (!deps.driverPayouts)
       throw new DomainError('PAYOUT_SETUP_UNAVAILABLE', 'Payout setup is not available yet.', 503);
-    return c.json(await deps.driverPayouts.start(c.var.actor));
+    return c.json(await deps.driverPayouts.start(c.var.actor, input));
   });
   app.post('/v1/places/current', async (c) => {
     const input = await body(c, z.object({ coordinate: Coordinate }).strict());

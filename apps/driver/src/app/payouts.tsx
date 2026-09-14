@@ -5,7 +5,7 @@ import { Stack, router, useFocusEffect } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { type DriverPayoutStatus } from '@rove/contracts';
 import { useSession } from '@rove/mobile-core/session';
-import { Banner, Button, Card, Copy, Screen } from '@rove/mobile-ui';
+import { Banner, Button, Card, Copy, Field, Screen } from '@rove/mobile-ui';
 import { refreshOnReturn } from '../account/refresh-on-return';
 export default function Payouts() {
   const { profile } = useSession();
@@ -14,6 +14,7 @@ export default function Payouts() {
 function PayoutSetup() {
   const { api, profile } = useSession();
   const [status, setStatus] = useState<DriverPayoutStatus['status'] | null>(null);
+  const [contactEmail, setContactEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -59,7 +60,9 @@ function PayoutSetup() {
     setError(null);
     const generation = epoch.current;
     try {
-      const link = await api.driverPayoutLink();
+      const link = await api.driverPayoutLink(
+        contactEmail.trim() ? { contactEmail: contactEmail.trim() } : {},
+      );
       if (epoch.current !== generation) return;
       // The shared response contract permits only Stripe HTTPS hosts. Never persist or log one-use links.
       const result = await WebBrowser.openBrowserAsync(link.url);
@@ -119,10 +122,22 @@ function PayoutSetup() {
             </Copy>
           </Card>
           {error && <Banner error message={error} />}
+          {status === 'not_started' && (
+            <Field
+              label="Email for Stripe payouts"
+              value={contactEmail}
+              onChangeText={setContactEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              editable={!busy}
+            />
+          )}
           {status && status !== 'unavailable' && (
             <Button
               title={status === 'ready' ? 'Review Stripe details' : 'Continue with Stripe'}
               loading={busy}
+              disabled={status === 'not_started' && !contactEmail.trim()}
               onPress={() => void start()}
             />
           )}

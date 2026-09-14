@@ -6,7 +6,7 @@ Reviewed against the September 12, 2026 source baseline. Verification counts and
 
 Driver Account now has a Payout setup screen with status refresh, hosted onboarding launch and support access. Identity documents and bank account fields remain on Stripe's hosted pages; the app does not collect them. Typed contracts restrict returned links to HTTPS on `accounts.stripe.com` or `connect.stripe.com`, without URL credentials or custom ports. Links are single-use secrets: do not persist them in application state storage, analytics, logs or command-result tables.
 
-Authenticated driver-only GET/POST `/v1/drivers/me/payout-setup` provide status and request a new link respectively. POST accepts only an empty JSON object. The client cannot select an account ID, driver ID, country or return URL. Both operations share a database-backed limit of ten requests per minute per identity. Responses are not cacheable. Missing provider configuration reports `unavailable`; no synthetic bank account is implied.
+Authenticated driver-only GET/POST `/v1/drivers/me/payout-setup` provide status and request a new link respectively. POST accepts an optional validated contactEmail and rejects other fields. A new reservation requires the driver-entered email; an existing mapped account or retry with a stored contact can omit it. The client cannot select an account ID, driver ID, country or return URL. Both operations share a database-backed limit of ten requests per minute per identity. Responses are not cacheable. Missing provider configuration reports `unavailable`; no synthetic bank account is implied.
 
 GET re-reads the provider account rather than trusting a redirect or cached success flag. The adapter checks account ID, environment and immutable driver/binding metadata. Both recipient transfer and payout capabilities must be active for `ready`; pending capabilities remain pending. Driver eligibility and money movement are separate: the onboarding service never changes `drivers.approved` or `drivers.payout_ready`, transfers funds or marks an earnings allocation paid. The separate [account reconciler](57-payout-account-reconciliation.md) now controls expiring payout readiness after verified capability checks.
 
@@ -20,7 +20,7 @@ Existing account references are verified before generating new links. Changing e
 
 ## Provider model and activation
 
-The candidate adapter uses the installed Stripe SDK and API version `2026-08-26.dahlia`, Accounts v2 recipient configuration, Express dashboard, US identity country and platform responsibility for fees and losses. It requests recipient `stripe_transfers`, not merchant card processing. This is an explicit US marketplace onboarding candidate, not approval of a production charge/transfer model, commission, payout schedule or business liability. No connected account was created by this implementation.
+The candidate adapter uses the installed Stripe SDK and API version `2026-08-26.dahlia`, Accounts v2 recipient configuration, Express dashboard, US identity country and platform responsibility for fees and losses. It requests recipient `stripe_transfers`, not merchant card processing. This is an explicit US marketplace onboarding candidate, not approval of a production charge/transfer model, commission, payout schedule or business liability. Sandbox recipient creation initially failed because the request omitted Stripe’s required contact email; the adapter now includes the validated contact. Hosted acceptance of the corrected request is pending.
 
 Configuration in the API environment:
 
@@ -52,3 +52,11 @@ The workspace passed 312 automated tests, typechecking, lint, API bundle smoke a
 Migration 0072 enables and forces payout-account RLS. An active driver can read and reserve only their own configured-source binding, with null provider account, initial status/revision and no check timestamps. Existing reservations are read after INSERT ON CONFLICT DO NOTHING; no owner update privilege is needed. Exact provider-result scope saves only the verified account mapping, including results arriving after disablement, before normal access is checked again. Runtime deletion is denied.
 
 Restricted-role local verification and isolated Neon verification of 0072 passed, including onboarding retry, bank history, status reconciliation, ownership/mutation denial and transfer execution. All provider adapters were fake. Deploy compatible API/worker code before applying it to provider staging; production was not changed.
+
+## Contact email and retry compatibility — September 13
+
+The driver enters a payout contact email before first opening Stripe onboarding. It is a contact address, not proof of account identity or email verification. Login and payout ownership still use authenticated driver identity. Migration 0089 adds a nullable contact_email to the existing RLS-protected binding. The initial transaction stores the validated contact with the durable binding; uncertain retries reuse that value and reject a changed contact before another provider request. Once the provider account mapping is committed, the local contact is cleared. It is never added to audit/outbox payloads, provider metadata or link responses.
+
+Old mapped accounts continue without supplying an email. Old unresolved reservations without a contact require support review rather than silently changing a possibly accepted idempotent request. Apply migration 0089 before the compatible backend. Older mobile clients can reopen mapped accounts but receive a contact-required response for new setup; release the updated driver form before enabling new onboarding. Existing failed sandbox reservations must be inspected before any explicit recovery.
+
+Stripe Accounts v2 read permission now passes after the owner updated the sandbox key. Actual corrected creation, hosted link completion, capability activation and bank payouts still need acceptance. No production activation is implied.
