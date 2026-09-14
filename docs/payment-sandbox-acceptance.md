@@ -54,3 +54,9 @@ The broader outbox inspection exposed one dead-lettered payment.review_required 
 - Run the same release candidate through current CI, protected release evidence and physical-device acceptance. The hosted callbacks observed here are evidence of that staging environment at the time, not an exact-current-main release approval.
 
 Keep private operation IDs and original idempotency keys when investigating uncertain outcomes. Never create a replacement operation merely because a response was lost. Any future run needs its own deliberately isolated fixture and current sandbox/branch/account checks; this test is not added to automatic per-commit provider jobs.
+
+## Native iOS authorization and release
+
+On September 13, the owned iOS simulator authenticated the dedicated rider and submitted the [documented Stripe sandbox Visa](https://docs.stripe.com/testing) in native PaymentSheet. The form accepted a future expiry and synthetic billing values. Maestro observed Payment confirmed; Stripe independently reported $2 capturable, zero received, and test mode. The fixture used a validated synthetic quote and did not exercise quote lookup or booking creation. Precheck found zero online approved drivers.
+
+The rider cancellation endpoint first rejected an expired test token with 401. After Universal Login and PKCE refresh, retrying the same persisted cancellation key returned 200. Hosted processing released the entire hold; the final ride was cancelled/released, Stripe had zero received/capturable funds, and the attempt had no ledger journals. Maestro observed This ride request has ended in the payment screen. Cancellation was initiated through authenticated HTTP, not the native ride button. The private fixture remains terminal. Native 3DS, full ride completion/capture, Android and physical devices are still separate gates.

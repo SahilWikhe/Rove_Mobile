@@ -1,5 +1,13 @@
 # Implementation status
 
+## Native sandbox authorization and hold release verified — September 13
+
+The owned iOS simulator submitted Stripe's documented sandbox Visa through native PaymentSheet. Maestro observed Payment confirmed; independent provider readback verified a $2 manual-capture authorization with zero received funds. Precheck verified the expected test account, pending/unexpired request and zero online approved drivers. No maps lookup or driver assignment was requested by the harness.
+
+Cancellation used the authenticated rider HTTP endpoint and a persisted idempotency key. The expired test token correctly returned 401; after Universal Login/PKCE refresh, the same cancellation returned 200. Hosted processing cancelled the PaymentIntent, released all capturable funds, updated the ride to cancelled/released, and left zero ledger journals. Maestro then observed This ride request has ended on the native screen. This proves native card authorization plus hosted cancellation/release; cancellation was not initiated by tapping the native ride UI. Fixture records are retained privately and terminal. No real funds or production changes.
+
+Documentation/diff checks run before push. Remaining native gates include bank authentication/3DS, capture/completion through the complete ride flow, Android and physical-device GPS/push. Stripe recipient onboarding still awaits human verification; current-candidate CI/Sonar and production setup remain incomplete. Next: native 3DS acceptance and remaining minimum-pilot gates. Remote push confirmation follows separately.
+
 ## Native Stripe payment entry unblocked — September 13
 
 Authenticated iOS payment entry reached the actual hosted session endpoint successfully, but Stripe initialization rejected the shared rgba surface token: its native appearance parser expects hex. Both PaymentSheet and CustomerSheet now use the matching opaque dark hex surface; shared app glass styling is unchanged. All temporary diagnostic instrumentation was removed. On the owned iOS simulator, actual sandbox PaymentSheet now opens and selecting Card exposes Card number (Maestro passed). The earlier assertion expected a card field before selecting the payment method; visual inspection identified that separate selection step.
