@@ -7,6 +7,9 @@ import { isPaymentReturnURL, submitPayment, paymentCallbackScope } from '@rove/m
 import { theme } from '@rove/mobile-ui';
 import { PaymentsContext } from './context';
 
+// Stripe's native appearance parser requires hex; the shared surface uses CSS rgba.
+const stripeComponentBackground = '#0F0F0F';
+
 export function PaymentProvider({ children }: PropsWithChildren) {
   const { synthetic, profile } = useSession();
   const key = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
@@ -59,7 +62,7 @@ function NativePayments({ children }: PropsWithChildren) {
                   colors: {
                     primary: theme.gold,
                     background: theme.background,
-                    componentBackground: theme.surface,
+                    componentBackground: stripeComponentBackground,
                     primaryText: theme.text,
                     secondaryText: theme.muted,
                   },
@@ -94,7 +97,7 @@ function NativePayments({ children }: PropsWithChildren) {
             colors: {
               primary: theme.gold,
               background: theme.background,
-              componentBackground: theme.surface,
+              componentBackground: stripeComponentBackground,
               primaryText: theme.text,
               secondaryText: theme.muted,
             },

@@ -10,6 +10,10 @@ On iOS and Android, `PaymentProvider` initializes Stripe's native PaymentSheet u
 
 A successful sheet response displays that Rove is checking payment. Only refreshed server ride state reports authorization or payment completion. Closing the sheet does not cancel the ride; the rider can return to the ride page to cancel or check status. The controller does not automatically retry confirmation, store client secrets or mark funds as authorized.
 
+## September 13 native appearance verification
+
+The iOS Stripe appearance parser rejects CSS rgba strings. PaymentSheet and CustomerSheet therefore use #0F0F0F for component backgrounds instead of the shared translucent surface token; other Rove colors remain unchanged. An owned iOS simulator authenticated against staging, loaded a valid synthetic quote and opened the actual sandbox PaymentSheet. Maestro verified selecting Card exposes Card number. This proves entry and initialization only: native authorization, 3DS, capture and the Android flow remain unverified for this checkpoint. Temporary diagnostics were removed before commit.
+
 ## Lifecycle and platform separation
 
 The native provider handles initial URLs and subsequent `rove-rider://payment` callbacks through Stripe. The return route includes the ride id, allowing the payment page to load authoritative status after a bank-app return or cold start. No client secret is deliberately added to Rove's return URL or persistent journal. Never log incoming callback URLs; providers may include sensitive query parameters.

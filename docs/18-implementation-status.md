@@ -1,5 +1,11 @@
 # Implementation status
 
+## Native Stripe payment entry unblocked — September 13
+
+Authenticated iOS payment entry reached the actual hosted session endpoint successfully, but Stripe initialization rejected the shared rgba surface token: its native appearance parser expects hex. Both PaymentSheet and CustomerSheet now use the matching opaque dark hex surface; shared app glass styling is unchanged. All temporary diagnostic instrumentation was removed. On the owned iOS simulator, actual sandbox PaymentSheet now opens and selecting Card exposes Card number (Maestro passed). The earlier assertion expected a card field before selecting the payment method; visual inspection identified that separate selection step.
+
+Rider typecheck, changed-file formatting and lint passed. Documentation/diff checks run before push. The synthetic quote fixture was corrected to the existing strict contract after its initially empty snapshot caused ride reads to fail; application validation was preserved. The restricted service and authenticated hosted session both returned payment/customer sessions without exposing secrets. No card submitted, authorization, capture or bank authentication is claimed for this native fixture. CustomerSheet recheck, Android native acceptance, full payment/3DS and physical-device gates remain. Stripe onboarding still awaits human verification. Next: native sandbox confirmation and cancellation, then remaining minimum-pilot gates. Remote push confirmation follows separately.
+
 ## Refund recovery coverage timeout addressed — September 13
 
 Current-main Sonar run 34791782065 failed before analysis: the 105-payment refund-recovery pagination test exceeded its 15-second timeout; the other 784 server tests passed. Replaced 312 fixture autocommit queries with one dependent PostgreSQL CTE statement that inserts the same 104 additional payments. The three sweep expectations (100, 5, 0), 105 distinct jobs, no provider calls and the timeout are unchanged. All nine refund-reconciliation tests passed locally with V8 coverage in 6.2 seconds. Changed-file formatting/lint and server typecheck passed; documentation/diff checks run before push. Fresh hosted evidence is still required, including the previously failing new-code coverage gate.
