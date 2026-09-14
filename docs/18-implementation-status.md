@@ -1,5 +1,13 @@
 # Implementation status
 
+## Payout acceptance and bounded Maps checkpoint — September 13
+
+The actual staging Maps adapter completed two searches, two place checks, a fare route and a route preview successfully. Six of ten approved provider requests are used; four remain, with results and the request counter retained privately. This verifies provider operations, not a complete native booking, matching or payment journey. No additional Maps calls were made during this checkpoint.
+
+The existing sandbox driver recipient advanced through Stripe test phone verification, business type and synthetic identity entry to the test bank form. Bank submission, completed onboarding and payout capability verification remain pending. Embedded browser buttons cannot be clicked by the tool; the owner is completing those clicks. No real bank details, transfers or production activation. Local simulator access was restored after the owner explicitly approved the macOS account while preserving claude-agent-only AWS operations; Android emulator-5590, the owned iOS acceptance simulator and Metro on port 8087 were verified running.
+
+Corrected a bare callback URL in the staff runbook that caused documentation lint to fail in the previous pushed checkpoint. The earlier checkpoint's statement that documentation checks ran did not establish a passing result. Documentation lint and diff checks must pass before this correction is pushed. Further MFA work and physical-phone testing remain deferred; next priorities are payout acceptance, the complete ride/payment journey and essential launch checks. Remote push confirmation follows separately.
+
 ## Staff staging challenge configured — September 13
 
 OTP enabled by the owner was verified with global policy unchanged. Created the dedicated loopback-only staff acceptance OAuth client (authorization_code only), implemented its exact-client/audience-scoped OTP enrollment/challenge Action, and deployed it before the signed MFA evidence Action while preserving the email Action. Auth0 readback verified exact binding order. Both Action tests passed: consumer exclusion, enrollment versus challenge, wrong audience, refresh denial and completed-evidence-only claims. No database staff privileges or production changes. Actual hosted enrollment/sign-in/API acceptance remains unverified.
