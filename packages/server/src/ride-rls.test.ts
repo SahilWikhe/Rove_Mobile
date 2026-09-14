@@ -1,3 +1,4 @@
+import { RideService } from './rides';
 import { bindUserRead } from './user-scope';
 import { Pool } from 'pg';
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -168,4 +169,41 @@ test('restricted expiry sweeps only overdue searches and preserves assigned trip
   );
   expect((await db.pool.query('SELECT state FROM rides WHERE id=$1', [ride])).rows[0].state).toBe('matched');
   expect((await runtime.query('SELECT * FROM rides')).rowCount).toBe(0);
+});
+
+test('assigned driver completes the versioned ride lifecycle with the restricted runtime role', async () => {
+  await db.pool.query("UPDATE rides SET payment_state='authorized' WHERE id=$1", [ride]);
+  const service = new RideService(runtime);
+  const actor = { id: driver, role: 'driver' as const };
+  let version = 1;
+  for (const state of ['en_route', 'arrived', 'in_progress', 'completed'] as const) {
+    const key = randomUUID();
+    const result = await service.transition(actor, ride, state, version, key);
+    expect(result.state).toBe(state);
+    expect(result.version).toBe(version + 1);
+    expect(await service.transition(actor, ride, state, version, key)).toEqual(result);
+    version = result.version;
+  }
+});
+
+test('restricted lifecycle rejects an unrelated driver and preserves the active-rider guard', async () => {
+  const other = randomUUID();
+  await db.pool.query(
+    "INSERT INTO users(id,subject,name,role) VALUES($1,$2,'Synthetic other driver','driver')",
+    [other, other],
+  );
+  await db.pool.query('INSERT INTO drivers(id) VALUES($1)', [other]);
+  await db.pool.query("UPDATE rides SET payment_state='authorized' WHERE id=$1", [ride]);
+  const service = new RideService(runtime);
+  await expect(
+    service.transition({ id: other, role: 'driver' }, ride, 'en_route', 1, randomUUID()),
+  ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  await db.pool.query('UPDATE users SET disabled=true WHERE id=$1', [rider]);
+  await expect(
+    service.transition({ id: driver, role: 'driver' }, ride, 'en_route', 1, randomUUID()),
+  ).rejects.toThrow('Active ride requires active rider');
+  expect((await db.pool.query('SELECT state,version FROM rides WHERE id=$1', [ride])).rows[0]).toEqual({
+    state: 'matched',
+    version: 1,
+  });
 });

@@ -166,6 +166,8 @@ export class RideService {
       key,
       { action: 'transition', rideId, to, version },
       async (client) => {
+        // Participant visibility is needed by the active-account database guard.
+        await bindActorIdentity(client, actor);
         const ride = await lockRide(client, rideId);
         // Staff requires a separate audited permission/reason use case, not this consumer endpoint.
         if (
