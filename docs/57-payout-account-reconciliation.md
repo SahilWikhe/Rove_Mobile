@@ -1,5 +1,11 @@
 # Payout account events and eligibility freshness
 
+## Verified hosted sandbox event delivery — September 13
+
+The corrected v2 event ID handling is deployed. The provider emits the bound account update in the platform context; the final destination subscribes to @self. Stripe does not permit updating events_from on an existing destination, so only the new staging destination was replaced; the unrelated pre-existing destination was retained. The replacement secret is private and the backend was redeployed before enabling delivery.
+
+A real synthetic-account metadata update generated v2.core.account.updated. Staging recorded its signed receipt, the durable payout.reconcile job completed on its first attempt without an error/dead letter, and the bound account's provider-confirmed ready status and checked_at refreshed after the event. Native Android also renders payout setup. No real funds, bank settlement, full native ride completion or production activation is claimed. Earlier checkpoint limitations below are historical.
+
 ## September 13 hosted configuration update
 
 Event-destination permission now works. Created a separate sandbox destination for the exact staging Connect handler and saved its signing secret privately in the existing staging Vercel project. The return origin and onboarding flag are configured; the new staging deployment is Ready, health passes and unsigned events are rejected. The destination is enabled, but signed receipt and worker completion are not yet verified.

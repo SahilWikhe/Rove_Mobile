@@ -1,5 +1,13 @@
 # Implementation status
 
+## Real Stripe payout event delivery verified — September 13
+
+The webhook ID fix was pushed to main and remote-verified at 582464dad75135f28e863d1da32502c7fb505d06. Staging deployment dpl_Dpz4AtvC5dbxN1Fa3Cjfm7s9E9Jg reached Ready. Native Android payout setup now shows Set up your payouts for the original dedicated messaging driver instead of unavailable; no new recipient was created by that screen check.
+
+The synthetic Accounts v2 account update was emitted in the platform context. The initial connected-account-only destination did not receive it. Stripe rejected changing events_from as an unknown update field; replaced only the newly created staging destination with a platform-scoped destination, preserved the unrelated existing destination, saved the replacement signing secret privately and redeployed. The exact synthetic metadata update then produced a signed v2.core.account.updated receipt in staging. Its payout.reconcile outbox job completed on attempt one with no dead letter or error; account status was ready and checked_at advanced beyond the triggered event. This proves actual provider delivery, signature verification, durable enqueue and hosted worker reconciliation for this account, not bank settlement or complete ride acceptance.
+
+Restored the temporary synthetic driver approval/eligibility from its backup while waiting for the push; it remains offline, with the dedicated Auth0 binding retained. No Google requests were added (six of fifteen used). Earlier aac1d68 CI had all jobs passing except two still-running iOS builds; fe88d02 Sonar passed. Those are not exact-head release evidence. Remaining priorities: full native ride/payment completion and sandbox transfer verification, then essential launch checks. Physical-phone testing and further MFA remain deferred. Documentation checks and remote push confirmation follow separately.
+
 ## Hosted Connect configuration and Accounts v2 event IDs — September 13
 
 The owner granted the sandbox restricted key event-destination access. Inventory found one unrelated destination and no matching staging Connect endpoint. Created the exact staging thin-event destination with a separate signing secret, then configured the existing rove-api-staging backend return origin, secret and onboarding flag. Redeployment dpl_Bvc6cUY7vPadWPDUfix5dpj94Gbr reached Ready; health returned 200 and unsigned Connect requests returned 400. The destination was enabled after these checks. No live production resources or funds changed.
