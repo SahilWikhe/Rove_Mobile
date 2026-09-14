@@ -81,3 +81,7 @@ These scenarios remain outstanding with actual provider-backed evidence. Fake ad
 After a successful isolated rehearsal, record the approved outage/data-loss objectives, measured recovery result, reconciliation evidence and exact candidate. Production overwrite or promotion remains a separate explicit release/incident action. Quiesce all writers before the approved cutover, preserve the pre-cutover state, verify the destination and recheck runtime permissions after reconnecting. Gradually restore worker and client traffic only after reconciliation passes.
 
 Follow [production setup](production-setup.md), [migration controls](production-migrations.md), [retention holds](76-retention-holds.md) and [document cleanup](77-document-cleanup-plans.md). Retain the previous endpoint/deployment references and the rollback decision. Do not automatically reverse database migrations or external financial effects.
+
+## Financial verifier regression checks
+
+`node --test scripts/restore-financial-fixture.test.mjs` starts disposable local PostgreSQL and uses a non-owner, non-bypass runtime role. It verifies intact financial/review records and specifically rejects a changed receipt or an acknowledgment absent from the intended backup point. It runs in the existing tooling coverage suite; all three focused tests and all 78 tooling tests passed September 13. This exercises verifier success/failure behavior and does not perform a new dump/restore or contact Neon. Continue to run the separate logical restore rehearsal for actual backup/restore evidence.

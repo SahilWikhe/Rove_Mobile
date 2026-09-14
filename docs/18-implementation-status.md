@@ -1,5 +1,11 @@
 # Implementation status
 
+## Recovery verifier coverage added without weakening the gate — September 13
+
+The latest completed Sonar analysis passed test collection and security/reliability/maintainability conditions, but new-code coverage was 78.9% against 80%. Added real disposable-PostgreSQL tooling tests for the financial restore verifier: intact records under a restricted runtime role pass; a post-baseline acknowledgment and a changed receipt fail at their specific assertions. Corrected the initial test's missing unrelated-user fixture and tightened negative checks so an earlier authorization failure cannot masquerade as detecting corruption. This tests the verifier itself, not a new hosted restore.
+
+All three focused tests passed with 100% verifier line/branch/function coverage. The complete tooling coverage suite passed all 78 tests with no skips. LCOV contains the exact scripts/restore-financial-fixture.mjs path, so the existing workflow can ingest it. Formatting and lint passed; documentation/diff checks run before push. No gate thresholds, exclusions or application behavior changed. Native sandbox payment/3DS evidence remains recorded above; payout onboarding still awaits human verification, and current-main CI/Sonar were pending when inspected. Next: let the new candidate's checks finish and continue the remaining minimum-pilot provider/device/operational gates. Remote push confirmation follows separately.
+
 ## Native sandbox 3DS authentication verified — September 13
 
 A separate validated $2 sandbox request on the owned iOS simulator used Stripe's documented on-session authentication-required card. Precheck verified test mode, no captured funds, a pending/unexpired request and zero online approved drivers. Native PaymentSheet opened, displayed the provider's 3D Secure 2 Test Page, and returned to Payment confirmed after completing the explicit sandbox challenge (Maestro passed). Independent Stripe readback of the charge recorded three_d_secure.result=authenticated and version 2.1.0.
