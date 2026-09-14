@@ -1,5 +1,13 @@
 # Implementation status
 
+## Native sandbox 3DS authentication verified — September 13
+
+A separate validated $2 sandbox request on the owned iOS simulator used Stripe's documented on-session authentication-required card. Precheck verified test mode, no captured funds, a pending/unexpired request and zero online approved drivers. Native PaymentSheet opened, displayed the provider's 3D Secure 2 Test Page, and returned to Payment confirmed after completing the explicit sandbox challenge (Maestro passed). Independent Stripe readback of the charge recorded three_d_secure.result=authenticated and version 2.1.0.
+
+Authenticated rider HTTP cancellation returned 200 using the fixture's durable key. Hosted processing released the full hold; Stripe showed zero captured/capturable funds and the database had zero ledger journals. Both native payment fixtures are terminal and retained privately. No real money or production changes. This proves the successful embedded browser challenge/return on this iOS simulator, not all bank apps, cold-start callbacks, cancelled/failed challenges, Android or physical-device behavior.
+
+Documentation/diff checks run before push. Current-main CI/Sonar were pending when inspected; the previous candidate's Sonar was still running. Remaining minimum-pilot gates include full native ride completion/capture, physical-device GPS/push, payout onboarding/capabilities, operational acceptance and approved production/signing setup. Stripe onboarding still awaits human verification. Next: remaining native/device and payout acceptance, without treating these successful sandbox checks as production approval. Remote push confirmation follows separately.
+
 ## Native sandbox authorization and hold release verified — September 13
 
 The owned iOS simulator submitted Stripe's documented sandbox Visa through native PaymentSheet. Maestro observed Payment confirmed; independent provider readback verified a $2 manual-capture authorization with zero received funds. Precheck verified the expected test account, pending/unexpired request and zero online approved drivers. No maps lookup or driver assignment was requested by the harness.
