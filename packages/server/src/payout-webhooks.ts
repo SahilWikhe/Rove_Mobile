@@ -14,7 +14,7 @@ const supported = new Set([
   'v2.core.account[requirements].updated',
 ]);
 const Event = z.object({
-  id: z.string().regex(/^evt_[a-zA-Z0-9]{1,96}$/),
+  id: z.string().regex(/^evt_(?:(?:test|live)_)?[a-zA-Z0-9]{1,96}$/),
   type: z.string().min(1).max(150),
   created: z.iso.datetime(),
   livemode: z.boolean(),

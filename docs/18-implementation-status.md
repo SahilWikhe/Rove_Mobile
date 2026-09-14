@@ -1,5 +1,13 @@
 # Implementation status
 
+## Hosted Connect configuration and Accounts v2 event IDs — September 13
+
+The owner granted the sandbox restricted key event-destination access. Inventory found one unrelated destination and no matching staging Connect endpoint. Created the exact staging thin-event destination with a separate signing secret, then configured the existing rove-api-staging backend return origin, secret and onboarding flag. Redeployment dpl_Bvc6cUY7vPadWPDUfix5dpj94Gbr reached Ready; health returned 200 and unsigned Connect requests returned 400. The destination was enabled after these checks. No live production resources or funds changed.
+
+A synthetic account metadata update generated an actual Stripe v2.core.account.updated event, and a destination ping exposed the real evt_test_ ID format. Existing payout parsing and shared webhook scope rejected that format. The payout path now accepts the bounded test/live v2 prefix as well as existing event IDs; the payment path retains its existing validation. Eleven API webhook tests passed, including retry deduplication for both formats and malformed-ID rejection; six restricted-role webhook tests passed. Changed-file lint passed. Typecheck and documentation checks are verified before push. Hosted receipt/worker completion remains unproven and is the next check after deploying this fix; local tests do not establish delivery.
+
+The dedicated synthetic payout driver now has a separate verified Auth0 login bound to its existing driver/account mapping. Temporary thirty-minute test eligibility was backed up; readback showed the driver offline and zero online drivers globally. This is synthetic acceptance preparation, not verification of real document approval. The owner approved five additional Google calls: the total cap is now fifteen, with six used and nine remaining. No Google requests were added here. Continue only payout acceptance, the complete native ride/payment test and essential launch checks; physical-phone testing and further MFA work remain deferred. Remote push confirmation follows separately.
+
 ## Android driver sign-in and sandbox payout reconciliation — September 13
 
 The actual restricted PayoutReconciler fetched the bound sandbox recipient and persisted current payout readiness. Readback verified payout_ready=true with a future validity timestamp while approved=false and online=false remained unchanged. This proves provider-backed reconciliation through the service, not hosted webhook delivery or driving approval.

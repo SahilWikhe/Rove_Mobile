@@ -1,6 +1,12 @@
 # Payout account events and eligibility freshness
 
-## September 13 provider-staging checkpoint
+## September 13 hosted configuration update
+
+Event-destination permission now works. Created a separate sandbox destination for the exact staging Connect handler and saved its signing secret privately in the existing staging Vercel project. The return origin and onboarding flag are configured; the new staging deployment is Ready, health passes and unsigned events are rejected. The destination is enabled, but signed receipt and worker completion are not yet verified.
+
+Actual Stripe account events and a ping use evt_test_ IDs, which exposed an incompatibility in the previous validator. Payout parsing and payout row-security scope now accept bounded v2 test/live prefixes without broadening payment webhook IDs. Eleven API webhook tests and six restricted-role webhook tests passed. Deploy and verify actual hosted delivery before claiming payout synchronization. No live money or production activation.
+
+## Earlier September 13 provider-staging checkpoint
 
 The owner completed the dedicated recipient's Stripe sandbox onboarding. The actual restricted service reported ready, and PayoutReconciler persisted provider-confirmed readiness with a future expiry while preserving the test driver's unapproved/offline state. This is service-level provider acceptance; hosted event delivery and scheduled reconciliation are not yet verified. The native Android driver signed in successfully but still shows payout setup unavailable because hosted Connect remains disabled.
 

@@ -12,7 +12,7 @@ export async function bindWebhookScope(
     .regex(/^acct_[a-zA-Z0-9]{1,96}:(test|live)$/)
     .parse(source);
   z.string()
-    .regex(/^evt_[a-zA-Z0-9]{1,96}$/)
+    .regex(kind === 'payout' ? /^evt_(?:(?:test|live)_)?[a-zA-Z0-9]{1,96}$/ : /^evt_[a-zA-Z0-9]{1,96}$/)
     .parse(eventId);
   await client.query(
     "SELECT set_config('rove.payment_webhook_source',$1,true),set_config('rove.payment_webhook_event',$2,true),set_config('rove.payout_webhook_source',$3,true),set_config('rove.payout_webhook_event',$4,true)",

@@ -76,21 +76,24 @@ afterAll(async () => {
 beforeEach(async () => {
   await db.pool.query('TRUNCATE payout_webhook_events,outbox CASCADE');
 });
-test('signed thin events commit one minimal receipt and job despite concurrent retries', async () => {
-  const body = event();
-  const responses = await Promise.all(Array.from({ length: 5 }, () => send(body)));
-  expect(responses.every((r) => r.status === 200)).toBe(true);
-  const receipts = (await db.pool.query('SELECT * FROM payout_webhook_events')).rows;
-  const jobs = (await db.pool.query('SELECT * FROM outbox')).rows;
-  expect(receipts).toHaveLength(1);
-  expect(jobs).toHaveLength(1);
-  expect(jobs[0]).toMatchObject({
-    topic: 'payout.reconcile',
-    payload: { source: 'acct_platform:test', accountId: 'acct_driver' },
-  });
-  expect(JSON.stringify({ receipts, jobs })).not.toContain('PRIVATE_BANK');
-  expect(JSON.stringify({ receipts, jobs })).not.toContain('attacker.example');
-});
+test.each(['evt_fixture', 'evt_test_fixture', 'evt_live_fixture'])(
+  'signed thin event %s commits one minimal receipt and job despite concurrent retries',
+  async (id) => {
+    const body = event({ id });
+    const responses = await Promise.all(Array.from({ length: 5 }, () => send(body)));
+    expect(responses.every((r) => r.status === 200)).toBe(true);
+    const receipts = (await db.pool.query('SELECT * FROM payout_webhook_events')).rows;
+    const jobs = (await db.pool.query('SELECT * FROM outbox')).rows;
+    expect(receipts).toHaveLength(1);
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0]).toMatchObject({
+      topic: 'payout.reconcile',
+      payload: { source: 'acct_platform:test', accountId: 'acct_driver' },
+    });
+    expect(JSON.stringify({ receipts, jobs })).not.toContain('PRIVATE_BANK');
+    expect(JSON.stringify({ receipts, jobs })).not.toContain('attacker.example');
+  },
+);
 test('bad signatures, old signatures and mode mismatch fail before database writes', async () => {
   const body = event();
   expect((await send(body, 'invalid')).status).toBe(400);
@@ -131,3 +134,11 @@ test('unconfigured/oversized/unsupported deliveries do not enqueue work', async 
   ).toBe(200);
   expect((await db.pool.query('SELECT * FROM outbox')).rows).toHaveLength(0);
 });
+
+test.each(['evt_test_', 'evt_test_bad_id', 'evt_unknown_fixture', 'evt_test_' + 'x'.repeat(97)])(
+  'malformed thin event ID %s is rejected before writes',
+  async (id) => {
+    expect((await send(event({ id }))).status).toBe(400);
+    expect((await db.pool.query('SELECT * FROM payout_webhook_events')).rows).toHaveLength(0);
+  },
+);
