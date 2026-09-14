@@ -1,5 +1,15 @@
 # Implementation status
 
+## Android driver sign-in and sandbox payout reconciliation — September 13
+
+The actual restricted PayoutReconciler fetched the bound sandbox recipient and persisted current payout readiness. Readback verified payout_ready=true with a future validity timestamp while approved=false and online=false remained unchanged. This proves provider-backed reconciliation through the service, not hosted webhook delivery or driving approval.
+
+Installed the existing driver debug APK on the owned Android emulator and started current staging JavaScript on port 8088. Initial bundle loading failed because the native debug host was unset; emulator-local port forwarding plus the driver-only debug host setting resolved it. Dedicated Auth0 driver sign-in returned to the native offline dashboard (Maestro and screenshot verified). Account inspection showed Payout setup unavailable, consistent with hosted Connect still disabled. No native code change or fresh release build is claimed.
+
+The private staging configuration has Connect disabled, no return origin and no distinct Connect webhook secret. Attempting to inventory Stripe Accounts v2 event destinations with the expected sandbox key returned 403/StripePermissionError. No destination was created or Connect activation performed; the owner was asked to identify the restricted-key event-destination permission row. Latest aac1d68 CI was running and Sonar queued when inspected; earlier 133b781 CI was cancelled and its Sonar running. No exact-candidate release success is claimed.
+
+The owner explicitly retained the total Google request cap of ten. Six have been used and four remain. A fresh quote, preview and one matching route require at least five additional requests, so that combined acceptance run has not started. No requests were added in this checkpoint, and no Maps mocks are substituted as full provider acceptance. Next: resolve the sandbox webhook access/configuration dependency, then resume native payout and transfer verification; complete ride/provider acceptance remains constrained by the current budget. Physical-phone testing and further MFA work stay deferred. Documentation/diff checks must pass before push; remote confirmation follows separately.
+
 ## Sandbox payout onboarding ready and native history restored — September 13
 
 The owner completed Stripe's marked test-bank onboarding and final agreement submission. Stripe returned to the hosted Rove continuation page. Independent verification through the actual restricted DriverPayouts service and Accounts v2 adapter reported ready for the existing bound sandbox recipient: both transfer and payout capabilities were active, with driver/binding metadata and test mode checked. No new recipient or onboarding link was created by verification. Hosted Connect activation, native driver onboarding launch, account-readiness reconciliation, actual transfers and bank payouts remain unverified; no live funds or production changes.

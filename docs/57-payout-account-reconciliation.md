@@ -1,5 +1,11 @@
 # Payout account events and eligibility freshness
 
+## September 13 provider-staging checkpoint
+
+The owner completed the dedicated recipient's Stripe sandbox onboarding. The actual restricted service reported ready, and PayoutReconciler persisted provider-confirmed readiness with a future expiry while preserving the test driver's unapproved/offline state. This is service-level provider acceptance; hosted event delivery and scheduled reconciliation are not yet verified. The native Android driver signed in successfully but still shows payout setup unavailable because hosted Connect remains disabled.
+
+The intended destination is the existing staging API's `/webhooks/stripe-connect` handler, using the thin event types listed below and a distinct signing secret. The current sandbox key cannot list Accounts v2 event destinations (403/StripePermissionError); missing return-origin and signing-secret configuration remain. Inspect existing destinations before creating one to avoid duplicate delivery. No destination creation, hosted activation, transfers or production change is claimed.
+
 Reviewed against the September 12, 2026 source baseline. Verification counts and screenshots below record feature checkpoints, not a fresh full-suite or production acceptance run. See [current status](18-implementation-status.md) for deployment and remaining release work.
 
 ## Current-state reconciliation
