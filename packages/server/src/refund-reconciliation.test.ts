@@ -203,25 +203,29 @@ test('sweep is source-scoped, bounded by age, and deduplicates wakeups', async (
 
 test('recovery advances past an unprocessed first page instead of starving later payments', async () => {
   await database.pool.query("UPDATE rides SET payment_state='paid'");
-  for (let n = 1; n <= 104; n++) {
-    const quote = randomUUID();
-    const ride = randomUUID();
-    await database.pool.query(
-      `INSERT INTO quotes(id,rider_id,snapshot,expires_at)
-      SELECT $1,rider_id,'{}',expires_at FROM quotes WHERE id=(SELECT quote_id FROM rides WHERE id=$2)`,
-      [quote, reference.rideId],
-    );
-    await database.pool.query(
-      `INSERT INTO rides(id,quote_id,rider_id,fare_cents,earnings_cents,search_deadline,payment_state,state)
-      SELECT $1,$2,rider_id,fare_cents,earnings_cents,search_deadline,'paid','completed' FROM rides WHERE id=$3`,
-      [ride, quote, reference.rideId],
-    );
-    await database.pool.query(
-      `INSERT INTO payment_attempts(id,ride_id,customer_binding_id,intent_id,source,amount_cents)
-      SELECT gen_random_uuid(),$1,customer_binding_id,$2,source,amount_cents FROM payment_attempts WHERE id=$3`,
-      [ride, `pi_recovery_${n}`, reference.attemptId],
-    );
-  }
+  // Seed the same 104 additional payments in one statement instead of 312 autocommits.
+  await database.pool.query(
+    `WITH seeds AS MATERIALIZED (
+      SELECT n,gen_random_uuid() AS quote_id,gen_random_uuid() AS ride_id
+      FROM generate_series(1,104) AS n
+    ), inserted_quotes AS (
+      INSERT INTO quotes(id,rider_id,snapshot,expires_at)
+      SELECT s.quote_id,q.rider_id,'{}',q.expires_at FROM seeds s
+      CROSS JOIN quotes q WHERE q.id=(SELECT quote_id FROM rides WHERE id=$1)
+      RETURNING id
+    ), inserted_rides AS (
+      INSERT INTO rides(id,quote_id,rider_id,fare_cents,earnings_cents,search_deadline,payment_state,state)
+      SELECT s.ride_id,s.quote_id,r.rider_id,r.fare_cents,r.earnings_cents,r.search_deadline,'paid','completed'
+      FROM seeds s JOIN inserted_quotes q ON q.id=s.quote_id
+      CROSS JOIN rides r WHERE r.id=$1
+      RETURNING id
+    )
+    INSERT INTO payment_attempts(id,ride_id,customer_binding_id,intent_id,source,amount_cents)
+    SELECT gen_random_uuid(),s.ride_id,p.customer_binding_id,'pi_recovery_' || s.n,p.source,p.amount_cents
+    FROM seeds s JOIN inserted_rides r ON r.id=s.ride_id
+    CROSS JOIN payment_attempts p WHERE p.id=$2`,
+    [reference.rideId, reference.attemptId],
+  );
   expect(await reconcile.sweep()).toBe(100);
   // None of the first page has been processed or verified. The remaining five still advance.
   expect(await reconcile.sweep()).toBe(5);

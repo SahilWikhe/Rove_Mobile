@@ -1,5 +1,11 @@
 # Implementation status
 
+## Refund recovery coverage timeout addressed — September 13
+
+Current-main Sonar run 34791782065 failed before analysis: the 105-payment refund-recovery pagination test exceeded its 15-second timeout; the other 784 server tests passed. Replaced 312 fixture autocommit queries with one dependent PostgreSQL CTE statement that inserts the same 104 additional payments. The three sweep expectations (100, 5, 0), 105 distinct jobs, no provider calls and the timeout are unchanged. All nine refund-reconciliation tests passed locally with V8 coverage in 6.2 seconds. Changed-file formatting/lint and server typecheck passed; documentation/diff checks run before push. Fresh hosted evidence is still required, including the previously failing new-code coverage gate.
+
+The isolated iOS staging app completed real Auth0 sign-in and reached rider home after correcting stale test form input. A dedicated pending $2 sandbox ride was prepared for native PaymentSheet acceptance; no confirmation or capture has been performed on that fixture. Native payment interaction remains in progress. Stripe hosted onboarding is still waiting for the owner's human-verification step. No production activation or paid maps calls. Next: verify native payment entry, then remaining minimum-pilot provider/device gates and the new candidate's CI. Remote push confirmation follows separately.
+
 ## Sandbox payout recipient and onboarding links pass — September 13
 
 Applied migration 0089 to exact provider staging (90 migrations expected) and verified restricted TLS/grants plus enabled/forced RLS on all 48 tables. Reviewed the known validation-rejected synthetic reservation against a complete paginated Stripe Accounts v2 inventory: no driver/binding match existed. Supplied its missing test contact while preserving the original durable binding/key. The actual restricted DriverPayouts service and Stripe adapter successfully created the recipient, returned validated onboarding links and reported needs_information. Repeated setup reused exactly one provider account and cleared temporary local contact. Driver approval remained false. A too-large inventory page was rejected before recovery; using the verified page size with automatic pagination completed inspection.
