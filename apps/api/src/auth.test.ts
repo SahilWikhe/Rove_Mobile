@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
-import { oidcIdentity, VERIFIED_EMAIL_CLAIM } from './auth';
+import { oidcIdentity, VERIFIED_EMAIL_CLAIM, VERIFIED_MFA_CLAIM } from './auth';
 test('OIDC verifies signature, issuer, audience, expiry and required claims', async () => {
   const pair = await generateKeyPair('RS256');
   const jwk = await exportJWK(pair.publicKey);
@@ -35,6 +35,17 @@ test('OIDC verifies signature, issuer, audience, expiry and required claims', as
   for (const amr of [['mfa'], ['pwd', 'otp', 'mfa']]) {
     expect((await verify(await token({ amr }))).mfa).toBe(true);
   }
+  for (const value of [undefined, false, 'true', 1, null, ['mfa'], { mfa: true }]) {
+    expect((await verify(await token({ [VERIFIED_MFA_CLAIM]: value }))).mfa).toBe(false);
+  }
+  expect((await verify(await token({ [VERIFIED_MFA_CLAIM]: true }))).mfa).toBe(true);
+  await expect(verify(await token({ [VERIFIED_MFA_CLAIM]: true, aud: 'other-api' }))).rejects.toMatchObject({
+    code: 'UNAUTHENTICATED',
+  });
+  const namespaced = await token({ [VERIFIED_MFA_CLAIM]: true });
+  await expect(verify(`${namespaced.slice(0, -10)}0000000000`)).rejects.toMatchObject({
+    code: 'UNAUTHENTICATED',
+  });
   const valid = await token({ amr: ['mfa'] });
   await expect(verify(`${valid.slice(0, -10)}0000000000`)).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
 });

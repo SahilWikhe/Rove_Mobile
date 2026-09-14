@@ -1,5 +1,11 @@
 # Implementation status
 
+## Auth0 staff MFA compatibility — September 13
+
+Refreshed CLI access verified staging has no enabled MFA factor, no Guardian policy and only the email-claim login Action. Auth0 reserves the standard amr claim, so added support for its signed namespaced boolean equivalent and an audience-scoped Action that emits evidence only from completed MFA authentication methods. Existing signature/issuer/audience checks and database staff-role/permission enforcement remain. The Action does not itself challenge or enroll users, and is not deployed. Staff-only challenge/client setup and actual enrollment/login acceptance remain required.
+
+The Action test and both API authentication tests passed, including malformed/forged/wrong-audience evidence; API typecheck, changed-file lint and formatting passed. Docs/diff checks run before push. CI run 34796009558 and Sonar run 34796009452 passed for 34fc7c8, including all four native jobs; those results do not prove this new adapter. Android saved-card evidence was pushed and remote-verified at 906d7d5. Maps acceptance is approved up to ten requests, none made yet. Next: hosted staff MFA setup, complete bounded native ride acceptance, payout human verification and physical-device checks, within the same four priorities. No production activation.
+
 ## Android sandbox saved-card acceptance — September 13
 
 The owned Android emulator completed dedicated Auth0 login and opened the actual native Stripe CustomerSheet against staging. Saving the documented sandbox Visa succeeded: independent Stripe readback confirmed one test-mode card and a succeeded SetupIntent. Closing and reopening the sheet retained the card. Native Edit → Remove → confirmation detached that exact card; independent provider readback confirmed zero saved cards and a null customer on the removed payment method. No real money moved. Maestro transport failed during part of form entry; direct emulator input and visual inspection completed the flow. This used the existing debug APK with current Metro JavaScript, not a fresh release build.

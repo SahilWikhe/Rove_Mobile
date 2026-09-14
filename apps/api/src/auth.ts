@@ -1,6 +1,7 @@
 import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from 'jose';
 import { DomainError } from '@rove/server';
 
+export const VERIFIED_MFA_CLAIM = 'https://roveride.co/mfa';
 export const VERIFIED_EMAIL_CLAIM = 'https://roveride.co/email_verified';
 
 export type VerifyIdentity = (token: string) => Promise<{ subject: string; mfa?: boolean }>;
@@ -30,9 +31,10 @@ export function oidcIdentity(
         subject: `${config.issuer}|${payload.sub}`,
         // Trust only the configured issuer's signed MFA evidence, never request headers.
         mfa:
-          Array.isArray(payload.amr) &&
-          payload.amr.every((method) => typeof method === 'string') &&
-          payload.amr.includes('mfa'),
+          payload[VERIFIED_MFA_CLAIM] === true ||
+          (Array.isArray(payload.amr) &&
+            payload.amr.every((method) => typeof method === 'string') &&
+            payload.amr.includes('mfa')),
       };
     } catch (error) {
       if (error instanceof DomainError) throw error;
