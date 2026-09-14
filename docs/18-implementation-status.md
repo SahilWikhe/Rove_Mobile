@@ -1,5 +1,13 @@
 # Implementation status
 
+## Sandbox payout onboarding ready and native history restored — September 13
+
+The owner completed Stripe's marked test-bank onboarding and final agreement submission. Stripe returned to the hosted Rove continuation page. Independent verification through the actual restricted DriverPayouts service and Accounts v2 adapter reported ready for the existing bound sandbox recipient: both transfer and payout capabilities were active, with driver/binding metadata and test mode checked. No new recipient or onboarding link was created by verification. Hosted Connect activation, native driver onboarding launch, account-readiness reconciliation, actual transfers and bank payouts remain unverified; no live funds or production changes.
+
+Native iOS acceptance exposed a real history failure in the dedicated synthetic rider account. Restricted readback found nine terminal test rides with empty quote snapshots created by earlier non-UI provider fixtures. Verified exact synthetic Auth0 ownership and sandbox payment sources, privately backed up the empty snapshots, and supplied clearly labeled synthetic display routes preserving existing fares/earnings. Financial records and ride states were untouched; these placeholder routes are not real Maps acceptance evidence. All eleven owned ride reads then passed strict validation. The native My rides screen rendered again. An initial Maestro selector targeted a child text hidden by the card's combined accessibility label; the corrected observed-label assertion passed, including absence of the error banner.
+
+Staging readiness returned HTTP 200. No further Maps requests were made: six of ten used, four remain. Current main's CI and Sonar were queued when inspected; older 906d7d5 CI had passed every job except its two still-running iOS jobs. Cancelled 6b9e0af CI had no jobs. These are not release acceptance for the latest commit. Next: complete native booking/matching/capture, then sandbox transfer verification and essential launch checks. Physical-phone testing and further MFA work remain deferred. Documentation lint and diff checks must pass before push; remote confirmation follows separately.
+
 ## Payout acceptance and bounded Maps checkpoint — September 13
 
 The actual staging Maps adapter completed two searches, two place checks, a fare route and a route preview successfully. Six of ten approved provider requests are used; four remain, with results and the request counter retained privately. This verifies provider operations, not a complete native booking, matching or payment journey. No additional Maps calls were made during this checkpoint.

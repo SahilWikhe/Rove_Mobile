@@ -17,7 +17,7 @@ Required before real rides:
 
 Defer visual polish, medium maintainability findings, optional features, automated document deletion (keep disabled), advanced recovery automation and the second platform's launch when necessary. These deferrals do not remove safeguards from implemented features. An unpaid internal staging test can precede live payment activation.
 
-Payout acceptance status September 13: Accounts v2 listing now passes after the owner updated the sandbox key. Actual recipient creation revealed a missing required contact email; the driver form, durable retry binding and adapter have been updated, with migration 0089 required before rollout. Corrected sandbox account creation, validated onboarding links, same-account reopening and temporary-contact clearing now pass. Completing hosted onboarding, transfers and bank payouts remain unverified. No live money movement or production activation has occurred.
+Payout acceptance status September 13: Accounts v2 listing now passes after the owner updated the sandbox key. Actual recipient creation revealed a missing required contact email; the driver form, durable retry binding and adapter have been updated, with migration 0089 required before rollout. Corrected sandbox account creation, validated onboarding links, same-account reopening and temporary-contact clearing now pass. Hosted sandbox onboarding is now complete, and the actual restricted service verified both recipient transfer and payout capabilities active. Transfers, bank payouts, native onboarding launch and hosted feature activation remain unverified. No live money movement or production activation has occurred.
 
 ## 1. Establish isolated resources
 
