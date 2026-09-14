@@ -1,5 +1,11 @@
 # Implementation status
 
+## Staff staging challenge configured — September 13
+
+OTP enabled by the owner was verified with global policy unchanged. Created the dedicated loopback-only staff acceptance OAuth client (authorization_code only), implemented its exact-client/audience-scoped OTP enrollment/challenge Action, and deployed it before the signed MFA evidence Action while preserving the email Action. Auth0 readback verified exact binding order. Both Action tests passed: consumer exclusion, enrollment versus challenge, wrong audience, refresh denial and completed-evidence-only claims. No database staff privileges or production changes. Actual hosted enrollment/sign-in/API acceptance remains unverified.
+
+The bounded Maps acceptance harness successfully searched two public Raleigh endpoints through the real staging server adapter. Two of ten approved provider requests used; eight remain, with results/count stored privately. Initial private service-area parsing failed before any provider request and was corrected. This is search verification, not the full booking journey. Changed-file lint, documentation and diff checks run before push. Next: staff enrollment acceptance, complete native trip/payment test, payout onboarding and physical-device/production verification within the unchanged four priorities.
+
 ## Auth0 staff MFA compatibility — September 13
 
 Refreshed CLI access verified staging has no enabled MFA factor, no Guardian policy and only the email-claim login Action. Auth0 reserves the standard amr claim, so added support for its signed namespaced boolean equivalent and an audience-scoped Action that emits evidence only from completed MFA authentication methods. Existing signature/issuer/audience checks and database staff-role/permission enforcement remain. The Action does not itself challenge or enroll users, and is not deployed. Staff-only challenge/client setup and actual enrollment/login acceptance remain required.

@@ -59,3 +59,9 @@ The implemented RLS policies through migration 0054 passed the isolated syntheti
 ## Auth0 staging inspection — September 13
 
 Read-only tenant inspection confirmed all MFA factors disabled and no Guardian policy. The only bound login Action was the verified-email claim; application inventory contained Default App and the two native staging clients. Local namespaced evidence support and its Action are implemented and tested, but neither Action deployment nor staff client/challenge setup, enrollment, permission provisioning or hosted staff acceptance is established. Consumer flows remain available.
+
+## Staff-only MFA Actions deployed to staging — September 13
+
+The owner enabled OTP; readback verified OTP enabled and global Guardian policy unchanged (empty). Created Rove Staff Staging Acceptance as a public authorization-code client with only the loopback callback http://127.0.0.1:41739/callback and no refresh/password/client-credential grants. This is an acceptance client, not a deployed staff dashboard. The tested scripts/auth0-staff-mfa.cjs challenges enrolled OTP users or enrolls new users for that exact configured client and API audience; refresh grants are denied. Rider/driver client IDs are unaffected.
+
+Deployed both post-login v3/node22 Actions and verified binding order: existing verified-email Action, staff OTP challenge, MFA evidence. Existing bindings were preserved. No database staff account or permission was granted. Actual enrollment, completed challenge, first-login signed claim, API authorization and consumer regression verification remain outstanding; deployed configuration alone is not acceptance.
