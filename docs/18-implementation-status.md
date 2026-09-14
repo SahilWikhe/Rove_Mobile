@@ -1,5 +1,11 @@
 # Implementation status
 
+## Sandbox payout recipient and onboarding links pass — September 13
+
+Applied migration 0089 to exact provider staging (90 migrations expected) and verified restricted TLS/grants plus enabled/forced RLS on all 48 tables. Reviewed the known validation-rejected synthetic reservation against a complete paginated Stripe Accounts v2 inventory: no driver/binding match existed. Supplied its missing test contact while preserving the original durable binding/key. The actual restricted DriverPayouts service and Stripe adapter successfully created the recipient, returned validated onboarding links and reported needs_information. Repeated setup reused exactly one provider account and cleared temporary local contact. Driver approval remained false. A too-large inventory page was rejected before recovery; using the verified page size with automatic pagination completed inspection.
+
+All final provider checks exited 0. The synthetic recipient/private fixture are retained for onboarding acceptance; links/credentials are not committed. Connect remains disabled in hosted runtime, and transfers/bank payouts and actual native onboarding are unverified. No production changes or money movement. Documentation/diff checks run before push. Next: complete hosted sandbox onboarding and capability verification, then the minimum-pilot payment/device gates. Production remains incomplete; remote push confirmation follows separately.
+
 ## Payout contact-email creation fix — September 13
 
 The owner's sandbox permission update cleared Accounts v2 listing (HTTP 200). Actual restricted-service recipient creation then failed HTTP 400/invalid_fields: recipient configuration requires a contact email. Implemented a validated driver contact-email field, shared request contract, API/service binding and Stripe contact_email request. Migration 0089 adds temporary contact storage to the existing RLS-protected payout binding. Uncertain retries preserve the original email and reject a conflicting input; saving the provider account clears local contact. Old mapped accounts work without new input; unresolved old bindings without a contact require explicit support review. No email is placed in audit/outbox metadata or returned links.
