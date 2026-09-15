@@ -2,6 +2,15 @@
 
 This is the setup sequence for the existing Rove code. It does not provision resources or authorize a production launch. Keep staging operational throughout setup. Use the same reviewed source commit with separate environment configuration; do not copy staging accounts, rides, messages, payment references or uploaded documents into production.
 
+## Production preparation checkpoint — September 14
+
+Both iOS and Android are selected for release. The intended API origin is `https://api.roveride.co`, using the existing Vercel-managed domain. This origin is recorded in mobile configuration but is not deployed or verified reachable; remaining mobile identity/build fields stay blank until configured.
+
+- Separate Vercel project: `rove-api-production` (`prj_AE1dUERlyYNhXstNhcwHfPSfRx3w`), team `team_lNgElVK3RUXfpIY43YCvpbCS`, root `apps/api`, Node 24.x. Created without a Git link or deployment; staging stays separate.
+- Separate Neon project: `Rove Production` (`fancy-cherry-40289572`), branch `production` (`br-calm-river-a5za7ixe`), database `neondb`, initial migration role `rove_production_migrator`. Read-only verification found zero public tables. Schema migrations, restricted runtime provisioning and recovery verification remain pending. Provider defaults currently report six hours of history; this is not completed recovery acceptance. A custom suspend setting was rejected by the account; creation succeeded using provider defaults without a plan upgrade.
+- GitHub environments `production-candidate` and `production-promotion` now require SahilWikhe review, restrict branches to main, and disable administrator bypass. Self-review remains allowed for the single-owner workflow; this is owner approval, not independent two-person review. Both contain verified production/staging project and team IDs and explicitly set `PRODUCTION_RELEASE_ENABLED=false`. No deployment credentials were added.
+- Native staging ride and $7 capture acceptance passed, with balanced capture/allocation journals and $5.50 driver earnings. Hosted driver transfers remain unverified. Stripe live business activation, production credentials, signed builds and final physical-phone acceptance remain outstanding.
+
 ## Minimum paid pilot scope — September 13
 
 The owner prioritized a small invitation-only paid pilot over optional features and polish. A single fully verified mobile platform may launch first; the other platform stays unreleased until verified. This changes delivery order, not authorization to activate production or a claim that a platform has been selected.

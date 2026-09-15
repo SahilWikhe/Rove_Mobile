@@ -1,6 +1,6 @@
 {
   "rider": {
-    "EXPO_PUBLIC_API_URL": "",
+    "EXPO_PUBLIC_API_URL": "https://api.roveride.co",
     "EXPO_PUBLIC_AUTH_ISSUER": "",
     "EXPO_PUBLIC_AUTH_AUDIENCE": "",
     "EXPO_PUBLIC_AUTH_CLIENT_ID": "",
@@ -8,7 +8,7 @@
     "ANDROID_FIREBASE_PROJECT_ID": ""
   },
   "driver": {
-    "EXPO_PUBLIC_API_URL": "",
+    "EXPO_PUBLIC_API_URL": "https://api.roveride.co",
     "EXPO_PUBLIC_AUTH_ISSUER": "",
     "EXPO_PUBLIC_AUTH_AUDIENCE": "",
     "EXPO_PUBLIC_AUTH_CLIENT_ID": "",
