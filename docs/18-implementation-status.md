@@ -1,5 +1,11 @@
 # Implementation status
 
+## Production secrets stored; Auth0 tenant limit confirmed — September 14
+
+Following explicit owner approval to transmit the restricted runtime credentials, stored DATABASE_URL and REALTIME_DATABASE_URL as sensitive production-only secrets in the separate rove-api-production project. Metadata readback verified both secret types and targets, plus ROVE_ENVIRONMENT; the project remains unlinked to Git and has no authorized production deployment. The migration credential remains local and was not uploaded. Earlier automatic approval rejection was resolved through explicit owner approval, not a workaround.
+
+The owner signed into the Auth0 dashboard. Its team tenant inventory shows only the existing development tenant and explicitly reports the tenant limit reached, requiring an upgrade to create another tenant. No new tenant or paid subscription was created. Paid setup remains deferred until the end; do not substitute the staging tenant for production. Expo CLI still reports Not logged in, so app-project linking and signing preparation await the requested owner login. Stripe activation and physical-phone testing remain deferred. Next: production Auth0 after account capacity is available, Expo project/environment/signing setup after login, then remaining provider/recovery and release acceptance. No additional Google requests were made. Documentation checks and remote confirmation follow separately.
+
 ## Production schema and runtime login verified — September 14
 
 The production migration runner planned and applied all 90 reviewed migrations to the verified empty isolated production endpoint, then replanned with zero pending migrations. Catalog readback verified 48 application tables with RLS enabled and forced on all 48. The dedicated runtime role exists with no superuser, create-role, create-database, replication, bypass-RLS or migration-role membership privileges. Runtime provisioning rolled back with permission error 42501; readback confirms login remains disabled and no public-schema CREATE or migration-schema access. Its generated credential is retained only in an ignored private file and must not be reset automatically.
