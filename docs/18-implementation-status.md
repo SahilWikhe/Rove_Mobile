@@ -1,5 +1,9 @@
 # Implementation status
 
+## Production API domain verified — September 14
+
+Assigned the owner-selected api.roveride.co to the isolated rove-api-production project without forcing reassignment. Vercel domain verification returned configured_correctly, verified=true, no conflicts and no issues using the existing managed DNS. No app deployment occurred; domain ownership/configuration is not a healthy production API. Offline production preflight still reports missing authentication, Maps, live payment, recovery-secret, rates and service-area configuration. All nine mobile-build and production-release configuration tests passed. Auth0 tenant capacity and Expo login remain pending; paid setup, Stripe activation and physical-phone tests remain deferred. Next: resume identity and signed-build setup when those dependencies are available. Documentation checks and remote confirmation follow separately.
+
 ## Production secrets stored; Auth0 tenant limit confirmed — September 14
 
 Following explicit owner approval to transmit the restricted runtime credentials, stored DATABASE_URL and REALTIME_DATABASE_URL as sensitive production-only secrets in the separate rove-api-production project. Metadata readback verified both secret types and targets, plus ROVE_ENVIRONMENT; the project remains unlinked to Git and has no authorized production deployment. The migration credential remains local and was not uploaded. Earlier automatic approval rejection was resolved through explicit owner approval, not a workaround.
