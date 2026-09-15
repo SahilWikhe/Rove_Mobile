@@ -26,6 +26,13 @@
     ],
     "web": {
       "bundler": "metro"
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "74f40b2f-bcb5-4e80-9760-bd0903c67bf7"
+      }
+    },
+    "owner": "roveride.co"
   }
 }

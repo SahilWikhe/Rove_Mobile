@@ -28,7 +28,7 @@ Defer visual polish, medium maintainability findings, optional features, automat
 
 Payout acceptance status September 13: Accounts v2 listing now passes after the owner updated the sandbox key. Actual recipient creation revealed a missing required contact email; the driver form, durable retry binding and adapter have been updated, with migration 0089 required before rollout. Corrected sandbox account creation, validated onboarding links, same-account reopening and temporary-contact clearing now pass. Hosted sandbox onboarding is now complete, and the actual restricted service verified both recipient transfer and payout capabilities active. Transfers, bank payouts, native onboarding launch and hosted feature activation remain unverified. No live money movement or production activation has occurred.
 
-Auth0 production tenant creation is currently blocked by the account tenant limit shown in the signed-in team dashboard. Upgrade/capacity setup is deferred with other paid steps; staging is not repurposed. Expo project linking also awaits owner CLI sign-in.
+Auth0 production tenant creation is currently blocked by the account tenant limit shown in the signed-in team dashboard. Upgrade/capacity setup is deferred with other paid steps; staging is not repurposed. Expo login is complete. Both apps are linked under the owner-selected roveride.co business account: rider 74f40b2f-bcb5-4e80-9760-bd0903c67bf7 and driver 186d7355-1efa-4968-8fe9-93c43a7ecbf2. Their production EAS environments contain the API URL, distinct project ID and synthetic=false. Authentication, Maps/Firebase, Stripe and signing configuration remain incomplete; no store build has run.
 
 ## 1. Establish isolated resources
 

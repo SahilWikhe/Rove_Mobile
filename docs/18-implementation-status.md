@@ -1,5 +1,11 @@
 # Implementation status
 
+## Business Expo projects linked — September 14
+
+Expo/EAS authentication succeeded as roveride, and the owner selected the roveride.co business account. Created and linked @roveride.co/rove-rider (74f40b2f-bcb5-4e80-9760-bd0903c67bf7) and @roveride.co/rove-driver (186d7355-1efa-4968-8fe9-93c43a7ecbf2). EAS modified only project metadata in each app.json; package/bundle IDs, schemes and existing build profiles remain. Recorded the distinct project UUIDs in the approved production manifest. Each EAS production environment now has its own EXPO_PUBLIC_EAS_PROJECT_ID, api.roveride.co API URL and EXPO_PUBLIC_SYNTHETIC=false; project-info and environment readback verified both.
+
+All eight mobile build-configuration guard tests passed. No cloud build, signing credential creation, store submission or provider API test occurred. Auth0's production tenant capacity, production Maps/Firebase and remaining credentials, signing, recovery acceptance, Stripe activation and physical-device checks are still incomplete; Stripe and paid steps remain deferred as instructed. Next: complete available production provider/signing configuration without weakening the build guards or reusing staging identity. Formatting/documentation checks and remote publication confirmation follow separately.
+
 ## Production API domain verified — September 14
 
 Assigned the owner-selected api.roveride.co to the isolated rove-api-production project without forcing reassignment. Vercel domain verification returned configured_correctly, verified=true, no conflicts and no issues using the existing managed DNS. No app deployment occurred; domain ownership/configuration is not a healthy production API. Offline production preflight still reports missing authentication, Maps, live payment, recovery-secret, rates and service-area configuration. All nine mobile-build and production-release configuration tests passed. Auth0 tenant capacity and Expo login remain pending; paid setup, Stripe activation and physical-phone tests remain deferred. Next: resume identity and signed-build setup when those dependencies are available. Documentation checks and remote confirmation follow separately.
