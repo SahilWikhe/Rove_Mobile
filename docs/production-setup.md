@@ -188,3 +188,11 @@ Vercel documents [staged production deployment](https://vercel.com/docs/cli/depl
 ## CLI input-file boundary
 
 Run production/staging preflight and Stripe staging/transfer checks from the repository root. Explicit environment and evidence files must be inside that working directory after symlinks are resolved; external paths, directories and files over 1 MiB are rejected. Keep credential inputs ignored by Git. These commands retain their existing redacted error output and do not load ambient credentials to fill missing settings. The transfer-check package script now retains the repository working directory.
+
+## Prepared production document storage
+
+September 14 read-only AWS inspection used the required `claude-agent` profile and verified its exact caller ARN. In us-east-2, the existing document storage, uploader identity and cleanup stacks are staging only. No production stack was created. Production Vercel metadata confirms OIDC enabled with issuerMode=team; AWS already has the corresponding team-7536 provider.
+
+Prepared `infra/aws/driver-documents.production.parameters.json` for the existing storage template. It selects production and explicitly disables paid malware scanning. Prepared `infra/aws/document-oidc.production.scope.json` with the exact production project/environment and existing issuer. It intentionally has no uploaderPolicyArn: that must come from the new production storage stack's DocumentUploaderPolicyArn output, never from staging.
+
+When paid/provider activation is approved, use the required AWS identity and region us-east-2, validate the existing storage template, and review a change set named for `rove-driver-documents-production` with the production parameter file. Review and execute it only then. Combine the production scope JSON with that stack's verified uploader policy ARN and feed it to `scripts/document-oidc-template.mjs`; review the resulting role template for `rove-document-oidc-production`. Do not modify or recreate the shared provider. Keep document uploads, scanning and cleanup disabled until the production policies, scanning configuration and provider acceptance are verified. These prepared inputs are not a deployed storage service.

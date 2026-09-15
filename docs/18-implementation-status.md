@@ -1,5 +1,11 @@
 # Implementation status
 
+## Production document infrastructure inputs prepared — September 14
+
+Verified AWS caller as the required claude-agent IAM user and inventoried existing us-east-2 document stacks: staging only. Read production Vercel metadata confirming enabled team OIDC and verified the corresponding existing AWS provider. Added explicit production storage parameters with paid scanning off and a production-only identity scope for the existing template generator. The future uploader policy must come from the production stack; no staging policy is copied. No AWS resources, permissions, billable scanner or document upload were activated.
+
+Verified JSON inputs and ran the existing OIDC generator tests; documentation/format checks follow before publication. Google console reauthentication, approved launch rates/area, Auth0 capacity, live Stripe settings, signing and final device acceptance remain pending. Next: complete Google configuration when authenticated; deploy reviewed document infrastructure only when paid activation is approved. Remote publication is confirmed separately.
+
 ## Production recovery secret and Expo backend mapping — September 14
 
 Configured EXPO_RIDER_PROJECT_ID and EXPO_DRIVER_PROJECT_ID on the isolated production Vercel project to match the verified business-owned EAS projects. Stored a fresh CRON_SECRET as a sensitive production-only secret and explicitly left EXPO_PUSH_DELIVERY_ENABLED=false. Metadata readback verified all four entries and preserved the two sensitive database credentials. The ignored private runtime file contains the matching configuration; no credential values were printed or committed.

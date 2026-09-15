@@ -1,0 +1,8 @@
+{
+  "issuerMode": "team",
+  "team": "team-7536",
+  "project": "rove-api-production",
+  "environment": "production",
+  "account": "719623059339",
+  "existingProviderArn": "arn:aws:iam::719623059339:oidc-provider/oidc.vercel.com/team-7536"
+}
