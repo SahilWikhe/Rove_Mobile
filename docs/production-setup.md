@@ -30,6 +30,8 @@ Payout acceptance status September 13: Accounts v2 listing now passes after the 
 
 Auth0 production tenant creation is currently blocked by the account tenant limit shown in the signed-in team dashboard. Upgrade/capacity setup is deferred with other paid steps; staging is not repurposed. Expo login is complete. Both apps are linked under the owner-selected roveride.co business account: rider 74f40b2f-bcb5-4e80-9760-bd0903c67bf7 and driver 186d7355-1efa-4968-8fe9-93c43a7ecbf2. Their production EAS environments contain the API URL, distinct project ID and synthetic=false. Authentication, Maps/Firebase, Stripe and signing configuration remain incomplete; no store build has run.
 
+The production backend now has both matching Expo project IDs, a sensitive production-only CRON_SECRET, and EXPO_PUSH_DELIVERY_ENABLED=false. Metadata readback verified these entries. Offline preflight still fails for Maps, OIDC, live payment settings, rates and service area. Google Cloud access currently awaits owner reauthentication; no Maps requests were used.
+
 ## 1. Establish isolated resources
 
 | Service         | Production setup                                                                                                                           | Existing implementation                                                                          |

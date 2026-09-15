@@ -1,5 +1,11 @@
 # Implementation status
 
+## Production recovery secret and Expo backend mapping — September 14
+
+Configured EXPO_RIDER_PROJECT_ID and EXPO_DRIVER_PROJECT_ID on the isolated production Vercel project to match the verified business-owned EAS projects. Stored a fresh CRON_SECRET as a sensitive production-only secret and explicitly left EXPO_PUSH_DELIVERY_ENABLED=false. Metadata readback verified all four entries and preserved the two sensitive database credentials. The ignored private runtime file contains the matching configuration; no credential values were printed or committed.
+
+Offline production preflight no longer reports CRON_SECRET; it still fails for Maps, OIDC, live payments, rates and service area. No deployment, Google Maps request, push delivery or paid infrastructure provisioning occurred. Google Cloud console requires owner reauthentication for team@roveride.co; the sign-in tab is open. Requested launch geography and approved fare/driver-share values before enabling real bookings. Next: inspect Google production configuration once signed in, then finish available backend setup. Stripe, paid Auth0 capacity and physical-phone testing remain deferred. Remote publication is confirmed separately.
+
 ## Business Expo projects linked — September 14
 
 Expo/EAS authentication succeeded as roveride, and the owner selected the roveride.co business account. Created and linked @roveride.co/rove-rider (74f40b2f-bcb5-4e80-9760-bd0903c67bf7) and @roveride.co/rove-driver (186d7355-1efa-4968-8fe9-93c43a7ecbf2). EAS modified only project metadata in each app.json; package/bundle IDs, schemes and existing build profiles remain. Recorded the distinct project UUIDs in the approved production manifest. Each EAS production environment now has its own EXPO_PUBLIC_EAS_PROJECT_ID, api.roveride.co API URL and EXPO_PUBLIC_SYNTHETIC=false; project-info and environment readback verified both.
