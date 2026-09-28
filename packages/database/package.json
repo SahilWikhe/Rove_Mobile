@@ -14,12 +14,12 @@
     "test:coverage": "vitest run --config ../../vitest.coverage.config.ts"
   },
   "dependencies": {
-    "drizzle-orm": "0.45.2",
+    "drizzle-orm": "0.45.3",
     "pg": "8.23.0"
   },
   "devDependencies": {
     "@types/pg": "8.23.1",
-    "drizzle-kit": "0.31.10",
+    "drizzle-kit": "0.31.11",
     "embedded-postgres": "18.4.0-beta.17"
   }
 }
