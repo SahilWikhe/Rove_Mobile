@@ -12,22 +12,22 @@
     "test:coverage": "vitest run --config ../../vitest.coverage.config.ts"
   },
   "dependencies": {
-    "@hono/node-server": "2.1.1",
+    "@hono/node-server": "2.1.4",
     "@rove/contracts": "workspace:*",
     "@rove/database": "workspace:*",
     "@rove/server": "workspace:*",
-    "@vercel/functions": "3.9.5",
-    "@vercel/oidc-aws-credentials-provider": "3.3.7",
-    "@vercel/queue": "0.5.1",
-    "hono": "4.13.7",
+    "@vercel/functions": "3.9.11",
+    "@vercel/oidc-aws-credentials-provider": "3.3.11",
+    "@vercel/queue": "0.8.0",
+    "hono": "4.13.13",
     "jose": "6.2.12",
-    "pg": "8.23.0",
-    "ws": "8.21.3",
-    "zod": "4.5.4"
+    "pg": "8.23.1",
+    "ws": "8.22.0",
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@types/pg": "8.23.1",
-    "@types/ws": "8.18.1",
+    "@types/ws": "8.18.2",
     "esbuild": "0.28.2"
   }
 }
